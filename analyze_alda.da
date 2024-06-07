@@ -1,0 +1,86 @@
+"""
+CREDIT: This code is adapted from the original code by Liu, et al (https://arxiv.org/pdf/2308.15878.pdf) and available at https://github.com/DistAlgo/alda/blob/f924f3897a0d870f05d2edf19033d511c0529b97/benchmarks/rules/trans/launcher.da
+"""
+
+import argparse
+import gc
+import importlib
+import pickle
+from pathlib import Path
+import logging
+
+gc.disable()
+
+import sys
+
+logging.basicConfig(
+    level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s'
+)
+
+project_root = Path(__file__).parent
+rules_dir = project_root / 'alda_rules'
+sys.path.append(str(rules_dir))
+
+
+def discover_rules(base_file_name: str):
+    """
+    Discover rules from the files with the given base file name and file extension.
+
+    Args:
+        base_file_name: str - the base file name
+
+    Returns:
+        dict - a dictionary of rules
+    """
+    rules = {}
+    for source_file in Path('./alda_rules').glob(f'{base_file_name}_*.da'):
+        module_name = source_file.stem
+        class_name = module_name.replace('_', ' ').title().replace(' ', '')
+        # Split the module name by the first underscore
+        mode = module_name.split('_', 1)[-1]
+        rules[mode] = (module_name, class_name)
+    return rules
+
+
+def main():
+    """Main function to run the transitive closure program."""
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--size', type=int, default=100)
+    parser.add_argument('--mode', type=str, default='right_recursion')
+    parser.add_argument(
+        '--graph-type', type=str, required=True, help='Type of graph to analyze'
+    )
+    # Base file name for the files to be discovered
+    parser.add_argument('--base_file_name', type=str, default='transitive')
+
+    args = parser.parse_args()
+
+    RulesHandler = discover_rules(args.base_file_name)
+
+    inputfile = f'graph_{args.size}.pickle'
+    alda_input_dir = Path('input') / 'alda' / args.graph_type
+    input_path = alda_input_dir / inputfile
+    data = pickle.load(input_path.open('rb'))
+
+    timing_dir = Path('timing') / 'alda' / args.graph_type
+    timing_dir.mkdir(exist_ok=True)
+
+    if args.mode not in RulesHandler:
+        print(f"Error: Mode '{args.mode}' not found.")
+        return
+
+    # Use Path.stem to get the file name without the .pickle extension
+    inputfile_stem = input_path.stem
+    output_path = timing_dir / f'timing_{args.mode}_{inputfile_stem}.csv'
+
+    module_name, class_name = RulesHandler[args.mode]
+    transClass = importlib.import_module(module_name)
+
+    logging.info(f'Using module_name: {module_name}, class_name: {class_name} and input file: {input_path}')
+
+    o = new(eval(f'transClass.{class_name}'), [data, output_path])
+    start(o)
+
+
+if __name__ == '__main__':
+    main()

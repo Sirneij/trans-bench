@@ -1,0 +1,39 @@
+"""
+CREDIT: This code was adapted from the original code by Liu, et al (https://arxiv.org/pdf/2308.15878.pdf) and available at https://github.com/DistAlgo/alda/blob/f924f3897a0d870f05d2edf19033d511c0529b97/benchmarks/rules/trans/trans_rev_rules.da
+"""
+
+import os
+
+
+class Transitive(process):
+    def setup(E, output_path):
+        pass
+
+    def trans(E, output_path):
+        pass
+
+    def run():
+        utime1, stime1, cutime1, cstime1, elapsed_time1 = os.times()
+        trans(E, output_path)
+        utime2, stime2, cutime2, cstime2, elapsed_time2 = os.times()
+        is_new_file = not output_path.exists()
+        with output_path.open('a') as f:
+            if is_new_file:
+                f.write('ElapsedTime,CPUTime\n')
+            f.write(
+                f'{elapsed_time2 - elapsed_time1},{utime2 - utime1 + stime2 - stime1 + cutime2 - cutime1 + cstime2 - cstime1}\n'
+            )
+
+
+class TransitiveLeftRecursion(Transitive, process):
+    def rules_TransitiveLeftRecursion():
+        """Recursive aspect is on the left side of the rule."""
+        path(x, y), if_(edge(x, y))
+        path(x, y), if_(path(x, z), edge(z, y))
+
+    def trans(E, output_path):
+        return infer(
+            rules=self.rules_TransitiveLeftRecursion,
+            bindings=[('edge', E)],
+            queries=['path'],
+        )

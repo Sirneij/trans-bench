@@ -1,0 +1,16 @@
+virtualenv
+timing/*.tsv
+timing/*/*/*_recursion
+t.tex
+__pycache__
+*/*__pycache__
+
+*/*DS_Store
+*/*/*DS_Store
+*/*/*/*DS_Store
+*/*/*/*/*DS_Store
+*/*/*/*/*/*DS_Store
+*/*/*/*/*/*/*DS_Store
+*/*/*/*/*/*/*/*DS_Store
+*/*/*/*/*/*/*/*/*DS_Store
+*/*/*/*/*/*/*/*/*/*DS_Store

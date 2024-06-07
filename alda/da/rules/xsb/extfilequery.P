@@ -1,0 +1,59 @@
+:- export external_file_query/3.
+:- import halt/1, tell/1, told/0, writeq/1, nl/0  from standard.
+:- import term_variables/2 from setof.
+:- import concat_atom/2 from string.
+:- import rm/1 from shell.
+
+external_file_query(RuleBase,FactBase,Query) :-
+    statistics(walltime,[_,_]),
+    statistics(runtime,[_,_]),
+    concat_atom([RuleBase,'.rules'],RuleFile),
+    concat_atom([FactBase,'.facts'],FactFile),
+    (file_exists(RuleFile)
+     ->	true
+     ;	writeln(warning('No Rule file.'))
+    ),
+    consult(RuleFile),
+    (file_exists(FactFile)
+     ->	load_dync(FactFile)
+     ;	true
+    ),
+    statistics(walltime,[_,W1]),
+    statistics(runtime,[_,R1]),
+    writeln(W1),
+    writeln(R1),
+    call_iter(Query),
+    statistics(walltime,[_,W2]),
+    statistics(runtime,[_,R2]),
+    writeln(W2),
+    writeln(R2),
+    halt(0).
+
+% call queries iteratively,
+% write the answers of each query to a separate file named by name of query
+call_iter([]).
+call_iter([E|L]) :-
+    [A,B] = E,
+    concat_atom([A,'.answers'],AnswerFile),
+    term_variables(B,Variables),
+    (file_exists(AnswerFile)
+     -> rm(AnswerFile)
+     ;  true
+    ),
+    tell(AnswerFile),
+    (do_all
+     call(B),
+     write_list(Variables)
+    ),
+    told,
+    call_iter(L).
+    
+% write each answer of a query on a new line in the file
+write_list([]) :- nl.
+write_list([E|L]) :-
+    writeq(E),
+    (L == []
+     ->	nl
+     ;	write(','),
+	write_list(L)
+    ).

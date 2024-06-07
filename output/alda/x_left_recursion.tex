@@ -1,0 +1,75 @@
+\documentclass[border=10pt]{standalone}
+\usepackage[svgnames]{xcolor}
+\usepackage{amsmath}
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest}
+\usepackage[sfdefault]{FiraSans}
+\usepackage{FiraMono}
+\renewcommand*\familydefault{\sfdefault}
+\begin{document}
+\begin{tikzpicture}
+	\begin{axis}[
+			ybar stacked,
+			title={Alda performance for Left recursion},
+			bar shift=-10pt,
+			width=1.5\textwidth,
+			bar width=0.7cm,
+			ymajorgrids, tick align=inside,
+			major grid style={draw=gray!20},
+			xtick=data,
+			ymin=0, ymax=0.1349998903274536,
+			axis x line*=bottom,
+			axis y line*=left,
+			enlarge x limits=0.1,
+			legend style={
+					at={(0.23, 1)},
+					anchor=north,
+					legend columns=1,
+					font=\Huge,
+				},
+			ylabel={Time (seconds)},
+			label style={font=\Huge},
+			tick label style={font=\Huge},
+		]
+		\addlegendimage{fill=LimeGreen, draw=black, line width=0.2pt}
+		\addlegendentry{Overall}
+		\addplot +[fill=LimeGreen, draw=black, line width=0.5pt] coordinates {
+				(500, 0.08799998760223389)
+				(1000, 0.09100000858306885)
+				(1500, 0.09299998283386231)
+				(2000, 0.09700002670288085)
+				(2500, 0.10300002098083497)
+				(3000, 0.10300004482269287)
+				(3500, 0.11000008583068847)
+				(4000, 0.11399989128112793)
+			};
+	\end{axis}
+	\begin{axis}[
+			ybar stacked,
+			bar shift=13pt,
+			width=1.5\textwidth,
+			bar width=0.7cm,
+			ymajorgrids, tick align=inside,
+			major grid style={draw=none},
+			xtick=data,
+			ymin=0, ymax=0.1349998903274536,
+			axis x line*=none,
+			axis y line*=none,
+			enlarge x limits=0.1,
+			label style={font=\Huge},
+			tick label style={font=\Huge},
+		]
+		\addplot +[fill=LimeGreen, draw=black, line width=0.5pt] coordinates {
+				(500, 0.029000000000000005)
+				(1000, 0.039000000000000014)
+				(1500, 0.039000000000000014)
+				(2000, 0.040000000000000015)
+				(2500, 0.049999999999999996)
+				(3000, 0.048999999999999995)
+				(3500, 0.048999999999999995)
+				(4000, 0.06600000000000002)
+			};
+	\end{axis}
+\end{tikzpicture}
+
+\end{document}

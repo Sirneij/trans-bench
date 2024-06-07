@@ -1,0 +1,16 @@
+from analyzer import Analyzer
+
+class ClassAnalyzer(Analyzer):
+	
+	def query_subclass_python(self):
+		sub = set()
+		for _, a, baseid, _, _, _ in self.ClassDef:
+			if (baseid, 0) in self.ListLen:
+				sub.add((a,None))
+				continue
+			for baseid2,nid2,_ in self.Member:
+				if baseid == baseid2:
+					for nid3,b,_ in self.Name:
+						if nid2 == nid3:
+							sub.add((a,b))
+		print(sub)

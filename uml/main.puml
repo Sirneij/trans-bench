@@ -1,0 +1,111 @@
+@startuml
+skinparam packageStyle rectangle
+skinparam monochrome true
+
+class generate_input_data {
+    +generate_input_data()
+}
+
+class run_experiment {
+    +run()
+}
+
+class Experiment {
+}
+
+class generate_plot_table {
+    +generate_plot_table()
+}
+
+class analyze_alda {
+    +analyze_alda()
+}
+
+class analyze_others {
+    +analyze_others()
+}
+
+Experiment --> generate_input_data : C
+Experiment --> run_experiment : C
+run_experiment --> analyze_alda : I/(alda)
+run_experiment --> analyze_others : I/(xsb, clingo, soufflé)
+Experiment --> generate_plot_table : I
+
+database "input" as input {
+    folder "alda,clingo_xsb" as input_env {
+        folder "graph_type" as input_graph_type {
+            note "*.{lp,pk}" as input_files
+        }
+    }
+    folder "souffle" as souffle_input {
+        folder "graph_type" as souffle_input_graph_type {
+            folder "size" as souffle_input_size {
+                note "*.facts" as souffle_input_files
+            }
+        }
+    }
+}
+
+database "timing" as timing {
+    folder "env_name" as timing_env {
+        folder "graph_type" as timing_graph_type {
+            note "*.csv" as timing_files
+        }
+        folder "variant" as variant_folder {
+            folder "size" as variant_size {
+                note "*.{csv,txt}" as variant_output_files
+            }
+        }
+    }
+}
+
+database "output" as output {
+    folder "env_name" as output_env {
+        note "*.tex" as output_files
+    }
+    folder "comparison" as comparison {
+        folder "tables" as tables {
+            note "*.tex" as table_files
+        }
+        folder "charts" as charts {
+            note "*.tex" as charts_files
+        }
+    }
+    folder "CSVs" as csvs {
+        note "*.csv" as csv_files
+    }
+}
+
+folder "alda_rules" as alda_rules{
+    note "*.da" as alda_rule_files
+}
+
+folder "xsb_rules" as xsb_rules{
+    folder "xsb_export" as xsb_export {
+        note "extfilequery.P" as xsb_export_files
+    }
+    note "*.P" as xsb_rule_files
+}
+
+folder "clingo_rules" as clingo_rules {
+    note "*.lp" as clingo_rule_files
+}
+
+folder "souffle_rules" {
+    folder "souffle_export" as souffle_export {
+        note "main.cpp" as souffle_export_files
+    }
+    note "*.dl" as souffle_rule_files
+}
+
+analyze_alda --> alda_rules : R
+analyze_others --> xsb_rules : R/(xsb)
+analyze_others --> clingo_rules : R/(clingo)
+analyze_others --> souffle_rules : R/(soufflé)
+
+generate_input_data --> input : R/W
+run_experiment --> timing : R/W
+generate_plot_table --> timing : R
+generate_plot_table --> output : W
+
+@enduml

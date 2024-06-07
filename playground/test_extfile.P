@@ -1,0 +1,105 @@
+:- export external_file_query/4, external_file_query_only/4.
+:- import halt/1, writeln/1, write/1 from standard.
+
+external_file_query_only(RuleBase, FactBase, Query, OutputFile) :-
+    % Measure walltime and runtime before loading
+    statistics(walltime, [_,_]),
+    statistics(runtime, [_,_]),
+
+    consult(RuleBase),
+
+    % Measure walltime and runtime after loading
+    statistics(walltime, [_,LoadRule]),
+    statistics(runtime, [_,CPUTimeLoadRule]),
+
+    load_dync(FactBase),
+
+    statistics(walltime, [_,LoadFacts]),
+    statistics(runtime, [_,CPUTimeLoadFacts]),
+
+    % Execute the query without writing to file
+    call_iter_o(Query),
+   
+    statistics(walltime, [_,QueryOnly]),
+    statistics(runtime, [_,CPUTimeQueryOnly]),
+
+    % Output the data
+    writeln('LoadRuleTime: '), writeln(LoadRule),
+    writeln('CPULoadRuleTime: '), writeln(CPUTimeLoadRule),
+
+    writeln('LoadFactsTime: '), writeln(LoadFacts),
+    writeln('CPULoadFactsTime: '), writeln(CPUTimeLoadFacts),
+
+    writeln('QueryOnlyTime: '), writeln(QueryOnly),
+    writeln('CPUQueryOnlyTime: '), writeln(CPUTimeQueryOnly),
+
+    halt(0).
+
+external_file_query(RuleBase, FactBase, Query, OutputFile) :-
+    % Measure walltime and runtime before loading
+    statistics(walltime, [_,_]),
+    statistics(runtime, [_,_]),
+
+    consult(RuleBase),
+
+    % Measure walltime and runtime after loading
+    statistics(walltime, [_,LoadRule]),
+    statistics(runtime, [_,CPUTimeLoadRule]),
+
+    load_dync(FactBase),
+
+    statistics(walltime, [_,LoadFacts]),
+    statistics(runtime, [_,CPUTimeLoadFacts]),
+
+    % Execute the query without writing to file
+    call_iter(Query, OutputFile),
+   
+    statistics(walltime, [_,QueryAndWrite]),
+    statistics(runtime, [_,CPUTimeQueryAndWrite]),
+
+    % Output the data
+    writeln('LoadRuleTime: '), writeln(LoadRule),
+    writeln('CPULoadRuleTime: '), writeln(CPUTimeLoadRule),
+
+    writeln('LoadFactsTime: '), writeln(LoadFacts),
+    writeln('CPULoadFactsTime: '), writeln(CPUTimeLoadFacts),
+
+    writeln('QueryAndWriteTime: '), writeln(QueryAndWrite),
+    writeln('CPUTimeQueryAndWriteTime: '), writeln(CPUTimeQueryAndWrite),
+
+    halt(0).
+
+call_iter_o([]).
+call_iter_o([E|L]) :-
+    [A,B] = E,
+    (
+        do_all
+        call(B)
+    ),
+    call_iter_o(L).
+
+% Call queries iteratively, each with its own file write timing
+call_iter([], _).
+call_iter([E|L], OutputFile) :-
+    [A,B] = E,
+    term_variables(B, Variables),
+    % Open file, perform the query, write results, close file, and measure time
+    tell(OutputFile),
+    write('Query: '), writeln(A),
+    (   do_all
+        call(B),
+        write_list(Variables)
+    ),
+    told,
+    call_iter(L, OutputFile).
+
+% Write each answer of a query on a new line in the file
+write_list([]) :- nl.
+write_list([E|L]) :-
+    % writeq(E),
+    write_canonical(E),
+    (L == []
+     -> nl
+     ;  write(', '),  % Add a space after the comma for better readability
+        write_list(L)
+    ).

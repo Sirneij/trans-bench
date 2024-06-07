@@ -1,0 +1,40 @@
+@startuml
+skinparam monochrome true
+
+class generate_latex_standalone_document {
+    +generate_latex_standalone_document()
+}
+
+class collect_data {
+    +timing_base_dir: Path
+    +pattern: str
+    +type: str
+    +collect_data()
+}
+
+class generate_latex_plots {
+    +environments: set[str]
+    +graph_types: set[str]
+    +data: dict
+    +latex_file_dir: Path
+    +generate_latex_plots()
+}
+
+class generate_latex_tables {
+    +environments: set[str]
+    +modes: set[str]
+    +sizes: list[int]
+    +data: dict
+    +latex_file_dir: Path
+    +generate_latex_tables()
+}
+
+generate_latex_standalone_document --> collect_data : calls
+generate_latex_standalone_document --> generate_latex_plots : calls
+generate_latex_standalone_document --> generate_latex_tables : calls
+
+note bottom of collect_data : Extracts and collects data\nfrom CSV files for plots and tables.
+note bottom of generate_latex_plots : Creates LaTeX files for plots.
+note bottom of generate_latex_tables : Creates LaTeX files for tables.
+
+@enduml

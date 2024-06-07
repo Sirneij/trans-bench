@@ -1,0 +1,19 @@
+import os
+
+class Trans(process):
+  def setup(E): pass
+  def trans(E): pass
+  def run():
+    utime1, stime1, cutime1, cstime1, elapsed_time1 = os.times()
+    trans(E)
+    utime2, stime2, cutime2, cstime2, elapsed_time2 = os.times()
+    print('python_total\t%s\t%s' % (elapsed_time2-elapsed_time1, utime2-utime1 + stime2-stime1 + cutime2-cutime1 + cstime2-cstime1))
+    
+class Trans_py(Trans, process):  # using Python but no arg self in def
+  def trans(E):
+    T = E
+    W = {(x,d) for (x,y) in T for (a,d) in E if y==a and (x,d) not in T}
+    while W:
+      T.add(W.pop())
+      W = {(x,d) for (x,y) in T for (a,d) in E if y==a and (x,d) not in T}
+    return T

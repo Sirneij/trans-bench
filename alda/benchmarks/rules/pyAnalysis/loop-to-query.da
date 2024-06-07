@@ -1,0 +1,316 @@
+import os, sys, ast, shutil
+from da.compiler.utils import to_source
+from analyzer import Analyzer
+
+class LoopTansformer(ast.NodeTransformer):
+	
+	def __init__(self,transDict):
+		super().__init__()
+		self.transDict = transDict
+
+	def visit_For(self,node):
+		if node in self.transDict:
+			return self.transDict[node]
+		else:
+			return self.generic_visit(node)
+
+VariableDict = dict()
+class GetVariable(ast.NodeVisitor):
+	
+	def generic_visit(self, node):
+		"""Called if no explicit visitor function exists for a node."""
+		if node in VariableDict:
+			return VariableDict[node]
+
+		result = set()
+		for field, value in ast.iter_fields(node):
+			if isinstance(value, list):
+				for item in value:
+					if isinstance(item, ast.AST):
+						result |= self.visit(item)
+			elif isinstance(value, ast.AST):
+				result |= self.visit(value)
+
+		VariableDict[node] = result
+		return result
+
+	def visit_Name(self, node):
+		return {node.id}
+
+class LoopAnalyzer(Analyzer):
+
+	def query_candidate_rule(self):
+		output_file = './output/LoopToQuery-candidate/' + self.ValueDict[2] + '-loop-index.txt'
+		with open(output_file, 'w') as f:
+			#query_inc_results = infer(rules=self.rules_incCandidate, queries=['CandidateIncPattern','For'])
+			#inc_candidate = query_inc_results[0]
+			loop_index_candidate = infer(rules=self.rules_loopIndexCandidate, queries=['CandidateLoopIndexPattern'])
+			#candidates = inc_candidate.union(loop_index_candidate)
+			candidates = loop_index_candidate
+			# f.write('-------- total number of candidate loops: ' + str(len(candidates)) + '\n')
+			# f.write('-------- number of candidate loops with inc patterns: ' + str(len(inc_candidate)) + '\n')
+			f.write('-------- number of candidate loops with loop index patterns: ' + str(len(loop_index_candidate)) + '\n---\n')
+			# f.write('-------- total number of for loop: ' + str(len(query_inc_results[1])) + '\n\n\n')
+			# print('-------- number of candidate loops: ' + str(len(loop_index_candidate)))
+			#print('query results: ' + str(candidates))
+			for c in candidates:
+				node = self.ValueDict[c]
+				f. write('========== %s: lineno: %s ==========%s\n' % (self.ValueDict[self.FileDict[c]], node.lineno, to_source(node)))
+				# print('========== %s: lineno: %s ==========%s' % (self.ValueDict[self.FileDict[c]], node.lineno, to_source(node)))
+	def rules_loopIndexCandidate():
+		# BinOpInherit(opparentid, opchildid): binary operation expression with node ID opchildid is nested at the top level of the binary opeartion expression opparentid. 
+		BinOpInherit(opparentid, opchildid), if_(
+			BinOp(opparentid, opchildid, _, _))
+
+		BinOpInherit(opparentid, opchildid), if_(
+			BinOp(opparentid, _, _, opchildid))
+
+		# ForBodyLenAtMostFive(forbodyid): the body, with the node ID forbodyid, of a for loop is a list of at most 5 AST nodes.
+		ForBodyLenAtMostFive(forbodyid), if_(
+			For(forid, _, _, forbodyid, _),
+			ListLen(forbodyid, 1))
+
+		ForBodyLenAtMostFive(forbodyid), if_(
+			For(forid, _, _, forbodyid, _),
+			ListLen(forbodyid, 2))
+
+		ForBodyLenAtMostFive(forbodyid), if_(
+			For(forid, _, _, forbodyid, _),
+			ListLen(forbodyid, 3))
+
+		ForBodyLenAtMostFive(forbodyid), if_(
+			For(forid, _, _, forbodyid, _),
+			ListLen(forbodyid, 4))
+
+		ForBodyLenAtMostFive(forbodyid), if_(
+			For(forid, _, _, forbodyid, _),
+			ListLen(forbodyid, 5))
+
+		# BinOpRec(opancesterid, opdesid): binary operation expression with node ID opdesid is nested in the binary operation expression opancesterid. The rule is defined recursively with the BinOpInherit rule.
+		BinOpRec(opancesterid, opdesid), if_(
+			BinOpInherit(opancesterid, opdesid))
+
+		BinOpRec(opancesterid, opdesid), if_(
+			BinOpInherit(opancesterid, opchildid),
+			BinOpRec(opchildid, opdesid))
+
+
+		# ForIndexMatch(expid, forindexid): an expression with node ID expid uses a target variable, with node ID forindexid, of a for-loop as an index (first rule) or a component of a tuple used as an index (second rule). 
+		ForIndexMatch(expid, forindexid), if_(
+			Subscript(expid, _ , sliceid, _),
+			Index(sliceid,  indexid),
+			Name(indexid, value, _),
+			Name(forindexid, value, _))
+
+		ForIndexMatch(expid, forindexid), if_(
+			Subscript(expid, _ , sliceid, _),
+			Index(sliceid,  indexid),
+			Tuple(indexid, varid, _),
+			Member(varid, var, _),
+			Name(var, value, _),
+			Name(forindexid, value, _))
+
+		# OpIndexPattern(expid, forindexid): a nested binary operations expression with node ID expid uses a target variable, with node ID forindexed, of a for-loop as an index of an expression that is an operand of the binary operation.
+		OpIndexPattern(expid, forindexid), if_(
+			For(_, forindexid, _, _, _),
+			BinOpRec(expid, binopid),
+			ForIndexMatch(binopid, forindexid))
+
+		# FuncIndexPattern(funcid, forindexid): function call with node ID funcid has an argument that uses a target variable, with node ID forindexid, of a for-loop as an index (or a component of a tuple as index).
+		FuncIndexPattern(funcid, forindexid), if_(
+			For(_, forindexid, _, _, _),
+			Call(funcid, _, argsid, _),
+			Member(argsid, arg, _),
+			ForIndexMatch(arg, forindexid))
+
+		# Expression(stmtid, expid): expression with node ID expid in a statement with node ID stmid. The statment can be an augmented assignment (first rule), an assignment (second rule), or an expression statement (third rule). 
+		Expression(stmtid, expid), if_(
+			AugAssign(stmtid, _, _, expid))
+
+		Expression(stmtid, expid), if_(
+			Assign(stmtid, _, expid))
+
+		Expression(stmtid, expid), if_(
+			Expr(stmtid, expid))
+
+		# ForInherit(parentforid, childforid): for-loop with node ID childforid is in the top level of the scope of the for-loop with node ID parentforid. 
+		ForInherit(parentforid, childforid), if_(
+			For(parentforid, _, _, parentforbodyid, _),
+			For(childforid, _, _, _, _),
+			Member(parentforbodyid, childforid, _))
+
+		# ForRec(ancforid, desforid): for-loop with node ID desforid is within the scope of for-loop with node ID ancforid. The rule is defined recursively with ForInherit rule.
+		ForRec(ancforid, desforid), if_(
+			ForInherit(ancforid, desforid))
+
+		ForRec(ancforid, desforid), if_(
+			ForInherit(ancforid, childforid),
+			ForRec(childforid, desforid))
+
+        # LoopIndexPattern(forid): 
+        # 1. for-loop with node ID forid whose target variable is used as an index (or a component of a tuple as index) 
+        # of an expression that is an operand of a nested binary operations. The expression can be in the top level 
+        # of the scope of the for-loop with node ID forid (first rule) or in the scope of a for loop which is within 
+        # the scope of the for-loop with node ID forid (second rule) where the nested binary operations is the right 
+        # side of an assignment statement.
+        
+        # 2. for-loop with node ID forid whose target variable is used as an index (or a component of a tuple as index) 
+        # of an expression that is an argument of a call. The call can be in the top level of the scope of the for-loop 
+        # with node ID forid (third rule) or in the scope of a for loop which is within the scope of the for-loop with 
+        # node ID forid (fourth rule).
+
+		LoopIndexPattern(forid), if_(
+			For(forid, forindexid, _, forbodyid, _),
+			ForBodyLenAtMostFive(forbodyid),
+			Member(forbodyid, bodystmtid, _),
+			Expression(bodystmtid, expid),
+			OpIndexPattern(expid, forindexid))
+
+		LoopIndexPattern(forid), if_(
+			ForRec(forid, childforid),
+			For(forid, forindexid, _, parentforbodyid, _),
+			ForBodyLenAtMostFive(parentforbodyid),
+			For(childforid, _, _, forbodyid, _),
+			Member(forbodyid, bodystmtid, _),
+			Expression(bodystmtid, expid),
+			OpIndexPattern(expid, forindexid))
+
+		LoopIndexPattern(forid), if_(
+			For(forid, forindexid, _, forbodyid, _),
+			ForBodyLenAtMostFive(forbodyid),
+			Member(forbodyid, bodystmtid, _),
+			Expression(bodystmtid, expid),
+			FuncIndexPattern(expid, forindexid))
+
+		LoopIndexPattern(forid), if_(
+			ForRec(forid, childforid),
+		 	For(forid, forindexid, _, parentforbodyid, _),
+		 	ForBodyLenAtMostFive(parentforbodyid),
+			For(childforid, _, _, forbodyid, _),
+			Member(forbodyid, bodystmtid, _),
+			Expression(bodystmtid, expid),
+			FuncIndexPattern(expid, forindexid))
+
+		# CandidateLoopIndexPattern(id): candidate loopIndex pattern for improvement starting at node ID id. 
+		CandidateLoopIndexPattern(id), if_(For(id,_,_,_,_), LoopIndexPattern(id))
+
+	def rules_incCandidate():
+		# 1. r.append(y), r.add(y)
+		IncPattern(exprid),if_(Expr(exprid, bodyval),
+			Call(bodyval,funcid,argid,_), Attribute(funcid,_,_,_),
+			ListLen(argid,1))
+
+		# # 2. augAssign: r += y, r -= y
+		IncPattern(aaid),if_(AugAssign(aaid,_,_,_))
+
+		# # 3. index assign: r[x] = y
+		IncPattern(aid), if_(Assign(aid, tarlistid,_),
+			Member(tarlistid, resultid, _), Subscript(resultid,_,keyid,_))
+		
+		# # 4.1 if-else expr with IncPattern body and orbody
+		IncPattern(ifid), if_(
+			If(ifid,_, bodyid, orbodyid),
+			ListLen(bodyid,1),
+			Member(bodyid,body,_), IncPattern(body),
+			ListLen(orbodyid,1),
+			Member(orbodyid,orbody,_), IncPattern(orbody))
+		
+		# # 4.2 if expr with IncPattern body
+		IncPattern(ifid), if_(
+			If(ifid,_, bodyid, orbody),
+			ListLen(bodyid,1),
+			Member(bodyid, body,_), IncPattern(body),
+			ListLen(orbody,0))
+
+		# 5. for-loops with IncPattern body
+		IncPattern(forid), if_(
+			For(forid,_,_, bodyid,_),
+			ListLen(bodyid,1),
+			Member(bodyid, body,_), IncPattern(body))
+
+		# CandidateIncPattern(id): candidate inc pattern for improvement starting at node ID id. 
+		CandidateIncPattern(id), if_(For(id,_,_,_,_), IncPattern(id))
+
+
+	def flattenTuple(self, node):
+		if isinstance(node, ast.Name):
+			return [node.id]
+		if isinstance(node, ast.Tuple):
+			return sum([self.flattenTuple(t) for t in node.elts],[])
+
+	def rules_simplestComp():
+		# r.append(x), r.add(x)
+		ListSetAdd(exprid, result, elt, operator),if_(
+			Expr(exprid, bodyvalue), Call(bodyvalue, funcid, argid,_),
+			Attribute(funcid, result, operator, _), Name(result,_,_),
+			Member(argid, elt,_), ListLen(argid,1))
+
+		compFor(forid, target, itr, result, elt, operator), if_(
+			For(forid, target, itr, bodyid, _),
+			ListLen(bodyid, 1), Member(bodyid, body, _), 
+			ListSetAdd(body,result, elt, operator), AllowedOp(operator))
+
+	def query_forToCompSimple_rule(self):
+		candidate = infer(rules=self.rules_simplestComp, 
+						  bindings=[('AllowedOp', {self.ValueIdDict['add'], self.ValueIdDict['append']})],
+						  queries=['compFor'])
+		iterNameDict = {c[0]:self.flattenTuple(self.ValueDict[c[1]]) for c in candidate}
+		transDict = dict()
+		# to comprehension: result = operator(elt for target in iterable)
+		varVisitor = GetVariable()
+		for forid, target, itr, result, elt, operator in candidate:
+			fileid = self.FileDict[forid]
+			if self.ValueDict[result].id in iterNameDict[forid]:
+				continue
+			op = self.ValueDict[operator]
+			forast = self.ValueDict[forid]
+			# check dependencies: 1. result independent to target, 2. elt independent to result
+			resultVars = varVisitor.visit(self.ValueDict[result])
+			targetVars = varVisitor.visit(self.ValueDict[target])
+			eltVars = varVisitor.visit(self.ValueDict[elt])
+			# print(resultVars, targetVars, eltVars)
+			if targetVars.intersection(resultVars) or resultVars.intersection(eltVars):
+				continue
+			if isinstance(op,str):
+				if op == 'append':
+					comp = ast.ListComp
+					augop = ast.Add()
+				elif op == 'add':
+					comp = ast.SetComp
+					augop = ast.BitOr()
+				else:
+					print('!!!!!! unexpected operator',op)
+					continue
+				compAst = ast.AugAssign([self.ValueDict[result]], augop,
+									 comp(self.ValueDict[elt], 
+									 	  [ast.comprehension(self.ValueDict[target], self.ValueDict[itr], [], 0)]))
+				if fileid not in transDict:
+					transDict[fileid] = dict()
+				transDict[fileid][forast] = compAst
+
+		for file, innerDict in transDict.items():
+			for key, val in sorted(innerDict.items(), key=lambda t: t[0].lineno):
+				print('========== %s: lineno: %s ==========%s----------- transformed to ------------%s' 
+						% (self.ValueDict[file], key.lineno, to_source(key), to_source(val)))
+
+		self.write_transformed(transDict)
+
+	def write_transformed(self, transDict):
+		outFolder = os.path.join('output','LoopToQuery')
+		basename = os.path.basename(self.filename)
+		outroot = os.path.join(outFolder,basename)
+		if os.path.exists(outroot):
+			shutil.rmtree(outroot)
+		for m in self.Module:
+			fileid = self.FileDict[m[0]]
+			file = self.ValueDict[fileid]
+			outdir = os.path.join(outFolder, os.path.dirname(file))
+			os.makedirs(outdir, exist_ok=True)
+			outfile = os.path.join(outdir, os.path.basename(file)+'.py')
+			
+			if fileid in transDict:
+				cr = LoopTansformer(transDict[fileid]).visit(self.ValueDict[m[0]])
+				txt =to_source(cr)
+			else:
+				txt = to_source(self.ValueDict[m[0]])
+			open(outfile,'w').write(txt)

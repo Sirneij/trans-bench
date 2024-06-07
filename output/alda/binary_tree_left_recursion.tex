@@ -1,0 +1,76 @@
+\documentclass[border=10pt]{standalone}
+\usepackage[svgnames]{xcolor}
+\usepackage{amsmath}
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest}
+\usepackage[sfdefault]{FiraSans}
+\usepackage{FiraMono}
+\renewcommand*\familydefault{\sfdefault}
+\begin{document}
+\begin{tikzpicture}
+	\begin{axis}[
+			ybar stacked,
+			title={Alda performance for Left recursion},
+			bar shift=-10pt,
+			width=1.5\textwidth,
+			bar width=0.7cm,
+			ymajorgrids, tick align=inside,
+			major grid style={draw=gray!20},
+			xtick=data,
+			ymin=0, ymax=0.11800002574920655,
+			axis x line*=bottom,
+			axis y line*=left,
+			enlarge x limits=0.1,
+			legend style={
+					at={(0.23, 1)},
+					anchor=north,
+					legend columns=1,
+					font=\Huge,
+				},
+			ylabel={Time (seconds)},
+			xlabel={Height of the tree},
+			label style={font=\Huge},
+			tick label style={font=\Huge},
+		]
+		\addlegendimage{fill=LimeGreen, draw=black, line width=0.2pt}
+		\addlegendentry{Overall}
+		\addplot +[fill=LimeGreen, draw=black, line width=0.5pt] coordinates {
+				(5, 0.08300001621246338)
+				(6, 0.08499999046325683)
+				(7, 0.08700001239776611)
+				(7, 0.08800003528594971)
+				(7, 0.0880000114440918)
+				(8, 0.09099998474121093)
+				(8, 0.09299998283386231)
+				(8, 0.09299998283386231)
+			};
+	\end{axis}
+	\begin{axis}[
+			ybar stacked,
+			bar shift=13pt,
+			width=1.5\textwidth,
+			bar width=0.7cm,
+			ymajorgrids, tick align=inside,
+			major grid style={draw=none},
+			xtick=data,
+			ymin=0, ymax=0.11800002574920655,
+			axis x line*=none,
+			axis y line*=none,
+			enlarge x limits=0.1,
+			label style={font=\Huge},
+			tick label style={font=\Huge},
+		]
+		\addplot +[fill=LimeGreen, draw=black, line width=0.5pt] coordinates {
+				(5, 0.023999999999999997)
+				(6, 0.029000000000000005)
+				(7, 0.030000000000000006)
+				(7, 0.030000000000000006)
+				(7, 0.030000000000000006)
+				(8, 0.040000000000000015)
+				(8, 0.04100000000000001)
+				(8, 0.040000000000000015)
+			};
+	\end{axis}
+\end{tikzpicture}
+
+\end{document}

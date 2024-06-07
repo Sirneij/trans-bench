@@ -1,0 +1,164 @@
+\documentclass[border=10pt]{standalone}
+\usepackage[svgnames]{xcolor}
+\usepackage{amsmath}
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest}
+\usepackage[sfdefault]{FiraSans}
+\usepackage{FiraMono}
+\renewcommand*\familydefault{\sfdefault}
+\begin{document}
+\begin{tikzpicture}
+	\begin{axis}[
+			ybar stacked,
+			title={Clingo performance for Double recursion},
+			bar shift=-10pt,
+			width=1.5\textwidth,
+			bar width=0.7cm,
+			ymajorgrids, tick align=inside,
+			major grid style={draw=gray!20},
+			xtick=data,
+			ymin=0, ymax=0.024000020027160646,
+			axis x line*=bottom,
+			axis y line*=left,
+			enlarge x limits=0.1,
+			legend style={
+					at={(0.23, 1)},
+					anchor=north,
+					legend columns=1,
+					font=\Huge,
+				},
+			ylabel={Time (seconds)},
+			xlabel={Height of the tree},
+			label style={font=\Huge},
+			tick label style={font=\Huge},
+		]
+		\addlegendimage{fill=DodgerBlue, draw=black, line width=0.2pt}
+		\addlegendentry{WriteRes}
+		\addlegendimage{fill=FireBrick, draw=black, line width=0.2pt}
+		\addlegendentry{Solve}
+		\addlegendimage{fill=OrangeRed, draw=black, line width=0.2pt}
+		\addlegendentry{Ground}
+		\addlegendimage{fill=LimeGreen, draw=black, line width=0.2pt}
+		\addlegendentry{ReadData}
+		\addlegendimage{fill=LightPink, draw=black, line width=0.2pt}
+		\addlegendentry{LoadRules}
+		\addplot +[fill=LightPink, draw=black, line width=0.5pt] coordinates {
+				(5, 0.0)
+				(6, 0.0)
+				(7, 0.0)
+				(7, 0.0009999990463256836)
+				(7, 0.0)
+				(8, 0.0)
+				(8, 0.0)
+				(8, 0.0)
+			};
+		\addplot +[fill=LimeGreen, draw=black, line width=0.5pt] coordinates {
+				(5, 0.0)
+				(6, 0.0)
+				(7, 0.0)
+				(7, 0.0)
+				(7, 0.0009999990463256836)
+				(8, 0.0009999990463256836)
+				(8, 0.0010000228881835937)
+				(8, 0.0009999990463256836)
+			};
+		\addplot +[fill=OrangeRed, draw=black, line width=0.5pt] coordinates {
+				(5, 0.0009999990463256836)
+				(6, 0.0)
+				(7, 0.0)
+				(7, 0.0009999990463256836)
+				(7, 0.0009999990463256836)
+				(8, 0.0009999990463256836)
+				(8, 0.0009999990463256836)
+				(8, 0.0009999990463256836)
+			};
+		\addplot +[fill=FireBrick, draw=black, line width=0.5pt] coordinates {
+				(5, 0.0)
+				(6, 0.0)
+				(7, 0.0)
+				(7, 0.0)
+				(7, 0.0)
+				(8, 0.0)
+				(8, 0.0)
+				(8, 0.0)
+			};
+		\addplot +[fill=DodgerBlue, draw=black, line width=0.5pt] coordinates {
+				(5, 0.0009999990463256836)
+				(6, 0.0019999980926513673)
+				(7, 0.0020000219345092775)
+				(7, 0.0)
+				(7, 0.0009999990463256836)
+				(8, 0.004000020027160644)
+				(8, 0.0019999980926513673)
+				(8, 0.0029999971389770507)
+			};
+	\end{axis}
+	\begin{axis}[
+			ybar stacked,
+			bar shift=13pt,
+			width=1.5\textwidth,
+			bar width=0.7cm,
+			ymajorgrids, tick align=inside,
+			major grid style={draw=none},
+			xtick=data,
+			ymin=0, ymax=0.024000020027160646,
+			axis x line*=none,
+			axis y line*=none,
+			enlarge x limits=0.1,
+			label style={font=\Huge},
+			tick label style={font=\Huge},
+		]
+		\addplot +[fill=LightPink, draw=black, line width=0.5pt] coordinates {
+				(5, 0.0)
+				(6, 0.0)
+				(7, 0.0)
+				(7, 0.0)
+				(7, 0.0)
+				(8, 0.0)
+				(8, 0.0)
+				(8, 0.0)
+			};
+		\addplot +[fill=LimeGreen, draw=black, line width=0.5pt] coordinates {
+				(5, 0.0)
+				(6, 0.0)
+				(7, 0.0)
+				(7, 0.0)
+				(7, 0.0)
+				(8, 0.0)
+				(8, 0.0)
+				(8, 0.0)
+			};
+		\addplot +[fill=OrangeRed, draw=black, line width=0.5pt] coordinates {
+				(5, 0.0)
+				(6, 0.0)
+				(7, 0.0)
+				(7, 0.0)
+				(7, 0.0)
+				(8, 0.0)
+				(8, 0.0)
+				(8, 0.0)
+			};
+		\addplot +[fill=FireBrick, draw=black, line width=0.5pt] coordinates {
+				(5, 0.0)
+				(6, 0.0)
+				(7, 0.0)
+				(7, 0.0)
+				(7, 0.0)
+				(8, 0.0)
+				(8, 0.0)
+				(8, 0.0)
+			};
+		\addplot +[fill=DodgerBlue, draw=black, line width=0.5pt] coordinates {
+				(5, 0.0)
+				(6, 0.0)
+				(7, 0.0)
+				(7, 0.0)
+				(7, 0.0)
+				(8, 0.009999999999999997)
+				(8, 0.009999999999999997)
+				(8, 0.009999999999999997)
+			};
+	\end{axis}
+\end{tikzpicture}
+
+\end{document}

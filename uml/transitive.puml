@@ -1,0 +1,40 @@
+@startuml
+skinparam monochrome true
+
+class generate_input_data {
+    +env_name: str
+    +size_range: list[int]
+    +graph_types: list[str]
+    +generate_input_data()
+}
+
+class calculate_and_append_average {
+    +output_path: Path
+    +env_name: str
+    +calculate_and_append_average()
+}
+
+class run_experiment {
+    +graph_type: str
+    +size: int
+    +step: int
+    +mode: str
+    +env_name: str
+    +num_runs: int
+    +run_experiment()
+}
+
+class main {
+    +main()
+}
+
+class generate_plot_table {
+    +generate_plot_table()
+}
+
+main --> generate_input_data : calls
+main --> run_experiment : calls
+run_experiment --> calculate_and_append_average : calls
+main --> generate_plot_table : invokes
+
+@enduml

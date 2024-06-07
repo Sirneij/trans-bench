@@ -1,0 +1,36 @@
+@startuml
+skinparam monochrome true
+
+class CustomRelation {
+    +generate_complete_graph()
+    +generate_cycle_graph()
+    +generate_star_graph(center_node: int)
+    +generate_max_acyclic_graph()
+    +generate_cycle_with_shortcuts_graph()
+    +generate_path_graph()
+    +generate_binary_tree_graph()
+    +generate_reverse_binary_tree_graph()
+    +generate_y_graph()
+    +generate_x_graph()
+    +generate_multi_path_graph()
+    +generate_w_graph()
+}
+
+class GraphGenerator {
+    -base_dir: Path
+    -env_extensions: dict
+    +save_for_alda(data: list, filename: Path)
+    +save_for_clingo_xsb_souffle(data: list, env: str, filename: Path, fact_name: str)
+    +generate_and_save_graphs(graph_type: str, size: int)
+    +generate_graphs(size_ranges: list, graph_types: list)
+}
+
+class main {
+    +main()
+}
+
+CustomRelation <|-- GraphGenerator : uses
+
+main ..> GraphGenerator : initiates
+main ..> CustomRelation : initiates
+@enduml

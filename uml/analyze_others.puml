@@ -1,0 +1,45 @@
+@startuml
+skinparam monochrome true
+
+class "discover_rules" {
+    +rules_dir: Path
+    +extension: str
+    +discover_rules() : dict[str, Path]
+}
+
+class "execute_command" {
+    +command: list[str]
+    +env_name: str
+    +execute_command() : tuple[subprocess.CompletedProcess, float, float]
+}
+
+class "extract_solver_runtimes" {
+    +result: str
+    +environment: str
+    +extract_solver_runtimes() : tuple[float, float]
+}
+
+class "run_experiment" {
+    +environment: str
+    +rule_path: Path
+    +input_path: Path
+    +output_path: Path
+    +run_experiment() : None
+}
+
+class "main" {
+    +main() : None
+}
+
+main ..> discover_rules : calls
+main ..> run_experiment : calls
+run_experiment ..> execute_command : calls
+run_experiment ..> extract_solver_runtimes : calls
+
+note bottom of discover_rules : Finds rule files in specified directory and matches them with given extension.
+note bottom of execute_command : Executes a command in a subprocess and measures the execution time.
+note bottom of extract_solver_runtimes : Extracts runtimes from solver outputs based on environment specifics.
+note right of run_experiment : Prepares input, executes solver, processes output, and saves results.
+note right of main : Parses arguments and orchestrates the experiment process.
+
+@enduml

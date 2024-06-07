@@ -1,0 +1,7 @@
+from hierRBAC import GeneralHierRBAC
+import test_paper 
+
+class RBACrun(GeneralHierRBAC, process):
+    def run():
+        for op in test_paper.workload:
+            eval(op)
