@@ -8,157 +8,157 @@
 \renewcommand*\familydefault{\sfdefault}
 \begin{document}
 \begin{tikzpicture}
-	\begin{axis}[
-			ybar stacked,
-			title={Clingo performance for Right recursion},
-			bar shift=-10pt,
-			width=1.5\textwidth,
-			bar width=0.7cm,
-			ymajorgrids, tick align=inside,
-			major grid style={draw=gray!20},
-			xtick=data,
-			ymin=0, ymax=10.104000020027161,
-			axis x line*=bottom,
-			axis y line*=left,
-			enlarge x limits=0.1,
-			legend style={
-					at={(0.23, 1)},
-					anchor=north,
-					legend columns=1,
-					font=\Huge,
-				},
-			ylabel={Time (seconds)},
-			xlabel={Number of nodes $\times 10$},
-			label style={font=\Huge},
-			tick label style={font=\Huge},
-		]
-		\addlegendimage{fill=DodgerBlue, draw=black, line width=0.2pt}
-		\addlegendentry{WriteRes}
-		\addlegendimage{fill=FireBrick, draw=black, line width=0.2pt}
-		\addlegendentry{Solve}
-		\addlegendimage{fill=OrangeRed, draw=black, line width=0.2pt}
-		\addlegendentry{Ground}
-		\addlegendimage{fill=LimeGreen, draw=black, line width=0.2pt}
-		\addlegendentry{ReadData}
-		\addlegendimage{fill=LightPink, draw=black, line width=0.2pt}
-		\addlegendentry{LoadRules}
-		\addplot +[fill=LightPink, draw=black, line width=0.5pt] coordinates {
-				(500, 0.0009999990463256836)
-				(1000, 0.0)
-				(1500, 0.0)
-				(2000, 0.0)
-				(2500, 0.0)
-				(3000, 0.0)
-				(3500, 0.0)
-				(4000, 0.0)
-			};
-		\addplot +[fill=LimeGreen, draw=black, line width=0.5pt] coordinates {
-				(500, 0.0009999990463256836)
-				(1000, 0.003000020980834961)
-				(1500, 0.0039999961853027345)
-				(2000, 0.008000016212463379)
-				(2500, 0.007999992370605469)
-				(3000, 0.009999990463256836)
-				(3500, 0.010000014305114746)
-				(4000, 0.014000010490417481)
-			};
-		\addplot +[fill=OrangeRed, draw=black, line width=0.5pt] coordinates {
-				(500, 0.006999993324279785)
-				(1000, 0.0190000057220459)
-				(1500, 0.04299995899200439)
-				(2000, 0.07300000190734864)
-				(2500, 0.11200001239776611)
-				(3000, 0.16100008487701417)
-				(3500, 0.22699997425079346)
-				(4000, 0.29099996089935304)
-			};
-		\addplot +[fill=FireBrick, draw=black, line width=0.5pt] coordinates {
-				(500, 0.0)
-				(1000, 0.0009999990463256836)
-				(1500, 0.0009999990463256836)
-				(2000, 0.0029999971389770507)
-				(2500, 0.006999993324279785)
-				(3000, 0.006999993324279785)
-				(3500, 0.01100001335144043)
-				(4000, 0.01700000762939453)
-			};
-		\addplot +[fill=DodgerBlue, draw=black, line width=0.5pt] coordinates {
-				(500, 0.0029999971389770507)
-				(1000, 0.015999984741210938)
-				(1500, 0.037999963760375975)
-				(2000, 0.06400001049041748)
-				(2500, 0.09800000190734863)
-				(3000, 0.14399998188018798)
-				(3500, 0.1979999542236328)
-				(4000, 0.25)
-			};
-	\end{axis}
-	\begin{axis}[
-			ybar stacked,
-			bar shift=13pt,
-			width=1.5\textwidth,
-			bar width=0.7cm,
-			ymajorgrids, tick align=inside,
-			major grid style={draw=none},
-			xtick=data,
-			ymin=0, ymax=10.104000020027161,
-			axis x line*=none,
-			axis y line*=none,
-			enlarge x limits=0.1,
-			label style={font=\Huge},
-			tick label style={font=\Huge},
-		]
-		\addplot +[fill=LightPink, draw=black, line width=0.5pt] coordinates {
-				(500, 0.0)
-				(1000, 0.0)
-				(1500, 0.0)
-				(2000, 0.0)
-				(2500, 0.0)
-				(3000, 0.0)
-				(3500, 0.0)
-				(4000, 0.0)
-			};
-		\addplot +[fill=LimeGreen, draw=black, line width=0.5pt] coordinates {
-				(500, 0.0)
-				(1000, 0.0)
-				(1500, 0.009999999999999997)
-				(2000, 0.009999999999999997)
-				(2500, 0.009999999999999997)
-				(3000, 0.009999999999999997)
-				(3500, 0.009999999999999997)
-				(4000, 0.009999999999999997)
-			};
-		\addplot +[fill=OrangeRed, draw=black, line width=0.5pt] coordinates {
-				(500, 0.009999999999999997)
-				(1000, 0.019999999999999997)
-				(1500, 0.040000000000000015)
-				(2000, 0.07000000000000002)
-				(2500, 0.11000000000000001)
-				(3000, 0.16099999999999998)
-				(3500, 0.22500000000000003)
-				(4000, 0.29100000000000004)
-			};
-		\addplot +[fill=FireBrick, draw=black, line width=0.5pt] coordinates {
-				(500, 0.0)
-				(1000, 0.0)
-				(1500, 0.0)
-				(2000, 0.0009999999999999996)
-				(2500, 0.0049999999999999906)
-				(3000, 0.007000000000000004)
-				(3500, 0.01100000000000001)
-				(4000, 0.013000000000000001)
-			};
-		\addplot +[fill=DodgerBlue, draw=black, line width=0.5pt] coordinates {
-				(500, 0.0)
-				(1000, 0.019999999999999993)
-				(1500, 0.03999999999999999)
-				(2000, 0.06800000000000002)
-				(2500, 0.101)
-				(3000, 0.14199999999999996)
-				(3500, 0.20199999999999996)
-				(4000, 0.263)
-			};
-	\end{axis}
+\begin{axis}[
+   ybar stacked,
+   title={Clingo performance for Right recursion},
+   bar shift=-10pt,
+   width=1.5\textwidth,
+   bar width=0.7cm,
+   ymajorgrids, tick align=inside,
+   major grid style={draw=gray!20},
+   xtick=data,
+   ymin=0, ymax=10.104000020027161,
+   axis x line*=bottom,
+   axis y line*=left,
+   enlarge x limits=0.1,
+   legend style={
+       at={(0.23, 1)},
+       anchor=north,
+       legend columns=1,
+       font=\Huge,
+   },
+   ylabel={Time (seconds)},
+   xlabel={Number of nodes $\times 10$},
+   label style={font=\Huge},
+   tick label style={font=\Huge},
+]
+\addlegendimage{fill=DodgerBlue, draw=black, line width=0.2pt}
+\addlegendentry{WriteRes}
+\addlegendimage{fill=FireBrick, draw=black, line width=0.2pt}
+\addlegendentry{Solve}
+\addlegendimage{fill=OrangeRed, draw=black, line width=0.2pt}
+\addlegendentry{Ground}
+\addlegendimage{fill=LimeGreen, draw=black, line width=0.2pt}
+\addlegendentry{ReadData}
+\addlegendimage{fill=LightPink, draw=black, line width=0.2pt}
+\addlegendentry{LoadRules}
+\addplot +[fill=LightPink, draw=black, line width=0.5pt] coordinates {
+    (500, 0.0009999990463256836)
+    (1000, 0.0)
+    (1500, 0.0)
+    (2000, 0.0)
+    (2500, 0.0)
+    (3000, 0.0)
+    (3500, 0.0)
+    (4000, 0.0)
+};
+\addplot +[fill=LimeGreen, draw=black, line width=0.5pt] coordinates {
+    (500, 0.0009999990463256836)
+    (1000, 0.003000020980834961)
+    (1500, 0.0039999961853027345)
+    (2000, 0.008000016212463379)
+    (2500, 0.007999992370605469)
+    (3000, 0.009999990463256836)
+    (3500, 0.010000014305114746)
+    (4000, 0.014000010490417481)
+};
+\addplot +[fill=OrangeRed, draw=black, line width=0.5pt] coordinates {
+    (500, 0.006999993324279785)
+    (1000, 0.0190000057220459)
+    (1500, 0.04299995899200439)
+    (2000, 0.07300000190734864)
+    (2500, 0.11200001239776611)
+    (3000, 0.16100008487701417)
+    (3500, 0.22699997425079346)
+    (4000, 0.29099996089935304)
+};
+\addplot +[fill=FireBrick, draw=black, line width=0.5pt] coordinates {
+    (500, 0.0)
+    (1000, 0.0009999990463256836)
+    (1500, 0.0009999990463256836)
+    (2000, 0.0029999971389770507)
+    (2500, 0.006999993324279785)
+    (3000, 0.006999993324279785)
+    (3500, 0.01100001335144043)
+    (4000, 0.01700000762939453)
+};
+\addplot +[fill=DodgerBlue, draw=black, line width=0.5pt] coordinates {
+    (500, 0.0029999971389770507)
+    (1000, 0.015999984741210938)
+    (1500, 0.037999963760375975)
+    (2000, 0.06400001049041748)
+    (2500, 0.09800000190734863)
+    (3000, 0.14399998188018798)
+    (3500, 0.1979999542236328)
+    (4000, 0.25)
+};
+\end{axis}
+\begin{axis}[
+   ybar stacked,
+   bar shift=13pt,
+   width=1.5\textwidth,
+   bar width=0.7cm,
+   ymajorgrids, tick align=inside,
+   major grid style={draw=none},
+   xtick=data,
+   ymin=0, ymax=10.104000020027161,
+   axis x line*=none,
+   axis y line*=none,
+   enlarge x limits=0.1,
+   label style={font=\Huge},
+   tick label style={font=\Huge},
+]
+\addplot +[fill=LightPink, draw=black, line width=0.5pt] coordinates {
+    (500, 0.0)
+    (1000, 0.0)
+    (1500, 0.0)
+    (2000, 0.0)
+    (2500, 0.0)
+    (3000, 0.0)
+    (3500, 0.0)
+    (4000, 0.0)
+};
+\addplot +[fill=LimeGreen, draw=black, line width=0.5pt] coordinates {
+    (500, 0.0)
+    (1000, 0.0)
+    (1500, 0.009999999999999997)
+    (2000, 0.009999999999999997)
+    (2500, 0.009999999999999997)
+    (3000, 0.009999999999999997)
+    (3500, 0.009999999999999997)
+    (4000, 0.009999999999999997)
+};
+\addplot +[fill=OrangeRed, draw=black, line width=0.5pt] coordinates {
+    (500, 0.009999999999999997)
+    (1000, 0.019999999999999997)
+    (1500, 0.040000000000000015)
+    (2000, 0.07000000000000002)
+    (2500, 0.11000000000000001)
+    (3000, 0.16099999999999998)
+    (3500, 0.22500000000000003)
+    (4000, 0.29100000000000004)
+};
+\addplot +[fill=FireBrick, draw=black, line width=0.5pt] coordinates {
+    (500, 0.0)
+    (1000, 0.0)
+    (1500, 0.0)
+    (2000, 0.0009999999999999996)
+    (2500, 0.0049999999999999906)
+    (3000, 0.007000000000000004)
+    (3500, 0.01100000000000001)
+    (4000, 0.013000000000000001)
+};
+\addplot +[fill=DodgerBlue, draw=black, line width=0.5pt] coordinates {
+    (500, 0.0)
+    (1000, 0.019999999999999993)
+    (1500, 0.03999999999999999)
+    (2000, 0.06800000000000002)
+    (2500, 0.101)
+    (3000, 0.14199999999999996)
+    (3500, 0.20199999999999996)
+    (4000, 0.263)
+};
+\end{axis}
 \end{tikzpicture}
 
 \end{document}

@@ -19,6 +19,7 @@ ENVIRONMENT_EXTENSIONS = {
     'clingo': '.lp',
     'xsb': '.P',
     'souffle': '.dl',
+    'postgres': '.sql',
 }
 
 
@@ -110,6 +111,13 @@ class AnalyzeOthers:
                 output_folder,
                 self.souffle_include_dir,
             )
+        elif self.environment == 'postgres':
+            self.solve_with_postgresql(
+                self.input_path,
+                self.rule_path,
+                self.timing_path,
+                output_folder,
+            )
 
     def solve_with_xsb(
         self,
@@ -174,7 +182,6 @@ class AnalyzeOthers:
             xsb_query_2,
         ]
 
-
         # Run the command and capture the output
         output = subprocess.run(xsb_command_1, stdout=subprocess.PIPE, text=True)
         output_2 = subprocess.run(xsb_command_2, stdout=subprocess.PIPE, text=True)
@@ -210,7 +217,9 @@ class AnalyzeOthers:
         )
 
         write_time = float(query_write_time.group(1)) - float(query_time.group(1))
-        cpu_write_time = float(query_cpu_write_time.group(1)) - float(cpu_query_time.group(1))
+        cpu_write_time = float(query_cpu_write_time.group(1)) - float(
+            cpu_query_time.group(1)
+        )
 
         is_new_file = not timing_path.exists()
         with open(timing_path, 'a', newline='') as csvfile:
@@ -464,6 +473,101 @@ class AnalyzeOthers:
 
         gc.collect()
 
+    def solve_with_postgresql(
+        self,
+        fact_file: Path,
+        rule_file: Path,
+        timing_path: Path,
+        output_folder: Path,
+    ) -> None:
+
+        # Read the SQL script and substitute the placeholders
+        with open(rule_file, 'r') as f:
+            sql_script = f.read()
+
+        # Substitute the placeholders with actual file paths
+        results_path = output_folder / 'pg_results.csv'
+        sql_script = sql_script.replace('{data_file}', f'{fact_file}')
+        sql_script = sql_script.replace('{output_file}', f'{results_path}')
+
+        # Write the modified script to a temporary file
+        temp_file = rule_file.parent / f'{rule_file.stem}_temp.sql'
+        with open(temp_file, 'w') as f:
+            f.write(sql_script)
+
+        # Execute the script using psql
+        command = ['psql', '-f', temp_file]
+
+        result = subprocess.run(command, capture_output=True, text=True)
+
+        # Parse the timing information
+        timings = self.__parse_postgresql_timings(result.stdout)
+
+        # Write the timing data to the output CSV file
+        is_new_file = not timing_path.exists()
+        with open(timing_path, 'a', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            if is_new_file:
+                writer.writerow(
+                    [
+                        'CreateTableRealTime',
+                        'CreateTableCPUTime',
+                        'LoadDataRealTime',
+                        'LoadDataCPUTime',
+                        'CreateIndexRealTime',
+                        'CreateIndexCPUTime',
+                        'AnalyzeRealTime',
+                        'AnalyzeCPUTime',
+                        'ExecuteQueryRealTime',
+                        'ExecuteQueryCPUTime',
+                        'WriteResultRealTIme',
+                        'WriteResultCPUTIme',
+                    ]
+                )
+            writer.writerow(
+                [
+                    timings['CreateTable'],
+                    0.0,
+                    timings['LoadData'],
+                    0.0,
+                    timings['CreateIndex'],
+                    0.0,
+                    timings['Analyze'],
+                    0.0,
+                    timings['ExecuteQuery'],
+                    0.0,
+                    timings['WriteResult'],
+                    0.0,
+                ]
+            )
+
+        logging.info(f'(PostgreSQL) Experiment timing results saved to: {timing_path}')
+
+    def __parse_postgresql_timings(self, output: str) -> dict[str, float]:
+        # Regular expression to match timing lines
+        timing_regex = re.compile(r'Time:\s+([\d.]+)\s+ms')
+
+        # Define the steps in the order they appear
+        steps = [
+            'CreateTable',
+            'LoadData',
+            'CreateIndex',
+            'Analyze',
+            'ExecuteQuery',
+            'WriteResult',
+        ]
+
+        # Find all timing values in the output
+        times = timing_regex.findall(output)
+
+        # Convert times from milliseconds to seconds
+        times_in_seconds = [float(time) / 1000 for time in times]
+
+        # Map steps to their corresponding timing values
+        timings = dict(zip(steps, times_in_seconds))
+
+        return timings
+
     def __run_souffle_command(self, command: str) -> tuple[str, dict[str, float]]:
         """
         Executes a given Souffle command and logs the output, error, and timing data.
@@ -592,9 +696,9 @@ def main() -> None:
     )
     parser.add_argument(
         '--environment',
-        choices=['clingo', 'xsb', 'souffle'],
+        choices=['clingo', 'xsb', 'souffle', 'postgres'],
         required=True,
-        help='Logic programming environment to use. Choose from clingo, xsb, or souffle.',
+        help='Logic programming environment to use. Choose from clingo, xsb, postgres, or souffle.',
     )
     parser.add_argument(
         '--souffle-include-dir',
@@ -616,8 +720,13 @@ def main() -> None:
         return
 
     input_dir = Path('input')
-    if args.environment == 'souffle':
-        input_path = input_dir / 'souffle' / args.graph_type / str(args.size)
+    if args.environment in ['souffle', 'postgres']:
+        if args.environment == 'souffle':
+            input_path = input_dir / 'souffle' / args.graph_type / str(args.size)
+        else:
+            input_path = (
+                input_dir / 'souffle' / args.graph_type / str(args.size) / 'edge.facts'
+            )
     else:
         inputfile = f'graph_{args.size}.lp'
         input_path = input_dir / 'clingo_xsb' / args.graph_type / inputfile
@@ -627,7 +736,7 @@ def main() -> None:
 
     timing_dir = Path('timing') / args.environment / args.graph_type
     timing_dir.mkdir(parents=True, exist_ok=True)
-    if args.environment == 'souffle':
+    if args.environment in ['souffle', 'postgres']:
         output_file_name = f'timing_{args.mode}_graph_{args.size}.csv'
     else:
         output_file_name = f'timing_{args.mode}_{input_path.stem}.csv'

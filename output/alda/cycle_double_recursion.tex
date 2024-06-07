@@ -8,69 +8,69 @@
 \renewcommand*\familydefault{\sfdefault}
 \begin{document}
 \begin{tikzpicture}
-	\begin{axis}[
-			ybar stacked,
-			title={Alda performance for Double recursion},
-			bar shift=-10pt,
-			width=1.5\textwidth,
-			bar width=0.7cm,
-			ymajorgrids, tick align=inside,
-			major grid style={draw=gray!20},
-			xtick=data,
-			ymin=0, ymax=8.018999981880189,
-			axis x line*=bottom,
-			axis y line*=left,
-			enlarge x limits=0.1,
-			legend style={
-					at={(0.23, 1)},
-					anchor=north,
-					legend columns=1,
-					font=\Huge,
-				},
-			ylabel={Time (seconds)},
-			xlabel={Number of nodes},
-			label style={font=\Huge},
-			tick label style={font=\Huge},
-		]
-		\addlegendimage{fill=LimeGreen, draw=black, line width=0.2pt}
-		\addlegendentry{Overall}
-		\addplot +[fill=LimeGreen, draw=black, line width=0.5pt] coordinates {
-				(50, 0.10400006771087647)
-				(100, 0.2069999933242798)
-				(150, 0.43100001811981203)
-				(200, 0.8230000019073487)
-				(250, 1.4259999990463257)
-				(300, 2.263000011444092)
-				(350, 3.452999997138977)
-				(400, 5.018999981880188)
-			};
-	\end{axis}
-	\begin{axis}[
-			ybar stacked,
-			bar shift=13pt,
-			width=1.5\textwidth,
-			bar width=0.7cm,
-			ymajorgrids, tick align=inside,
-			major grid style={draw=none},
-			xtick=data,
-			ymin=0, ymax=8.018999981880189,
-			axis x line*=none,
-			axis y line*=none,
-			enlarge x limits=0.1,
-			label style={font=\Huge},
-			tick label style={font=\Huge},
-		]
-		\addplot +[fill=LimeGreen, draw=black, line width=0.5pt] coordinates {
-				(50, 0.05)
-				(100, 0.15)
-				(150, 0.37799999999999995)
-				(200, 0.7659999999999998)
-				(250, 1.363)
-				(300, 2.1990000000000003)
-				(350, 3.377)
-				(400, 4.92)
-			};
-	\end{axis}
+\begin{axis}[
+   ybar stacked,
+   title={Alda performance for Double recursion},
+   bar shift=-10pt,
+   width=1.5\textwidth,
+   bar width=0.7cm,
+   ymajorgrids, tick align=inside,
+   major grid style={draw=gray!20},
+   xtick=data,
+   ymin=0, ymax=8.018999981880189,
+   axis x line*=bottom,
+   axis y line*=left,
+   enlarge x limits=0.1,
+   legend style={
+       at={(0.23, 1)},
+       anchor=north,
+       legend columns=1,
+       font=\Huge,
+   },
+   ylabel={Time (seconds)},
+   xlabel={Number of nodes},
+   label style={font=\Huge},
+   tick label style={font=\Huge},
+]
+\addlegendimage{fill=LimeGreen, draw=black, line width=0.2pt}
+\addlegendentry{Overall}
+\addplot +[fill=LimeGreen, draw=black, line width=0.5pt] coordinates {
+    (50, 0.10400006771087647)
+    (100, 0.2069999933242798)
+    (150, 0.43100001811981203)
+    (200, 0.8230000019073487)
+    (250, 1.4259999990463257)
+    (300, 2.263000011444092)
+    (350, 3.452999997138977)
+    (400, 5.018999981880188)
+};
+\end{axis}
+\begin{axis}[
+   ybar stacked,
+   bar shift=13pt,
+   width=1.5\textwidth,
+   bar width=0.7cm,
+   ymajorgrids, tick align=inside,
+   major grid style={draw=none},
+   xtick=data,
+   ymin=0, ymax=8.018999981880189,
+   axis x line*=none,
+   axis y line*=none,
+   enlarge x limits=0.1,
+   label style={font=\Huge},
+   tick label style={font=\Huge},
+]
+\addplot +[fill=LimeGreen, draw=black, line width=0.5pt] coordinates {
+    (50, 0.05)
+    (100, 0.15)
+    (150, 0.37799999999999995)
+    (200, 0.7659999999999998)
+    (250, 1.363)
+    (300, 2.1990000000000003)
+    (350, 3.377)
+    (400, 4.92)
+};
+\end{axis}
 \end{tikzpicture}
 
 \end{document}

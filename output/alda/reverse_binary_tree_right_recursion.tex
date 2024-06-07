@@ -8,69 +8,69 @@
 \renewcommand*\familydefault{\sfdefault}
 \begin{document}
 \begin{tikzpicture}
-	\begin{axis}[
-			ybar stacked,
-			title={Alda performance for Right recursion},
-			bar shift=-10pt,
-			width=1.5\textwidth,
-			bar width=0.7cm,
-			ymajorgrids, tick align=inside,
-			major grid style={draw=gray!20},
-			xtick=data,
-			ymin=0, ymax=0.11200000762939454,
-			axis x line*=bottom,
-			axis y line*=left,
-			enlarge x limits=0.1,
-			legend style={
-					at={(0.23, 1)},
-					anchor=north,
-					legend columns=1,
-					font=\Huge,
-				},
-			ylabel={Time (seconds)},
-			xlabel={Height of the tree},
-			label style={font=\Huge},
-			tick label style={font=\Huge},
-		]
-		\addlegendimage{fill=LimeGreen, draw=black, line width=0.2pt}
-		\addlegendentry{Overall}
-		\addplot +[fill=LimeGreen, draw=black, line width=0.5pt] coordinates {
-				(5, 0.08499996662139893)
-				(6, 0.08900001049041747)
-				(7, 0.08699998855590821)
-				(7, 0.08700001239776611)
-				(7, 0.08700001239776611)
-				(8, 0.09300003051757813)
-				(8, 0.09200003147125244)
-				(8, 0.09199998378753663)
-			};
-	\end{axis}
-	\begin{axis}[
-			ybar stacked,
-			bar shift=13pt,
-			width=1.5\textwidth,
-			bar width=0.7cm,
-			ymajorgrids, tick align=inside,
-			major grid style={draw=none},
-			xtick=data,
-			ymin=0, ymax=0.11200000762939454,
-			axis x line*=none,
-			axis y line*=none,
-			enlarge x limits=0.1,
-			label style={font=\Huge},
-			tick label style={font=\Huge},
-		]
-		\addplot +[fill=LimeGreen, draw=black, line width=0.5pt] coordinates {
-				(5, 0.027000000000000003)
-				(6, 0.029000000000000005)
-				(7, 0.030000000000000006)
-				(7, 0.030000000000000006)
-				(7, 0.030000000000000006)
-				(8, 0.040000000000000015)
-				(8, 0.040000000000000015)
-				(8, 0.039000000000000014)
-			};
-	\end{axis}
+\begin{axis}[
+   ybar stacked,
+   title={Alda performance for Right recursion},
+   bar shift=-10pt,
+   width=1.5\textwidth,
+   bar width=0.7cm,
+   ymajorgrids, tick align=inside,
+   major grid style={draw=gray!20},
+   xtick=data,
+   ymin=0, ymax=0.11200000762939454,
+   axis x line*=bottom,
+   axis y line*=left,
+   enlarge x limits=0.1,
+   legend style={
+       at={(0.23, 1)},
+       anchor=north,
+       legend columns=1,
+       font=\Huge,
+   },
+   ylabel={Time (seconds)},
+   xlabel={Height of the tree},
+   label style={font=\Huge},
+   tick label style={font=\Huge},
+]
+\addlegendimage{fill=LimeGreen, draw=black, line width=0.2pt}
+\addlegendentry{Overall}
+\addplot +[fill=LimeGreen, draw=black, line width=0.5pt] coordinates {
+    (5, 0.08499996662139893)
+    (6, 0.08900001049041747)
+    (7, 0.08699998855590821)
+    (7, 0.08700001239776611)
+    (7, 0.08700001239776611)
+    (8, 0.09300003051757813)
+    (8, 0.09200003147125244)
+    (8, 0.09199998378753663)
+};
+\end{axis}
+\begin{axis}[
+   ybar stacked,
+   bar shift=13pt,
+   width=1.5\textwidth,
+   bar width=0.7cm,
+   ymajorgrids, tick align=inside,
+   major grid style={draw=none},
+   xtick=data,
+   ymin=0, ymax=0.11200000762939454,
+   axis x line*=none,
+   axis y line*=none,
+   enlarge x limits=0.1,
+   label style={font=\Huge},
+   tick label style={font=\Huge},
+]
+\addplot +[fill=LimeGreen, draw=black, line width=0.5pt] coordinates {
+    (5, 0.027000000000000003)
+    (6, 0.029000000000000005)
+    (7, 0.030000000000000006)
+    (7, 0.030000000000000006)
+    (7, 0.030000000000000006)
+    (8, 0.040000000000000015)
+    (8, 0.040000000000000015)
+    (8, 0.039000000000000014)
+};
+\end{axis}
 \end{tikzpicture}
 
 \end{document}

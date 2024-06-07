@@ -8,89 +8,89 @@
 \renewcommand*\familydefault{\sfdefault}
 \begin{document}
 \begin{tikzpicture}
-	\begin{axis}[
-			ybar stacked,
-			width=1.7\textwidth,
-			bar width=0.7cm,
-			ymajorgrids, tick align=inside,
-			major grid style={draw=gray!20},
-			xtick=data,
-			ymin=0, ymax=49.78293,
-			axis x line*=bottom,
-			axis y line*=left,
-			enlarge x limits=0.05,
-			legend style={
-					at={(0.454, 0.97)},
-					anchor=north east,
-					legend columns=1,
-					font=\Huge,
-				},
-			ylabel={CPU Time (seconds)},
-			xlabel={Number of nodes $\times 10$},
-			label style={font=\Huge},
-			tick label style={font=\Huge},
-		]
-		\addlegendimage{fill=DodgerBlue, draw=black, line width=0.2pt}
-		\addlegendentry{WriteRes}
-		\addlegendimage{fill=FireBrick, draw=black, line width=0.2pt}
-		\addlegendentry{Solve}
-		\addlegendimage{fill=OrangeRed, draw=black, line width=0.2pt}
-		\addlegendentry{Ground}
-		\addlegendimage{fill=LimeGreen, draw=black, line width=0.2pt}
-		\addlegendentry{ReadData}
-		\addlegendimage{fill=LightPink, draw=black, line width=0.2pt}
-		\addlegendentry{LoadRules}
-		\addplot +[fill=LightPink, draw=black, line width=0.2pt] coordinates {
-				(500, 0.0)
-				(1000, 0.0)
-				(1500, 0.0)
-				(2000, 0.0)
-				(2500, 0.0)
-				(3000, 0.0)
-				(3500, 0.0)
-				(4000, 0.0)
-			};
-		\addplot +[fill=LimeGreen, draw=black, line width=0.2pt] coordinates {
-				(500, 0.0)
-				(1000, 0.0)
-				(1500, 0.0)
-				(2000, 0.009999999999999997)
-				(2500, 0.009999999999999997)
-				(3000, 0.009999999999999997)
-				(3500, 0.009999999999999997)
-				(4000, 0.009999999999999997)
-			};
-		\addplot +[fill=OrangeRed, draw=black, line width=0.2pt] coordinates {
-				(500, 0.009999999999999997)
-				(1000, 0.03999999999999999)
-				(1500, 0.07999999999999999)
-				(2000, 0.131)
-				(2500, 0.22500000000000003)
-				(3000, 0.331)
-				(3500, 0.4520000000000001)
-				(4000, 0.5960000000000001)
-			};
-		\addplot +[fill=FireBrick, draw=black, line width=0.2pt] coordinates {
-				(500, 0.0)
-				(1000, 0.0)
-				(1500, 0.009999999999999995)
-				(2000, 0.017999999999999995)
-				(2500, 0.031000000000000028)
-				(3000, 0.04700000000000001)
-				(3500, 0.06600000000000004)
-				(4000, 0.07700000000000004)
-			};
-		\addplot +[fill=DodgerBlue, draw=black, line width=0.2pt] coordinates {
-				(500, 0.020000000000000007)
-				(1000, 0.084)
-				(1500, 0.17799999999999996)
-				(2000, 0.31900000000000006)
-				(2500, 0.483)
-				(3000, 0.704)
-				(3500, 0.95)
-				(4000, 1.2489999999999999)
-			};
-	\end{axis}
+\begin{axis}[
+   ybar stacked,
+   width=1.7\textwidth,
+   bar width=0.7cm,
+   ymajorgrids, tick align=inside,
+   major grid style={draw=gray!20},
+   xtick=data,
+   ymin=0, ymax=49.78293,
+   axis x line*=bottom,
+   axis y line*=left,
+   enlarge x limits=0.05,
+   legend style={
+       at={(0.454, 0.97)},
+       anchor=north east,
+       legend columns=1,
+       font=\Huge,
+   },
+   ylabel={CPU Time (seconds)},
+   xlabel={Number of nodes $\times 10$},
+   label style={font=\Huge},
+   tick label style={font=\Huge},
+]
+\addlegendimage{fill=DodgerBlue, draw=black, line width=0.2pt}
+\addlegendentry{WriteRes}
+\addlegendimage{fill=FireBrick, draw=black, line width=0.2pt}
+\addlegendentry{Solve}
+\addlegendimage{fill=OrangeRed, draw=black, line width=0.2pt}
+\addlegendentry{Ground}
+\addlegendimage{fill=LimeGreen, draw=black, line width=0.2pt}
+\addlegendentry{ReadData}
+\addlegendimage{fill=LightPink, draw=black, line width=0.2pt}
+\addlegendentry{LoadRules}
+\addplot +[fill=LightPink, draw=black, line width=0.2pt] coordinates {
+(500, 0.0)
+(1000, 0.0)
+(1500, 0.0)
+(2000, 0.0)
+(2500, 0.0)
+(3000, 0.0)
+(3500, 0.0)
+(4000, 0.0)
+};
+\addplot +[fill=LimeGreen, draw=black, line width=0.2pt] coordinates {
+(500, 0.0)
+(1000, 0.0)
+(1500, 0.0)
+(2000, 0.009999999999999997)
+(2500, 0.009999999999999997)
+(3000, 0.009999999999999997)
+(3500, 0.009999999999999997)
+(4000, 0.009999999999999997)
+};
+\addplot +[fill=OrangeRed, draw=black, line width=0.2pt] coordinates {
+(500, 0.009999999999999997)
+(1000, 0.03999999999999999)
+(1500, 0.07999999999999999)
+(2000, 0.131)
+(2500, 0.22500000000000003)
+(3000, 0.331)
+(3500, 0.4520000000000001)
+(4000, 0.5960000000000001)
+};
+\addplot +[fill=FireBrick, draw=black, line width=0.2pt] coordinates {
+(500, 0.0)
+(1000, 0.0)
+(1500, 0.009999999999999995)
+(2000, 0.017999999999999995)
+(2500, 0.031000000000000028)
+(3000, 0.04700000000000001)
+(3500, 0.06600000000000004)
+(4000, 0.07700000000000004)
+};
+\addplot +[fill=DodgerBlue, draw=black, line width=0.2pt] coordinates {
+(500, 0.020000000000000007)
+(1000, 0.084)
+(1500, 0.17799999999999996)
+(2000, 0.31900000000000006)
+(2500, 0.483)
+(3000, 0.704)
+(3500, 0.95)
+(4000, 1.2489999999999999)
+};
+\end{axis}
 \end{tikzpicture}
 
 \end{document}

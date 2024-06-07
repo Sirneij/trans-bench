@@ -1,7 +1,6 @@
 # runtime package
 
-from . import common
-from . import importer
+from . import common, importer
 from . import pattern as pat
 from .common import global_init
 from .sim import DistProcess, NodeProcess

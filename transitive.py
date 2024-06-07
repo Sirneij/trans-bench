@@ -85,6 +85,8 @@ class Experiment:
         """
         if env_name in ['clingo', 'xsb']:
             input_dir = Path('input') / 'clingo_xsb'
+        elif env_name in ['souffle', 'postgres']:
+            input_dir = Path('input') / 'souffle'
         else:
             input_dir = Path('input') / env_name
         input_dir.mkdir(parents=True, exist_ok=True)
@@ -208,17 +210,7 @@ class Experiment:
         This function reads a CSV file, calculates the average for each column from the data in the file, and appends these averages to the end of the file. It can handle any number of columns dynamically.
 
         Args:
-            `output_path (Path)`: The path to the CSV file.
-
-        Step-by-step logic:
-        1. Open the CSV file and create a CSV reader.
-        2. Skip the header row.
-        3. Initialize sum and count arrays for all columns.
-        4. For each row in the CSV file:
-            a. If the row is not empty, add the values to their respective sums and increment the count for non-empty columns.
-        5. Calculate the averages for each column if the count is greater than zero to prevent division by zero.
-        6. Append the averages to the CSV file.
-        7. Log a message if there is no data to calculate averages for.
+            output_path (Path): The path to the CSV file.
         """
         with open(output_path, 'r', newline='') as csvfile:
             reader = csv.reader(csvfile)
@@ -234,13 +226,16 @@ class Experiment:
             for row in reader:
                 if row:  # Ensure row is not empty
                     for i, value in enumerate(row):
-                        try:
-                            sums[i] += float(value)
-                            counts[i] += 1
-                        except ValueError:
-                            logging.warning(
-                                f"Non-numeric data '{value}' in column {i} skipped"
-                            )
+                        if i < len(headers):  # Ensure index is within range
+                            try:
+                                sums[i] += float(value)
+                                counts[i] += 1
+                            except ValueError:
+                                logging.warning(
+                                    f"Non-numeric data '{value}' in column {i} skipped"
+                                )
+                        else:
+                            logging.warning(f"Row has more columns than headers: {row}")
 
         # Calculate averages and prepare the row to append
         averages = []
@@ -338,6 +333,7 @@ def main() -> None:
         'clingo',
         'souffle',
         'alda',
+        'postgres',
     ]
     graph_types = [
         'complete',

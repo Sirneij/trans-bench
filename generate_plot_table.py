@@ -1,9 +1,9 @@
 import argparse
 import logging
+import math
 import re
 import subprocess
 from pathlib import Path
-import math
 
 logging.basicConfig(
     level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s'
@@ -529,7 +529,14 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
                 f.write('       font=\\Huge,\n')
                 f.write('   },\n')
                 f.write('   ylabel={Time (seconds)},\n')
-                if key[1] in ['complete', 'cycle', 'max_acyclic', 'grid', 'path', 'star']:
+                if key[1] in [
+                    'complete',
+                    'cycle',
+                    'max_acyclic',
+                    'grid',
+                    'path',
+                    'star',
+                ]:
                     f.write('   xlabel={Number of nodes},\n')
                 elif key[1] in ['cycle_with_shortcuts', 'w', 'y', 'multi_path']:
                     f.write('   xlabel={Number of nodes $\\times 10$},\n')
@@ -777,9 +784,22 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
                     f.write('       font=\\Huge,\n')
                     f.write('   },\n')
                     f.write('   ylabel={CPU Time (seconds)},\n')
-                    if graph_type in ['complete', 'cycle', 'max_acyclic', 'grid', 'path', 'star']:
+                    if graph_type in [
+                        'complete',
+                        'cycle',
+                        'max_acyclic',
+                        'grid',
+                        'path',
+                        'star',
+                    ]:
                         f.write('   xlabel={Number of nodes},\n')
-                    elif graph_type in ['cycle_with_shortcuts', 'w', 'y', 'x', 'multi_path']:
+                    elif graph_type in [
+                        'cycle_with_shortcuts',
+                        'w',
+                        'y',
+                        'x',
+                        'multi_path',
+                    ]:
                         f.write('   xlabel={Number of nodes $\\times 10$},\n')
                     elif graph_type in ['binary_tree', 'reverse_binary_tree']:
                         f.write('   xlabel={Height of the tree},\n')
@@ -806,7 +826,13 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
                                 key, size, component
                             )
                             size_to_plot = size
-                            if graph_type in ['cycle_with_shortcuts', 'w', 'y', 'multi_path', 'x']:
+                            if graph_type in [
+                                'cycle_with_shortcuts',
+                                'w',
+                                'y',
+                                'multi_path',
+                                'x',
+                            ]:
                                 size_to_plot = size * 10
                             elif graph_type in ['binary_tree', 'reverse_binary_tree']:
                                 size_to_plot = math.floor(math.log2(size))

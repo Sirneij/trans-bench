@@ -8,101 +8,101 @@
 \renewcommand*\familydefault{\sfdefault}
 \begin{document}
 \begin{tikzpicture}
-	\begin{axis}[
-			ybar stacked,
-			width=1.7\textwidth,
-			bar width=0.7cm,
-			ymajorgrids, tick align=inside,
-			major grid style={draw=gray!20},
-			xtick=data,
-			ymin=0, ymax=3.4459999999999997,
-			axis x line*=bottom,
-			axis y line*=left,
-			enlarge x limits=0.05,
-			legend style={
-					at={(0.69, 0.97)},
-					anchor=north east,
-					legend columns=1,
-					font=\Huge,
-				},
-			ylabel={CPU Time (seconds)},
-			xlabel={Number of nodes},
-			label style={font=\Huge},
-			tick label style={font=\Huge},
-		]
-		\addlegendimage{fill=DodgerBlue, draw=black, line width=0.2pt}
-		\addlegendentry{WriteRes}
-		\addlegendimage{fill=Crimson, draw=black, line width=0.2pt}
-		\addlegendentry{Query}
-		\addlegendimage{fill=LimeGreen, draw=black, line width=0.2pt}
-		\addlegendentry{ReadData}
-		\addlegendimage{fill=LightPink, draw=black, line width=0.2pt}
-		\addlegendentry{LoadRules}
-		\addlegendimage{fill=DarkOrange, draw=black, line width=0.2pt}
-		\addlegendentry{C++ToExec}
-		\addlegendimage{fill=LightGoldenrod, draw=black, line width=0.2pt}
-		\addlegendentry{RulesToC++}
-		\addplot +[fill=LightGoldenrod, draw=black, line width=0.2pt] coordinates {
-				(50, 0.030000000000000006)
-				(100, 0.030000000000000006)
-				(150, 0.030000000000000006)
-				(200, 0.030000000000000006)
-				(250, 0.030000000000000006)
-				(300, 0.030000000000000006)
-				(350, 0.030000000000000006)
-				(400, 0.030000000000000006)
-			};
-		\addplot +[fill=DarkOrange, draw=black, line width=0.2pt] coordinates {
-				(50, 1.4389999999999996)
-				(100, 1.4399999999999997)
-				(150, 1.44)
-				(200, 1.44)
-				(250, 1.4409999999999996)
-				(300, 1.4409999999999998)
-				(350, 1.4379999999999997)
-				(400, 1.4419999999999997)
-			};
-		\addplot +[fill=LightPink, draw=black, line width=0.2pt] coordinates {
-				(50, 0.0001226)
-				(100, 0.00011169999999999999)
-				(150, 0.0001121)
-				(200, 9.74e-05)
-				(250, 0.0001225)
-				(300, 0.0001003)
-				(350, 0.0001)
-				(400, 9.47e-05)
-			};
-		\addplot +[fill=LimeGreen, draw=black, line width=0.2pt] coordinates {
-				(50, 0.0003406)
-				(100, 0.0004554)
-				(150, 0.0005556000000000001)
-				(200, 0.0006376999999999999)
-				(250, 0.0007809)
-				(300, 0.0008602)
-				(350, 0.0009284)
-				(400, 0.001052)
-			};
-		\addplot +[fill=Crimson, draw=black, line width=0.2pt] coordinates {
-				(50, 0.0)
-				(100, 7.510000000000001e-05)
-				(150, 0.0001379)
-				(200, 0.00018390000000000002)
-				(250, 0.00024370000000000004)
-				(300, 0.00027299999999999997)
-				(350, 0.00031469999999999995)
-				(400, 0.0003656)
-			};
-		\addplot +[fill=DodgerBlue, draw=black, line width=0.2pt] coordinates {
-				(50, 0.0002386)
-				(100, 0.0002595)
-				(150, 0.00028069999999999994)
-				(200, 0.0002979)
-				(250, 0.00033580000000000003)
-				(300, 0.00034619999999999996)
-				(350, 0.0003601)
-				(400, 0.00039700000000000005)
-			};
-	\end{axis}
+\begin{axis}[
+   ybar stacked,
+   width=1.7\textwidth,
+   bar width=0.7cm,
+   ymajorgrids, tick align=inside,
+   major grid style={draw=gray!20},
+   xtick=data,
+   ymin=0, ymax=3.4459999999999997,
+   axis x line*=bottom,
+   axis y line*=left,
+   enlarge x limits=0.05,
+   legend style={
+       at={(0.69, 0.97)},
+       anchor=north east,
+       legend columns=1,
+       font=\Huge,
+   },
+   ylabel={CPU Time (seconds)},
+   xlabel={Number of nodes},
+   label style={font=\Huge},
+   tick label style={font=\Huge},
+]
+\addlegendimage{fill=DodgerBlue, draw=black, line width=0.2pt}
+\addlegendentry{WriteRes}
+\addlegendimage{fill=Crimson, draw=black, line width=0.2pt}
+\addlegendentry{Query}
+\addlegendimage{fill=LimeGreen, draw=black, line width=0.2pt}
+\addlegendentry{ReadData}
+\addlegendimage{fill=LightPink, draw=black, line width=0.2pt}
+\addlegendentry{LoadRules}
+\addlegendimage{fill=DarkOrange, draw=black, line width=0.2pt}
+\addlegendentry{C++ToExec}
+\addlegendimage{fill=LightGoldenrod, draw=black, line width=0.2pt}
+\addlegendentry{RulesToC++}
+\addplot +[fill=LightGoldenrod, draw=black, line width=0.2pt] coordinates {
+(50, 0.030000000000000006)
+(100, 0.030000000000000006)
+(150, 0.030000000000000006)
+(200, 0.030000000000000006)
+(250, 0.030000000000000006)
+(300, 0.030000000000000006)
+(350, 0.030000000000000006)
+(400, 0.030000000000000006)
+};
+\addplot +[fill=DarkOrange, draw=black, line width=0.2pt] coordinates {
+(50, 1.4389999999999996)
+(100, 1.4399999999999997)
+(150, 1.44)
+(200, 1.44)
+(250, 1.4409999999999996)
+(300, 1.4409999999999998)
+(350, 1.4379999999999997)
+(400, 1.4419999999999997)
+};
+\addplot +[fill=LightPink, draw=black, line width=0.2pt] coordinates {
+(50, 0.0001226)
+(100, 0.00011169999999999999)
+(150, 0.0001121)
+(200, 9.74e-05)
+(250, 0.0001225)
+(300, 0.0001003)
+(350, 0.0001)
+(400, 9.47e-05)
+};
+\addplot +[fill=LimeGreen, draw=black, line width=0.2pt] coordinates {
+(50, 0.0003406)
+(100, 0.0004554)
+(150, 0.0005556000000000001)
+(200, 0.0006376999999999999)
+(250, 0.0007809)
+(300, 0.0008602)
+(350, 0.0009284)
+(400, 0.001052)
+};
+\addplot +[fill=Crimson, draw=black, line width=0.2pt] coordinates {
+(50, 0.0)
+(100, 7.510000000000001e-05)
+(150, 0.0001379)
+(200, 0.00018390000000000002)
+(250, 0.00024370000000000004)
+(300, 0.00027299999999999997)
+(350, 0.00031469999999999995)
+(400, 0.0003656)
+};
+\addplot +[fill=DodgerBlue, draw=black, line width=0.2pt] coordinates {
+(50, 0.0002386)
+(100, 0.0002595)
+(150, 0.00028069999999999994)
+(200, 0.0002979)
+(250, 0.00033580000000000003)
+(300, 0.00034619999999999996)
+(350, 0.0003601)
+(400, 0.00039700000000000005)
+};
+\end{axis}
 \end{tikzpicture}
 
 \end{document}
