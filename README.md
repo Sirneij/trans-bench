@@ -4,22 +4,15 @@
 
 Ensure you fill in database credentials of MariaDB.
 
-MariaDB has some limitations when working with reading from and writing to a file. Depending on the OS you installed it, you need to modify `secure_file_priv` to be `""` in your installations `my.cnf` or `my.ini`. Kindly locate this file:
+*NOTE:* There is an issue with mariadb that prevents programs from writing into any directory of choice even after `secure_file_priv = ""` was set in `~/.my.cnf` or `/etc/mysql/my.cnf` in Ubuntu (`~/.my.ini` works for Windows) but could write into `/tmp/` so the results were temporarily written in `/tmp/test_mariadb.csv` and thereafter move it into the desired directory using `sudo` priviledges. As a result, these lines:
 
-```ini
-; /path/to/my.ini or /path/to/my.cnf
-[mysqld]
-secure_file_priv = ""
+```py
+password = 'Your sudo password'
+command = ['sudo', '-S', 'mv', '/tmp/test_mariadb.csv', output_file]
+# Run the command and pass the password
+subprocess.run(
+    command, input=f'{password}\n', text=True, capture_output=True
+)
 ```
 
-then, restart MariaDB's server. For Ubuntu, I just did:
-
-```sh
-sudo systemctl restart mariadb
-```
-
-You can check whether or not it's effected via this (Ubuntu):
-
-```sh
-mysql -u root -p -e "SHOW VARIABLES LIKE 'secure_file_priv';"
-```
+were added to the end of `analyze_db.py::AnalyzeDBs::solve_with_mariadb(...)`. Your MariaDB might not be that stubborn.

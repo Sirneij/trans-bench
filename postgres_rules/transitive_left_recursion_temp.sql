@@ -42,4 +42,4 @@ SELECT * FROM tc;
 
 -- Measure the time taken to write the results to a file
 \echo 'WRITE RESULT'
-\COPY (SELECT * FROM tc_result) TO 'timing/postgres/complete/left_recursion/50/pg_results.csv' CSV HEADER;
+\COPY (SELECT * FROM tc_result) TO 'timing/postgres/complete/left_recursion/50/postgres_results.csv' CSV HEADER;

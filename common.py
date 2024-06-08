@@ -4,18 +4,12 @@ import re
 import subprocess
 from pathlib import Path
 
+from transitive import ENVIRONMENT_EXTENSIONS, DB_SYSTEMS
+
 # Set up logging with a specific format
 logging.basicConfig(
     level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s'
 )
-
-# Define the file extensions for different logic programming environments
-ENVIRONMENT_EXTENSIONS = {
-    'clingo': '.lp',
-    'xsb': '.P',
-    'souffle': '.dl',
-    'postgres': '.sql',
-}
 
 
 def discover_rules(rules_dir: Path, extension: str) -> dict[str, Path]:
@@ -48,7 +42,7 @@ def get_files(environment: str, mode: str, graph_type: str, size: int) -> tuple[
         return
 
     input_dir = Path('input')
-    if environment in ['souffle', 'postgres']:
+    if environment in DB_SYSTEMS + ['souffle']:
         if environment == 'souffle':
             input_path = input_dir / 'souffle' / graph_type / str(size)
         else:
@@ -62,7 +56,7 @@ def get_files(environment: str, mode: str, graph_type: str, size: int) -> tuple[
 
     timing_dir = Path('timing') / environment / graph_type
     timing_dir.mkdir(parents=True, exist_ok=True)
-    if environment in ['souffle', 'postgres']:
+    if environment in DB_SYSTEMS + ['souffle']:
         output_file_name = f'timing_{mode}_graph_{size}.csv'
     else:
         output_file_name = f'timing_{mode}_{input_path.stem}.csv'

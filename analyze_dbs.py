@@ -2,10 +2,15 @@ import argparse
 import csv
 import gc
 import logging
+import os
 import subprocess
 from pathlib import Path
 
+import duckdb
+import pymysql
+
 from common import AnalyzeSystems, get_files
+from transitive import DB_SYSTEMS
 
 # Set up logging with a specific format
 logging.basicConfig(
@@ -22,6 +27,20 @@ class AnalyzeDBs(AnalyzeSystems):
         timing_path: Path,
     ):
         super().__init__(environment, rule_path, input_path, timing_path)
+        self.headers = [
+            'CreateTableRealTime',
+            'CreateTableCPUTime',
+            'LoadDataRealTime',
+            'LoadDataCPUTime',
+            'CreateIndexRealTime',
+            'CreateIndexCPUTime',
+            'AnalyzeRealTime',
+            'AnalyzeCPUTime',
+            'ExecuteQueryRealTime',
+            'ExecuteQueryCPUTime',
+            'WriteResultRealTime',
+            'WriteResultCPUTime',
+        ]
 
     def solve_with_postgres(
         self,
@@ -36,7 +55,7 @@ class AnalyzeDBs(AnalyzeSystems):
             sql_script = f.read()
 
         # Substitute the placeholders with actual file paths
-        results_path = output_folder / 'pg_results.csv'
+        results_path = output_folder / 'postgres_results.csv'
         sql_script = sql_script.replace('{data_file}', f'{fact_file}')
         sql_script = sql_script.replace('{output_file}', f'{results_path}')
 
@@ -93,6 +112,127 @@ class AnalyzeDBs(AnalyzeSystems):
 
         logging.info(f'(PostgreSQL) Experiment timing results saved to: {timing_path}')
 
+    def solve_with_mariadb(
+        self,
+        fact_file: Path,
+        rule_file: Path,
+        timing_path: Path,
+        output_folder: Path,
+    ) -> None:
+        conn = pymysql.connect(
+            host='localhost',
+            user='root',
+            password='sirneij',
+            database='sirneij',
+            local_infile=True,  # Enable local infile
+        )
+        cursor = conn.cursor()
+
+        logging.info('Executing for mariadb.')
+
+        results_path = output_folder / 'mariadb_results.csv'
+        with open(rule_file, 'r') as f:
+            sql_script = f.read()
+
+        sql_script = sql_script.replace('{data_file}', f'{fact_file}')
+
+        # Split the script into individual commands
+        sql_commands = [
+            f'{command.strip()};'
+            for command in sql_script.split(';')
+            if command.strip()
+        ]
+
+        timing_results = {header: 0 for header in self.headers}
+
+        for i, command in enumerate(sql_commands):
+            start_time = os.times()
+            try:
+                cursor.execute(command)
+                conn.commit()
+            except pymysql.MySQLError as e:
+                logging.error(f'Error executing command: {command}. Error: {e}')
+            end_time = os.times()
+            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
+            timing_results[self.headers[2 * i]] = real_time
+            timing_results[self.headers[2 * i + 1]] = cpu_time
+
+        # Close the cursor and the connection
+        cursor.close()
+        conn.close()
+
+        # Write timing results to CSV file
+        is_new_file = not timing_path.exists()
+        with open(timing_path, 'a', newline='') as csvfile:
+            csv_writer = csv.writer(csvfile)
+            if is_new_file:
+                csv_writer.writerow(self.headers)
+            csv_writer.writerow([timing_results[header] for header in self.headers])
+
+        # NOTE: There is an issue with mariadb that prevents programs from writing into any
+        #  directory of choice even after I set `secure_file_priv = ""` in `~/.my.cnf`,
+        # `/etc/mysql/my.cnf` in my Ubuntu (`~/.my.ini` works for Windows)
+        # but I could write into `/tmp/` so I did that temporarily and thereafter decided to move
+        # it to the desired file location using the lines below.
+        password = 'sirneij'
+        command = ['sudo', '-S', 'mv', '/tmp/test_mariadb.csv', f'{results_path}']
+        # Run the command and pass the password
+        try:
+            subprocess.run(
+                command, input=f'{password}\n', text=True, capture_output=True
+            )
+        except Exception as e:
+            logging.error(f'mv error: {e}')
+
+    def solve_with_duckdb(
+        self,
+        fact_file: Path,
+        rule_file: Path,
+        timing_path: Path,
+        output_folder: Path,
+    ) -> None:
+        # Create or connect to DuckDB database (in-memory or file-based)
+        conn = duckdb.connect(
+            database=':memory:'
+        )  # Use ':memory:' for in-memory database
+        with open(rule_file, 'r') as f:
+            sql_script = f.read()
+
+        results_path = output_folder / 'duckdb_results.csv'
+        sql_script = sql_script.replace('{data_file}', f'{fact_file}')
+        sql_script = sql_script.replace('{output_file}', f'{results_path}')
+
+        # Split the script into individual commands
+        sql_commands = [
+            f'{command.strip()};'
+            for command in sql_script.split(';')
+            if command.strip()
+        ]
+
+        timing_results = {header: 0 for header in self.headers}
+
+        for i, command in enumerate(sql_commands):
+            start_time = os.times()
+            try:
+                conn.execute(command)
+            except Exception as e:
+                logging.error(f'Error executing command: {command}. Error: {e}')
+            end_time = os.times()
+            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
+            timing_results[self.headers[2 * i]] = real_time
+            timing_results[self.headers[2 * i + 1]] = cpu_time
+
+        # Close the cursor and the connection
+        conn.close()
+
+        # Write timing results to CSV file
+        is_new_file = not timing_path.exists()
+        with open(timing_path, 'a', newline='') as csvfile:
+            csv_writer = csv.writer(csvfile)
+            if is_new_file:
+                csv_writer.writerow(self.headers)
+            csv_writer.writerow([timing_results[header] for header in self.headers])
+
     def analyze(self) -> None:
         output_folder = self.get_output_folder()
         logging.info(f'Output folder: {output_folder}')
@@ -126,9 +266,9 @@ def main() -> None:
     )
     parser.add_argument(
         '--environment',
-        choices=['clingo', 'xsb', 'souffle', 'postgres'],
+        choices=DB_SYSTEMS,
         required=True,
-        help='Logic programming environment to use. Choose from clingo, xsb, postgres, or souffle.',
+        help='Database environment to use. Example is postgres or mariadb.',
     )
     args = parser.parse_args()
 
@@ -136,9 +276,7 @@ def main() -> None:
         args.environment, args.mode, args.graph_type, args.size
     )
 
-    analyze_dbs = AnalyzeDBs(
-        args.environment, rule_path, input_path, timing_path
-    )
+    analyze_dbs = AnalyzeDBs(args.environment, rule_path, input_path, timing_path)
     analyze_dbs.analyze()
 
 

@@ -10,6 +10,7 @@ from pathlib import Path
 import clingo
 
 from common import AnalyzeSystems, get_files
+from transitive import OTHER_LOGIC_SYSTEMS
 
 # Set up logging with a specific format
 logging.basicConfig(
@@ -405,9 +406,9 @@ def main() -> None:
     )
     parser.add_argument(
         '--environment',
-        choices=['clingo', 'xsb', 'souffle', 'postgres'],
+        choices=OTHER_LOGIC_SYSTEMS,
         required=True,
-        help='Logic programming environment to use. Choose from clingo, xsb, postgres, or souffle.',
+        help='Logic programming environment to use. Example is clingo or xsb.',
     )
     parser.add_argument(
         '--souffle-include-dir',

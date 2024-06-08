@@ -12,6 +12,27 @@ from pathlib import Path
 logging.basicConfig(
     level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s'
 )
+ALDA = ['alda']
+OTHER_LOGIC_SYSTEMS = ['xsb', 'clingo', 'souffle']
+LOGIC_SYSTEMS = OTHER_LOGIC_SYSTEMS + ALDA
+DB_SYSTEMS = [
+    'postgres',
+    'mariadb',
+    'duckdb',
+    'mongodb',
+    'neo4j',
+    'cockroachdb',
+    'memdb',
+]
+# Define the file extensions for different logic programming environments
+ENVIRONMENT_EXTENSIONS = {
+    'clingo': '.lp',
+    'xsb': '.P',
+    'souffle': '.dl',
+    'postgres': '.sql',
+    'mariadb': '.sql',
+    'duckdb': '.sql',
+}
 
 
 class Experiment:
@@ -164,7 +185,7 @@ class Experiment:
 
         output_path = output_dir / f'timing_{mode}_graph_{size}.csv'
 
-        if env_name == 'alda':
+        if env_name in ALDA:
             command = [
                 'python',
                 '-m',
@@ -180,7 +201,7 @@ class Experiment:
                 '--graph-type',
                 graph_type,
             ]
-        elif env_name in ['souffle', 'xsb', 'clingo']:
+        elif env_name in OTHER_LOGIC_SYSTEMS:
             logging.info(f'Analyzing {env_name} among the logic systems')
             command = [
                 'python',
@@ -196,7 +217,7 @@ class Experiment:
                 '--souffle-include-dir',
                 souffle_include_dir,
             ]
-        elif env_name in ['postgres', 'mariadb', 'duckdb']:
+        elif env_name in DB_SYSTEMS:
             logging.info(f'Analyzing {env_name} among the DBs')
             command = [
                 'python',
@@ -343,13 +364,6 @@ def main() -> None:
     )
 
     modes = ['right_recursion', 'left_recursion', 'double_recursion']
-    environments = [
-        'xsb',
-        'clingo',
-        'souffle',
-        'alda',
-        'postgres',
-    ]
     graph_types = [
         'complete',
         'cycle',
@@ -377,9 +391,9 @@ def main() -> None:
     parser.add_argument(
         '--environments',
         nargs='+',
-        default=environments,
-        choices=environments,
-        help='The environments to run the experiment in. Default is clingo xsb souffle alda.',
+        default=LOGIC_SYSTEMS + DB_SYSTEMS,
+        choices=LOGIC_SYSTEMS + DB_SYSTEMS,
+        help='The environments to run the experiment in. Default is all the systems.',
     )
 
     parser.add_argument(
