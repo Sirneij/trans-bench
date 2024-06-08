@@ -182,3 +182,21 @@ class AnalyzeSystems:
         timings = dict(zip(steps, times_in_seconds))
 
         return timings
+
+    def get_output_folder(self) -> Path:
+        pattern = r'^timing_(.*?)_graph_(\d+)\.csv$'
+        match = re.match(pattern, self.timing_path.name)
+        mode, size = '', ''
+        if match:
+            mode, size = match.groups()
+
+        output_file_mode = self.timing_path.parent / f'{mode}'
+        output_file_mode.parent.mkdir(parents=True, exist_ok=True)
+
+        output_folder = output_file_mode / f'{size}'
+        output_folder.mkdir(parents=True, exist_ok=True)
+
+        return output_folder
+
+    def analyze(self) -> None:
+        raise NotImplementedError

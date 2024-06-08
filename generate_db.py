@@ -146,7 +146,6 @@ class GraphGenerator:
     def save_for_alda(self, graph_generator_func, size, filename: Path):
         graph_generator = graph_generator_func(size)
         data_set_of_tuples = set(graph_generator)
-        logging.info(f'Data set of tuples: {data_set_of_tuples}')
         with open(filename, 'wb') as f:
             pickle.dump(data_set_of_tuples, f)
 
@@ -155,7 +154,6 @@ class GraphGenerator:
     ):
         graph_generator = graph_generator_func(size)
         with open(filename, 'w') as file:
-            logging.info(f'Saving for clingo/xsb: {filename}, Data: {graph_generator}')
             for value in graph_generator:
                 first, second = value
                 file.write(f'{first}\t{second}\n')
@@ -165,7 +163,6 @@ class GraphGenerator:
     ):
         graph_generator = graph_generator_func(size)
         with open(filename, 'w') as file:
-            logging.info(f'Saving for clingo/xsb: {filename}, Data: {graph_generator}')
             for value in graph_generator:
                 file.write(f'{fact_name}' + str(value) + '.\n')
 

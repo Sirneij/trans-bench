@@ -9,7 +9,7 @@ from pathlib import Path
 
 import clingo
 
-from .common import AnalyzeSystems, get_files
+from common import AnalyzeSystems, get_files
 
 # Set up logging with a specific format
 logging.basicConfig(
@@ -39,51 +39,34 @@ class AnalyzeLogicSystems(AnalyzeSystems):
         This function checks the environment and calls the appropriate function to execute a query and log the time taken for various stages.
         The functions for Clingo, XSB, and Souffle are assumed to be defined elsewhere in the same module.
         """
-        pattern = r'^timing_(.*?)_graph_(\d+)\.csv$'
-        match = re.match(pattern, self.timing_path.name)
-        mode, size = '', ''
-        if match:
-            mode, size = match.groups()
-
-        output_file_mode = self.timing_path.parent / f'{mode}'
-        output_file_mode.parent.mkdir(parents=True, exist_ok=True)
-
-        output_folder = output_file_mode / f'{size}'
-        output_folder.mkdir(parents=True, exist_ok=True)
+        output_folder = self.get_output_folder()
         logging.info(f'Output folder: {output_folder}')
-        if self.environment == 'clingo':
-            self.solve_with_clingo(
-                self.input_path, self.rule_path, self.timing_path, output_folder
+
+        common_args = [self.input_path, self.rule_path, self.timing_path, output_folder]
+
+        environment_methods = {
+            'clingo': (self.solve_with_clingo, common_args),
+            'xsb': (self.solve_with_xsb, common_args),
+            'souffle': (
+                self.solve_with_souffle,
+                common_args + [self.souffle_include_dir],
+            ),
+        }
+
+        solve_method, args = environment_methods.get(self.environment, (None, None))
+
+        if solve_method is None:
+            logging.error(
+                f"'{self.environment}' is not supported or method is missing."
             )
-        elif self.environment == 'xsb':
-            self.solve_with_xsb(
-                self.input_path,
-                self.rule_path,
-                self.queries,
-                self.timing_path,
-                output_folder,
-            )
-        elif self.environment == 'souffle':
-            self.solve_with_souffle(
-                self.input_path,
-                self.rule_path,
-                self.timing_path,
-                output_folder,
-                self.souffle_include_dir,
-            )
-        elif self.environment == 'postgres':
-            self.solve_with_postgresql(
-                self.input_path,
-                self.rule_path,
-                self.timing_path,
-                output_folder,
-            )
+            return
+
+        solve_method(*args)
 
     def solve_with_xsb(
         self,
         fact_file: Path,
         rule_file: Path,
-        queries: str,
         timing_path: Path,
         output_folder: Path,
     ) -> None:
@@ -96,20 +79,19 @@ class AnalyzeLogicSystems(AnalyzeSystems):
         Args:
             `fact_file (Path)`: The path to the fact file.
             `rule_file (Path)`: The path to the rule file.
-            `queries (str)`: The queries to run.
             `timing_path (Path)`: The path to the timing CSV file.
             `output_folder (Path)`: The path to the output folder.
         """
         logging.info(
-            f"Running XSB with fact file {fact_file}, rule file {rule_file}, and queries {queries}"
+            f"Running XSB with fact file {fact_file}, rule file {rule_file}, and queries {self.queries}"
         )
 
         xsb_export_path = rule_file.parent / 'xsb_export'
         results_path = output_folder / 'xsb_results.txt'
 
         # Prepare the XSB command
-        xsb_query_1 = f"extfilequery:external_file_query_only('{rule_file}','{fact_file}',{queries},'{results_path}')."
-        xsb_query_2 = f"extfilequery:external_file_query('{rule_file}','{fact_file}',{queries},'{results_path}')."
+        xsb_query_1 = f"extfilequery:external_file_query_only('{rule_file}','{fact_file}',{self.queries},'{results_path}')."
+        xsb_query_2 = f"extfilequery:external_file_query('{rule_file}','{fact_file}',{self.queries},'{results_path}')."
         xsb_command_1 = [
             'xsb',
             '--nobanner',
@@ -399,76 +381,6 @@ class AnalyzeLogicSystems(AnalyzeSystems):
         generated_cpp_filename.unlink()
 
         gc.collect()
-
-    def solve_with_postgresql(
-        self,
-        fact_file: Path,
-        rule_file: Path,
-        timing_path: Path,
-        output_folder: Path,
-    ) -> None:
-
-        # Read the SQL script and substitute the placeholders
-        with open(rule_file, 'r') as f:
-            sql_script = f.read()
-
-        # Substitute the placeholders with actual file paths
-        results_path = output_folder / 'pg_results.csv'
-        sql_script = sql_script.replace('{data_file}', f'{fact_file}')
-        sql_script = sql_script.replace('{output_file}', f'{results_path}')
-
-        # Write the modified script to a temporary file
-        temp_file = rule_file.parent / f'{rule_file.stem}_temp.sql'
-        with open(temp_file, 'w') as f:
-            f.write(sql_script)
-
-        # Execute the script using psql
-        command = ['psql', '-f', temp_file]
-
-        result = subprocess.run(command, capture_output=True, text=True)
-
-        # Parse the timing information
-        timings = self.parse_postgresql_timings(result.stdout)
-
-        # Write the timing data to the output CSV file
-        is_new_file = not timing_path.exists()
-        with open(timing_path, 'a', newline='') as csvfile:
-            writer = csv.writer(csvfile)
-            if is_new_file:
-                writer.writerow(
-                    [
-                        'CreateTableRealTime',
-                        'CreateTableCPUTime',
-                        'LoadDataRealTime',
-                        'LoadDataCPUTime',
-                        'CreateIndexRealTime',
-                        'CreateIndexCPUTime',
-                        'AnalyzeRealTime',
-                        'AnalyzeCPUTime',
-                        'ExecuteQueryRealTime',
-                        'ExecuteQueryCPUTime',
-                        'WriteResultRealTIme',
-                        'WriteResultCPUTIme',
-                    ]
-                )
-            writer.writerow(
-                [
-                    timings['CreateTable'],
-                    0.0,
-                    timings['LoadData'],
-                    0.0,
-                    timings['CreateIndex'],
-                    0.0,
-                    timings['Analyze'],
-                    0.0,
-                    timings['ExecuteQuery'],
-                    0.0,
-                    timings['WriteResult'],
-                    0.0,
-                ]
-            )
-
-        logging.info(f'(PostgreSQL) Experiment timing results saved to: {timing_path}')
 
 
 def main() -> None:

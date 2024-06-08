@@ -181,6 +181,7 @@ class Experiment:
                 graph_type,
             ]
         elif env_name in ['souffle', 'xsb', 'clingo']:
+            logging.info(f'Analyzing {env_name} among the logic systems')
             command = [
                 'python',
                 'analyze_logic_systems.py',
@@ -196,6 +197,7 @@ class Experiment:
                 souffle_include_dir,
             ]
         elif env_name in ['postgres', 'mariadb', 'duckdb']:
+            logging.info(f'Analyzing {env_name} among the DBs')
             command = [
                 'python',
                 'analyze_dbs.py',
