@@ -180,10 +180,10 @@ class Experiment:
                 '--graph-type',
                 graph_type,
             ]
-        else:
+        elif env_name in ['souffle', 'xsb', 'clingo']:
             command = [
                 'python',
-                'analyze_others.py',
+                'analyze_logic_systems.py',
                 '--environment',
                 env_name,
                 '--size',
@@ -194,6 +194,19 @@ class Experiment:
                 graph_type,
                 '--souffle-include-dir',
                 souffle_include_dir,
+            ]
+        elif env_name in ['postgres', 'mariadb', 'duckdb']:
+            command = [
+                'python',
+                'analyze_dbs.py',
+                '--environment',
+                env_name,
+                '--size',
+                str(size),
+                '--mode',
+                mode,
+                '--graph-type',
+                graph_type,
             ]
 
         # Run the program 10 times

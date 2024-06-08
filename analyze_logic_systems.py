@@ -9,21 +9,15 @@ from pathlib import Path
 
 import clingo
 
+from .common import AnalyzeSystems, get_files
+
 # Set up logging with a specific format
 logging.basicConfig(
     level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s'
 )
 
-# Define the file extensions for different logic programming environments
-ENVIRONMENT_EXTENSIONS = {
-    'clingo': '.lp',
-    'xsb': '.P',
-    'souffle': '.dl',
-    'postgres': '.sql',
-}
 
-
-class AnalyzeOthers:
+class AnalyzeLogicSystems(AnalyzeSystems):
     def __init__(
         self,
         environment: str,
@@ -32,37 +26,11 @@ class AnalyzeOthers:
         timing_path: Path,
         souffle_include_dir: str,
     ):
-        self.environment = environment
-        self.rule_path = rule_path
-        self.input_path = input_path
-        self.timing_path = timing_path
+        super().__init__(environment, rule_path, input_path, timing_path)
         self.souffle_include_dir = souffle_include_dir
         self.queries = (
             "[[query1, path(X, Y)]]"  # Each query is a list: [Identifier, Query]
         )
-
-    def __estimate_time_duration(self, t1: tuple, t2: tuple) -> tuple[float, float]:
-        """
-        Estimates the time duration between two time points.
-
-        This function calculates the elapsed time and the CPU time used between two time points. The time points are tuples containing user time, system time,
-        child user time, child system time, and elapsed real time.
-
-        Args:
-            `t1 (tuple)`: The first time point. It is a tuple of the form (user time, system time, child user time, child system time, elapsed real time).
-            `t2 (tuple)`: The second time point. It is a tuple of the form (user time, system time, child user time, child system time, elapsed real time).
-
-        Step-by-step logic:
-        1. Unpack the tuples t1 and t2 into their respective components.
-        2. Calculate the difference in elapsed real time between t2 and t1.
-        3. Calculate the difference in user time, system time, child user time, and child system time between t2 and t1, and sum these differences.
-
-        Returns:
-            tuple: A tuple containing the difference in elapsed real time and the sum of the differences in user time, system time, child user time, and child system time.
-        """
-        u1, s1, cu1, cs1, elapsed1 = t1
-        u2, s2, cu2, cs2, elapsed2 = t2
-        return elapsed2 - elapsed1, u2 - u1 + s2 - s1 + cu2 - cu1 + cs2 - cs1
 
     def analyze(self):
         """
@@ -70,14 +38,6 @@ class AnalyzeOthers:
 
         This function checks the environment and calls the appropriate function to execute a query and log the time taken for various stages.
         The functions for Clingo, XSB, and Souffle are assumed to be defined elsewhere in the same module.
-
-        Step-by-step logic:
-        1. Check the environment.
-        2. If the environment is 'clingo', call the function solve_with_clingo with the input file, rule file, and output file.
-        3. If the environment is 'xsb', call the function solve_with_xsb with the input file, rule file, the query 'printPath(X, Y)', and the output file.
-        4. If the environment is 'souffle', call the function solve_with_souffle with the input file, rule file, and output file.
-        5. If the environment is not one of the above, log an error message.
-
         """
         pattern = r'^timing_(.*?)_graph_(\d+)\.csv$'
         match = re.match(pattern, self.timing_path.name)
@@ -139,16 +99,6 @@ class AnalyzeOthers:
             `queries (str)`: The queries to run.
             `timing_path (Path)`: The path to the timing CSV file.
             `output_folder (Path)`: The path to the output folder.
-
-        Step-by-step logic:
-        1. Log the fact file, rule file, and query.
-        2. Prepare the XSB command with the fact file, rule file, and query.
-        3. Run the XSB command and capture the output.
-        4. Extract the loading and querying times from the output.
-        5. Write the loading and querying times to the output CSV file.
-        6. Log the path to the output CSV file.
-        7. Delete all .xwam files in the rule file directory to clean up.
-
         """
         logging.info(
             f"Running XSB with fact file {fact_file}, rule file {rule_file}, and queries {queries}"
@@ -275,19 +225,6 @@ class AnalyzeOthers:
             `rule_file (Path)`: The path to the rule file.
             `timing_path (Path)`: The path to the timing CSV file.
             `output_folder (Path)`: The path to the output folder.
-
-        Step-by-step logic:
-        1. Create a Clingo control object.
-        2. Measure the time before loading the facts and rules.
-        3. Load the facts and rules.
-        4. Measure the time after loading the facts and rules.
-        5. Measure the time before executing the query.
-        6. Execute the query.
-        7. Measure the time after executing the query.
-        8. Calculate the loading and querying times.
-        9. Write the loading and querying times to the output CSV file.
-        10. Log the path to the output CSV file.
-
         """
         try:
             ctl = clingo.Control()
@@ -323,17 +260,15 @@ class AnalyzeOthers:
 
             logging.info(f'(Clingo) Results written to: {output_file}')
 
-            load_rule_times = self.__estimate_time_duration(
+            load_rule_times = self.estimate_time_duration(
                 t_load_rule_begin, t_load_rule_end
             )
-            load_facts_times = self.__estimate_time_duration(
+            load_facts_times = self.estimate_time_duration(
                 t_load_facts_begin, t_load_facts_end
             )
-            ground_times = self.__estimate_time_duration(t_ground_begin, t_ground_end)
-            query_times = self.__estimate_time_duration(t_query_begin, t_query_end)
-            query_times_w = self.__estimate_time_duration(
-                t_query_w_begin, t_query_w_end
-            )
+            ground_times = self.estimate_time_duration(t_ground_begin, t_ground_end)
+            query_times = self.estimate_time_duration(t_query_begin, t_query_end)
+            query_times_w = self.estimate_time_duration(t_query_w_begin, t_query_w_end)
 
             write_time = abs(float(query_times_w[0] - query_times[0]))
             write_cpu_time = abs(float(query_times_w[1] - query_times[1]))
@@ -395,14 +330,6 @@ class AnalyzeOthers:
             `timing_path (str)`: The path to the CSV file where the timing data will be written.
             `output_folder (str)`: The path to the folder where the output of the Datalog program will be written.
             `include_dir (str)`: The path to the directory containing the Souffle C++ headers.
-
-        Step-by-step logic:
-        1. Generate C++ code from the Datalog program using Souffle.
-        2. Compile the generated C++ code using g++.
-        3. Run the compiled program.
-        4. Log the timing data for each of these steps.
-        5. Write the timing data to a CSV file.
-        6. Delete the executable file and the generated C++ file to clean up.
         """
         souffle_export_path = Path('souffle_rules') / 'souffle_export'
         souffle_export_file = souffle_export_path / 'main'
@@ -410,17 +337,17 @@ class AnalyzeOthers:
 
         # Run the command to generate C++ code from Datalog
         datalog_to_cpp_cmd = f'souffle {rule_file} -F {fact_file} -w -g {generated_cpp_filename} -D {output_folder}'
-        datalog_to_cpp_result = self.__run_souffle_command(datalog_to_cpp_cmd)
+        datalog_to_cpp_result = self.run_souffle_command(datalog_to_cpp_cmd)
 
         # Compile the generated C++ code with the main.cpp file using g++ with C++17 standard
         # and the include directory for Souffle C++ headers.
         # Preprocessor macro __EMBEDDED_SOUFFLE__ is defined to prevent main() from being generated.
         compile_cmd = f'g++ {souffle_export_file}.cpp {generated_cpp_filename} -std=c++17 -I {include_dir} -o {souffle_export_file} -D__EMBEDDED_SOUFFLE__'
-        compile_result = self.__run_souffle_command(compile_cmd)
+        compile_result = self.run_souffle_command(compile_cmd)
 
         # Run the compiled program with the fact file
         run_cmd = f'./{souffle_export_file} {fact_file}'
-        run_result = self.__run_souffle_command(run_cmd)
+        run_result = self.run_souffle_command(run_cmd)
         logging.info(
             f'Results: DTC: {datalog_to_cpp_result}, CR: {compile_result}, RR: {run_result}'
         )
@@ -501,7 +428,7 @@ class AnalyzeOthers:
         result = subprocess.run(command, capture_output=True, text=True)
 
         # Parse the timing information
-        timings = self.__parse_postgresql_timings(result.stdout)
+        timings = self.parse_postgresql_timings(result.stdout)
 
         # Write the timing data to the output CSV file
         is_new_file = not timing_path.exists()
@@ -543,127 +470,6 @@ class AnalyzeOthers:
 
         logging.info(f'(PostgreSQL) Experiment timing results saved to: {timing_path}')
 
-    def __parse_postgresql_timings(self, output: str) -> dict[str, float]:
-        # Regular expression to match timing lines
-        timing_regex = re.compile(r'Time:\s+([\d.]+)\s+ms')
-
-        # Define the steps in the order they appear
-        steps = [
-            'CreateTable',
-            'LoadData',
-            'CreateIndex',
-            'Analyze',
-            'ExecuteQuery',
-            'WriteResult',
-        ]
-
-        # Find all timing values in the output
-        times = timing_regex.findall(output)
-
-        # Convert times from milliseconds to seconds
-        times_in_seconds = [float(time) / 1000 for time in times]
-
-        # Map steps to their corresponding timing values
-        timings = dict(zip(steps, times_in_seconds))
-
-        return timings
-
-    def __run_souffle_command(self, command: str) -> tuple[str, dict[str, float]]:
-        """
-        Executes a given Souffle command and logs the output, error, and timing data.
-
-        This function takes in a Souffle command, executes it using the subprocess module, and logs the output, error, and timing data. If the command fails, it logs the error and returns a failure message. If the command succeeds, it calculates the real time and CPU time used and returns these values along with the parsed timing data.
-
-        Args:
-            `command (str)`: The Souffle command to be executed.
-
-        Step-by-step logic:
-        1. Log the command to be executed.
-        2. Execute the command using the subprocess module.
-        3. If the command fails, log the error and return a failure message.
-        4. If the command succeeds, log the output, error, and parsed timing data.
-        5. Calculate the real time and CPU time used.
-        6. Return the real time, CPU time, and parsed timing data.
-
-        Returns:
-            `tuple`: A tuple containing the real time, CPU time, and parsed timing data if the command succeeds. If the command fails, it returns a failure message.
-        """
-        logging.info(f'Executing command: {command}')
-        try:
-            time_begin = os.times()
-            result = subprocess.run(
-                command,
-                shell=True,
-                check=True,
-                stderr=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                text=True,
-            )
-            time_end = os.times()
-            logging.info(f'Output: {result.stdout}')
-            logging.info(f'Error: {result.stderr}')
-            timing_data = self.__parse_souffle_timing_data(result.stdout)
-            logging.info(f"Parsed timing data: {timing_data}")
-        except subprocess.CalledProcessError as e:
-            logging.info(f"Command failed: {e}")
-            return 'Command failed'
-        except Exception as e:
-            logging.error(f"Error: {e}")
-            return 'Error'
-
-        if result.returncode == 0:
-            real_time, cpu_time = self.__estimate_time_duration(time_begin, time_end)
-            return f"{real_time},{cpu_time}", timing_data
-        else:
-            return '0,0', {}
-
-    def __parse_souffle_timing_data(self, output: str) -> dict[str, float]:
-        """
-        Parses the timing data from the output of a Souffle command.
-
-        This function takes in the output of a Souffle command, extracts the timing data using a regular expression, and returns this data as a dictionary.
-
-        Args:
-            `output (str)`: The output of a Souffle command.
-
-        Step-by-step logic:
-        1. Define a regular expression pattern that matches the timing data in the output.
-        2. Use the re.findall function to find all matches of the pattern in the output.
-        3. Convert the list of matches into a dictionary and return it.
-
-        Returns:
-            `dict`: A dictionary where the keys are the names of the timing metrics (e.g., 'Loading time', 'Query time') and the values are the corresponding times in seconds.
-        """
-        pattern = r'(\w+ time): (\d+\.\d+) seconds'
-        timings = re.findall(pattern, output)
-        return dict(timings)
-
-
-def discover_rules(rules_dir: Path, extension: str) -> dict[str, Path]:
-    """
-    Discovers rule files in a directory and maps rule names to file paths.
-
-    This function searches for files with a given extension in a directory. It then maps the rule name from each file name (the part after the first underscore)
-    to the file path. The function returns this mapping as a dictionary.
-
-    Args:
-        `rules_dir (Path)`: The directory to search for rule files.
-        `extension (str)`: The extension of the rule files.
-
-    Step-by-step logic:
-    1. Use a dictionary comprehension to create a dictionary.
-    2. For each file in the directory that matches the given extension:
-        a. Extract the rule name from the file name by splitting the name at the first underscore and taking the second part.
-        b. Map the rule name to the file path.
-
-    Returns:
-        dict[str, Path]: A dictionary mapping rule names to file paths.
-    """
-    return {
-        rule_file.stem.split('_', 1)[-1]: rule_file
-        for rule_file in rules_dir.glob(f'*{extension}')
-    }
-
 
 def main() -> None:
     """
@@ -671,15 +477,6 @@ def main() -> None:
 
     This function parses command-line arguments for the size of the input graph, the mode of the rule file to use, the type of graph to analyze, and the logic
     programming environment to use. It then runs an experiment using these parameters and logs the time taken for various stages.
-
-    Step-by-step logic:
-    1. Parse command-line arguments.
-    2. Log the experiment parameters.
-    3. Determine the paths to the rule file and the input file.
-    4. Log the paths to the rule file and the input file.
-    5. Determine the path to the output CSV file.
-    6. Run the experiment using the specified parameters.
-
     """
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -711,41 +508,14 @@ def main() -> None:
         f'Running experiment for {args.environment} environment with mode: {args.mode} and size: {args.size}'
     )
 
-    project_root = Path(__file__).parent
-    rules_dir = project_root / f'{args.environment}_rules'
-    RULES_FILES = discover_rules(rules_dir, ENVIRONMENT_EXTENSIONS[args.environment])
+    rule_path, input_path, timing_path = get_files(
+        args.environment, args.mode, args.graph_type, args.size
+    )
 
-    if args.mode not in RULES_FILES:
-        logging.error(f'Rule file not found for mode: {args.mode}')
-        return
-
-    input_dir = Path('input')
-    if args.environment in ['souffle', 'postgres']:
-        if args.environment == 'souffle':
-            input_path = input_dir / 'souffle' / args.graph_type / str(args.size)
-        else:
-            input_path = (
-                input_dir / 'souffle' / args.graph_type / str(args.size) / 'edge.facts'
-            )
-    else:
-        inputfile = f'graph_{args.size}.lp'
-        input_path = input_dir / 'clingo_xsb' / args.graph_type / inputfile
-    rule_path = RULES_FILES[args.mode]
-
-    logging.info(f'Using rule file: {rule_path} and input file: {input_path}')
-
-    timing_dir = Path('timing') / args.environment / args.graph_type
-    timing_dir.mkdir(parents=True, exist_ok=True)
-    if args.environment in ['souffle', 'postgres']:
-        output_file_name = f'timing_{args.mode}_graph_{args.size}.csv'
-    else:
-        output_file_name = f'timing_{args.mode}_{input_path.stem}.csv'
-    timing_path = timing_dir / output_file_name
-
-    analyze_others = AnalyzeOthers(
+    analyze_logic_systems = AnalyzeLogicSystems(
         args.environment, rule_path, input_path, timing_path, args.souffle_include_dir
     )
-    analyze_others.analyze()
+    analyze_logic_systems.analyze()
 
 
 if __name__ == '__main__':

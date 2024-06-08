@@ -3,7 +3,7 @@
 -- Brass, Stefan, and Mario Wenzel. "Performance Analysis and Comparison of Deductive Systems and SQL Databases." Datalog. 2019.
 
 -- Modifications:
--- 1. Removed dropping table because I now use temporary which drops automatically and has improved load time (see the reference).
+-- 1. I now use temporary table which has improved load time (see the reference).
 -- 2. Changed table name from `par` to `tc_path`
 -- 3. Made the path to the data source dynamic
 -- 4. Created temporary table for storing results so that they could be written to file later
@@ -11,6 +11,8 @@
 -- 6. Dump the results to a file.
 
 \timing ON
+
+DROP TABLE IF EXISTS tc_path;
 
 -- Create temporary table
 CREATE TEMPORARY TABLE tc_path(x INTEGER NOT NULL, y INTEGER NOT NULL);
