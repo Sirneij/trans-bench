@@ -1,13 +1,15 @@
 import argparse
 import csv
 import gc
+import json
 import logging
 import os
 import subprocess
 from pathlib import Path
 
 import duckdb
-import pymysql
+import pexpect
+from neo4j import GraphDatabase
 
 from common import AnalyzeSystems, get_files
 from transitive import DB_SYSTEMS
@@ -25,9 +27,10 @@ class AnalyzeDBs(AnalyzeSystems):
         rule_path: Path,
         input_path: Path,
         timing_path: Path,
+        config: dict,
     ):
         super().__init__(environment, rule_path, input_path, timing_path)
-        self.headers = [
+        self.headers_rdbms = [
             'CreateTableRealTime',
             'CreateTableCPUTime',
             'LoadDataRealTime',
@@ -41,23 +44,34 @@ class AnalyzeDBs(AnalyzeSystems):
             'WriteResultRealTime',
             'WriteResultCPUTime',
         ]
+        self.headers_nosql = [
+            'DeleteDataRealTime',
+            'DeleteDataCPUTime',
+            'LoadDataRealTime',
+            'LoadDataCPUTime',
+            'CreateIndexRealTime',
+            'CreateIndexCPUTime',
+            'QueryRealTime',
+            'QueryCPUTime',
+            'WriteResultRealTime',
+            'WriteResultCPUTime',
+        ]
         self.conn = None
         self.db_path = None
+        self.config = config
 
     def connect(self, rule_path: str = None):
-        if self.environment == 'mariadb':
-            self.conn = pymysql.connect(
-                host='localhost',
-                user='root',
-                password='sirneij',
-                database='sirneij',
-                local_infile=True,
-            )
-        elif self.environment == 'duckdb':
+        if self.environment == 'duckdb':
             if rule_path is not None:
                 self.db_path = Path(rule_path).parent / 'duckdb' / 'duckdb_file.db'
                 self.db_path.parent.mkdir(parents=True, exist_ok=True)
             self.conn = duckdb.connect(database=str(self.db_path))
+
+        elif self.environment == 'neo4j':
+            self.driver = GraphDatabase.driver(
+                self.config['neo4j']['uri'],
+                auth=(self.config['neo4j']['user'], self.config['neo4j']['password']),
+            )
 
     def close(self):
         if self.conn:
@@ -65,6 +79,8 @@ class AnalyzeDBs(AnalyzeSystems):
             self.conn = None
         if self.db_path and self.db_path.exists():
             os.remove(self.db_path)
+        if hasattr(self, 'driver'):
+            self.driver.close()
 
     def solve_with_postgres(
         self,
@@ -91,7 +107,7 @@ class AnalyzeDBs(AnalyzeSystems):
             if command.strip()
         ]
 
-        timing_results = {header: 0 for header in self.headers}
+        timing_results = {header: 0 for header in self.headers_rdbms}
 
         for i, command in enumerate(sql_commands):
             exec_command = ['psql', '-c', command]
@@ -102,16 +118,18 @@ class AnalyzeDBs(AnalyzeSystems):
                 logging.error(f'Error executing command: {command}. Error: {e}')
             end_time = os.times()
             real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-            timing_results[self.headers[2 * i]] = real_time
-            timing_results[self.headers[2 * i + 1]] = cpu_time
+            timing_results[self.headers_rdbms[2 * i]] = real_time
+            timing_results[self.headers_rdbms[2 * i + 1]] = cpu_time
 
         # Write timing results to CSV file
         is_new_file = not timing_path.exists()
         with open(timing_path, 'a', newline='') as csvfile:
             csv_writer = csv.writer(csvfile)
             if is_new_file:
-                csv_writer.writerow(self.headers)
-            csv_writer.writerow([timing_results[header] for header in self.headers])
+                csv_writer.writerow(self.headers_rdbms)
+            csv_writer.writerow(
+                [timing_results[header] for header in self.headers_rdbms]
+            )
 
         logging.info(f'(PostgreSQL) Experiment timing results saved to: {timing_path}')
 
@@ -148,12 +166,13 @@ class AnalyzeDBs(AnalyzeSystems):
             if command.strip()
         ]
 
-        timing_results = {header: 0 for header in self.headers}
+        timing_results = {header: 0 for header in self.headers_rdbms}
 
-        host = 'localhost'
-        user = 'root'
-        password = 'sirneij'
-        database = 'sirneij'
+        host = self.config['mariadb']['host']
+        user = self.config['mariadb']['user']
+        password = self.config['mariadb']['password']
+        database = self.config['mariadb']['database']
+        machine_user_password = self.config['machineUserPassword']
 
         for i, command in enumerate(sql_commands):
             cmd = (
@@ -168,16 +187,18 @@ class AnalyzeDBs(AnalyzeSystems):
                 logging.error(f'Error executing command: {command}. Error: {e}')
             end_time = os.times()
             real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-            timing_results[self.headers[2 * i]] = real_time
-            timing_results[self.headers[2 * i + 1]] = cpu_time
+            timing_results[self.headers_rdbms[2 * i]] = real_time
+            timing_results[self.headers_rdbms[2 * i + 1]] = cpu_time
 
         # Write timing results to CSV file
         is_new_file = not timing_path.exists()
         with open(timing_path, 'a', newline='') as csvfile:
             csv_writer = csv.writer(csvfile)
             if is_new_file:
-                csv_writer.writerow(self.headers)
-            csv_writer.writerow([timing_results[header] for header in self.headers])
+                csv_writer.writerow(self.headers_rdbms)
+            csv_writer.writerow(
+                [timing_results[header] for header in self.headers_rdbms]
+            )
 
         # Drop the tables created.
         try:
@@ -207,14 +228,10 @@ class AnalyzeDBs(AnalyzeSystems):
             logging.error(f'Copy (cp) /tmp/{e}')
 
         try:
-            subprocess.run(
-                rm_cmd,
-                input=f'{password}\n',
-                text=True,
-                capture_output=True,
-                shell=True,
-                check=True,
-            )
+            child = pexpect.spawn(rm_cmd)
+            child.expect('password')
+            child.sendline(machine_user_password)
+            child.expect(pexpect.EOF)
         except Exception as e:
             logging.error(f'Remove(rm) /tmp/{e}')
 
@@ -240,7 +257,7 @@ class AnalyzeDBs(AnalyzeSystems):
             if command.strip()
         ]
 
-        timing_results = {header: 0 for header in self.headers}
+        timing_results = {header: 0 for header in self.headers_rdbms}
 
         for i, command in enumerate(sql_commands):
             start_time = os.times()
@@ -250,16 +267,110 @@ class AnalyzeDBs(AnalyzeSystems):
                 logging.error(f'Error executing command: {command}. Error: {e}')
             end_time = os.times()
             real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-            timing_results[self.headers[2 * i]] = real_time
-            timing_results[self.headers[2 * i + 1]] = cpu_time
+            timing_results[self.headers_rdbms[2 * i]] = real_time
+            timing_results[self.headers_rdbms[2 * i + 1]] = cpu_time
 
         # Write timing results to CSV file
         is_new_file = not timing_path.exists()
         with open(timing_path, 'a', newline='') as csvfile:
             csv_writer = csv.writer(csvfile)
             if is_new_file:
-                csv_writer.writerow(self.headers)
-            csv_writer.writerow([timing_results[header] for header in self.headers])
+                csv_writer.writerow(self.headers_rdbms)
+            csv_writer.writerow(
+                [timing_results[header] for header in self.headers_rdbms]
+            )
+
+    def solve_with_neo4j(
+        self,
+        fact_file: Path,
+        rule_file: Path,
+        timing_path: Path,
+        output_folder: Path,
+    ) -> None:
+        results_path = output_folder / 'neo4j_results.csv'
+
+        machine_user_password = self.config['machineUserPassword']
+        neo4j_import_dir = self.config['neo4j']['import_directory']
+        fact_file_name = os.path.basename(fact_file)
+
+        cp_cmd = f'sudo cp {fact_file.resolve()} {neo4j_import_dir}/'
+
+        try:
+            child = pexpect.spawn(cp_cmd)
+            child.expect('password')
+            child.sendline(machine_user_password)
+            child.expect(pexpect.EOF)
+        except Exception as e:
+            logging.error(f'Copy(cp) neo4j error: {e}')
+
+        with open(rule_file, 'r') as f:
+            cypher_script = f.read()
+
+        cypher_script = cypher_script.replace('{data_file}', str(fact_file_name))
+
+        commands = [
+            command.strip() for command in cypher_script.split(';') if command.strip()
+        ]
+
+        timing_results = {header: 0 for header in self.headers_nosql}
+
+        with self.driver.session() as session:
+            for i, command in enumerate(
+                commands[:-1]
+            ):  # Execute all but the last command
+                start_time = os.times()
+                try:
+                    session.run(command)
+                except Exception as e:
+                    logging.error(f'Error executing: {command} with error: {e}')
+
+                end_time = os.times()
+                real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
+                timing_results[self.headers_nosql[2 * i]] = real_time
+                timing_results[self.headers_nosql[2 * i + 1]] = cpu_time
+
+            # Execute the last command (query) and write the results to a file
+            query = commands[-1]
+            start_time = os.times()
+            result = session.run(query)
+            records = [(record["startX"], record["endY"]) for record in result]
+            end_time = os.times()
+            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
+            timing_results[self.headers_nosql[-4]] = real_time
+            timing_results[self.headers_nosql[-3]] = cpu_time
+
+            # Write results to the file
+            start_time = os.times()
+            with open(results_path, 'w', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow(["startX", "endY"])
+                writer.writerows(records)
+            end_time = os.times()
+            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
+            timing_results[self.headers_nosql[-2]] = real_time
+            timing_results[self.headers_nosql[-1]] = cpu_time
+
+        # Write timing results to CSV file
+        is_new_file = not timing_path.exists()
+        with open(timing_path, 'a', newline='') as csvfile:
+            csv_writer = csv.writer(csvfile)
+            if is_new_file:
+                csv_writer.writerow(self.headers_nosql)
+            csv_writer.writerow(
+                [timing_results[header] for header in self.headers_nosql]
+            )
+
+        logging.info(f'(Neo4j) Experiment timing results saved to: {timing_path}')
+
+        rm_cmd = f'sudo rm {neo4j_import_dir}/{fact_file_name}'
+
+        try:
+            child = pexpect.spawn(rm_cmd)
+            child.expect('password')
+            child.sendline(machine_user_password)
+            child.expect(pexpect.EOF)
+        except Exception as e:
+            logging.error(f'Remove(rm) neo4j error: {e}')
 
     def analyze(self) -> None:
         output_folder = self.get_output_folder()
@@ -303,11 +414,17 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    config_path = Path('config.json')
+    with open(config_path, 'r') as f:
+        config = json.load(f)
+
     rule_path, input_path, timing_path = get_files(
         args.environment, args.mode, args.graph_type, args.size
     )
 
-    analyze_dbs = AnalyzeDBs(args.environment, rule_path, input_path, timing_path)
+    analyze_dbs = AnalyzeDBs(
+        args.environment, rule_path, input_path, timing_path, config
+    )
     analyze_dbs.connect(rule_path)
     analyze_dbs.analyze()
 

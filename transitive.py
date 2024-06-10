@@ -32,6 +32,7 @@ ENVIRONMENT_EXTENSIONS = {
     'postgres': '.sql',
     'mariadb': '.sql',
     'duckdb': '.sql',
+    'neo4j': '.cypher',
 }
 
 
