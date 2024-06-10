@@ -1,8 +1,8 @@
-CREATE TEMPORARY TABLE tc_path(x INT NOT NULL, y INT NOT NULL);
+CREATE TABLE tc_path(x INT NOT NULL, y INT NOT NULL);
 LOAD DATA LOCAL INFILE '{data_file}' INTO TABLE tc_path FIELDS TERMINATED BY '\t' LINES TERMINATED BY '\n' (x, y);
 CREATE INDEX tc_path_yx ON tc_path(y, x);
 ANALYZE TABLE tc_path;
-CREATE TEMPORARY TABLE tc_result AS
+CREATE TABLE tc_result AS
 WITH RECURSIVE tc AS (
     SELECT tc_path.x, tc_path.y
     FROM tc_path
@@ -12,4 +12,4 @@ WITH RECURSIVE tc AS (
     WHERE tc_path.y = tc.x
 )
 SELECT * FROM tc;
-SELECT * FROM tc_result INTO OUTFILE '/tmp/test_mariadb.csv' FIELDS TERMINATED BY ',' LINES TERMINATED BY '\n';
+SELECT * FROM tc_result INTO OUTFILE '{output_file}' FIELDS TERMINATED BY ',' LINES TERMINATED BY '\n';

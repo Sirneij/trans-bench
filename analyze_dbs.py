@@ -41,6 +41,30 @@ class AnalyzeDBs(AnalyzeSystems):
             'WriteResultRealTime',
             'WriteResultCPUTime',
         ]
+        self.conn = None
+        self.db_path = None
+
+    def connect(self, rule_path: str = None):
+        if self.environment == 'mariadb':
+            self.conn = pymysql.connect(
+                host='localhost',
+                user='root',
+                password='sirneij',
+                database='sirneij',
+                local_infile=True,
+            )
+        elif self.environment == 'duckdb':
+            if rule_path is not None:
+                self.db_path = Path(rule_path).parent / 'duckdb' / 'duckdb_file.db'
+                self.db_path.parent.mkdir(parents=True, exist_ok=True)
+            self.conn = duckdb.connect(database=str(self.db_path))
+
+    def close(self):
+        if self.conn:
+            self.conn.close()
+            self.conn = None
+        if self.db_path and self.db_path.exists():
+            os.remove(self.db_path)
 
     def solve_with_postgres(
         self,
@@ -49,6 +73,7 @@ class AnalyzeDBs(AnalyzeSystems):
         timing_path: Path,
         output_folder: Path,
     ) -> None:
+        logging.info(f'Executing for PostgreSQL.')
 
         # Read the SQL script and substitute the placeholders
         with open(rule_file, 'r') as f:
@@ -56,85 +81,8 @@ class AnalyzeDBs(AnalyzeSystems):
 
         # Substitute the placeholders with actual file paths
         results_path = output_folder / 'postgres_results.csv'
-        sql_script = sql_script.replace('{data_file}', f'{fact_file}')
-        sql_script = sql_script.replace('{output_file}', f'{results_path}')
-
-        # Write the modified script to a temporary file
-        temp_file = rule_file.parent / f'{rule_file.stem}_temp.sql'
-        with open(temp_file, 'w') as f:
-            f.write(sql_script)
-
-        # Execute the script using psql
-        command = ['psql', '-f', temp_file]
-
-        result = subprocess.run(command, capture_output=True, text=True)
-
-        # Parse the timing information
-        timings = self.parse_postgresql_timings(result.stdout)
-
-        # Write the timing data to the output CSV file
-        is_new_file = not timing_path.exists()
-        with open(timing_path, 'a', newline='') as csvfile:
-            writer = csv.writer(csvfile)
-            if is_new_file:
-                writer.writerow(
-                    [
-                        'CreateTableRealTime',
-                        'CreateTableCPUTime',
-                        'LoadDataRealTime',
-                        'LoadDataCPUTime',
-                        'CreateIndexRealTime',
-                        'CreateIndexCPUTime',
-                        'AnalyzeRealTime',
-                        'AnalyzeCPUTime',
-                        'ExecuteQueryRealTime',
-                        'ExecuteQueryCPUTime',
-                        'WriteResultRealTIme',
-                        'WriteResultCPUTIme',
-                    ]
-                )
-            writer.writerow(
-                [
-                    timings['CreateTable'],
-                    0.0,
-                    timings['LoadData'],
-                    0.0,
-                    timings['CreateIndex'],
-                    0.0,
-                    timings['Analyze'],
-                    0.0,
-                    timings['ExecuteQuery'],
-                    0.0,
-                    timings['WriteResult'],
-                    0.0,
-                ]
-            )
-
-        logging.info(f'(PostgreSQL) Experiment timing results saved to: {timing_path}')
-
-    def solve_with_mariadb(
-        self,
-        fact_file: Path,
-        rule_file: Path,
-        timing_path: Path,
-        output_folder: Path,
-    ) -> None:
-        conn = pymysql.connect(
-            host='localhost',
-            user='root',
-            password='sirneij',
-            database='sirneij',
-            local_infile=True,  # Enable local infile
-        )
-        cursor = conn.cursor()
-
-        logging.info('Executing for mariadb.')
-
-        results_path = output_folder / 'mariadb_results.csv'
-        with open(rule_file, 'r') as f:
-            sql_script = f.read()
-
-        sql_script = sql_script.replace('{data_file}', f'{fact_file}')
+        sql_script = sql_script.replace('{data_file}', str(fact_file))
+        sql_script = sql_script.replace('{output_file}', str(results_path))
 
         # Split the script into individual commands
         sql_commands = [
@@ -146,20 +94,16 @@ class AnalyzeDBs(AnalyzeSystems):
         timing_results = {header: 0 for header in self.headers}
 
         for i, command in enumerate(sql_commands):
+            exec_command = ['psql', '-c', command]
             start_time = os.times()
             try:
-                cursor.execute(command)
-                conn.commit()
-            except pymysql.MySQLError as e:
+                subprocess.run(exec_command, text=True, capture_output=True)
+            except Exception as e:
                 logging.error(f'Error executing command: {command}. Error: {e}')
             end_time = os.times()
             real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
             timing_results[self.headers[2 * i]] = real_time
             timing_results[self.headers[2 * i + 1]] = cpu_time
-
-        # Close the cursor and the connection
-        cursor.close()
-        conn.close()
 
         # Write timing results to CSV file
         is_new_file = not timing_path.exists()
@@ -169,20 +113,104 @@ class AnalyzeDBs(AnalyzeSystems):
                 csv_writer.writerow(self.headers)
             csv_writer.writerow([timing_results[header] for header in self.headers])
 
-        # NOTE: There is an issue with mariadb that prevents programs from writing into any
-        #  directory of choice even after I set `secure_file_priv = ""` in `~/.my.cnf`,
-        # `/etc/mysql/my.cnf` in my Ubuntu (`~/.my.ini` works for Windows)
-        # but I could write into `/tmp/` so I did that temporarily and thereafter decided to move
-        # it to the desired file location using the lines below.
-        password = 'sirneij'
-        command = ['sudo', '-S', 'mv', '/tmp/test_mariadb.csv', f'{results_path}']
-        # Run the command and pass the password
+        logging.info(f'(PostgreSQL) Experiment timing results saved to: {timing_path}')
+
+        # Drop the tables created.
         try:
             subprocess.run(
-                command, input=f'{password}\n', text=True, capture_output=True
+                ['psql', '-c', 'DROP TABLE IF EXISTS tc_path, tc_result;'],
+                text=True,
+                capture_output=True,
             )
         except Exception as e:
-            logging.error(f'mv error: {e}')
+            logging.error('Error droping tables: {e}')
+
+    def solve_with_mariadb(
+        self,
+        fact_file: Path,
+        rule_file: Path,
+        timing_path: Path,
+        output_folder: Path,
+    ) -> None:
+        logging.info('Executing for mariadb.')
+
+        with open(rule_file, 'r') as f:
+            sql_script = f.read()
+
+        results_path = output_folder / 'mariadb_results.csv'
+        sql_script = sql_script.replace('{data_file}', f'{fact_file}')
+        sql_script = sql_script.replace('{output_file}', f'{results_path}')
+
+        # Split the script into individual commands
+        sql_commands = [
+            f'{command.strip()};'
+            for command in sql_script.split(';')
+            if command.strip()
+        ]
+
+        timing_results = {header: 0 for header in self.headers}
+
+        host = 'localhost'
+        user = 'root'
+        password = 'sirneij'
+        database = 'sirneij'
+
+        for i, command in enumerate(sql_commands):
+            cmd = (
+                f'mysql -h {host} -u {user} -p\'{password}\' {database} -e "{command}"'
+            )
+            start_time = os.times()
+            try:
+                subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            except Exception as e:
+                logging.error(f'Error executing command: {command}. Error: {e}')
+            end_time = os.times()
+            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
+            timing_results[self.headers[2 * i]] = real_time
+            timing_results[self.headers[2 * i + 1]] = cpu_time
+
+        # Write timing results to CSV file
+        is_new_file = not timing_path.exists()
+        with open(timing_path, 'a', newline='') as csvfile:
+            csv_writer = csv.writer(csvfile)
+            if is_new_file:
+                csv_writer.writerow(self.headers)
+            csv_writer.writerow([timing_results[header] for header in self.headers])
+
+        # Drop the tables created.
+        try:
+            subprocess.run(
+                f'mysql -h {host} -u {user} -p{password} {database} -e "DROP TABLE IF EXISTS tc_path, tc_result;"',
+                text=True,
+                capture_output=True,
+                shell=True,
+            )
+        except Exception as e:
+            logging.error(f'Error droping tables: {e}')
+
+        # # NOTE: There is an issue with mariadb that prevents programs from writing into any
+        # #  directory of choice even after I set `secure_file_priv = ""` in `~/.my.cnf`,
+        # # `/etc/mysql/my.cnf` in my Ubuntu (`~/.my.ini` works for Windows)
+        # # but I could write into `/tmp/` so I did that temporarily and thereafter decided to move
+        # # it to the desired file location using the lines below.
+        # cp_cmd = f'cp /tmp/mariadb_results.csv {results_path}'
+        # rm_cmd = f'sudo rm -rf /tmp/mariadb_results.csv'
+        # # Run the command and pass the password
+        # try:
+        #     subprocess.run(cp_cmd, text=True, capture_output=True, shell=True)
+        # except Exception as e:
+        #     logging.error(f'Copy (cp) /tmp/{e}')
+
+        # try:
+        #     subprocess.run(
+        #         rm_cmd,
+        #         text=True,
+        #         capture_output=True,
+        #         shell=True,
+        #         input=f'{password}\n',
+        #     )
+        # except Exception as e:
+        #     logging.error(f'Remove(rm) /tmp/{e}')
 
     def solve_with_duckdb(
         self,
@@ -191,10 +219,7 @@ class AnalyzeDBs(AnalyzeSystems):
         timing_path: Path,
         output_folder: Path,
     ) -> None:
-        # Create or connect to DuckDB database (in-memory or file-based)
-        conn = duckdb.connect(
-            database=':memory:'
-        )  # Use ':memory:' for in-memory database
+        conn = self.conn
         with open(rule_file, 'r') as f:
             sql_script = f.read()
 
@@ -222,9 +247,6 @@ class AnalyzeDBs(AnalyzeSystems):
             timing_results[self.headers[2 * i]] = real_time
             timing_results[self.headers[2 * i + 1]] = cpu_time
 
-        # Close the cursor and the connection
-        conn.close()
-
         # Write timing results to CSV file
         is_new_file = not timing_path.exists()
         with open(timing_path, 'a', newline='') as csvfile:
@@ -248,6 +270,9 @@ class AnalyzeDBs(AnalyzeSystems):
             return
 
         solve_method(*common_args)
+
+        # Close the connection and delete the DuckDB file if applicable
+        self.close()
 
 
 def main() -> None:
@@ -277,6 +302,7 @@ def main() -> None:
     )
 
     analyze_dbs = AnalyzeDBs(args.environment, rule_path, input_path, timing_path)
+    analyze_dbs.connect(rule_path)
     analyze_dbs.analyze()
 
 

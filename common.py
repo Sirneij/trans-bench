@@ -4,7 +4,7 @@ import re
 import subprocess
 from pathlib import Path
 
-from transitive import ENVIRONMENT_EXTENSIONS, DB_SYSTEMS
+from transitive import DB_SYSTEMS, ENVIRONMENT_EXTENSIONS
 
 # Set up logging with a specific format
 logging.basicConfig(

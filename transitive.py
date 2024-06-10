@@ -61,13 +61,6 @@ class Experiment:
         Deletes existing timing data if it exists and contains no .csv files.
 
         This function checks if the timing directory exists and contains no .csv files. If the directory exists and contains no .csv files, it is deleted.
-
-        Step-by-step logic:
-        1. Check if the timing directory exists.
-        2. If the timing directory exists, iterate over all subdirectories of the timing directory.
-        3. For each subdirectory:
-            a. Check if the subdirectory contains any .csv files.
-            b. If no .csv files are found, delete the subdirectory.
         """
         if self.timing_dir.exists():
             # Iterate over all subdirectories of the timing directory
@@ -93,16 +86,6 @@ class Experiment:
             `env_name (str)`: The name of the environment for which to generate data.
             `size_range (list[int])`: A list of three integers representing the start, stop, and step of the range of sizes for which to generate data.
             `graph_types (list[str])`: A list of the types of graphs for which to generate data.
-
-        Step-by-step logic:
-        1. Create the input directory for the given environment if it doesn't exist.
-        2. For each graph type:
-            a. Check if a directory for that graph type exists in the input directory.
-            b. If the directory doesn't exist, mark the graph type for data generation.
-            c. If the directory exists, check if files for all sizes in the given size range exist in the directory.
-            d. If any size file is missing, mark the graph type for data generation.
-        3. If any graph type is marked for data generation, generate the necessary data using the 'generate_db.py' script.
-        4. If no graph type is marked for data generation, log a message indicating that all data is up to date.
         """
         if env_name in ['clingo', 'xsb']:
             input_dir = Path('input') / 'clingo_xsb'
@@ -173,12 +156,6 @@ class Experiment:
             `mode (str)`: The mode in which to run the analysis.
             `env_name (str)`: The name of the environment in which to run the analysis.
             `souffle_include_dir (str)`: The include directory for souffle.
-
-        Step-by-step
-        1. Create the output directory for the timing data if it doesn't exist.
-        2. Create the output path for the timing data.
-        3. Run the analysis program self.num_runs times.
-        4. Calculate and append the average elapsed time and CPU time to the CSV file.
         """
         output_dir = self.timing_dir / env_name / graph_type
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -292,11 +269,6 @@ class Experiment:
         Runs the experiment for each combination of size, mode, environment, and graph type.
 
         This function generates the necessary input data, runs the experiment for each combination of size, mode, environment, and graph type, and calculates and appends the average elapsed time and CPU time to a CSV file.
-
-        Step-by-step logic:
-        1. Delete existing timing data if it exists and contains no .csv files.
-        2. Generate the necessary input data for the environment, size range, and graph types.
-        3. Run the experiment for each combination of size, mode, environment, and graph type.
         """
         self.__delete_existing_timing_data()
 
@@ -340,11 +312,6 @@ def main() -> None:
     The main function to run the transitive closure experiment.
 
     This function parses command-line arguments for the range of sizes, number of runs, modes, environments, and graph types for the experiment. It then generates the necessary input data, runs the experiment for each combination of size, mode, environment, and graph type, and finally generates a plot of the results.
-
-    Step-by-step logic:
-    1. Parse command-line arguments.
-    2. Create an instance of the Experiment class with the parsed arguments.
-    3. Run the experiment.
     """
     parser = argparse.ArgumentParser()
     parser.add_argument(
