@@ -1,10 +1,14 @@
 import argparse
 import csv
 import gc
+import json
 import logging
 import shutil
 import subprocess
 from pathlib import Path
+from typing import Any
+
+from common import Base
 
 # TODO: Add support for specifying the base file name
 
@@ -12,33 +16,12 @@ from pathlib import Path
 logging.basicConfig(
     level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s'
 )
-ALDA = ['alda']
-OTHER_LOGIC_SYSTEMS = ['xsb', 'clingo', 'souffle']
-LOGIC_SYSTEMS = OTHER_LOGIC_SYSTEMS + ALDA
-DB_SYSTEMS = [
-    'postgres',
-    'mariadb',
-    'duckdb',
-    'mongodb',
-    'neo4j',
-    'cockroachdb',
-    'memdb',
-]
-# Define the file extensions for different logic programming environments
-ENVIRONMENT_EXTENSIONS = {
-    'clingo': '.lp',
-    'xsb': '.P',
-    'souffle': '.dl',
-    'postgres': '.sql',
-    'mariadb': '.sql',
-    'duckdb': '.sql',
-    'neo4j': '.cypher',
-}
 
 
-class Experiment:
+class Experiment(Base):
     def __init__(
         self,
+        config: dict[str, Any],
         graph_types: list[str],
         size_range: list[int],
         num_runs: int,
@@ -46,6 +29,7 @@ class Experiment:
         environments: list[str],
         souffle_include_dir: str,
     ):
+        super().__init__(config)
         self.graph_types = graph_types
         self.size_range = size_range
         self.num_runs = num_runs
@@ -163,7 +147,9 @@ class Experiment:
 
         output_path = output_dir / f'timing_{mode}_graph_{size}.csv'
 
-        if env_name in ALDA:
+        config_str = json.dumps(self.config)
+
+        if env_name in self.config['defaults']['systems']['alda']:
             command = [
                 'python',
                 '-m',
@@ -179,11 +165,13 @@ class Experiment:
                 '--graph-type',
                 graph_type,
             ]
-        elif env_name in OTHER_LOGIC_SYSTEMS:
+        elif env_name in self.config['defaults']['systems']['otherLogicSystems']:
             logging.info(f'Analyzing {env_name} among the logic systems')
             command = [
                 'python',
                 'analyze_logic_systems.py',
+                '--config',
+                config_str,
                 '--environment',
                 env_name,
                 '--size',
@@ -195,11 +183,13 @@ class Experiment:
                 '--souffle-include-dir',
                 souffle_include_dir,
             ]
-        elif env_name in DB_SYSTEMS:
+        elif env_name in self.config['defaults']['systems']['dbSystems']:
             logging.info(f'Analyzing {env_name} among the DBs')
             command = [
                 'python',
                 'analyze_dbs.py',
+                '--config',
+                config_str,
                 '--environment',
                 env_name,
                 '--size',
@@ -308,29 +298,17 @@ class Experiment:
         subprocess.run(['python', 'generate_plot_table.py'])
 
 
+def load_config(file_path: str) -> dict[str, Any]:
+    with open(file_path, 'r') as file:
+        return json.load(file)
+
+
 def main() -> None:
     """
     The main function to run the transitive closure experiment.
 
     This function parses command-line arguments for the range of sizes, number of runs, modes, environments, and graph types for the experiment. It then generates the necessary input data, runs the experiment for each combination of size, mode, environment, and graph type, and finally generates a plot of the results.
     """
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--size-range',
-        type=int,
-        nargs=3,
-        metavar=('START', 'STOP', 'STEP'),
-        default=[10, 101, 10],
-        help='The range of sizes as a start stop and step. Default is 10 101 10.',
-    )
-
-    parser.add_argument(
-        '--num-runs',
-        type=int,
-        default=10,
-        help='Number of times to run each experiment for each size. Default is 10.',
-    )
-
     modes = ['right_recursion', 'left_recursion', 'double_recursion']
     graph_types = [
         'complete',
@@ -348,6 +326,26 @@ def main() -> None:
         'x',
     ]
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--config-file', type=str, default='config.json', help='Path to the config file'
+    )
+    parser.add_argument(
+        '--size-range',
+        type=int,
+        nargs=3,
+        metavar=('START', 'STOP', 'STEP'),
+        default=[10, 101, 10],
+        help='The range of sizes as a start stop and step. Default is 10 101 10.',
+    )
+
+    parser.add_argument(
+        '--num-runs',
+        type=int,
+        default=10,
+        help='Number of times to run each experiment for each size. Default is 10.',
+    )
+
     parser.add_argument(
         '--modes',
         nargs='+',
@@ -359,8 +357,6 @@ def main() -> None:
     parser.add_argument(
         '--environments',
         nargs='+',
-        default=LOGIC_SYSTEMS + DB_SYSTEMS,
-        choices=LOGIC_SYSTEMS + DB_SYSTEMS,
         help='The environments to run the experiment in. Default is all the systems.',
     )
 
@@ -379,7 +375,24 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    config = load_config(args.config_file)
+
+    environments = set(args.environments)
+    defaults = config['defaults']['systems']
+    all_environments = set(
+        defaults['alda'] + defaults['otherLogicSystems'] + defaults['dbSystems']
+    )
+
+    invalid_environments = environments - all_environments
+
+    if invalid_environments:
+        parser.error(
+            f"The following environments are not valid: {', '.join(invalid_environments)}. "
+            f"Valid environments are: {', '.join(all_environments)}."
+        )
+
     experiment = Experiment(
+        config,
         args.graph_types,
         args.size_range,
         args.num_runs,

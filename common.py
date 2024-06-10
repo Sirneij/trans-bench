@@ -1,10 +1,10 @@
+import json
 import logging
 import os
 import re
 import subprocess
 from pathlib import Path
-
-from transitive import DB_SYSTEMS, ENVIRONMENT_EXTENSIONS
+from typing import Any
 
 # Set up logging with a specific format
 logging.basicConfig(
@@ -12,71 +12,42 @@ logging.basicConfig(
 )
 
 
-def discover_rules(rules_dir: Path, extension: str) -> dict[str, Path]:
-    """
-    Discovers rule files in a directory and maps rule names to file paths.
-
-    This function searches for files with a given extension in a directory. It then maps the rule name from each file name (the part after the first underscore)
-    to the file path. The function returns this mapping as a dictionary.
-
-    Args:
-        `rules_dir (Path)`: The directory to search for rule files.
-        `extension (str)`: The extension of the rule files.
-
-    Returns:
-        dict[str, Path]: A dictionary mapping rule names to file paths.
-    """
-    return {
-        rule_file.stem.split('_', 1)[-1]: rule_file
-        for rule_file in rules_dir.glob(f'*{extension}')
-    }
+class Base:
+    def __init__(self, config: dict[str, Any]) -> None:
+        self.config = config
 
 
-def get_files(environment: str, mode: str, graph_type: str, size: int) -> tuple[str]:
-    project_root = Path(__file__).parent
-    rules_dir = project_root / f'{environment}_rules'
-    RULES_FILES = discover_rules(rules_dir, ENVIRONMENT_EXTENSIONS[environment])
-
-    if mode not in RULES_FILES:
-        logging.error(f'Rule file not found for mode: {mode}')
-        return
-
-    input_dir = Path('input')
-    if environment in DB_SYSTEMS + ['souffle']:
-        if environment == 'souffle':
-            input_path = input_dir / 'souffle' / graph_type / str(size)
-        else:
-            input_path = input_dir / 'souffle' / graph_type / str(size) / 'edge.facts'
-    else:
-        inputfile = f'graph_{size}.lp'
-        input_path = input_dir / 'clingo_xsb' / graph_type / inputfile
-    rule_path = RULES_FILES[mode]
-
-    logging.info(f'Using rule file: {rule_path} and input file: {input_path}')
-
-    timing_dir = Path('timing') / environment / graph_type
-    timing_dir.mkdir(parents=True, exist_ok=True)
-    if environment in DB_SYSTEMS + ['souffle']:
-        output_file_name = f'timing_{mode}_graph_{size}.csv'
-    else:
-        output_file_name = f'timing_{mode}_{input_path.stem}.csv'
-    timing_path = timing_dir / output_file_name
-
-    return (rule_path, input_path, timing_path)
-
-
-class AnalyzeSystems:
+class AnalyzeSystems(Base):
     def __init__(
         self,
+        config: dict[str, Any],
         environment: str,
-        rule_path: Path,
-        input_path: Path,
-        timing_path: Path,
     ):
+        super().__init__(config)
         self.environment = environment
-        self.rule_path = rule_path
-        self.input_path = input_path
-        self.timing_path = timing_path
+        self.rule_path = None
+        self.input_path = None
+        self.timing_path = None
+        self.output_folder = None
+
+    def discover_rules(self, rules_dir: Path, extension: str) -> dict[str, Path]:
+        """
+        Discovers rule files in a directory and maps rule names to file paths.
+
+        This function searches for files with a given extension in a directory. It then maps the rule name from each file name (the part after the first underscore)
+        to the file path. The function returns this mapping as a dictionary.
+
+        Args:
+            `rules_dir (Path)`: The directory to search for rule files.
+            `extension (str)`: The extension of the rule files.
+
+        Returns:
+            dict[str, Path]: A dictionary mapping rule names to file paths.
+        """
+        return {
+            rule_file.stem.split('_', 1)[-1]: rule_file
+            for rule_file in rules_dir.glob(f'*{extension}')
+        }
 
     def estimate_time_duration(self, t1: tuple, t2: tuple) -> tuple[float, float]:
         """
@@ -177,7 +148,7 @@ class AnalyzeSystems:
 
         return timings
 
-    def get_output_folder(self) -> Path:
+    def set_output_folder(self) -> None:
         pattern = r'^timing_(.*?)_graph_(\d+)\.csv$'
         match = re.match(pattern, self.timing_path.name)
         mode, size = '', ''
@@ -190,7 +161,51 @@ class AnalyzeSystems:
         output_folder = output_file_mode / f'{size}'
         output_folder.mkdir(parents=True, exist_ok=True)
 
-        return output_folder
+        self.output_folder = output_folder
+
+        logging.info(f'Output folder: {self.output_folder}')
+
+    def set_file_paths(self, mode: str, graph_type: str, size: int) -> None:
+        config = self.config['defaults']['systems']
+        project_root = Path(__file__).parent
+        rules_dir = project_root / f'{self.environment}_rules'
+        rule_files = self.discover_rules(
+            rules_dir,
+            config['environmentExtensions'][self.environment],
+        )
+
+        if mode not in rule_files:
+            logging.error(f'Rule file not found for mode: {mode}')
+            return
+
+        input_dir = Path('input')
+        if self.environment in config['dbSystems'] + ['souffle']:
+            if self.environment == 'souffle':
+                input_path = input_dir / 'souffle' / graph_type / str(size)
+            else:
+                input_path = (
+                    input_dir / 'souffle' / graph_type / str(size) / 'edge.facts'
+                )
+        else:
+            inputfile = f'graph_{size}.lp'
+            input_path = input_dir / 'clingo_xsb' / graph_type / inputfile
+        rule_path = rule_files[mode]
+
+        timing_dir = Path('timing') / self.environment / graph_type
+        timing_dir.mkdir(parents=True, exist_ok=True)
+        if self.environment in config['dbSystems'] + ['souffle']:
+            output_file_name = f'timing_{mode}_graph_{size}.csv'
+        else:
+            output_file_name = f'timing_{mode}_{input_path.stem}.csv'
+        timing_path = timing_dir / output_file_name
+
+        self.rule_path = rule_path
+        self.input_path = input_path
+        self.timing_path = timing_path
+
+        logging.info(
+            f'Using rule file: {self.rule_path}, input file: {self.input_path}, timing file: {self.timing_path}'
+        )
 
     def analyze(self) -> None:
         raise NotImplementedError

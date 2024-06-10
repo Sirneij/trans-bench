@@ -1,16 +1,17 @@
 import argparse
 import csv
 import gc
+import json
 import logging
 import os
 import re
 import subprocess
 from pathlib import Path
+from typing import Any
 
 import clingo
 
-from common import AnalyzeSystems, get_files
-from transitive import OTHER_LOGIC_SYSTEMS
+from common import AnalyzeSystems
 
 # Set up logging with a specific format
 logging.basicConfig(
@@ -21,13 +22,11 @@ logging.basicConfig(
 class AnalyzeLogicSystems(AnalyzeSystems):
     def __init__(
         self,
+        config: dict[str, Any],
         environment: str,
-        rule_path: Path,
-        input_path: Path,
-        timing_path: Path,
         souffle_include_dir: str,
     ):
-        super().__init__(environment, rule_path, input_path, timing_path)
+        super().__init__(config, environment)
         self.souffle_include_dir = souffle_include_dir
         self.queries = (
             "[[query1, path(X, Y)]]"  # Each query is a list: [Identifier, Query]
@@ -38,23 +37,8 @@ class AnalyzeLogicSystems(AnalyzeSystems):
         Executes a query using the specified environment and logs the time taken for various stages.
 
         This function checks the environment and calls the appropriate function to execute a query and log the time taken for various stages.
-        The functions for Clingo, XSB, and Souffle are assumed to be defined elsewhere in the same module.
         """
-        output_folder = self.get_output_folder()
-        logging.info(f'Output folder: {output_folder}')
-
-        common_args = [self.input_path, self.rule_path, self.timing_path, output_folder]
-
-        environment_methods = {
-            'clingo': (self.solve_with_clingo, common_args),
-            'xsb': (self.solve_with_xsb, common_args),
-            'souffle': (
-                self.solve_with_souffle,
-                common_args + [self.souffle_include_dir],
-            ),
-        }
-
-        solve_method, args = environment_methods.get(self.environment, (None, None))
+        solve_method = getattr(self, f'solve_with_{self.environment}', None)
 
         if solve_method is None:
             logging.error(
@@ -62,37 +46,25 @@ class AnalyzeLogicSystems(AnalyzeSystems):
             )
             return
 
-        solve_method(*args)
+        solve_method()
 
-    def solve_with_xsb(
-        self,
-        fact_file: Path,
-        rule_file: Path,
-        timing_path: Path,
-        output_folder: Path,
-    ) -> None:
+    def solve_with_xsb(self) -> None:
         """
         Executes a query using XSB Prolog and logs the time taken for loading and querying.
 
         This function prepares and runs a command to execute a query using XSB Prolog. It captures the output, extracts the loading and querying times,
         and writes these times to a CSV file.
-
-        Args:
-            `fact_file (Path)`: The path to the fact file.
-            `rule_file (Path)`: The path to the rule file.
-            `timing_path (Path)`: The path to the timing CSV file.
-            `output_folder (Path)`: The path to the output folder.
         """
         logging.info(
-            f"Running XSB with fact file {fact_file}, rule file {rule_file}, and queries {self.queries}"
+            f"Running XSB with fact file {self.input_path}, rule file {self.rule_path}, and queries {self.queries}"
         )
 
-        xsb_export_path = rule_file.parent / 'xsb_export'
-        results_path = output_folder / 'xsb_results.txt'
+        xsb_export_path = self.rule_path.parent / 'xsb_export'
+        results_path = self.output_folder / 'xsb_results.txt'
 
         # Prepare the XSB command
-        xsb_query_1 = f"extfilequery:external_file_query_only('{rule_file}','{fact_file}',{self.queries},'{results_path}')."
-        xsb_query_2 = f"extfilequery:external_file_query('{rule_file}','{fact_file}',{self.queries},'{results_path}')."
+        xsb_query_1 = f"extfilequery:external_file_query_only('{self.rule_path}','{self.input_path}',{self.queries},'{results_path}')."
+        xsb_query_2 = f"extfilequery:external_file_query('{self.rule_path}','{self.input_path}',{self.queries},'{results_path}')."
         xsb_command_1 = [
             'xsb',
             '--nobanner',
@@ -154,8 +126,8 @@ class AnalyzeLogicSystems(AnalyzeSystems):
             cpu_query_time.group(1)
         )
 
-        is_new_file = not timing_path.exists()
-        with open(timing_path, 'a', newline='') as csvfile:
+        is_new_file = not self.timing_path.exists()
+        with open(self.timing_path, 'a', newline='') as csvfile:
             writer = csv.writer(csvfile)
             if is_new_file:
                 writer.writerow(
@@ -182,10 +154,10 @@ class AnalyzeLogicSystems(AnalyzeSystems):
                     cpu_write_time,
                 ]
             )
-        logging.info(f'(XSB) Experiment timing results saved to: {timing_path}')
+        logging.info(f'(XSB) Experiment timing results saved to: {self.timing_path}')
 
         # Delete all .xwam files in the rule file directory
-        for f in rule_file.parent.glob('*.xwam'):
+        for f in self.rule_path.parent.glob('*.xwam'):
             f.unlink()
 
         # Delete all .xwam files in the xsb_export directory
@@ -194,30 +166,22 @@ class AnalyzeLogicSystems(AnalyzeSystems):
 
         gc.collect()
 
-    def solve_with_clingo(
-        self, fact_file: Path, rule_file: Path, timing_path: Path, output_folder: Path
-    ) -> None:
+    def solve_with_clingo(self) -> None:
         """
         Executes a query using Clingo and logs the time taken for loading and querying.
 
         This function creates a Clingo control object, loads the facts and rules, executes a query, and measures the time taken for loading and querying.
         It then writes these times to a CSV file.
-
-        Args:
-            `fact_file (Path)`: The path to the fact file.
-            `rule_file (Path)`: The path to the rule file.
-            `timing_path (Path)`: The path to the timing CSV file.
-            `output_folder (Path)`: The path to the output folder.
         """
         try:
             ctl = clingo.Control()
             # Load facts and rules
             t_load_rule_begin = os.times()
-            ctl.load(str(rule_file))
+            ctl.load(str(self.rule_path))
             t_load_rule_end = os.times()
 
             t_load_facts_begin = os.times()
-            ctl.load(str(fact_file))
+            ctl.load(str(self.input_path))
             t_load_facts_end = os.times()
 
             t_ground_begin = os.times()
@@ -230,7 +194,7 @@ class AnalyzeLogicSystems(AnalyzeSystems):
             t_query_end = os.times()
 
             # Measure time to solve and write the results
-            output_file = output_folder / f'clingo_results.txt'
+            output_file = self.output_folder / f'clingo_results.txt'
 
             t_query_w_begin = os.times()
             ctl.configuration.solve.models = '0'
@@ -256,8 +220,8 @@ class AnalyzeLogicSystems(AnalyzeSystems):
             write_time = abs(float(query_times_w[0] - query_times[0]))
             write_cpu_time = abs(float(query_times_w[1] - query_times[1]))
 
-            is_new_file = not timing_path.exists()
-            with open(timing_path, 'a', newline='') as csvfile:
+            is_new_file = not self.timing_path.exists()
+            with open(self.timing_path, 'a', newline='') as csvfile:
                 writer = csv.writer(csvfile)
                 if is_new_file:
                     writer.writerow(
@@ -288,56 +252,42 @@ class AnalyzeLogicSystems(AnalyzeSystems):
                         write_cpu_time,
                     ]
                 )
-            logging.info(f'(Clingo) Experiment results saved to: {timing_path}')
+            logging.info(f'(Clingo) Experiment results saved to: {self.timing_path}')
         except Exception as e:
             logging.error(f'Error: {e}')
         finally:
             gc.collect()
 
-    def solve_with_souffle(
-        self,
-        fact_file: Path,
-        rule_file: Path,
-        timing_path: Path,
-        output_folder: Path,
-        include_dir: str,
-    ) -> None:
+    def solve_with_souffle(self) -> None:
         """
         Executes a Souffle program, compiles the generated C++ code, and runs the compiled program.
 
-        This function takes in a Datalog program (fact_file and rule_file), generates C++ code from it using Souffle, compiles the generated C++ code using g++, and runs the compiled program. It also logs the timing data for each of these steps and writes it to a CSV file.
-
-        Args:
-            `fact_file (str)`: The path to the fact file for the Datalog program.
-            `rule_file (str)`: The path to the rule file for the Datalog program.
-            `timing_path (str)`: The path to the CSV file where the timing data will be written.
-            `output_folder (str)`: The path to the folder where the output of the Datalog program will be written.
-            `include_dir (str)`: The path to the directory containing the Souffle C++ headers.
+        This function takes in a Datalog program (self.input_path and self.rule_path), generates C++ code from it using Souffle, compiles the generated C++ code using g++, and runs the compiled program. It also logs the timing data for each of these steps and writes it to a CSV file.
         """
         souffle_export_path = Path('souffle_rules') / 'souffle_export'
         souffle_export_file = souffle_export_path / 'main'
         generated_cpp_filename = souffle_export_path / 'souffle_generated.cpp'
 
         # Run the command to generate C++ code from Datalog
-        datalog_to_cpp_cmd = f'souffle {rule_file} -F {fact_file} -w -g {generated_cpp_filename} -D {output_folder}'
+        datalog_to_cpp_cmd = f'souffle {self.rule_path} -F {self.input_path} -w -g {generated_cpp_filename} -D {self.output_folder}'
         datalog_to_cpp_result = self.run_souffle_command(datalog_to_cpp_cmd)
 
         # Compile the generated C++ code with the main.cpp file using g++ with C++17 standard
         # and the include directory for Souffle C++ headers.
         # Preprocessor macro __EMBEDDED_SOUFFLE__ is defined to prevent main() from being generated.
-        compile_cmd = f'g++ {souffle_export_file}.cpp {generated_cpp_filename} -std=c++17 -I {include_dir} -o {souffle_export_file} -D__EMBEDDED_SOUFFLE__'
+        compile_cmd = f'g++ {souffle_export_file}.cpp {generated_cpp_filename} -std=c++17 -I {self.souffle_include_dir} -o {souffle_export_file} -D__EMBEDDED_SOUFFLE__'
         compile_result = self.run_souffle_command(compile_cmd)
 
         # Run the compiled program with the fact file
-        run_cmd = f'./{souffle_export_file} {fact_file}'
+        run_cmd = f'./{souffle_export_file} {self.input_path}'
         run_result = self.run_souffle_command(run_cmd)
         logging.info(
             f'Results: DTC: {datalog_to_cpp_result}, CR: {compile_result}, RR: {run_result}'
         )
 
         # Write the timing data to the output CSV file
-        is_new_file = not timing_path.exists()
-        with open(timing_path, 'a', newline='') as csvfile:
+        is_new_file = not self.timing_path.exists()
+        with open(self.timing_path, 'a', newline='') as csvfile:
             writer = csv.writer(csvfile)
             if is_new_file:
                 writer.writerow(
@@ -373,7 +323,9 @@ class AnalyzeLogicSystems(AnalyzeSystems):
                 ]
             )
 
-        logging.info(f'(Souffle) Experiment timing results saved to: {timing_path}')
+        logging.info(
+            f'(Souffle) Experiment timing results saved to: {self.timing_path}'
+        )
 
         # Delete executable file
         souffle_export_file.unlink()
@@ -393,6 +345,9 @@ def main() -> None:
     """
     parser = argparse.ArgumentParser()
     parser.add_argument(
+        '--config', type=str, required=True, help='JSON string of the config'
+    )
+    parser.add_argument(
         '--size', type=int, default=100, help='Size of the input graph. Default is 100.'
     )
     parser.add_argument(
@@ -406,7 +361,6 @@ def main() -> None:
     )
     parser.add_argument(
         '--environment',
-        choices=OTHER_LOGIC_SYSTEMS,
         required=True,
         help='Logic programming environment to use. Example is clingo or xsb.',
     )
@@ -421,13 +375,13 @@ def main() -> None:
         f'Running experiment for {args.environment} environment with mode: {args.mode} and size: {args.size}'
     )
 
-    rule_path, input_path, timing_path = get_files(
-        args.environment, args.mode, args.graph_type, args.size
-    )
+    config = json.loads(args.config)
 
     analyze_logic_systems = AnalyzeLogicSystems(
-        args.environment, rule_path, input_path, timing_path, args.souffle_include_dir
+        config, args.environment, args.souffle_include_dir
     )
+    analyze_logic_systems.set_file_paths(args.mode, args.graph_type, args.size)
+    analyze_logic_systems.set_output_folder()
     analyze_logic_systems.analyze()
 
 

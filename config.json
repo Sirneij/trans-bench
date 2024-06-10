@@ -15,5 +15,36 @@
         "uri": "mongodb://127.0.0.1:27017/",
         "database": "test"
     },
-    "machineUserPassword": "sirneij"
+    "machineUserPassword": "sirneij",
+    "defaults": {
+        "systems": {
+            "alda": [
+                "alda"
+            ],
+            "otherLogicSystems": [
+                "xsb",
+                "clingo",
+                "souffle"
+            ],
+            "dbSystems": [
+                "postgres",
+                "mariadb",
+                "duckdb",
+                "mongodb",
+                "neo4j",
+                "cockroachdb",
+                "memdb"
+            ],
+            "environmentExtensions": {
+                "clingo": ".lp",
+                "xsb": ".P",
+                "souffle": ".dl",
+                "postgres": ".sql",
+                "mariadb": ".sql",
+                "duckdb": ".sql",
+                "neo4j": ".cypher",
+                "mongodb": ".py"
+            }
+        }
+    }
 }
