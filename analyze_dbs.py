@@ -97,7 +97,7 @@ class AnalyzeDBs(AnalyzeSystems):
             exec_command = ['psql', '-c', command]
             start_time = os.times()
             try:
-                subprocess.run(exec_command, text=True, capture_output=True)
+                subprocess.run(exec_command, text=True, capture_output=True, check=True)
             except Exception as e:
                 logging.error(f'Error executing command: {command}. Error: {e}')
             end_time = os.times()
@@ -121,6 +121,7 @@ class AnalyzeDBs(AnalyzeSystems):
                 ['psql', '-c', 'DROP TABLE IF EXISTS tc_path, tc_result;'],
                 text=True,
                 capture_output=True,
+                check=True,
             )
         except Exception as e:
             logging.error('Error droping tables: {e}')
@@ -139,7 +140,6 @@ class AnalyzeDBs(AnalyzeSystems):
 
         results_path = output_folder / 'mariadb_results.csv'
         sql_script = sql_script.replace('{data_file}', f'{fact_file}')
-        sql_script = sql_script.replace('{output_file}', f'{results_path}')
 
         # Split the script into individual commands
         sql_commands = [
@@ -161,7 +161,9 @@ class AnalyzeDBs(AnalyzeSystems):
             )
             start_time = os.times()
             try:
-                subprocess.run(cmd, shell=True, capture_output=True, text=True)
+                subprocess.run(
+                    cmd, shell=True, capture_output=True, text=True, check=True
+                )
             except Exception as e:
                 logging.error(f'Error executing command: {command}. Error: {e}')
             end_time = os.times()
@@ -184,33 +186,37 @@ class AnalyzeDBs(AnalyzeSystems):
                 text=True,
                 capture_output=True,
                 shell=True,
+                check=True,
             )
         except Exception as e:
             logging.error(f'Error droping tables: {e}')
 
-        # # NOTE: There is an issue with mariadb that prevents programs from writing into any
-        # #  directory of choice even after I set `secure_file_priv = ""` in `~/.my.cnf`,
-        # # `/etc/mysql/my.cnf` in my Ubuntu (`~/.my.ini` works for Windows)
-        # # but I could write into `/tmp/` so I did that temporarily and thereafter decided to move
-        # # it to the desired file location using the lines below.
-        # cp_cmd = f'cp /tmp/mariadb_results.csv {results_path}'
-        # rm_cmd = f'sudo rm -rf /tmp/mariadb_results.csv'
-        # # Run the command and pass the password
-        # try:
-        #     subprocess.run(cp_cmd, text=True, capture_output=True, shell=True)
-        # except Exception as e:
-        #     logging.error(f'Copy (cp) /tmp/{e}')
+        # NOTE: There is an issue with mariadb that prevents programs from writing into any
+        #  directory of choice even after I set `secure_file_priv = ""` in `~/.my.cnf`,
+        # `/etc/mysql/my.cnf` in my Ubuntu (`~/.my.ini` works for Windows)
+        # but I could write into `/tmp/` so I did that temporarily and thereafter decided to move
+        # it to the desired file location using the lines below.
+        cp_cmd = f'cp /tmp/mariadb_results.csv {results_path}'
+        rm_cmd = f'sudo rm -rf /tmp/mariadb_results.csv'
+        # Run the command and pass the password
+        try:
+            subprocess.run(
+                cp_cmd, text=True, capture_output=True, shell=True, check=True
+            )
+        except Exception as e:
+            logging.error(f'Copy (cp) /tmp/{e}')
 
-        # try:
-        #     subprocess.run(
-        #         rm_cmd,
-        #         text=True,
-        #         capture_output=True,
-        #         shell=True,
-        #         input=f'{password}\n',
-        #     )
-        # except Exception as e:
-        #     logging.error(f'Remove(rm) /tmp/{e}')
+        try:
+            subprocess.run(
+                rm_cmd,
+                input=f'{password}\n',
+                text=True,
+                capture_output=True,
+                shell=True,
+                check=True,
+            )
+        except Exception as e:
+            logging.error(f'Remove(rm) /tmp/{e}')
 
     def solve_with_duckdb(
         self,

@@ -12,4 +12,4 @@ WITH RECURSIVE tc AS (
     WHERE tc_path.y = tc.x
 )
 SELECT * FROM tc;
-SELECT * FROM tc_result INTO OUTFILE '{output_file}' FIELDS TERMINATED BY ',' LINES TERMINATED BY '\n';
+SELECT * FROM tc_result INTO OUTFILE '/tmp/mariadb_results.csv' FIELDS TERMINATED BY ',' LINES TERMINATED BY '\n';
