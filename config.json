@@ -20,7 +20,8 @@
         "database": "test"
     },
     "cockroachdb": {
-        "db_url": "postgresql://root@localhost:26257/defaultdb?sslmode=disable"
+        "db_url": "postgresql://root@localhost:26257/defaultdb?sslmode=disable",
+        "externalDirectory": "~/cockroach-data/extern/"
     },
     "machineUserPassword": "sirneij",
     "defaults": {

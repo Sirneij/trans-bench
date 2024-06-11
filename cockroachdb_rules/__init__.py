@@ -15,6 +15,7 @@ class CockroachDBOperations(Base):
         """
         super().__init__(config)
         self.conn = conn
+        self.conn.set_session(autocommit=True)
 
     def execute_query(self, query: str, params: Any = None) -> None:
         """
@@ -26,7 +27,6 @@ class CockroachDBOperations(Base):
         """
         with self.conn.cursor() as cursor:
             cursor.execute(query, params)
-            self.conn.commit()
 
     def import_data_from_tsv(self, table_name: str, file_path: str) -> None:
         """
@@ -39,7 +39,7 @@ class CockroachDBOperations(Base):
         query = f"""
         IMPORT INTO {table_name} (x, y)
         CSV DATA ('nodelocal://1/{file_path}')
-        WITH fields_terminated_by = '\t';
+        WITH delimiter = e'\t';
         """
         self.execute_query(query)
 
@@ -52,7 +52,7 @@ class CockroachDBOperations(Base):
             file_path (str): The path to the CSV file.
         """
         query = f"""
-        EXPORT INTO CSV 'nodelocal://1/{file_path}'
+        EXPORT INTO CSV 'nodelocal://1/tmp'
         FROM TABLE {table_name};
         """
         self.execute_query(query)
@@ -66,9 +66,9 @@ class CockroachDBOperations(Base):
         """
         self.export_data_to_csv("tc_result", output_file)
 
-    def create_temporary_tc_path_table(self) -> None:
+    def create_tc_path_table(self) -> None:
         """
-        Creates a temporary table for storing path data with columns x and y.
+        Creates a table for storing path data with columns x and y.
         """
         self.execute_query(
             """

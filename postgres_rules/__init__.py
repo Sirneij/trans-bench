@@ -15,6 +15,7 @@ class PostgresOperations(Base):
         """
         super().__init__(config)
         self.conn = conn
+        self.conn.set_session(autocommit=True)
 
     def execute_query(self, query: str, params: Any = None) -> None:
         """
@@ -26,7 +27,6 @@ class PostgresOperations(Base):
         """
         with self.conn.cursor() as cursor:
             cursor.execute(query, params)
-            self.conn.commit()
 
     def import_data_from_tsv(self, table_name: str, file_path: str) -> None:
         """
@@ -44,7 +44,6 @@ class PostgresOperations(Base):
                     ),
                     f,
                 )
-            self.conn.commit()
 
 
     def export_data_to_csv(self, query: str, file_path: str) -> None:

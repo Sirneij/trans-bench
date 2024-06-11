@@ -14,8 +14,8 @@ class PostgreSQLDoubleRecursion(PostgresOperations):
             FROM tc_path
             UNION
             SELECT tc1.x, tc2.y
-            FROM tc tc1, tc tc2
-            WHERE tc1.y = tc2.x
+            FROM tc tc1
+            JOIN tc tc2 ON tc1.y = tc2.x
         )
         SELECT * FROM tc;
         """

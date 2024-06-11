@@ -457,6 +457,8 @@ class AnalyzeDBs(AnalyzeSystems):
             # Drop tables in case they exist
             cockroachdb_operations.drop_tc_path_tc_result_tables()
 
+            external_directory = self.config[self.environment]["externalDirectory"]
+
             # Create Table
             start_time = os.times()
             cockroachdb_operations.create_tc_path_table()
@@ -465,13 +467,23 @@ class AnalyzeDBs(AnalyzeSystems):
             timing_results['CreateTableRealTime'] = real_time
             timing_results['CreateTableCPUTime'] = cpu_time
 
+            # Create directory and copy input file
+            cmd = f'mkdir -p {external_directory} && cp {self.input_path} {external_directory}'
+            subprocess.run(cmd, shell=True, text=True, capture_output=True, check=True)
+
+            filename = f'{self.input_path.stem + self.input_path.suffix}'
+
             # Insert Data
             start_time = os.times()
-            cockroachdb_operations.import_data_from_tsv('tc_path', f'{self.input_path}')
+            cockroachdb_operations.import_data_from_tsv('tc_path', filename)
             end_time = os.times()
             real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
             timing_results['LoadDataRealTime'] = real_time
             timing_results['LoadDataCPUTime'] = cpu_time
+
+            # Delete input file
+            cmd = f'rm {external_directory}{filename}'
+            subprocess.run(cmd, shell=True, text=True, capture_output=True, check=True)
 
             # Create Index
             start_time = os.times()
@@ -507,6 +519,16 @@ class AnalyzeDBs(AnalyzeSystems):
 
             # Drop used tables
             cockroachdb_operations.drop_tc_path_tc_result_tables()
+
+            # Move output file to the desired location
+            cp_cmd = f'cp {external_directory}tmp/*.csv {results_path}'
+            rm_cmd = f'rm -r {external_directory}tmp'
+            subprocess.run(
+                cp_cmd, shell=True, text=True, capture_output=True, check=True
+            )
+            subprocess.run(
+                rm_cmd, shell=True, text=True, capture_output=True, check=True
+            )
 
         except Exception as e:
             logging.error(f'CockroachDB error: {e}')
