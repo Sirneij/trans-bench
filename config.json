@@ -1,4 +1,7 @@
 {
+    "postgres": {
+        "db_url": "postgres://sirneij:sirneij@localhost:5432/benchmarkdb"
+    },
     "mariadb": {
         "host": "localhost",
         "user": "root",
@@ -14,6 +17,9 @@
     "mongodb": {
         "uri": "mongodb://127.0.0.1:27017/",
         "database": "test"
+    },
+    "cockroachdb": {
+        "db_url": "postgresql://root@localhost:26257/defaultdb?sslmode=disable"
     },
     "machineUserPassword": "sirneij",
     "defaults": {
@@ -39,7 +45,7 @@
                 "clingo": ".lp",
                 "xsb": ".P",
                 "souffle": ".dl",
-                "postgres": ".sql",
+                "postgres": ".py",
                 "mariadb": ".sql",
                 "duckdb": ".sql",
                 "neo4j": ".cypher",

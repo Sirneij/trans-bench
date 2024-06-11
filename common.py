@@ -6,6 +6,12 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+import duckdb
+import psycopg2
+from neo4j import Driver, GraphDatabase
+from pymongo import MongoClient
+from pymongo.database import Database
+
 # Set up logging with a specific format
 logging.basicConfig(
     level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s'
@@ -15,6 +21,73 @@ logging.basicConfig(
 class Base:
     def __init__(self, config: dict[str, Any]) -> None:
         self.config = config
+        self.driver = None
+        self.db_path = None
+        self.headers_rdbms = [
+            'CreateTableRealTime',
+            'CreateTableCPUTime',
+            'LoadDataRealTime',
+            'LoadDataCPUTime',
+            'CreateIndexRealTime',
+            'CreateIndexCPUTime',
+            'AnalyzeRealTime',
+            'AnalyzeCPUTime',
+            'ExecuteQueryRealTime',
+            'ExecuteQueryCPUTime',
+            'WriteResultRealTime',
+            'WriteResultCPUTime',
+        ]
+        self.headers_neo4j = [
+            'DeleteDataRealTime',
+            'DeleteDataCPUTime',
+            'LoadDataRealTime',
+            'LoadDataCPUTime',
+            'CreateIndexRealTime',
+            'CreateIndexCPUTime',
+            'QueryRealTime',
+            'QueryCPUTime',
+            'WriteResultRealTime',
+            'WriteResultCPUTime',
+        ]
+        self.headers_mongodb = [
+            'CreateTableRealTime',
+            'CreateTableCPUTime',
+            'LoadDataRealTime',
+            'LoadDataCPUTime',
+            'CreateIndexRealTime',
+            'CreateIndexCPUTime',
+            'ExecuteQueryRealTime',
+            'ExecuteQueryCPUTime',
+            'WriteResultRealTime',
+            'WriteResultCPUTime',
+        ]
+
+    def connect_db(
+        self, env_name: str, rule_path: str = None
+    ) -> duckdb.DuckDBPyConnection | Driver | Database:
+        if env_name == 'duckdb':
+            if rule_path is not None:
+                self.db_path = Path(rule_path).parent / env_name / 'duckdb_file.db'
+                self.db_path.parent.mkdir(parents=True, exist_ok=True)
+            return duckdb.connect(database=str(self.db_path))
+
+        elif env_name == 'neo4j':
+            return GraphDatabase.driver(
+                self.config[env_name]['uri'],
+                auth=(self.config[env_name]['user'], self.config[env_name]['password']),
+            )
+        elif env_name == 'mongodb':
+            self.driver = MongoClient(self.config[env_name]['uri'])
+            return self.driver[self.config[env_name]['database']]
+        elif env_name in ['cockroachdb', 'postgres']:
+            return psycopg2.connect(self.config[env_name]['db_url'])
+
+    def close(self):
+        if self.driver:
+            self.driver.close()
+            self.driver = None
+        if self.db_path and self.db_path.exists():
+            os.remove(self.db_path)
 
 
 class AnalyzeSystems(Base):

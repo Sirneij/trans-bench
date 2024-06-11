@@ -1,23 +1,28 @@
 import csv
-from pymongo import MongoClient, ASCENDING, errors
 import logging
+from typing import Any
+
+from common import Base
+from pymongo import ASCENDING, errors
+from pymongo.database import Database
 
 logging.basicConfig(
     level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s'
 )
 
 
-class MongoDBOperations:
-    def __init__(self, uri, database):
-        self.client = MongoClient(uri)
-        self.db = self.client[database]
+class MongoDBOperations(Base):
+    def __init__(self, config: dict[str, Any], db: Database) -> None:
+        super().__init__(config)
+        self.db = db
 
-    def close(self):
-        self.client.close()
-
-    def create_collection(self, collection_name):
+    def create_collection(
+        self, collection_name: str, output_collection_name: str
+    ) -> None:
         self.db[collection_name].drop()
         self.db.create_collection(collection_name)
+        self.db[output_collection_name].drop()
+        self.db.create_collection(output_collection_name)
 
     def insert_data(self, collection_name, data_file, chunk_size=1000):
         collection = self.db[collection_name]
@@ -28,10 +33,10 @@ class MongoDBOperations:
                 for row in reader:
                     batch.append({'x': int(row[0]), 'y': int(row[1])})
                     if len(batch) == chunk_size:
-                        collection.insert_many(batch)
+                        collection.insert_many(batch, ordered=False)
                         batch = []
                 if batch:
-                    collection.insert_many(batch)
+                    collection.insert_many(batch, ordered=False)
         except (errors.BulkWriteError, errors.PyMongoError) as e:
             logging.error(f"An error occurred: {e}")
         except FileNotFoundError:
@@ -41,7 +46,7 @@ class MongoDBOperations:
 
     def create_index(self, collection_name, field_name):
         collection = self.db[collection_name]
-        collection.create_index([(field_name, ASCENDING)])
+        collection.create_index([(field_name, ASCENDING)], background=True)
 
     def export_to_csv(self, collection_name, output_file):
         collection = self.db[collection_name]

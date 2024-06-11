@@ -6,12 +6,9 @@ import json
 import logging
 import os
 import subprocess
-from pathlib import Path
 from typing import Any
 
-import duckdb
 import pexpect
-from neo4j import GraphDatabase
 
 from common import AnalyzeSystems
 
@@ -28,89 +25,85 @@ class AnalyzeDBs(AnalyzeSystems):
         environment: str,
     ):
         super().__init__(config, environment)
-        self.headers_rdbms = [
-            'CreateTableRealTime',
-            'CreateTableCPUTime',
-            'LoadDataRealTime',
-            'LoadDataCPUTime',
-            'CreateIndexRealTime',
-            'CreateIndexCPUTime',
-            'AnalyzeRealTime',
-            'AnalyzeCPUTime',
-            'ExecuteQueryRealTime',
-            'ExecuteQueryCPUTime',
-            'WriteResultRealTime',
-            'WriteResultCPUTime',
-        ]
-        self.headers_nosql = [
-            'DeleteDataRealTime',
-            'DeleteDataCPUTime',
-            'LoadDataRealTime',
-            'LoadDataCPUTime',
-            'CreateIndexRealTime',
-            'CreateIndexCPUTime',
-            'QueryRealTime',
-            'QueryCPUTime',
-            'WriteResultRealTime',
-            'WriteResultCPUTime',
-        ]
-        self.conn = None
-        self.db_path = None
-
-    def connect(self, rule_path: str = None):
-        if self.environment == 'duckdb':
-            if rule_path is not None:
-                self.db_path = Path(rule_path).parent / 'duckdb' / 'duckdb_file.db'
-                self.db_path.parent.mkdir(parents=True, exist_ok=True)
-            self.conn = duckdb.connect(database=str(self.db_path))
-
-        elif self.environment == 'neo4j':
-            self.driver = GraphDatabase.driver(
-                self.config['neo4j']['uri'],
-                auth=(self.config['neo4j']['user'], self.config['neo4j']['password']),
-            )
-
-    def close(self):
-        if self.conn:
-            self.conn.close()
-            self.conn = None
-        if self.db_path and self.db_path.exists():
-            os.remove(self.db_path)
-        if hasattr(self, 'driver'):
-            self.driver.close()
 
     def solve_with_postgres(self) -> None:
-        logging.info(f'Executing for PostgreSQL.')
+        conn = self.connect_db(self.environment)
+        # Extract the class name based on the rule file name
+        module_name = self.rule_path.stem
+        class_name = f'PostgreSQL{module_name.split("_")[1].capitalize()}Recursion'
 
-        # Read the SQL script and substitute the placeholders
-        with open(self.rule_path, 'r') as f:
-            sql_script = f.read()
+        logging.info(
+            f'Executing for PostgreSQL. Module: {module_name}, class: {class_name}'
+        )
 
-        # Substitute the placeholders with actual file paths
+        # Dynamically import the appropriate module and class
+        module = importlib.import_module(f'postgres_rules.{module_name}')
+        PostgreSQLRecursionClass = getattr(module, class_name)
+        postgres_operations = PostgreSQLRecursionClass(self.config, conn)
+
         results_path = self.output_folder / 'postgres_results.csv'
-        sql_script = sql_script.replace('{data_file}', str(self.input_path))
-        sql_script = sql_script.replace('{output_file}', str(results_path))
-
-        # Split the script into individual commands
-        sql_commands = [
-            f'{command.strip()};'
-            for command in sql_script.split(';')
-            if command.strip()
-        ]
-
         timing_results = {header: 0 for header in self.headers_rdbms}
 
-        for i, command in enumerate(sql_commands):
-            exec_command = ['psql', '-c', command]
+        try:
+            # Drop tables in case they exist
+            postgres_operations.drop_tc_path_tc_result_tables()
+
+            # Create Table
             start_time = os.times()
-            try:
-                subprocess.run(exec_command, text=True, capture_output=True, check=True)
-            except Exception as e:
-                logging.error(f'Error executing command: {command}. Error: {e}')
+            postgres_operations.create_tc_path_table()
             end_time = os.times()
             real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-            timing_results[self.headers_rdbms[2 * i]] = real_time
-            timing_results[self.headers_rdbms[2 * i + 1]] = cpu_time
+            timing_results['CreateTableRealTime'] = real_time
+            timing_results['CreateTableCPUTime'] = cpu_time
+
+            # Insert Data
+            start_time = os.times()
+            postgres_operations.import_data_from_tsv('tc_path', f'{self.input_path}')
+            end_time = os.times()
+            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
+            timing_results['LoadDataRealTime'] = real_time
+            timing_results['LoadDataCPUTime'] = cpu_time
+
+            # Create Index
+            start_time = os.times()
+            postgres_operations.create_tc_path_index()
+            end_time = os.times()
+            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
+            timing_results['CreateIndexRealTime'] = real_time
+            timing_results['CreateIndexCPUTime'] = cpu_time
+
+            # Analyze table for query improvement
+            start_time = os.times()
+            postgres_operations.analyze_tc_path_table()
+            end_time = os.times()
+            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
+            timing_results['AnalyzeRealTime'] = real_time
+            timing_results['AnalyzeCPUTime'] = cpu_time
+
+            # Recursive Query
+            start_time = os.times()
+            postgres_operations.run_recursive_query()
+            end_time = os.times()
+            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
+            timing_results['ExecuteQueryRealTime'] = real_time
+            timing_results['ExecuteQueryCPUTime'] = cpu_time
+
+            # Export to CSV
+            start_time = os.times()
+            postgres_operations.export_transitive_closure_results(results_path)
+            end_time = os.times()
+            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
+            timing_results['WriteResultRealTime'] = real_time
+            timing_results['WriteResultCPUTime'] = cpu_time
+
+            # Drop used tables
+            postgres_operations.drop_tc_path_tc_result_tables()
+
+        except Exception as e:
+            logging.error(f'PostgreSQL error: {e}')
+
+        finally:
+            conn.close()
 
         # Write timing results to CSV file
         is_new_file = not self.timing_path.exists()
@@ -125,17 +118,6 @@ class AnalyzeDBs(AnalyzeSystems):
         logging.info(
             f'(PostgreSQL) Experiment timing results saved to: {self.timing_path}'
         )
-
-        # Drop the tables created.
-        try:
-            subprocess.run(
-                ['psql', '-c', 'DROP TABLE IF EXISTS tc_path, tc_result;'],
-                text=True,
-                capture_output=True,
-                check=True,
-            )
-        except Exception as e:
-            logging.error('Error droping tables: {e}')
 
     def solve_with_mariadb(self) -> None:
         logging.info('Executing for mariadb.')
@@ -223,7 +205,7 @@ class AnalyzeDBs(AnalyzeSystems):
             logging.error(f'Remove(rm) /tmp/{e}')
 
     def solve_with_duckdb(self) -> None:
-        conn = self.conn
+        conn = self.connect_db(self.environment, self.rule_path)
         with open(self.rule_path, 'r') as f:
             sql_script = f.read()
 
@@ -262,6 +244,7 @@ class AnalyzeDBs(AnalyzeSystems):
             )
 
     def solve_with_neo4j(self) -> None:
+        self.driver = self.connect_db(self.environment)
         results_path = self.output_folder / 'neo4j_results.csv'
 
         machine_user_password = self.config['machineUserPassword']
@@ -348,8 +331,7 @@ class AnalyzeDBs(AnalyzeSystems):
             logging.error(f'Remove(rm) neo4j error: {e}')
 
     def solve_with_mongodb(self) -> None:
-        mongo_config = self.config['mongodb']
-
+        db = self.connect_db(self.environment)
         # Extract the class name based on the rule file name
         module_name = self.rule_path.stem
         class_name = f'MongoDB{module_name.split("_")[1].capitalize()}Recursion'
@@ -361,17 +343,15 @@ class AnalyzeDBs(AnalyzeSystems):
         # Dynamically import the appropriate module and class
         module = importlib.import_module(f'mongodb_rules.{module_name}')
         MongoDBRecursionClass = getattr(module, class_name)
-        mongo_operations = MongoDBRecursionClass(
-            mongo_config['uri'], mongo_config['database']
-        )
+        mongo_operations = MongoDBRecursionClass(self.config, db)
 
         results_path = self.output_folder / 'mongodb_results.csv'
-        timing_results = {header: 0 for header in mongo_operations.headers_mongodb}
+        timing_results = {header: 0 for header in self.headers_mongodb}
 
         try:
             # Create Collection (equivalent to Create Table)
             start_time = os.times()
-            mongo_operations.create_collection('tc_path')
+            mongo_operations.create_collection('tc_path', 'tc_result')
             end_time = os.times()
             real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
             timing_results['CreateTableRealTime'] = real_time
@@ -388,6 +368,7 @@ class AnalyzeDBs(AnalyzeSystems):
             # Create Index
             start_time = os.times()
             mongo_operations.create_index('tc_path', 'y')
+            mongo_operations.create_index('tc_path', 'x')
             end_time = os.times()
             real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
             timing_results['CreateIndexRealTime'] = real_time
@@ -410,20 +391,16 @@ class AnalyzeDBs(AnalyzeSystems):
             timing_results['WriteResultCPUTime'] = cpu_time
 
         except Exception as e:
-            logging.info(f'MongoDB error: {e}')
-
-        finally:
-            # Ensure that the MongoDB connection is closed
-            mongo_operations.close()
+            logging.error(f'MongoDB error: {e}')
 
         # Write timing results to CSV file
         is_new_file = not self.timing_path.exists()
         with open(self.timing_path, 'a', newline='') as csvfile:
             csv_writer = csv.writer(csvfile)
             if is_new_file:
-                csv_writer.writerow(mongo_operations.headers_mongodb)
+                csv_writer.writerow(self.headers_mongodb)
             csv_writer.writerow(
-                [timing_results[header] for header in mongo_operations.headers_mongodb]
+                [timing_results[header] for header in self.headers_mongodb]
             )
 
         logging.info(
@@ -474,7 +451,6 @@ def main() -> None:
     analyze_dbs = AnalyzeDBs(config, args.environment)
     analyze_dbs.set_file_paths(args.mode, args.graph_type, args.size)
     analyze_dbs.set_output_folder()
-    analyze_dbs.connect()
     analyze_dbs.analyze()
 
 

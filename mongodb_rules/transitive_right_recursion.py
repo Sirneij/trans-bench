@@ -3,9 +3,6 @@ from mongodb_rules import MongoDBOperations
 
 class MongoDBRightRecursion(MongoDBOperations):
     def recursive_query(self, input_collection, output_collection):
-        self.db[output_collection].drop()
-        self.db.create_collection(output_collection)
-
         self.db[input_collection].aggregate(
             [
                 {
