@@ -6,7 +6,8 @@
         "host": "localhost",
         "user": "root",
         "password": "sirneij",
-        "database": "sirneij"
+        "database": "sirneij",
+        "port": 3306
     },
     "neo4j": {
         "uri": "neo4j://localhost:7687",
@@ -46,7 +47,7 @@
                 "xsb": ".P",
                 "souffle": ".dl",
                 "postgres": ".py",
-                "mariadb": ".sql",
+                "mariadb": ".py",
                 "duckdb": ".sql",
                 "neo4j": ".cypher",
                 "mongodb": ".py",

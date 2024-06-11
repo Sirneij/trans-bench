@@ -1,7 +1,7 @@
-from postgres_rules import PostgresOperations
+from cockroachdb_rules import CockroachDBOperations
 
 
-class CockroachDBDoubleRecursion(PostgresOperations):
+class CockroachDBDoubleRecursion(CockroachDBOperations):
     def run_recursive_query(self) -> None:
         """
         Runs the double recursion query for transitive closure.

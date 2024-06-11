@@ -1,10 +1,10 @@
-from cockroachdb_rules import CockroachDBOperations
+from mariadb_rules import MariaDBOperations
 
 
-class CockroachDBLeftRecursion(CockroachDBOperations):
+class MariaDBRightRecursion(MariaDBOperations):
     def run_recursive_query(self) -> None:
         """
-        Runs the left recursion query for transitive closure.
+        Runs the right recursion query for transitive closure.
         """
         self.execute_query(
             """
@@ -13,9 +13,9 @@ class CockroachDBLeftRecursion(CockroachDBOperations):
             SELECT tc_path.x, tc_path.y
             FROM tc_path
             UNION
-            SELECT tc.x, tc_path.y
-            FROM tc, tc_path
-            WHERE tc.y = tc_path.x
+            SELECT tc_path.x, tc.y
+            FROM tc_path, tc
+            WHERE tc_path.y = tc.x
         )
         SELECT * FROM tc;
         """

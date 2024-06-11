@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import duckdb
+import MySQLdb
 import psycopg2
 from neo4j import Driver, GraphDatabase
 from pymongo import MongoClient
@@ -81,6 +82,15 @@ class Base:
             return self.driver[self.config[env_name]['database']]
         elif env_name in ['cockroachdb', 'postgres']:
             return psycopg2.connect(self.config[env_name]['db_url'])
+        elif env_name == 'mariadb':
+            return MySQLdb.connect(
+                db=self.config[env_name]['database'],
+                user=self.config[env_name]['user'],
+                passwd=self.config[env_name]['password'],
+                host=self.config[env_name]['host'],
+                port=self.config[env_name]['port'],
+                local_infile=1,  # Enable LOAD DATA LOCAL INFILE
+            )
 
     def close(self):
         if self.driver:

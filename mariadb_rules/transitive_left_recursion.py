@@ -1,7 +1,7 @@
-from cockroachdb_rules import CockroachDBOperations
+from mariadb_rules import MariaDBOperations
 
 
-class CockroachDBLeftRecursion(CockroachDBOperations):
+class MariaDBLeftRecursion(MariaDBOperations):
     def run_recursive_query(self) -> None:
         """
         Runs the left recursion query for transitive closure.

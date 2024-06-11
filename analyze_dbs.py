@@ -120,44 +120,83 @@ class AnalyzeDBs(AnalyzeSystems):
         )
 
     def solve_with_mariadb(self) -> None:
-        logging.info('Executing for mariadb.')
+        conn = self.connect_db(self.environment)
+        # Extract the class name based on the rule file name
+        module_name = self.rule_path.stem
+        class_name = f'MariaDB{module_name.split("_")[1].capitalize()}Recursion'
 
-        with open(self.rule_path, 'r') as f:
-            sql_script = f.read()
+        logging.info(
+            f'Executing for MariaDB. Module: {module_name}, class: {class_name}'
+        )
+
+        # Dynamically import the appropriate module and class
+        module = importlib.import_module(f'mariadb_rules.{module_name}')
+        MariaDBRecursionClass = getattr(module, class_name)
+        mariadb_operations = MariaDBRecursionClass(self.config, conn)
 
         results_path = self.output_folder / 'mariadb_results.csv'
-        sql_script = sql_script.replace('{data_file}', f'{self.input_path}')
-
-        # Split the script into individual commands
-        sql_commands = [
-            f'{command.strip()};'
-            for command in sql_script.split(';')
-            if command.strip()
-        ]
-
         timing_results = {header: 0 for header in self.headers_rdbms}
 
-        host = self.config['mariadb']['host']
-        user = self.config['mariadb']['user']
-        password = self.config['mariadb']['password']
-        database = self.config['mariadb']['database']
-        machine_user_password = self.config['machineUserPassword']
+        try:
+            # Drop tables in case they exist
+            mariadb_operations.drop_tc_path_tc_result_tables()
 
-        for i, command in enumerate(sql_commands):
-            cmd = (
-                f'mysql -h {host} -u {user} -p\'{password}\' {database} -e "{command}"'
-            )
+            # Create Table
             start_time = os.times()
-            try:
-                subprocess.run(
-                    cmd, shell=True, capture_output=True, text=True, check=True
-                )
-            except Exception as e:
-                logging.error(f'Error executing command: {command}. Error: {e}')
+            mariadb_operations.create_tc_path_table()
             end_time = os.times()
             real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-            timing_results[self.headers_rdbms[2 * i]] = real_time
-            timing_results[self.headers_rdbms[2 * i + 1]] = cpu_time
+            timing_results['CreateTableRealTime'] = real_time
+            timing_results['CreateTableCPUTime'] = cpu_time
+
+            # Insert Data
+            start_time = os.times()
+            mariadb_operations.import_data_from_file('tc_path', f'{self.input_path}')
+            end_time = os.times()
+            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
+            timing_results['LoadDataRealTime'] = real_time
+            timing_results['LoadDataCPUTime'] = cpu_time
+
+            # Create Index
+            start_time = os.times()
+            mariadb_operations.create_tc_path_index()
+            end_time = os.times()
+            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
+            timing_results['CreateIndexRealTime'] = real_time
+            timing_results['CreateIndexCPUTime'] = cpu_time
+
+            # Analyze table for query improvement
+            start_time = os.times()
+            mariadb_operations.analyze_tc_path_table()
+            end_time = os.times()
+            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
+            timing_results['AnalyzeRealTime'] = real_time
+            timing_results['AnalyzeCPUTime'] = cpu_time
+
+            # Recursive Query
+            start_time = os.times()
+            mariadb_operations.run_recursive_query()
+            end_time = os.times()
+            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
+            timing_results['ExecuteQueryRealTime'] = real_time
+            timing_results['ExecuteQueryCPUTime'] = cpu_time
+
+            # Export to CSV
+            start_time = os.times()
+            mariadb_operations.export_data_to_file()
+            end_time = os.times()
+            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
+            timing_results['WriteResultRealTime'] = real_time
+            timing_results['WriteResultCPUTime'] = cpu_time
+
+            # Drop used tables
+            mariadb_operations.drop_tc_path_tc_result_tables()
+
+        except Exception as e:
+            logging.error(f'MariaDB error: {e}')
+
+        finally:
+            conn.close()
 
         # Write timing results to CSV file
         is_new_file = not self.timing_path.exists()
@@ -169,23 +208,12 @@ class AnalyzeDBs(AnalyzeSystems):
                 [timing_results[header] for header in self.headers_rdbms]
             )
 
-        # Drop the tables created.
-        try:
-            subprocess.run(
-                f'mysql -h {host} -u {user} -p{password} {database} -e "DROP TABLE IF EXISTS tc_path, tc_result;"',
-                text=True,
-                capture_output=True,
-                shell=True,
-                check=True,
-            )
-        except Exception as e:
-            logging.error(f'Error droping tables: {e}')
-
         # NOTE: There is an issue with mariadb that prevents programs from writing into any
         #  directory of choice even after I set `secure_file_priv = ""` in `~/.my.cnf`,
-        # `/etc/mysql/my.cnf` in my Ubuntu (`~/.my.ini` works for Windows)
-        # but I could write into `/tmp/` so I did that temporarily and thereafter decided to move
+        # `/etc/mysql/my.cnf` in my Ubuntu (`~/.my.ini` for Windows)
+        # but I could write into `/tmp/` so I did that temporarily and thereafter move
         # it to the desired file location using the lines below.
+        machine_user_password = self.config['machineUserPassword']
         cp_cmd = f'cp /tmp/mariadb_results.csv {results_path}'
         rm_cmd = f'sudo rm -rf /tmp/mariadb_results.csv'
         # Run the command and pass the password
@@ -194,7 +222,7 @@ class AnalyzeDBs(AnalyzeSystems):
                 cp_cmd, text=True, capture_output=True, shell=True, check=True
             )
         except Exception as e:
-            logging.error(f'Copy (cp) /tmp/{e}')
+            logging.error(f'Copy (cp) `/tmp/` error: {e}')
 
         try:
             child = pexpect.spawn(rm_cmd)
@@ -202,7 +230,7 @@ class AnalyzeDBs(AnalyzeSystems):
             child.sendline(machine_user_password)
             child.expect(pexpect.EOF)
         except Exception as e:
-            logging.error(f'Remove(rm) /tmp/{e}')
+            logging.error(f'Remove(rm) `/tmp/` error: {e}')
 
     def solve_with_duckdb(self) -> None:
         conn = self.connect_db(self.environment, self.rule_path)
