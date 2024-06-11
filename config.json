@@ -49,7 +49,8 @@
                 "mariadb": ".sql",
                 "duckdb": ".sql",
                 "neo4j": ".cypher",
-                "mongodb": ".py"
+                "mongodb": ".py",
+                "cockroachdb": ".py"
             }
         }
     }

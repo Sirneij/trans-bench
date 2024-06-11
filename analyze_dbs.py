@@ -407,6 +407,99 @@ class AnalyzeDBs(AnalyzeSystems):
             f'(MongoDB) Experiment timing results saved to: {self.timing_path}'
         )
 
+    def solve_with_cockroachdb(self) -> None:
+        conn = self.connect_db(self.environment)
+        # Extract the class name based on the rule file name
+        module_name = self.rule_path.stem
+        class_name = f'CockroachDB{module_name.split("_")[1].capitalize()}Recursion'
+
+        logging.info(
+            f'Executing for CockroachDB. Module: {module_name}, class: {class_name}'
+        )
+
+        # Dynamically import the appropriate module and class
+        module = importlib.import_module(f'cockroachdb_rules.{module_name}')
+        CockroachDBRecursionClass = getattr(module, class_name)
+        cockroachdb_operations = CockroachDBRecursionClass(self.config, conn)
+
+        results_path = self.output_folder / 'cockroachdb_results.csv'
+        timing_results = {header: 0 for header in self.headers_rdbms}
+
+        try:
+            # Drop tables in case they exist
+            cockroachdb_operations.drop_tc_path_tc_result_tables()
+
+            # Create Table
+            start_time = os.times()
+            cockroachdb_operations.create_tc_path_table()
+            end_time = os.times()
+            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
+            timing_results['CreateTableRealTime'] = real_time
+            timing_results['CreateTableCPUTime'] = cpu_time
+
+            # Insert Data
+            start_time = os.times()
+            cockroachdb_operations.import_data_from_tsv('tc_path', f'{self.input_path}')
+            end_time = os.times()
+            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
+            timing_results['LoadDataRealTime'] = real_time
+            timing_results['LoadDataCPUTime'] = cpu_time
+
+            # Create Index
+            start_time = os.times()
+            cockroachdb_operations.create_tc_path_index()
+            end_time = os.times()
+            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
+            timing_results['CreateIndexRealTime'] = real_time
+            timing_results['CreateIndexCPUTime'] = cpu_time
+
+            # Analyze table for query improvement
+            start_time = os.times()
+            cockroachdb_operations.analyze_tc_path_table()
+            end_time = os.times()
+            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
+            timing_results['AnalyzeRealTime'] = real_time
+            timing_results['AnalyzeCPUTime'] = cpu_time
+
+            # Recursive Query
+            start_time = os.times()
+            cockroachdb_operations.run_recursive_query()
+            end_time = os.times()
+            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
+            timing_results['ExecuteQueryRealTime'] = real_time
+            timing_results['ExecuteQueryCPUTime'] = cpu_time
+
+            # Export to CSV
+            start_time = os.times()
+            cockroachdb_operations.export_transitive_closure_results(results_path)
+            end_time = os.times()
+            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
+            timing_results['WriteResultRealTime'] = real_time
+            timing_results['WriteResultCPUTime'] = cpu_time
+
+            # Drop used tables
+            cockroachdb_operations.drop_tc_path_tc_result_tables()
+
+        except Exception as e:
+            logging.error(f'CockroachDB error: {e}')
+
+        finally:
+            conn.close()
+
+        # Write timing results to CSV file
+        is_new_file = not self.timing_path.exists()
+        with open(self.timing_path, 'a', newline='') as csvfile:
+            csv_writer = csv.writer(csvfile)
+            if is_new_file:
+                csv_writer.writerow(self.headers_rdbms)
+            csv_writer.writerow(
+                [timing_results[header] for header in self.headers_rdbms]
+            )
+
+        logging.info(
+            f'(CockroachDB) Experiment timing results saved to: {self.timing_path}'
+        )
+
     def analyze(self) -> None:
         solve_method = getattr(self, f'solve_with_{self.environment}', None)
 
