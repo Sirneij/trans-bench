@@ -1,6 +1,6 @@
 {
     "postgres": {
-        "db_url": "postgres://sirneij:sirneij@localhost:5432/benchmarkdb"
+        "dbURL": "postgres://sirneij:sirneij@localhost:5432/benchmarkdb"
     },
     "mariadb": {
         "host": "localhost",
@@ -20,8 +20,11 @@
         "database": "test"
     },
     "cockroachdb": {
-        "db_url": "postgresql://root@localhost:26257/defaultdb?sslmode=disable",
+        "dbURL": "postgresql://root@localhost:26257/defaultdb?sslmode=disable",
         "externalDirectory": "~/cockroach-data/extern/"
+    },
+    "singlestoredb": {
+        "dbURL": "root:sirneij@127.0.0.1:3307/benchmark?local_infile=True"
     },
     "machineUserPassword": "sirneij",
     "defaults": {
@@ -41,7 +44,7 @@
                 "mongodb",
                 "neo4j",
                 "cockroachdb",
-                "memdb"
+                "singlestoredb"
             ],
             "environmentExtensions": {
                 "clingo": ".lp",
@@ -52,7 +55,8 @@
                 "duckdb": ".sql",
                 "neo4j": ".cypher",
                 "mongodb": ".py",
-                "cockroachdb": ".py"
+                "cockroachdb": ".py",
+                "singlestoredb": ".py"
             }
         }
     }

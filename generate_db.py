@@ -1,10 +1,11 @@
 import argparse
 import gc
+import json
 import logging
 import math
 import pickle
 from pathlib import Path
-from typing import Generator
+from typing import Any, Generator
 
 logging.basicConfig(
     level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s'
@@ -126,22 +127,18 @@ class DataGenerator:
 class GraphGenerator:
     """
     This class is responsible for generating and saving graphs in different formats.
-
-    Attributes:
-        `base_dir (Path)`: The base directory where the generated graphs will be saved.
-        `env_extensions (dict)`: A dictionary mapping environments to their file extensions.
     """
 
-    def __init__(self, base_dir: str, env_extensions: dict[str, str]):
+    def __init__(self, base_dir: str, config: dict[str, Any]):
         """
         The constructor for the GraphGenerator class.
 
         Args:
             `base_dir (str)`: The base directory where the generated graphs will be saved.
-            `env_extensions (dict)`: A dictionary mapping environments to their file extensions.
+            `config (dict[str, Any])`: General system's configuration.
         """
         self.base_dir = Path(base_dir)
-        self.env_extensions = env_extensions
+        self.config = config
 
     def save_for_alda(self, graph_generator_func, size, filename: Path):
         graph_generator = graph_generator_func(size)
@@ -176,14 +173,16 @@ class GraphGenerator:
             )
             return
 
-        for env, ext in self.env_extensions.items():
+        config = self.config['defaults']['systems']
+
+        for env, ext in config['environmentExtensions'].items():
             # Use a combined folder for 'clingo' and 'xsb'
             if env in ['clingo', 'xsb']:
                 combined_env = 'clingo_xsb'
                 filename = (
                     self.base_dir / combined_env / graph_type / f'graph_{size}.lp'
                 )
-            else:
+            elif env not in config['dbSystems'] + ['souffle']:
                 filename = self.base_dir / env / graph_type / f'graph_{size}{ext}'
 
             # Ensure the directory exists
@@ -192,7 +191,7 @@ class GraphGenerator:
             # Handling different environments
             if env == 'alda':
                 self.save_for_alda(generate_graph_method, size, filename)
-            elif env == 'souffle':
+            elif env in ['souffle']:
                 fact_name = 'edge'
                 filename = (
                     self.base_dir / env / graph_type / f'{size}' / f'{fact_name}.facts'
@@ -222,6 +221,9 @@ class GraphGenerator:
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--config', type=str, required=True, help='JSON string of the config'
+    )
     # Specify the start, stop, and step sizes for graph generation
     parser.add_argument(
         '--sizes',
@@ -254,12 +256,12 @@ def main():
     )
     args = parser.parse_args()
 
-    env_extensions = {'alda': '.pickle', 'xsb': '.P', 'clingo': '.lp', 'souffle': '.dl'}
-    # env_extensions = {'xsb': '.P', 'clingo': '.lp', 'souffle': '.dl'}
+    config = json.loads(args.config)
+
     logging.info(
         f'Generating graphs for sizes {args.sizes} and types {args.graph_types}.'
     )
-    generator = GraphGenerator('input', env_extensions)
+    generator = GraphGenerator('input', config)
     generator.generate_graphs(list(range(*args.sizes)), args.graph_types)
 
 

@@ -550,6 +550,121 @@ class AnalyzeDBs(AnalyzeSystems):
             f'(CockroachDB) Experiment timing results saved to: {self.timing_path}'
         )
 
+    def solve_with_singlestoredb(self) -> None:
+        conn = self.connect_db(self.environment)
+        # Extract the class name based on the rule file name
+        module_name = self.rule_path.stem
+        class_name = f'SingleStore{module_name.split("_")[1].capitalize()}Recursion'
+
+        logging.info(
+            f'Executing for SingleStore. Module: {module_name}, class: {class_name}'
+        )
+
+        # Dynamically import the appropriate module and class
+        module = importlib.import_module(f'singlestoredb_rules.{module_name}')
+        SingleStoreRecursionClass = getattr(module, class_name)
+        singlestoredb_operations = SingleStoreRecursionClass(self.config, conn)
+
+        results_path = self.output_folder / 'singlestore_results.csv'
+        timing_results = {header: 0 for header in self.headers_rdbms}
+
+        try:
+            # Drop tables in case they exist
+            singlestoredb_operations.drop_tc_path_tc_result_tables()
+
+            # Create Table
+            start_time = os.times()
+            singlestoredb_operations.create_tc_path_table()
+            end_time = os.times()
+            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
+            timing_results['CreateTableRealTime'] = real_time
+            timing_results['CreateTableCPUTime'] = cpu_time
+
+            # Insert Data
+            start_time = os.times()
+            singlestoredb_operations.import_data_from_file(
+                'tc_path', f'{self.input_path}'
+            )
+            end_time = os.times()
+            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
+            timing_results['LoadDataRealTime'] = real_time
+            timing_results['LoadDataCPUTime'] = cpu_time
+
+            # Create Index
+            start_time = os.times()
+            singlestoredb_operations.create_tc_path_index()
+            end_time = os.times()
+            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
+            timing_results['CreateIndexRealTime'] = real_time
+            timing_results['CreateIndexCPUTime'] = cpu_time
+
+            # Analyze table for query improvement
+            start_time = os.times()
+            singlestoredb_operations.analyze_tc_path_table()
+            end_time = os.times()
+            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
+            timing_results['AnalyzeRealTime'] = real_time
+            timing_results['AnalyzeCPUTime'] = cpu_time
+
+            # Recursive Query
+            start_time = os.times()
+            singlestoredb_operations.run_recursive_query()
+            end_time = os.times()
+            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
+            timing_results['ExecuteQueryRealTime'] = real_time
+            timing_results['ExecuteQueryCPUTime'] = cpu_time
+
+            # Export to CSV
+            start_time = os.times()
+            singlestoredb_operations.export_data_to_file()
+            end_time = os.times()
+            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
+            timing_results['WriteResultRealTime'] = real_time
+            timing_results['WriteResultCPUTime'] = cpu_time
+
+            # Drop used tables
+            singlestoredb_operations.drop_tc_path_tc_result_tables()
+
+        except Exception as e:
+            logging.error(f'SingleStoreDB error: {e}')
+
+        finally:
+            conn.close()
+
+        # Write timing results to CSV file
+        is_new_file = not self.timing_path.exists()
+        with open(self.timing_path, 'a', newline='') as csvfile:
+            csv_writer = csv.writer(csvfile)
+            if is_new_file:
+                csv_writer.writerow(self.headers_rdbms)
+            csv_writer.writerow(
+                [timing_results[header] for header in self.headers_rdbms]
+            )
+
+        # NOTE: There is an issue with mariadb that prevents programs from writing into any
+        #  directory of choice even after I set `secure_file_priv = ""` in `~/.my.cnf`,
+        # `/etc/mysql/my.cnf` in my Ubuntu (`~/.my.ini` for Windows)
+        # but I could write into `/tmp/` so I did that temporarily and thereafter move
+        # it to the desired file location using the lines below.
+        machine_user_password = self.config['machineUserPassword']
+        cp_cmd = f'cp /tmp/singlestore_results.csv {results_path}'
+        rm_cmd = f'sudo rm -rf /tmp/singlestore_results.csv'
+        # Run the command and pass the password
+        try:
+            subprocess.run(
+                cp_cmd, text=True, capture_output=True, shell=True, check=True
+            )
+        except Exception as e:
+            logging.error(f'Copy (cp) `/tmp/` error: {e}')
+
+        try:
+            child = pexpect.spawn(rm_cmd)
+            child.expect('password')
+            child.sendline(machine_user_password)
+            child.expect(pexpect.EOF)
+        except Exception as e:
+            logging.error(f'Remove(rm) `/tmp/` error: {e}')
+
     def analyze(self) -> None:
         solve_method = getattr(self, f'solve_with_{self.environment}', None)
 

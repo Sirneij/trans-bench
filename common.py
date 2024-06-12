@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 import re
@@ -9,6 +8,7 @@ from typing import Any
 import duckdb
 import MySQLdb
 import psycopg2
+import singlestoredb as s2
 from neo4j import Driver, GraphDatabase
 from pymongo import MongoClient
 from pymongo.database import Database
@@ -81,7 +81,7 @@ class Base:
             self.driver = MongoClient(self.config[env_name]['uri'])
             return self.driver[self.config[env_name]['database']]
         elif env_name in ['cockroachdb', 'postgres']:
-            return psycopg2.connect(self.config[env_name]['db_url'])
+            return psycopg2.connect(self.config[env_name]['dbURL'])
         elif env_name == 'mariadb':
             return MySQLdb.connect(
                 db=self.config[env_name]['database'],
@@ -91,6 +91,8 @@ class Base:
                 port=self.config[env_name]['port'],
                 local_infile=1,  # Enable LOAD DATA LOCAL INFILE
             )
+        elif env_name == 'singlestoredb':
+            return s2.connect(self.config[env_name]['dbURL'])
 
     def close(self):
         if self.driver:

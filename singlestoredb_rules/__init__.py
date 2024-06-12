@@ -1,19 +1,18 @@
 from typing import Any
 
 from common import Base
+from singlestoredb.connection import Connection
 
 
-class MariaDBOperations(Base):
-    def __init__(self, config: dict[str, Any], conn: Any) -> None:
+class SingleStoreOperations(Base):
+    def __init__(self, config: dict[str, Any], conn: Connection) -> None:
         self.config = config
         self.conn = conn
-
+        self.conn.autocommit(True)
 
     def execute_query(self, query: str, params: Any = None) -> None:
         cursor = self.conn.cursor()
         cursor.execute(query, params)
-        self.conn.commit()
-        cursor.close()
 
     def import_data_from_file(
         self, table_name: str, file_path: str, delimiter: str = '\t'
@@ -28,7 +27,7 @@ class MariaDBOperations(Base):
         self.execute_query(query)
 
     def export_data_to_file(self, delimiter: str = ',') -> None:
-        outfile_query = f"SELECT * FROM tc_result INTO OUTFILE '/tmp/mariadb_results.csv' FIELDS TERMINATED BY '{delimiter}' LINES TERMINATED BY '\n';"
+        outfile_query = f"SELECT * FROM tc_result INTO OUTFILE '/tmp/singlestore_results.csv' FIELDS TERMINATED BY '{delimiter}' LINES TERMINATED BY '\n';"
         self.execute_query(outfile_query)
 
     def create_tc_path_table(self) -> None:
@@ -53,6 +52,8 @@ class MariaDBOperations(Base):
 
     def drop_tc_path_tc_result_tables(self) -> None:
         """
-        Drop the created tables so that next iteration will start on a clean slate
+        Drop the created tables so that next iteration will start on a clean slate.
+        Each table must be dropped separately in SingleStore.
         """
-        self.execute_query('DROP TABLE IF EXISTS tc_path, tc_result;')
+        self.execute_query('DROP TABLE IF EXISTS tc_path;')
+        self.execute_query('DROP TABLE IF EXISTS tc_result;')

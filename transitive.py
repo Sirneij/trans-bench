@@ -74,7 +74,7 @@ class Experiment(Base):
         """
         if env_name in ['clingo', 'xsb']:
             input_dir = Path('input') / 'clingo_xsb'
-        elif env_name in ['souffle', 'postgres']:
+        elif env_name in self.config['defaults']['systems']['dbSystems'] + ['souffle']:
             input_dir = Path('input') / 'souffle'
         else:
             input_dir = Path('input') / env_name
@@ -104,9 +104,12 @@ class Experiment(Base):
             logging.info(
                 f'Missing data for {missing_graph_types}. Generating data with size range: {size_range}...'
             )
+            config_str = json.dumps(self.config)
             command = [
                 'python',
                 'generate_db.py',
+                '--config',
+                config_str,
                 '--sizes',
                 str(size_range[0]),
                 str(size_range[1]),
