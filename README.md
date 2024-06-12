@@ -16,11 +16,6 @@ Having [installed CockroachDB][1], you must [run the `cockroach start-single-nod
 cockroach start-single-node --advertise-addr 'localhost' --insecure
 ```
 
-### MemDB or MemSQL (SignleStore)
-
-You need to [install and obtain a free license][3].
-
 
 [1]: https://www.cockroachlabs.com/docs/v24.1/install-cockroachdb "Install CockroachDB"
 [2]: https://www.cockroachlabs.com/docs/stable/build-a-python-app-with-cockroachdb?filters=local "Step 1. Start CockroachDB"
-[3]: https://docs.singlestore.com/db/v7.8/deploy/linux/ciab-cli-online-deb/ "Cluster-in-a-Box CLI Online Deployment - Debian Distribution"

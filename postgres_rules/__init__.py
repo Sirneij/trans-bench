@@ -1,7 +1,8 @@
 from typing import Any
 
-from common import Base
 from psycopg2 import extensions, sql
+
+from common import Base
 
 
 class PostgresOperations(Base):
@@ -45,7 +46,6 @@ class PostgresOperations(Base):
                     f,
                 )
 
-
     def export_data_to_csv(self, query: str, file_path: str) -> None:
         """
         Exports data from a SQL query to a CSV file.
@@ -78,7 +78,7 @@ class PostgresOperations(Base):
         """
         self.execute_query(
             """
-        CREATE TABLE tc_path(
+        CREATE TABLE edge(
             x INTEGER NOT NULL,
             y INTEGER NOT NULL
         );
@@ -87,22 +87,22 @@ class PostgresOperations(Base):
 
     def create_tc_path_index(self) -> None:
         """
-        Creates an index on the tc_path table for columns y and x.
+        Creates an index on the edge table for columns y and x.
         """
         self.execute_query(
             """
-        CREATE INDEX tc_path_yx ON tc_path(y, x);
+        CREATE INDEX edge_yx ON edge(y, x);
         """
         )
 
     def analyze_tc_path_table(self) -> None:
         """
-        Analyzes the tc_path table to update statistics for query optimization.
+        Analyzes the edge table to update statistics for query optimization.
         """
-        self.execute_query('ANALYZE tc_path;')
+        self.execute_query('ANALYZE edge;')
 
     def drop_tc_path_tc_result_tables(self) -> None:
         """
         Drop the created tables so that next iteration will start on a clean slate
         """
-        self.execute_query('DROP TABLE IF EXISTS tc_path, tc_result;')
+        self.execute_query('DROP TABLE IF EXISTS edge, tc_result;')

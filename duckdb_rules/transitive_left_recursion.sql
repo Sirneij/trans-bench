@@ -1,15 +1,12 @@
-CREATE TABLE tc_path (x INTEGER, y INTEGER);
-COPY tc_path FROM '{data_file}' (DELIMITER '\t');
-CREATE INDEX tc_path_yx ON tc_path (y, x);
+CREATE TABLE edge (x INTEGER, y INTEGER);
+COPY edge FROM '{data_file}' (DELIMITER '\t');
+CREATE INDEX edge_yx ON edge (y, x);
 ANALYZE;
 CREATE TABLE tc_result AS
 WITH RECURSIVE tc AS (
-    SELECT x, y
-    FROM tc_path
+    SELECT x, y FROM edge
     UNION
-    SELECT tc_path.x, tc.y
-    FROM tc_path, tc
-    WHERE tc_path.y = tc.x
+    SELECT edge.x, tc.y FROM edge JOIN tc ON edge.y = tc.x
 )
 SELECT * FROM tc;
 COPY (SELECT * FROM tc_result) TO '{output_file}' WITH (HEADER, DELIMITER ',');

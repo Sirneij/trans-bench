@@ -8,7 +8,6 @@ class MariaDBOperations(Base):
         self.config = config
         self.conn = conn
 
-
     def execute_query(self, query: str, params: Any = None) -> None:
         cursor = self.conn.cursor()
         cursor.execute(query, params)
@@ -34,7 +33,7 @@ class MariaDBOperations(Base):
     def create_tc_path_table(self) -> None:
         self.execute_query(
             """
-        CREATE TABLE tc_path(
+        CREATE TABLE edge(
             x INTEGER NOT NULL,
             y INTEGER NOT NULL
         );
@@ -44,15 +43,15 @@ class MariaDBOperations(Base):
     def create_tc_path_index(self) -> None:
         self.execute_query(
             """
-        CREATE INDEX tc_path_yx ON tc_path(y, x);
+        CREATE INDEX edge_yx ON edge(y, x);
         """
         )
 
     def analyze_tc_path_table(self) -> None:
-        self.execute_query('ANALYZE TABLE tc_path;')
+        self.execute_query('ANALYZE TABLE edge;')
 
     def drop_tc_path_tc_result_tables(self) -> None:
         """
         Drop the created tables so that next iteration will start on a clean slate
         """
-        self.execute_query('DROP TABLE IF EXISTS tc_path, tc_result;')
+        self.execute_query('DROP TABLE IF EXISTS edge, tc_result;')

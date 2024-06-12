@@ -2,9 +2,10 @@ import csv
 import logging
 from typing import Any
 
-from common import Base
 from pymongo import ASCENDING, errors
 from pymongo.database import Database
+
+from common import Base
 
 logging.basicConfig(
     level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s'

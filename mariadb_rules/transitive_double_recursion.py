@@ -10,12 +10,9 @@ class MariaDBDoubleRecursion(MariaDBOperations):
             """
         CREATE TABLE tc_result AS
         WITH RECURSIVE tc AS (
-            SELECT tc_path.x, tc_path.y
-            FROM tc_path
+            SELECT x, y FROM edge
             UNION
-            SELECT tc1.x, tc2.y
-            FROM tc tc1, tc tc2
-            WHERE tc1.y = tc2.x
+            SELECT a.x, b.y FROM tc AS a, tc AS b WHERE a.y = b.x
         )
         SELECT * FROM tc;
         """

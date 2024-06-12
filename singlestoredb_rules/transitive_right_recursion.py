@@ -10,12 +10,9 @@ class SingleStoreRightRecursion(SingleStoreOperations):
             """
         CREATE TABLE tc_result AS
         WITH RECURSIVE tc AS (
-            SELECT tc_path.x, tc_path.y
-            FROM tc_path
+            SELECT x, y FROM edge
             UNION
-            SELECT tc_path.x, tc.y
-            FROM tc_path, tc
-            WHERE tc_path.y = tc.x
+            SELECT tc.x, edge.y FROM tc JOIN edge ON tc.y = edge.x
         )
         SELECT * FROM tc;
         """

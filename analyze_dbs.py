@@ -58,7 +58,7 @@ class AnalyzeDBs(AnalyzeSystems):
 
             # Insert Data
             start_time = os.times()
-            postgres_operations.import_data_from_tsv('tc_path', f'{self.input_path}')
+            postgres_operations.import_data_from_tsv('edge', f'{self.input_path}')
             end_time = os.times()
             real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
             timing_results['LoadDataRealTime'] = real_time
@@ -151,7 +151,7 @@ class AnalyzeDBs(AnalyzeSystems):
 
             # Insert Data
             start_time = os.times()
-            mariadb_operations.import_data_from_file('tc_path', f'{self.input_path}')
+            mariadb_operations.import_data_from_file('edge', f'{self.input_path}')
             end_time = os.times()
             real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
             timing_results['LoadDataRealTime'] = real_time
@@ -379,7 +379,7 @@ class AnalyzeDBs(AnalyzeSystems):
         try:
             # Create Collection (equivalent to Create Table)
             start_time = os.times()
-            mongo_operations.create_collection('tc_path', 'tc_result')
+            mongo_operations.create_collection('edge', 'tc_result')
             end_time = os.times()
             real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
             timing_results['CreateTableRealTime'] = real_time
@@ -387,7 +387,7 @@ class AnalyzeDBs(AnalyzeSystems):
 
             # Insert Data (equivalent to COPY)
             start_time = os.times()
-            mongo_operations.insert_data('tc_path', self.input_path)
+            mongo_operations.insert_data('edge', self.input_path)
             end_time = os.times()
             real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
             timing_results['LoadDataRealTime'] = real_time
@@ -395,8 +395,8 @@ class AnalyzeDBs(AnalyzeSystems):
 
             # Create Index
             start_time = os.times()
-            mongo_operations.create_index('tc_path', 'y')
-            mongo_operations.create_index('tc_path', 'x')
+            mongo_operations.create_index('edge', 'y')
+            mongo_operations.create_index('edge', 'x')
             end_time = os.times()
             real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
             timing_results['CreateIndexRealTime'] = real_time
@@ -404,7 +404,7 @@ class AnalyzeDBs(AnalyzeSystems):
 
             # Recursive Query
             start_time = os.times()
-            mongo_operations.recursive_query('tc_path', 'tc_result')
+            mongo_operations.recursive_query('edge', 'tc_result')
             end_time = os.times()
             real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
             timing_results['ExecuteQueryRealTime'] = real_time
@@ -475,7 +475,7 @@ class AnalyzeDBs(AnalyzeSystems):
 
             # Insert Data
             start_time = os.times()
-            cockroachdb_operations.import_data_from_tsv('tc_path', filename)
+            cockroachdb_operations.import_data_from_tsv('edge', filename)
             end_time = os.times()
             real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
             timing_results['LoadDataRealTime'] = real_time
@@ -582,9 +582,7 @@ class AnalyzeDBs(AnalyzeSystems):
 
             # Insert Data
             start_time = os.times()
-            singlestoredb_operations.import_data_from_file(
-                'tc_path', f'{self.input_path}'
-            )
+            singlestoredb_operations.import_data_from_file('edge', f'{self.input_path}')
             end_time = os.times()
             real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
             timing_results['LoadDataRealTime'] = real_time

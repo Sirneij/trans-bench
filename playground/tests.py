@@ -27,18 +27,18 @@ def measure_duckdb_performance():
 
     # Create the SQL commands
     sql_commands = [
-        "CREATE TABLE tc_path (x INTEGER, y INTEGER);",
-        f"COPY tc_path FROM '{data_file}' (DELIMITER '\t');",
-        "CREATE INDEX tc_path_yx ON tc_path (y, x);",
+        "CREATE TABLE edge (x INTEGER, y INTEGER);",
+        f"COPY edge FROM '{data_file}' (DELIMITER '\t');",
+        "CREATE INDEX edge_yx ON edge (y, x);",
         """
         CREATE TABLE tc_result AS
         WITH RECURSIVE tc AS (
             SELECT x, y
-            FROM tc_path
+            FROM edge
             UNION
-            SELECT tc_path.x, tc.y
-            FROM tc_path, tc
-            WHERE tc_path.y = tc.x
+            SELECT edge.x, tc.y
+            FROM edge, tc
+            WHERE edge.y = tc.x
         )
         SELECT * FROM tc;
         """,

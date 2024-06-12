@@ -10,12 +10,9 @@ class MariaDBLeftRecursion(MariaDBOperations):
             """
         CREATE TABLE tc_result AS
         WITH RECURSIVE tc AS (
-            SELECT tc_path.x, tc_path.y
-            FROM tc_path
+            SELECT x, y FROM edge
             UNION
-            SELECT tc.x, tc_path.y
-            FROM tc, tc_path
-            WHERE tc.y = tc_path.x
+            SELECT edge.x, tc.y FROM edge JOIN tc ON edge.y = tc.x
         )
         SELECT * FROM tc;
         """

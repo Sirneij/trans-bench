@@ -8,14 +8,11 @@ class SingleStoreLeftRecursion(SingleStoreOperations):
         """
         self.execute_query(
             """
-        CREATE TABLE IF NOT EXISTS tc_result AS
-        WITH RECURSIVE tc(x, y) AS (
-            SELECT tc_path.x, tc_path.y
-            FROM tc_path
-            UNION ALL
-            SELECT tc.x, tc_path.y
-            FROM tc, tc_path
-            WHERE tc.y = tc_path.x
+        CREATE TABLE tc_result AS
+        WITH RECURSIVE tc AS (
+            SELECT x, y FROM edge
+            UNION
+            SELECT edge.x, tc.y FROM edge JOIN tc ON edge.y = tc.x
         )
         SELECT * FROM tc;
         """
