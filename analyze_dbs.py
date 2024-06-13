@@ -6,7 +6,7 @@ import json
 import logging
 import os
 import subprocess
-from typing import Any
+from typing import Any, Dict
 
 import pexpect
 
@@ -19,218 +19,141 @@ logging.basicConfig(
 
 
 class AnalyzeDBs(AnalyzeSystems):
-    def __init__(
-        self,
-        config: dict[str, Any],
-        environment: str,
-    ):
+    def __init__(self, config: Dict[str, Any], environment: str):
         super().__init__(config, environment)
+
+    def execute_with_timing(self, operation: callable, *args, **kwargs) -> tuple:
+        """Execute an operation and measure its real and CPU time."""
+        start_time = os.times()
+        operation(*args, **kwargs)
+        end_time = os.times()
+        return self.estimate_time_duration(start_time, end_time)
+
+    def dynamic_import(self, module_name: str, class_name: str) -> Any:
+        """Dynamically import a class from a module."""
+        module = importlib.import_module(module_name)
+        return getattr(module, class_name)
+
+    def write_timing_results(self, timing_results: Dict[str, float]) -> None:
+        """Write timing results to CSV."""
+        is_new_file = not self.timing_path.exists()
+        with open(self.timing_path, 'a', newline='') as csvfile:
+            csv_writer = csv.writer(csvfile)
+            if is_new_file:
+                csv_writer.writerow(self.headers_rdbms)
+            csv_writer.writerow(
+                [timing_results[header] for header in self.headers_rdbms]
+            )
+        logging.info(f'Timing results saved to: {self.timing_path}')
 
     def solve_with_postgres(self) -> None:
         conn = self.connect_db(self.environment)
-        # Extract the class name based on the rule file name
         module_name = self.rule_path.stem
         class_name = f'PostgreSQL{module_name.split("_")[1].capitalize()}Recursion'
-
         logging.info(
             f'Executing for PostgreSQL. Module: {module_name}, class: {class_name}'
         )
 
-        # Dynamically import the appropriate module and class
-        module = importlib.import_module(f'postgres_rules.{module_name}')
-        PostgreSQLRecursionClass = getattr(module, class_name)
+        PostgreSQLRecursionClass = self.dynamic_import(
+            f'postgres_rules.{module_name}', class_name
+        )
         postgres_operations = PostgreSQLRecursionClass(self.config, conn)
 
         results_path = self.output_folder / 'postgres_results.csv'
         timing_results = {header: 0 for header in self.headers_rdbms}
 
         try:
-            # Drop tables in case they exist
             postgres_operations.drop_tc_path_tc_result_tables()
-
-            # Create Table
-            start_time = os.times()
-            postgres_operations.create_tc_path_table()
-            end_time = os.times()
-            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-            timing_results['CreateTableRealTime'] = real_time
-            timing_results['CreateTableCPUTime'] = cpu_time
-
-            # Insert Data
-            start_time = os.times()
-            postgres_operations.import_data_from_tsv('edge', f'{self.input_path}')
-            end_time = os.times()
-            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-            timing_results['LoadDataRealTime'] = real_time
-            timing_results['LoadDataCPUTime'] = cpu_time
-
-            # Create Index
-            start_time = os.times()
-            postgres_operations.create_tc_path_index()
-            end_time = os.times()
-            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-            timing_results['CreateIndexRealTime'] = real_time
-            timing_results['CreateIndexCPUTime'] = cpu_time
-
-            # Analyze table for query improvement
-            start_time = os.times()
-            postgres_operations.analyze_tc_path_table()
-            end_time = os.times()
-            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-            timing_results['AnalyzeRealTime'] = real_time
-            timing_results['AnalyzeCPUTime'] = cpu_time
-
-            # Recursive Query
-            start_time = os.times()
-            postgres_operations.run_recursive_query()
-            end_time = os.times()
-            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-            timing_results['ExecuteQueryRealTime'] = real_time
-            timing_results['ExecuteQueryCPUTime'] = cpu_time
-
-            # Export to CSV
-            start_time = os.times()
-            postgres_operations.export_transitive_closure_results(results_path)
-            end_time = os.times()
-            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-            timing_results['WriteResultRealTime'] = real_time
-            timing_results['WriteResultCPUTime'] = cpu_time
-
-            # Drop used tables
+            (
+                timing_results['CreateTableRealTime'],
+                timing_results['CreateTableCPUTime'],
+            ) = self.execute_with_timing(postgres_operations.create_tc_path_table)
+            timing_results['LoadDataRealTime'], timing_results['LoadDataCPUTime'] = (
+                self.execute_with_timing(
+                    postgres_operations.import_data_from_tsv,
+                    'edge',
+                    f'{self.input_path}',
+                )
+            )
+            (
+                timing_results['CreateIndexRealTime'],
+                timing_results['CreateIndexCPUTime'],
+            ) = self.execute_with_timing(postgres_operations.create_tc_path_index)
+            timing_results['AnalyzeRealTime'], timing_results['AnalyzeCPUTime'] = (
+                self.execute_with_timing(postgres_operations.analyze_tc_path_table)
+            )
+            (
+                timing_results['ExecuteQueryRealTime'],
+                timing_results['ExecuteQueryCPUTime'],
+            ) = self.execute_with_timing(postgres_operations.run_recursive_query)
+            (
+                timing_results['WriteResultRealTime'],
+                timing_results['WriteResultCPUTime'],
+            ) = self.execute_with_timing(
+                postgres_operations.export_transitive_closure_results, results_path
+            )
             postgres_operations.drop_tc_path_tc_result_tables()
-
         except Exception as e:
             logging.error(f'PostgreSQL error: {e}')
-
         finally:
             conn.close()
 
-        # Write timing results to CSV file
-        is_new_file = not self.timing_path.exists()
-        with open(self.timing_path, 'a', newline='') as csvfile:
-            csv_writer = csv.writer(csvfile)
-            if is_new_file:
-                csv_writer.writerow(self.headers_rdbms)
-            csv_writer.writerow(
-                [timing_results[header] for header in self.headers_rdbms]
-            )
-
-        logging.info(
-            f'(PostgreSQL) Experiment timing results saved to: {self.timing_path}'
-        )
+        self.write_timing_results(timing_results)
 
     def solve_with_mariadb(self) -> None:
         conn = self.connect_db(self.environment)
-        # Extract the class name based on the rule file name
         module_name = self.rule_path.stem
         class_name = f'MariaDB{module_name.split("_")[1].capitalize()}Recursion'
-
         logging.info(
             f'Executing for MariaDB. Module: {module_name}, class: {class_name}'
         )
 
-        # Dynamically import the appropriate module and class
-        module = importlib.import_module(f'mariadb_rules.{module_name}')
-        MariaDBRecursionClass = getattr(module, class_name)
+        MariaDBRecursionClass = self.dynamic_import(
+            f'mariadb_rules.{module_name}', class_name
+        )
         mariadb_operations = MariaDBRecursionClass(self.config, conn)
 
         results_path = self.output_folder / 'mariadb_results.csv'
         timing_results = {header: 0 for header in self.headers_rdbms}
 
         try:
-            # Drop tables in case they exist
             mariadb_operations.drop_tc_path_tc_result_tables()
-
-            # Create Table
-            start_time = os.times()
-            mariadb_operations.create_tc_path_table()
-            end_time = os.times()
-            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-            timing_results['CreateTableRealTime'] = real_time
-            timing_results['CreateTableCPUTime'] = cpu_time
-
-            # Insert Data
-            start_time = os.times()
-            mariadb_operations.import_data_from_file('edge', f'{self.input_path}')
-            end_time = os.times()
-            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-            timing_results['LoadDataRealTime'] = real_time
-            timing_results['LoadDataCPUTime'] = cpu_time
-
-            # Create Index
-            start_time = os.times()
-            mariadb_operations.create_tc_path_index()
-            end_time = os.times()
-            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-            timing_results['CreateIndexRealTime'] = real_time
-            timing_results['CreateIndexCPUTime'] = cpu_time
-
-            # Analyze table for query improvement
-            start_time = os.times()
-            mariadb_operations.analyze_tc_path_table()
-            end_time = os.times()
-            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-            timing_results['AnalyzeRealTime'] = real_time
-            timing_results['AnalyzeCPUTime'] = cpu_time
-
-            # Recursive Query
-            start_time = os.times()
-            mariadb_operations.run_recursive_query()
-            end_time = os.times()
-            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-            timing_results['ExecuteQueryRealTime'] = real_time
-            timing_results['ExecuteQueryCPUTime'] = cpu_time
-
-            # Export to CSV
-            start_time = os.times()
-            mariadb_operations.export_data_to_file()
-            end_time = os.times()
-            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-            timing_results['WriteResultRealTime'] = real_time
-            timing_results['WriteResultCPUTime'] = cpu_time
-
-            # Drop used tables
+            (
+                timing_results['CreateTableRealTime'],
+                timing_results['CreateTableCPUTime'],
+            ) = self.execute_with_timing(mariadb_operations.create_tc_path_table)
+            timing_results['LoadDataRealTime'], timing_results['LoadDataCPUTime'] = (
+                self.execute_with_timing(
+                    mariadb_operations.import_data_from_file,
+                    'edge',
+                    f'{self.input_path}',
+                )
+            )
+            (
+                timing_results['CreateIndexRealTime'],
+                timing_results['CreateIndexCPUTime'],
+            ) = self.execute_with_timing(mariadb_operations.create_tc_path_index)
+            timing_results['AnalyzeRealTime'], timing_results['AnalyzeCPUTime'] = (
+                self.execute_with_timing(mariadb_operations.analyze_tc_path_table)
+            )
+            (
+                timing_results['ExecuteQueryRealTime'],
+                timing_results['ExecuteQueryCPUTime'],
+            ) = self.execute_with_timing(mariadb_operations.run_recursive_query)
+            (
+                timing_results['WriteResultRealTime'],
+                timing_results['WriteResultCPUTime'],
+            ) = self.execute_with_timing(mariadb_operations.export_data_to_file)
             mariadb_operations.drop_tc_path_tc_result_tables()
-
         except Exception as e:
             logging.error(f'MariaDB error: {e}')
-
         finally:
             conn.close()
 
-        # Write timing results to CSV file
-        is_new_file = not self.timing_path.exists()
-        with open(self.timing_path, 'a', newline='') as csvfile:
-            csv_writer = csv.writer(csvfile)
-            if is_new_file:
-                csv_writer.writerow(self.headers_rdbms)
-            csv_writer.writerow(
-                [timing_results[header] for header in self.headers_rdbms]
-            )
+        self.write_timing_results(timing_results)
 
-        # NOTE: There is an issue with mariadb that prevents programs from writing into any
-        #  directory of choice even after I set `secure_file_priv = ""` in `~/.my.cnf`,
-        # `/etc/mysql/my.cnf` in my Ubuntu (`~/.my.ini` for Windows)
-        # but I could write into `/tmp/` so I did that temporarily and thereafter move
-        # it to the desired file location using the lines below.
-        machine_user_password = self.config['machineUserPassword']
-        cp_cmd = f'cp /tmp/mariadb_results.csv {results_path}'
-        rm_cmd = f'sudo rm -rf /tmp/mariadb_results.csv'
-        # Run the command and pass the password
-        try:
-            subprocess.run(
-                cp_cmd, text=True, capture_output=True, shell=True, check=True
-            )
-        except Exception as e:
-            logging.error(f'Copy (cp) `/tmp/` error: {e}')
-
-        try:
-            child = pexpect.spawn(rm_cmd)
-            child.expect('password')
-            child.sendline(machine_user_password)
-            child.expect(pexpect.EOF)
-        except Exception as e:
-            logging.error(f'Remove(rm) `/tmp/` error: {e}')
+        self.copy_file('/tmp/mariadb_results.csv', results_path)
+        self.remove_file('/tmp/mariadb_results.csv')
 
     def solve_with_duckdb(self) -> None:
         conn = self.connect_db(self.environment, self.rule_path)
@@ -241,35 +164,23 @@ class AnalyzeDBs(AnalyzeSystems):
         sql_script = sql_script.replace('{data_file}', f'{self.input_path}')
         sql_script = sql_script.replace('{output_file}', f'{results_path}')
 
-        # Split the script into individual commands
         sql_commands = [
             f'{command.strip()};'
             for command in sql_script.split(';')
             if command.strip()
         ]
-
         timing_results = {header: 0 for header in self.headers_rdbms}
 
         for i, command in enumerate(sql_commands):
-            start_time = os.times()
             try:
-                conn.execute(command)
+                (
+                    timing_results[self.headers_rdbms[2 * i]],
+                    timing_results[self.headers_rdbms[2 * i + 1]],
+                ) = self.execute_with_timing(conn.execute, command)
             except Exception as e:
                 logging.error(f'Error executing command: {command}. Error: {e}')
-            end_time = os.times()
-            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-            timing_results[self.headers_rdbms[2 * i]] = real_time
-            timing_results[self.headers_rdbms[2 * i + 1]] = cpu_time
 
-        # Write timing results to CSV file
-        is_new_file = not self.timing_path.exists()
-        with open(self.timing_path, 'a', newline='') as csvfile:
-            csv_writer = csv.writer(csvfile)
-            if is_new_file:
-                csv_writer.writerow(self.headers_rdbms)
-            csv_writer.writerow(
-                [timing_results[header] for header in self.headers_rdbms]
-            )
+        self.write_timing_results(timing_results)
 
     def solve_with_neo4j(self) -> None:
         self.driver = self.connect_db(self.environment)
@@ -279,248 +190,163 @@ class AnalyzeDBs(AnalyzeSystems):
         neo4j_import_dir = self.config['neo4j']['import_directory']
         fact_file_name = os.path.basename(self.input_path)
 
-        cp_cmd = f'sudo cp {self.input_path.resolve()} {neo4j_import_dir}/'
-
-        try:
-            child = pexpect.spawn(cp_cmd)
-            child.expect('password')
-            child.sendline(machine_user_password)
-            child.expect(pexpect.EOF)
-        except Exception as e:
-            logging.error(f'Copy(cp) neo4j error: {e}')
+        self.run_pexpect_command(
+            f'sudo cp {self.input_path.resolve()} {neo4j_import_dir}/',
+            machine_user_password,
+        )
 
         with open(self.rule_path, 'r') as f:
             cypher_script = f.read()
 
         cypher_script = cypher_script.replace('{data_file}', str(fact_file_name))
-
         commands = [
             command.strip() for command in cypher_script.split(';') if command.strip()
         ]
-
         timing_results = {header: 0 for header in self.headers_nosql}
 
         with self.driver.session() as session:
-            for i, command in enumerate(
-                commands[:-1]
-            ):  # Execute all but the last command
-                start_time = os.times()
-                try:
-                    session.run(command)
-                except Exception as e:
-                    logging.error(f'Error executing: {command} with error: {e}')
+            for i, command in enumerate(commands[:-1]):
+                (
+                    timing_results[self.headers_nosql[2 * i]],
+                    timing_results[self.headers_nosql[2 * i + 1]],
+                ) = self.execute_with_timing(session.run, command)
 
-                end_time = os.times()
-                real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-                timing_results[self.headers_nosql[2 * i]] = real_time
-                timing_results[self.headers_nosql[2 * i + 1]] = cpu_time
-
-            # Execute the last command (query) and write the results to a file
             query = commands[-1]
             start_time = os.times()
             result = session.run(query)
             records = [(record["startX"], record["endY"]) for record in result]
             end_time = os.times()
-            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-            timing_results[self.headers_nosql[-4]] = real_time
-            timing_results[self.headers_nosql[-3]] = cpu_time
+            (
+                timing_results[self.headers_nosql[-4]],
+                timing_results[self.headers_nosql[-3]],
+            ) = self.estimate_time_duration(start_time, end_time)
 
-            # Write results to the file
-            start_time = os.times()
             with open(results_path, 'w', newline='') as file:
                 writer = csv.writer(file)
                 writer.writerow(["startX", "endY"])
                 writer.writerows(records)
-            end_time = os.times()
-            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-            timing_results[self.headers_nosql[-2]] = real_time
-            timing_results[self.headers_nosql[-1]] = cpu_time
 
-        # Write timing results to CSV file
-        is_new_file = not self.timing_path.exists()
-        with open(self.timing_path, 'a', newline='') as csvfile:
-            csv_writer = csv.writer(csvfile)
-            if is_new_file:
-                csv_writer.writerow(self.headers_nosql)
-            csv_writer.writerow(
-                [timing_results[header] for header in self.headers_nosql]
-            )
+            (
+                timing_results[self.headers_nosql[-2]],
+                timing_results[self.headers_nosql[-1]],
+            ) = self.execute_with_timing(lambda: None)
 
-        logging.info(f'(Neo4j) Experiment timing results saved to: {self.timing_path}')
+        self.write_timing_results(timing_results)
 
-        rm_cmd = f'sudo rm {neo4j_import_dir}/{fact_file_name}'
-
-        try:
-            child = pexpect.spawn(rm_cmd)
-            child.expect('password')
-            child.sendline(machine_user_password)
-            child.expect(pexpect.EOF)
-        except Exception as e:
-            logging.error(f'Remove(rm) neo4j error: {e}')
+        self.run_pexpect_command(
+            f'sudo rm {neo4j_import_dir}/{fact_file_name}', machine_user_password
+        )
 
     def solve_with_mongodb(self) -> None:
         db = self.connect_db(self.environment)
-        # Extract the class name based on the rule file name
         module_name = self.rule_path.stem
         class_name = f'MongoDB{module_name.split("_")[1].capitalize()}Recursion'
-
         logging.info(
             f'Executing for MongoDB. Module: {module_name}, class: {class_name}'
         )
 
-        # Dynamically import the appropriate module and class
-        module = importlib.import_module(f'mongodb_rules.{module_name}')
-        MongoDBRecursionClass = getattr(module, class_name)
+        MongoDBRecursionClass = self.dynamic_import(
+            f'mongodb_rules.{module_name}', class_name
+        )
         mongo_operations = MongoDBRecursionClass(self.config, db)
 
         results_path = self.output_folder / 'mongodb_results.csv'
         timing_results = {header: 0 for header in self.headers_mongodb}
 
         try:
-            # Create Collection (equivalent to Create Table)
-            start_time = os.times()
-            mongo_operations.create_collection('edge', 'tc_result')
-            end_time = os.times()
-            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-            timing_results['CreateTableRealTime'] = real_time
-            timing_results['CreateTableCPUTime'] = cpu_time
-
-            # Insert Data (equivalent to COPY)
-            start_time = os.times()
-            mongo_operations.insert_data('edge', self.input_path)
-            end_time = os.times()
-            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-            timing_results['LoadDataRealTime'] = real_time
-            timing_results['LoadDataCPUTime'] = cpu_time
-
-            # Create Index
-            start_time = os.times()
-            mongo_operations.create_index('edge', 'y')
-            mongo_operations.create_index('edge', 'x')
-            end_time = os.times()
-            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-            timing_results['CreateIndexRealTime'] = real_time
-            timing_results['CreateIndexCPUTime'] = cpu_time
-
-            # Recursive Query
-            start_time = os.times()
-            mongo_operations.recursive_query('edge', 'tc_result')
-            end_time = os.times()
-            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-            timing_results['ExecuteQueryRealTime'] = real_time
-            timing_results['ExecuteQueryCPUTime'] = cpu_time
-
-            # Export to CSV
-            start_time = os.times()
-            mongo_operations.export_to_csv('tc_result', results_path)
-            end_time = os.times()
-            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-            timing_results['WriteResultRealTime'] = real_time
-            timing_results['WriteResultCPUTime'] = cpu_time
-
+            (
+                timing_results['CreateTableRealTime'],
+                timing_results['CreateTableCPUTime'],
+            ) = self.execute_with_timing(
+                mongo_operations.create_collection, 'edge', 'tc_result'
+            )
+            timing_results['LoadDataRealTime'], timing_results['LoadDataCPUTime'] = (
+                self.execute_with_timing(
+                    mongo_operations.insert_data, 'edge', self.input_path
+                )
+            )
+            (
+                timing_results['CreateIndexRealTime'],
+                timing_results['CreateIndexCPUTime'],
+            ) = self.execute_with_timing(mongo_operations.create_index, 'edge', 'y')
+            (
+                timing_results['ExecuteQueryRealTime'],
+                timing_results['ExecuteQueryCPUTime'],
+            ) = self.execute_with_timing(
+                mongo_operations.recursive_query, 'edge', 'tc_result'
+            )
+            (
+                timing_results['WriteResultRealTime'],
+                timing_results['WriteResultCPUTime'],
+            ) = self.execute_with_timing(
+                mongo_operations.export_to_csv, 'tc_result', results_path
+            )
         except Exception as e:
             logging.error(f'MongoDB error: {e}')
 
-        # Write timing results to CSV file
-        is_new_file = not self.timing_path.exists()
-        with open(self.timing_path, 'a', newline='') as csvfile:
-            csv_writer = csv.writer(csvfile)
-            if is_new_file:
-                csv_writer.writerow(self.headers_mongodb)
-            csv_writer.writerow(
-                [timing_results[header] for header in self.headers_mongodb]
-            )
-
+        self.write_timing_results(timing_results)
         logging.info(
             f'(MongoDB) Experiment timing results saved to: {self.timing_path}'
         )
 
     def solve_with_cockroachdb(self) -> None:
         conn = self.connect_db(self.environment)
-        # Extract the class name based on the rule file name
         module_name = self.rule_path.stem
         class_name = f'CockroachDB{module_name.split("_")[1].capitalize()}Recursion'
-
         logging.info(
             f'Executing for CockroachDB. Module: {module_name}, class: {class_name}'
         )
 
-        # Dynamically import the appropriate module and class
-        module = importlib.import_module(f'cockroachdb_rules.{module_name}')
-        CockroachDBRecursionClass = getattr(module, class_name)
+        CockroachDBRecursionClass = self.dynamic_import(
+            f'cockroachdb_rules.{module_name}', class_name
+        )
         cockroachdb_operations = CockroachDBRecursionClass(self.config, conn)
 
         results_path = self.output_folder / 'cockroachdb_results.csv'
         timing_results = {header: 0 for header in self.headers_rdbms}
 
         try:
-            # Drop tables in case they exist
             cockroachdb_operations.drop_tc_path_tc_result_tables()
-
             external_directory = self.config[self.environment]["externalDirectory"]
 
-            # Create Table
-            start_time = os.times()
-            cockroachdb_operations.create_tc_path_table()
-            end_time = os.times()
-            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-            timing_results['CreateTableRealTime'] = real_time
-            timing_results['CreateTableCPUTime'] = cpu_time
+            (
+                timing_results['CreateTableRealTime'],
+                timing_results['CreateTableCPUTime'],
+            ) = self.execute_with_timing(cockroachdb_operations.create_tc_path_table)
 
-            # Create directory and copy input file
             cmd = f'mkdir -p {external_directory} && cp {self.input_path} {external_directory}'
             subprocess.run(cmd, shell=True, text=True, capture_output=True, check=True)
 
             filename = f'{self.input_path.stem + self.input_path.suffix}'
+            timing_results['LoadDataRealTime'], timing_results['LoadDataCPUTime'] = (
+                self.execute_with_timing(
+                    cockroachdb_operations.import_data_from_tsv, 'edge', filename
+                )
+            )
 
-            # Insert Data
-            start_time = os.times()
-            cockroachdb_operations.import_data_from_tsv('edge', filename)
-            end_time = os.times()
-            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-            timing_results['LoadDataRealTime'] = real_time
-            timing_results['LoadDataCPUTime'] = cpu_time
-
-            # Delete input file
             cmd = f'rm {external_directory}{filename}'
             subprocess.run(cmd, shell=True, text=True, capture_output=True, check=True)
 
-            # Create Index
-            start_time = os.times()
-            cockroachdb_operations.create_tc_path_index()
-            end_time = os.times()
-            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-            timing_results['CreateIndexRealTime'] = real_time
-            timing_results['CreateIndexCPUTime'] = cpu_time
+            (
+                timing_results['CreateIndexRealTime'],
+                timing_results['CreateIndexCPUTime'],
+            ) = self.execute_with_timing(cockroachdb_operations.create_tc_path_index)
+            timing_results['AnalyzeRealTime'], timing_results['AnalyzeCPUTime'] = (
+                self.execute_with_timing(cockroachdb_operations.analyze_tc_path_table)
+            )
+            (
+                timing_results['ExecuteQueryRealTime'],
+                timing_results['ExecuteQueryCPUTime'],
+            ) = self.execute_with_timing(cockroachdb_operations.run_recursive_query)
+            (
+                timing_results['WriteResultRealTime'],
+                timing_results['WriteResultCPUTime'],
+            ) = self.execute_with_timing(
+                cockroachdb_operations.export_transitive_closure_results, results_path
+            )
 
-            # Analyze table for query improvement
-            start_time = os.times()
-            cockroachdb_operations.analyze_tc_path_table()
-            end_time = os.times()
-            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-            timing_results['AnalyzeRealTime'] = real_time
-            timing_results['AnalyzeCPUTime'] = cpu_time
-
-            # Recursive Query
-            start_time = os.times()
-            cockroachdb_operations.run_recursive_query()
-            end_time = os.times()
-            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-            timing_results['ExecuteQueryRealTime'] = real_time
-            timing_results['ExecuteQueryCPUTime'] = cpu_time
-
-            # Export to CSV
-            start_time = os.times()
-            cockroachdb_operations.export_transitive_closure_results(results_path)
-            end_time = os.times()
-            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-            timing_results['WriteResultRealTime'] = real_time
-            timing_results['WriteResultCPUTime'] = cpu_time
-
-            # Drop used tables
             cockroachdb_operations.drop_tc_path_tc_result_tables()
 
-            # Move output file to the desired location
             cp_cmd = f'cp {external_directory}tmp/*.csv {results_path}'
             rm_cmd = f'rm -r {external_directory}tmp'
             subprocess.run(
@@ -529,152 +355,114 @@ class AnalyzeDBs(AnalyzeSystems):
             subprocess.run(
                 rm_cmd, shell=True, text=True, capture_output=True, check=True
             )
-
         except Exception as e:
             logging.error(f'CockroachDB error: {e}')
-
         finally:
             conn.close()
 
-        # Write timing results to CSV file
-        is_new_file = not self.timing_path.exists()
-        with open(self.timing_path, 'a', newline='') as csvfile:
-            csv_writer = csv.writer(csvfile)
-            if is_new_file:
-                csv_writer.writerow(self.headers_rdbms)
-            csv_writer.writerow(
-                [timing_results[header] for header in self.headers_rdbms]
-            )
-
+        self.write_timing_results(timing_results)
         logging.info(
             f'(CockroachDB) Experiment timing results saved to: {self.timing_path}'
         )
 
     def solve_with_singlestoredb(self) -> None:
         conn = self.connect_db(self.environment)
-        # Extract the class name based on the rule file name
         module_name = self.rule_path.stem
         class_name = f'SingleStore{module_name.split("_")[1].capitalize()}Recursion'
-
         logging.info(
             f'Executing for SingleStore. Module: {module_name}, class: {class_name}'
         )
 
-        # Dynamically import the appropriate module and class
-        module = importlib.import_module(f'singlestoredb_rules.{module_name}')
-        SingleStoreRecursionClass = getattr(module, class_name)
+        SingleStoreRecursionClass = self.dynamic_import(
+            f'singlestoredb_rules.{module_name}', class_name
+        )
         singlestoredb_operations = SingleStoreRecursionClass(self.config, conn)
 
         results_path = self.output_folder / 'singlestore_results.csv'
         timing_results = {header: 0 for header in self.headers_rdbms}
 
         try:
-            # Drop tables in case they exist
             singlestoredb_operations.drop_tc_path_tc_result_tables()
-
-            # Create Table
-            start_time = os.times()
-            singlestoredb_operations.create_tc_path_table()
-            end_time = os.times()
-            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-            timing_results['CreateTableRealTime'] = real_time
-            timing_results['CreateTableCPUTime'] = cpu_time
-
-            # Insert Data
-            start_time = os.times()
-            singlestoredb_operations.import_data_from_file('edge', f'{self.input_path}')
-            end_time = os.times()
-            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-            timing_results['LoadDataRealTime'] = real_time
-            timing_results['LoadDataCPUTime'] = cpu_time
-
-            # Create Index
-            start_time = os.times()
-            singlestoredb_operations.create_tc_path_index()
-            end_time = os.times()
-            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-            timing_results['CreateIndexRealTime'] = real_time
-            timing_results['CreateIndexCPUTime'] = cpu_time
-
-            # Analyze table for query improvement
-            start_time = os.times()
-            singlestoredb_operations.analyze_tc_path_table()
-            end_time = os.times()
-            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-            timing_results['AnalyzeRealTime'] = real_time
-            timing_results['AnalyzeCPUTime'] = cpu_time
-
-            # Recursive Query
-            start_time = os.times()
-            singlestoredb_operations.run_recursive_query()
-            end_time = os.times()
-            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-            timing_results['ExecuteQueryRealTime'] = real_time
-            timing_results['ExecuteQueryCPUTime'] = cpu_time
-
-            # Export to CSV
-            start_time = os.times()
-            singlestoredb_operations.export_data_to_file()
-            end_time = os.times()
-            real_time, cpu_time = self.estimate_time_duration(start_time, end_time)
-            timing_results['WriteResultRealTime'] = real_time
-            timing_results['WriteResultCPUTime'] = cpu_time
-
-            # Drop used tables
+            (
+                timing_results['CreateTableRealTime'],
+                timing_results['CreateTableCPUTime'],
+            ) = self.execute_with_timing(singlestoredb_operations.create_tc_path_table)
+            timing_results['LoadDataRealTime'], timing_results['LoadDataCPUTime'] = (
+                self.execute_with_timing(
+                    singlestoredb_operations.import_data_from_file,
+                    'edge',
+                    f'{self.input_path}',
+                )
+            )
+            (
+                timing_results['CreateIndexRealTime'],
+                timing_results['CreateIndexCPUTime'],
+            ) = self.execute_with_timing(singlestoredb_operations.create_tc_path_index)
+            timing_results['AnalyzeRealTime'], timing_results['AnalyzeCPUTime'] = (
+                self.execute_with_timing(singlestoredb_operations.analyze_tc_path_table)
+            )
+            (
+                timing_results['ExecuteQueryRealTime'],
+                timing_results['ExecuteQueryCPUTime'],
+            ) = self.execute_with_timing(singlestoredb_operations.run_recursive_query)
+            (
+                timing_results['WriteResultRealTime'],
+                timing_results['WriteResultCPUTime'],
+            ) = self.execute_with_timing(singlestoredb_operations.export_data_to_file)
             singlestoredb_operations.drop_tc_path_tc_result_tables()
-
         except Exception as e:
             logging.error(f'SingleStoreDB error: {e}')
-
         finally:
             conn.close()
 
-        # Write timing results to CSV file
-        is_new_file = not self.timing_path.exists()
-        with open(self.timing_path, 'a', newline='') as csvfile:
-            csv_writer = csv.writer(csvfile)
-            if is_new_file:
-                csv_writer.writerow(self.headers_rdbms)
-            csv_writer.writerow(
-                [timing_results[header] for header in self.headers_rdbms]
-            )
+        self.write_timing_results(timing_results)
+        self.copy_file('/tmp/singlestore_results.csv', results_path)
+        self.remove_file('/tmp/singlestore_results.csv')
 
-        # NOTE: There is an issue with mariadb that prevents programs from writing into any
-        #  directory of choice even after I set `secure_file_priv = ""` in `~/.my.cnf`,
-        # `/etc/mysql/my.cnf` in my Ubuntu (`~/.my.ini` for Windows)
-        # but I could write into `/tmp/` so I did that temporarily and thereafter move
-        # it to the desired file location using the lines below.
-        machine_user_password = self.config['machineUserPassword']
-        cp_cmd = f'cp /tmp/singlestore_results.csv {results_path}'
-        rm_cmd = f'sudo rm -rf /tmp/singlestore_results.csv'
-        # Run the command and pass the password
+    def run_pexpect_command(self, command: str, password: str) -> None:
+        """Run a shell command using pexpect with password input."""
         try:
-            subprocess.run(
-                cp_cmd, text=True, capture_output=True, shell=True, check=True
-            )
-        except Exception as e:
-            logging.error(f'Copy (cp) `/tmp/` error: {e}')
-
-        try:
-            child = pexpect.spawn(rm_cmd)
+            child = pexpect.spawn(command)
             child.expect('password')
-            child.sendline(machine_user_password)
+            child.sendline(password)
             child.expect(pexpect.EOF)
         except Exception as e:
-            logging.error(f'Remove(rm) `/tmp/` error: {e}')
+            logging.error(f'Command `{command}` error: {e}')
+
+    def copy_file(self, source: str, destination: str) -> None:
+        """Copy file from source to destination."""
+        try:
+            subprocess.run(
+                f'cp {source} {destination}',
+                text=True,
+                capture_output=True,
+                shell=True,
+                check=True,
+            )
+        except Exception as e:
+            logging.error(f'Copy (cp) error: {e}')
+
+    def remove_file(self, path: str) -> None:
+        """Remove file at specified path."""
+        try:
+            subprocess.run(
+                f'sudo rm -rf {path}',
+                text=True,
+                capture_output=True,
+                shell=True,
+                check=True,
+            )
+        except Exception as e:
+            logging.error(f'Remove (rm) error: {e}')
 
     def analyze(self) -> None:
         solve_method = getattr(self, f'solve_with_{self.environment}', None)
-
         if solve_method is None:
             logging.error(
                 f"'{self.environment}' is not supported or method is missing."
             )
             return
-
         solve_method()
-
-        # Close the connection and delete the DuckDB file if applicable
         self.close()
 
 

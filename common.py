@@ -3,15 +3,14 @@ import os
 import re
 import subprocess
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional, Union
 
 import duckdb
 import MySQLdb
 import psycopg2
 import singlestoredb as s2
-from neo4j import Driver, GraphDatabase
+from neo4j import GraphDatabase
 from pymongo import MongoClient
-from pymongo.database import Database
 
 # Set up logging with a specific format
 logging.basicConfig(
@@ -63,38 +62,76 @@ class Base:
             'WriteResultCPUTime',
         ]
 
-    def connect_db(
-        self, env_name: str, rule_path: str = None
-    ) -> duckdb.DuckDBPyConnection | Driver | Database:
-        if env_name == 'duckdb':
-            if rule_path is not None:
-                self.db_path = Path(rule_path).parent / env_name / 'duckdb_file.db'
-                self.db_path.parent.mkdir(parents=True, exist_ok=True)
-            return duckdb.connect(database=str(self.db_path))
+    def connect_db(self, env_name: str, rule_path: Optional[str] = None) -> Union[
+        duckdb.DuckDBPyConnection,
+        GraphDatabase.driver,
+        MongoClient,
+        psycopg2.extensions.connection,
+        MySQLdb.Connection,
+        s2.connection.Connection,
+    ]:
+        env_name = env_name.lower()
+        connection_methods = {
+            'duckdb': self._connect_duckdb,
+            'neo4j': self._connect_neo4j,
+            'mongodb': self._connect_mongodb,
+            'cockroachdb': self._connect_psycopg2,
+            'postgres': self._connect_psycopg2,
+            'mariadb': self._connect_mariadb,
+            'singlestoredb': self._connect_singlestoredb,
+        }
 
-        elif env_name == 'neo4j':
-            return GraphDatabase.driver(
-                self.config[env_name]['uri'],
-                auth=(self.config[env_name]['user'], self.config[env_name]['password']),
-            )
-        elif env_name == 'mongodb':
-            self.driver = MongoClient(self.config[env_name]['uri'])
-            return self.driver[self.config[env_name]['database']]
-        elif env_name in ['cockroachdb', 'postgres']:
-            return psycopg2.connect(self.config[env_name]['dbURL'])
-        elif env_name == 'mariadb':
-            return MySQLdb.connect(
-                db=self.config[env_name]['database'],
-                user=self.config[env_name]['user'],
-                passwd=self.config[env_name]['password'],
-                host=self.config[env_name]['host'],
-                port=self.config[env_name]['port'],
-                local_infile=1,  # Enable LOAD DATA LOCAL INFILE
-            )
-        elif env_name == 'singlestoredb':
-            return s2.connect(self.config[env_name]['dbURL'])
+        if env_name not in connection_methods:
+            raise ValueError(f"Unsupported database environment: {env_name}")
 
-    def close(self):
+        return connection_methods[env_name](env_name, rule_path)
+
+    def _connect_duckdb(
+        self, env_name: str, rule_path: Optional[str] = None
+    ) -> duckdb.DuckDBPyConnection:
+        if rule_path is not None:
+            self.db_path = Path(rule_path).parent / env_name / 'duckdb_file.db'
+            self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        return duckdb.connect(database=str(self.db_path))
+
+    def _connect_neo4j(
+        self, env_name: str, rule_path: Optional[str] = None
+    ) -> GraphDatabase.driver:
+        return GraphDatabase.driver(
+            self.config[env_name]['uri'],
+            auth=(self.config[env_name]['user'], self.config[env_name]['password']),
+        )
+
+    def _connect_mongodb(
+        self, env_name: str, rule_path: Optional[str] = None
+    ) -> MongoClient:
+        self.driver = MongoClient(self.config[env_name]['uri'])
+        return self.driver[self.config[env_name]['database']]
+
+    def _connect_psycopg2(
+        self, env_name: str, rule_path: Optional[str] = None
+    ) -> psycopg2.extensions.connection:
+        logging.info(f"Env: {env_name}")
+        return psycopg2.connect(self.config[env_name]['dbURL'])
+
+    def _connect_mariadb(
+        self, env_name: str, rule_path: Optional[str] = None
+    ) -> MySQLdb.Connection:
+        return MySQLdb.connect(
+            db=self.config[env_name]['database'],
+            user=self.config[env_name]['user'],
+            passwd=self.config[env_name]['password'],
+            host=self.config[env_name]['host'],
+            port=self.config[env_name]['port'],
+            local_infile=1,  # Enable LOAD DATA LOCAL INFILE
+        )
+
+    def _connect_singlestoredb(
+        self, env_name: str, rule_path: Optional[str] = None
+    ) -> s2.connection:
+        return s2.connect(self.config[env_name]['dbURL'])
+
+    def close(self) -> None:
         if self.driver:
             self.driver.close()
             self.driver = None
@@ -103,11 +140,7 @@ class Base:
 
 
 class AnalyzeSystems(Base):
-    def __init__(
-        self,
-        config: dict[str, Any],
-        environment: str,
-    ):
+    def __init__(self, config: dict[str, Any], environment: str):
         super().__init__(config)
         self.environment = environment
         self.rule_path = None
@@ -116,53 +149,20 @@ class AnalyzeSystems(Base):
         self.output_folder = None
 
     def discover_rules(self, rules_dir: Path, extension: str) -> dict[str, Path]:
-        """
-        Discovers rule files in a directory and maps rule names to file paths.
-
-        This function searches for files with a given extension in a directory. It then maps the rule name from each file name (the part after the first underscore)
-        to the file path. The function returns this mapping as a dictionary.
-
-        Args:
-            `rules_dir (Path)`: The directory to search for rule files.
-            `extension (str)`: The extension of the rule files.
-
-        Returns:
-            dict[str, Path]: A dictionary mapping rule names to file paths.
-        """
+        """Discovers rule files in a directory and maps rule names to file paths."""
         return {
             rule_file.stem.split('_', 1)[-1]: rule_file
             for rule_file in rules_dir.glob(f'*{extension}')
         }
 
     def estimate_time_duration(self, t1: tuple, t2: tuple) -> tuple[float, float]:
-        """
-        Estimates the time duration between two time points.
-
-        This function calculates the elapsed time and the CPU time used between two time points. The time points are tuples containing user time, system time, child user time, child system time, and elapsed real time.
-
-        Args:
-            `t1 (tuple)`: The first time point. It is a tuple of the form (user time, system time, child user time, child system time, elapsed real time).
-            `t2 (tuple)`: The second time point. It is a tuple of the form (user time, system time, child user time, child system time, elapsed real time).
-
-        Returns:
-            tuple: A tuple containing the difference in elapsed real time and the sum of the differences in user time, system time, child user time, and child system time.
-        """
+        """Estimates the time duration between two time points."""
         u1, s1, cu1, cs1, elapsed1 = t1
         u2, s2, cu2, cs2, elapsed2 = t2
         return elapsed2 - elapsed1, u2 - u1 + s2 - s1 + cu2 - cu1 + cs2 - cs1
 
     def run_souffle_command(self, command: str) -> tuple[str, dict[str, float]]:
-        """
-        Executes a given Souffle command and logs the output, error, and timing data.
-
-        This function takes in a Souffle command, executes it using the subprocess module, and logs the output, error, and timing data. If the command fails, it logs the error and returns a failure message. If the command succeeds, it calculates the real time and CPU time used and returns these values along with the parsed timing data.
-
-        Args:
-            `command (str)`: The Souffle command to be executed.
-
-        Returns:
-            `tuple`: A tuple containing the real time, CPU time, and parsed timing data if the command succeeds. If the command fails, it returns a failure message.
-        """
+        """Executes a given Souffle command and logs the output, error, and timing data."""
         logging.info(f'Executing command: {command}')
         try:
             time_begin = os.times()
@@ -181,10 +181,10 @@ class AnalyzeSystems(Base):
             logging.info(f"Parsed timing data: {timing_data}")
         except subprocess.CalledProcessError as e:
             logging.info(f"Command failed: {e}")
-            return 'Command failed'
+            return 'Command failed', {}
         except Exception as e:
             logging.error(f"Error: {e}")
-            return 'Error'
+            return 'Error', {}
 
         if result.returncode == 0:
             real_time, cpu_time = self.estimate_time_duration(time_begin, time_end)
@@ -193,26 +193,14 @@ class AnalyzeSystems(Base):
             return '0,0', {}
 
     def __parse_souffle_timing_data(self, output: str) -> dict[str, float]:
-        """
-        Parses the timing data from the output of a Souffle command.
-
-        This function takes in the output of a Souffle command, extracts the timing data using a regular expression, and returns this data as a dictionary.
-
-        Args:
-            `output (str)`: The output of a Souffle command.
-
-        Returns:
-            `dict`: A dictionary where the keys are the names of the timing metrics (e.g., 'Loading time', 'Query time') and the values are the corresponding times in seconds.
-        """
+        """Parses the timing data from the output of a Souffle command."""
         pattern = r'(\w+ time): (\d+\.\d+) seconds'
         timings = re.findall(pattern, output)
-        return dict(timings)
+        return {metric: float(time) for metric, time in timings}
 
     def parse_postgresql_timings(self, output: str) -> dict[str, float]:
-        # Regular expression to match timing lines
+        """Parses timing data from PostgreSQL output."""
         timing_regex = re.compile(r'Time:\s+([\d.]+)\s+ms')
-
-        # Define the steps in the order they appear
         steps = [
             'CreateTable',
             'LoadData',
@@ -221,24 +209,15 @@ class AnalyzeSystems(Base):
             'ExecuteQuery',
             'WriteResult',
         ]
-
-        # Find all timing values in the output
         times = timing_regex.findall(output)
-
-        # Convert times from milliseconds to seconds
         times_in_seconds = [float(time) / 1000 for time in times]
-
-        # Map steps to their corresponding timing values
-        timings = dict(zip(steps, times_in_seconds))
-
-        return timings
+        return dict(zip(steps, times_in_seconds))
 
     def set_output_folder(self) -> None:
+        """Sets the output folder based on the timing path."""
         pattern = r'^timing_(.*?)_graph_(\d+)\.csv$'
         match = re.match(pattern, self.timing_path.name)
-        mode, size = '', ''
-        if match:
-            mode, size = match.groups()
+        mode, size = match.groups() if match else ('', '')
 
         output_file_mode = self.timing_path.parent / f'{mode}'
         output_file_mode.parent.mkdir(parents=True, exist_ok=True)
@@ -247,16 +226,15 @@ class AnalyzeSystems(Base):
         output_folder.mkdir(parents=True, exist_ok=True)
 
         self.output_folder = output_folder
-
         logging.info(f'Output folder: {self.output_folder}')
 
     def set_file_paths(self, mode: str, graph_type: str, size: int) -> None:
+        """Sets the paths for rule file, input file, and timing file."""
         config = self.config['defaults']['systems']
         project_root = Path(__file__).parent
         rules_dir = project_root / f'{self.environment}_rules'
         rule_files = self.discover_rules(
-            rules_dir,
-            config['environmentExtensions'][self.environment],
+            rules_dir, config['environmentExtensions'][self.environment]
         )
 
         if mode not in rule_files:
@@ -265,12 +243,11 @@ class AnalyzeSystems(Base):
 
         input_dir = Path('input')
         if self.environment in config['dbSystems'] + ['souffle']:
-            if self.environment == 'souffle':
-                input_path = input_dir / 'souffle' / graph_type / str(size)
-            else:
-                input_path = (
-                    input_dir / 'souffle' / graph_type / str(size) / 'edge.facts'
-                )
+            input_path = (
+                input_dir / 'souffle' / graph_type / str(size) / 'edge.facts'
+                if self.environment != 'souffle'
+                else input_dir / 'souffle' / graph_type / str(size)
+            )
         else:
             inputfile = f'graph_{size}.lp'
             input_path = input_dir / 'clingo_xsb' / graph_type / inputfile
@@ -278,10 +255,11 @@ class AnalyzeSystems(Base):
 
         timing_dir = Path('timing') / self.environment / graph_type
         timing_dir.mkdir(parents=True, exist_ok=True)
-        if self.environment in config['dbSystems'] + ['souffle']:
-            output_file_name = f'timing_{mode}_graph_{size}.csv'
-        else:
-            output_file_name = f'timing_{mode}_{input_path.stem}.csv'
+        output_file_name = (
+            f'timing_{mode}_{input_path.stem}.csv'
+            if self.environment not in config['dbSystems'] + ['souffle']
+            else f'timing_{mode}_graph_{size}.csv'
+        )
         timing_path = timing_dir / output_file_name
 
         self.rule_path = rule_path

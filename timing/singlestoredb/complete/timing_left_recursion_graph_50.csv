@@ -1,2 +1,0 @@
-CreateTableRealTime,CreateTableCPUTime,LoadDataRealTime,LoadDataCPUTime,CreateIndexRealTime,CreateIndexCPUTime,AnalyzeRealTime,AnalyzeCPUTime,ExecuteQueryRealTime,ExecuteQueryCPUTime,WriteResultRealTime,WriteResultCPUTime
-0.04999999701976776,0.0,0.020000003278255463,0.0,0.9500000029802322,0.0,0.019999995827674866,0.0,0,0,0,0

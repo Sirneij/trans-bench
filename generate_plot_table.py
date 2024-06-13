@@ -28,6 +28,46 @@ class BaseTableAndPlotGenerator:
                 'Querying',
                 'Writing',
             ],
+            'postgres': [
+                'CreateTable',
+                'LoadData',
+                'CreateIndex',
+                'Analyze',
+                'ExecuteQuery',
+                'WriteRes',
+            ],
+            'mariadb': [
+                'CreateTable',
+                'LoadData',
+                'CreateIndex',
+                'Analyze',
+                'ExecuteQuery',
+                'WriteRes',
+            ],
+            'duckdb': [
+                'CreateTable',
+                'LoadData',
+                'CreateIndex',
+                'Analyze',
+                'ExecuteQuery',
+                'WriteRes',
+            ],
+            'cockroachdb': [
+                'CreateTable',
+                'LoadData',
+                'CreateIndex',
+                'Analyze',
+                'ExecuteQuery',
+                'WriteRes',
+            ],
+            'singlestoredb': [
+                'CreateTable',
+                'LoadData',
+                'CreateIndex',
+                'Analyze',
+                'ExecuteQuery',
+                'WriteRes',
+            ],
         }
         self.component_colors = {
             'alda': {'Overall': 'LimeGreen'},
@@ -51,6 +91,46 @@ class BaseTableAndPlotGenerator:
                 'LoadFacts': 'LimeGreen',
                 'Querying': 'Crimson',
                 'Writing': 'DodgerBlue',
+            },
+            'postgres': {
+                'CreateTable': 'LightGoldenrod',
+                'LoadData': 'DarkOrange',
+                'CreateIndex': 'LightPink',
+                'Analyze': 'LimeGreen',
+                'ExecuteQuery': 'Crimson',
+                'WriteRes': 'DodgerBlue',
+            },
+            'mariadb': {
+                'CreateTable': 'LightGoldenrod',
+                'LoadData': 'DarkOrange',
+                'CreateIndex': 'LightPink',
+                'Analyze': 'LimeGreen',
+                'ExecuteQuery': 'Crimson',
+                'WriteRes': 'DodgerBlue',
+            },
+            'duckdb': {
+                'CreateTable': 'LightGoldenrod',
+                'LoadData': 'DarkOrange',
+                'CreateIndex': 'LightPink',
+                'Analyze': 'LimeGreen',
+                'ExecuteQuery': 'Crimson',
+                'WriteRes': 'DodgerBlue',
+            },
+            'cockroachdb': {
+                'CreateTable': 'LightGoldenrod',
+                'LoadData': 'DarkOrange',
+                'CreateIndex': 'LightPink',
+                'Analyze': 'LimeGreen',
+                'ExecuteQuery': 'Crimson',
+                'WriteRes': 'DodgerBlue',
+            },
+            'singlestoredb': {
+                'CreateTable': 'LightGoldenrod',
+                'LoadData': 'DarkOrange',
+                'CreateIndex': 'LightPink',
+                'Analyze': 'LimeGreen',
+                'ExecuteQuery': 'Crimson',
+                'WriteRes': 'DodgerBlue',
             },
         }
 
@@ -77,6 +157,46 @@ class BaseTableAndPlotGenerator:
                 'Querying': 'Query',
                 'Writing': 'WriteRes',
             },
+            'postgres':{
+                'CreateTable': 'CreateTable',
+                'LoadData': 'LoadData',
+                'CreateIndex': 'CreateIndex',
+                'Analyze': 'Analyze',
+                'ExecuteQuery': 'Query',
+                'WriteRes': 'WriteRes',
+            },
+            'mariadb':{
+                'CreateTable': 'CreateTable',
+                'LoadData': 'LoadData',
+                'CreateIndex': 'CreateIndex',
+                'Analyze': 'Analyze',
+                'ExecuteQuery': 'Query',
+                'WriteRes': 'WriteRes',
+            },
+            'duckdb':{
+                'CreateTable': 'CreateTable',
+                'LoadData': 'LoadData',
+                'CreateIndex': 'CreateIndex',
+                'Analyze': 'Analyze',
+                'ExecuteQuery': 'Query',
+                'WriteRes': 'WriteRes',
+            },
+            'cockroachdb':{
+                'CreateTable': 'CreateTable',
+                'LoadData': 'LoadData',
+                'CreateIndex': 'CreateIndex',
+                'Analyze': 'Analyze',
+                'ExecuteQuery': 'Query',
+                'WriteRes': 'WriteRes',
+            },
+            'singlestoredb':{
+                'CreateTable': 'CreateTable',
+                'LoadData': 'LoadData',
+                'CreateIndex': 'CreateIndex',
+                'Analyze': 'Analyze',
+                'ExecuteQuery': 'Query',
+                'WriteRes': 'WriteRes',
+            }
         }
         self.graphs_k_values = {
             'cycle_with_shortcuts': 10,
@@ -176,6 +296,36 @@ class BaseTableAndPlotGenerator:
                                     'LoadFacts': facts_loading_time,
                                     'Querying': running,
                                     'Writing': writing,
+                                },
+                            )
+                        )
+
+                    elif env_name in [
+                        'postgres',
+                        'mariadb',
+                        'duckdb',
+                        'cockroachdb',
+                        'singlestoredb',
+                    ]:
+                        create_table = (float(last_line[1]), float(last_line[2]))
+                        load_data = (float(last_line[3]), float(last_line[4]))
+                        create_index = (
+                            float(last_line[5]),
+                            float(last_line[6]),
+                        )
+                        analyze = (float(last_line[7]), float(last_line[8]))
+                        execute_query = (float(last_line[9]), float(last_line[10]))
+                        write_res = (float(last_line[11]), float(last_line[12]))
+                        data[key].append(
+                            (
+                                graph_size,
+                                {
+                                    'CreateTable': create_table,
+                                    'LoadData': load_data,
+                                    'CreateIndex': create_index,
+                                    'Analyze': analyze,
+                                    'ExecuteQuery': execute_query,
+                                    'WriteRes': write_res,
                                 },
                             )
                         )

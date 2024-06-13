@@ -1,12 +1,15 @@
 from typing import Any
 
+import MySQLdb
+
 from common import Base
 
 
 class MariaDBOperations(Base):
-    def __init__(self, config: dict[str, Any], conn: Any) -> None:
+    def __init__(self, config: dict[str, Any], conn: MySQLdb.Connection) -> None:
         self.config = config
         self.conn = conn
+        self.conn.autocommit(True)
 
     def execute_query(self, query: str, params: Any = None) -> None:
         cursor = self.conn.cursor()
