@@ -16,7 +16,14 @@ class MongoDBLeftRecursion(MongoDBOperations):
                     }
                 },
                 {'$unwind': '$paths'},
-                {'$project': {'_id': 0, 'x': '$paths.x', 'y': '$paths.y'}},
+                {
+                    '$group': {
+                        '_id': {'x': '$paths.x', 'y': '$paths.y'},
+                        'x': {'$first': '$paths.x'},
+                        'y': {'$first': '$paths.y'},
+                    }
+                },
+                {'$project': {'_id': 0, 'x': 1, 'y': 1}},
                 {'$out': output_collection},
             ],
             allowDiskUse=True,

@@ -4,6 +4,7 @@ import math
 import re
 import subprocess
 from pathlib import Path
+from typing import Callable, Union
 
 logging.basicConfig(
     level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s'
@@ -16,9 +17,24 @@ class BaseTableAndPlotGenerator:
         self.pattern = pattern
         self.latex_file_dir = latex_file_dir
         self.data = None
-        self.components = {
+        self.components = self.__initialize_components()
+        self.component_colors = self.__initialize_component_colors()
+        self.component_legend = self.__initialize_component_legends()
+        self.graphs_k_values = self.__initialize_graphs_k_values()
+
+    @staticmethod
+    def __initialize_components() -> dict[str, list[str]]:
+        common_components = [
+            'CreateTable',
+            'LoadData',
+            'CreateIndex',
+            'Analyze',
+            'ExecuteQuery',
+            'WriteRes',
+        ]
+        return {
             'alda': ['Overall'],
-            'xsb': ['LoadRules', 'LoadFacts', 'Querying', 'Writing'],  # Example order
+            'xsb': ['LoadRules', 'LoadFacts', 'Querying', 'Writing'],
             'clingo': ['LoadRules', 'LoadFacts', 'Ground', 'Querying', 'Writing'],
             'souffle': [
                 'DatalogToCpp',
@@ -28,48 +44,28 @@ class BaseTableAndPlotGenerator:
                 'Querying',
                 'Writing',
             ],
-            'postgres': [
-                'CreateTable',
-                'LoadData',
-                'CreateIndex',
-                'Analyze',
-                'ExecuteQuery',
-                'WriteRes',
-            ],
-            'mariadb': [
-                'CreateTable',
-                'LoadData',
-                'CreateIndex',
-                'Analyze',
-                'ExecuteQuery',
-                'WriteRes',
-            ],
-            'duckdb': [
-                'CreateTable',
-                'LoadData',
-                'CreateIndex',
-                'Analyze',
-                'ExecuteQuery',
-                'WriteRes',
-            ],
-            'cockroachdb': [
-                'CreateTable',
-                'LoadData',
-                'CreateIndex',
-                'Analyze',
-                'ExecuteQuery',
-                'WriteRes',
-            ],
-            'singlestoredb': [
-                'CreateTable',
-                'LoadData',
-                'CreateIndex',
-                'Analyze',
-                'ExecuteQuery',
-                'WriteRes',
-            ],
+            'postgres': common_components,
+            'mariadb': common_components,
+            'duckdb': common_components,
+            'cockroachdb': common_components,
+            'singlestoredb': common_components,
+            'mongodb': common_components.remove('Analyze'),
         }
-        self.component_colors = {
+
+    @staticmethod
+    def __initialize_component_colors() -> dict[str, dict[str, str]]:
+        common_colors = {
+            'CreateTable': 'LightGoldenrod',
+            'LoadData': 'DarkOrange',
+            'CreateIndex': 'LightPink',
+            'Analyze': 'LimeGreen',
+            'ExecuteQuery': 'Crimson',
+            'WriteRes': 'DodgerBlue',
+        }
+        mongodb_colors = {
+            key: value for key, value in common_colors.items() if key != 'Analyze'
+        }
+        return {
             'alda': {'Overall': 'LimeGreen'},
             'xsb': {
                 'LoadRules': 'LightPink',
@@ -92,49 +88,28 @@ class BaseTableAndPlotGenerator:
                 'Querying': 'Crimson',
                 'Writing': 'DodgerBlue',
             },
-            'postgres': {
-                'CreateTable': 'LightGoldenrod',
-                'LoadData': 'DarkOrange',
-                'CreateIndex': 'LightPink',
-                'Analyze': 'LimeGreen',
-                'ExecuteQuery': 'Crimson',
-                'WriteRes': 'DodgerBlue',
-            },
-            'mariadb': {
-                'CreateTable': 'LightGoldenrod',
-                'LoadData': 'DarkOrange',
-                'CreateIndex': 'LightPink',
-                'Analyze': 'LimeGreen',
-                'ExecuteQuery': 'Crimson',
-                'WriteRes': 'DodgerBlue',
-            },
-            'duckdb': {
-                'CreateTable': 'LightGoldenrod',
-                'LoadData': 'DarkOrange',
-                'CreateIndex': 'LightPink',
-                'Analyze': 'LimeGreen',
-                'ExecuteQuery': 'Crimson',
-                'WriteRes': 'DodgerBlue',
-            },
-            'cockroachdb': {
-                'CreateTable': 'LightGoldenrod',
-                'LoadData': 'DarkOrange',
-                'CreateIndex': 'LightPink',
-                'Analyze': 'LimeGreen',
-                'ExecuteQuery': 'Crimson',
-                'WriteRes': 'DodgerBlue',
-            },
-            'singlestoredb': {
-                'CreateTable': 'LightGoldenrod',
-                'LoadData': 'DarkOrange',
-                'CreateIndex': 'LightPink',
-                'Analyze': 'LimeGreen',
-                'ExecuteQuery': 'Crimson',
-                'WriteRes': 'DodgerBlue',
-            },
+            'postgres': common_colors,
+            'mariadb': common_colors,
+            'duckdb': common_colors,
+            'cockroachdb': common_colors,
+            'singlestoredb': common_colors,
+            'mongodb': mongodb_colors,
         }
 
-        self.component_legend = {
+    @staticmethod
+    def __initialize_component_legends() -> dict[str, dict[str, str]]:
+        common_legends = {
+            'CreateTable': 'CreateTable',
+            'LoadData': 'LoadData',
+            'CreateIndex': 'CreateIndex',
+            'Analyze': 'Analyze',
+            'ExecuteQuery': 'Query',
+            'WriteRes': 'WriteRes',
+        }
+        mongodb_legends = {
+            key: value for key, value in common_legends.items() if key != 'Analyze'
+        }
+        return {
             'alda': {'Overall': 'Overall'},
             'xsb': {
                 'LoadRules': 'LoadRules',
@@ -157,48 +132,17 @@ class BaseTableAndPlotGenerator:
                 'Querying': 'Query',
                 'Writing': 'WriteRes',
             },
-            'postgres':{
-                'CreateTable': 'CreateTable',
-                'LoadData': 'LoadData',
-                'CreateIndex': 'CreateIndex',
-                'Analyze': 'Analyze',
-                'ExecuteQuery': 'Query',
-                'WriteRes': 'WriteRes',
-            },
-            'mariadb':{
-                'CreateTable': 'CreateTable',
-                'LoadData': 'LoadData',
-                'CreateIndex': 'CreateIndex',
-                'Analyze': 'Analyze',
-                'ExecuteQuery': 'Query',
-                'WriteRes': 'WriteRes',
-            },
-            'duckdb':{
-                'CreateTable': 'CreateTable',
-                'LoadData': 'LoadData',
-                'CreateIndex': 'CreateIndex',
-                'Analyze': 'Analyze',
-                'ExecuteQuery': 'Query',
-                'WriteRes': 'WriteRes',
-            },
-            'cockroachdb':{
-                'CreateTable': 'CreateTable',
-                'LoadData': 'LoadData',
-                'CreateIndex': 'CreateIndex',
-                'Analyze': 'Analyze',
-                'ExecuteQuery': 'Query',
-                'WriteRes': 'WriteRes',
-            },
-            'singlestoredb':{
-                'CreateTable': 'CreateTable',
-                'LoadData': 'LoadData',
-                'CreateIndex': 'CreateIndex',
-                'Analyze': 'Analyze',
-                'ExecuteQuery': 'Query',
-                'WriteRes': 'WriteRes',
-            }
+            'postgres': common_legends,
+            'mariadb': common_legends,
+            'duckdb': common_legends,
+            'cockroachdb': common_legends,
+            'singlestoredb': common_legends,
+            'mongodb': mongodb_legends,
         }
-        self.graphs_k_values = {
+
+    @staticmethod
+    def __initialize_graphs_k_values() -> dict[str, Union[int, str]]:
+        return {
             'cycle_with_shortcuts': 10,
             'multi_path': 10,
             'w': 10,
@@ -207,19 +151,6 @@ class BaseTableAndPlotGenerator:
         }
 
     def __collect_data(self) -> None:
-        """
-        This function collects timing data from the CSV files in the timing directory.
-
-        The function operates as follows:
-        1. It initializes an empty dictionary to store the timing data.
-        2. It iterates over the CSV files in the timing directory.
-        3. It extracts the environment name, graph type, mode, and graph size from the file path.
-        4. It reads the last line of the CSV file and extracts the timing data.
-        5. It processes the timing data based on the environment name.
-        6. It stores the processed timing data in the dictionary.
-        7. If an error occurs during processing, the function logs the error.
-        8. After processing all CSV files, the function sets the data attribute to the collected data.
-        """
         data = {}
         for csv_file in self.timing_base_dir.glob('**/*_graph_*.csv'):
             try:
@@ -237,69 +168,17 @@ class BaseTableAndPlotGenerator:
                     last_line = lines[-1].strip().split(',')
 
                     if env_name == 'clingo':
-                        # Average - 0, LoadRulesRealTime -1,LoadRulesCPUTime -2,LoadFactsRealTime -3,LoadFactsCPUTime -4,GroundRealTime -5,GroundCPUTime -6,QueryRealTime -7,QueryCPUTime -8,WriteRealTime -9,WriteCPUTime -10
-                        load_rules_time = (float(last_line[1]), float(last_line[2]))
-                        load_facts_time = (float(last_line[3]), float(last_line[4]))
-                        ground_time = (float(last_line[5]), float(last_line[6]))
-                        query_time = (float(last_line[7]), float(last_line[8]))
-                        write_time = (float(last_line[9]), float(last_line[10]))
                         data[key].append(
-                            (
-                                graph_size,
-                                {
-                                    'LoadRules': load_rules_time,
-                                    'LoadFacts': load_facts_time,
-                                    'Ground': ground_time,
-                                    'Querying': query_time,
-                                    'Writing': write_time,
-                                },
-                            )
+                            (graph_size, self.__process_clingo_data(last_line))
                         )
-
                     elif env_name == 'xsb':
-                        # Average - 0, LoadRulesRealTime -1,LoadRulesCPUTime -2,LoadFactsRealTime -3,LoadFactsCPUTime -4,QueryRealTime -5,QueryCPUTime -6,WriteRealTime -7,WriteCPUTime -8
-                        load_rules_time = (float(last_line[1]), float(last_line[2]))
-                        load_facts_time = (float(last_line[3]), float(last_line[4]))
-                        query_time = (float(last_line[5]), float(last_line[6]))
-                        write_time = (float(last_line[7]), float(last_line[8]))
                         data[key].append(
-                            (
-                                graph_size,
-                                {
-                                    'LoadRules': load_rules_time,
-                                    'LoadFacts': load_facts_time,
-                                    'Querying': query_time,
-                                    'Writing': write_time,
-                                },
-                            )
+                            (graph_size, self.__process_xsb_data(last_line))
                         )
-
                     elif env_name == 'souffle':
-                        # Souffle has a different format for timing data
-                        # Average - 0,DatalogToCPPRealTime - 1,DatalogToCPPCPUTime -2,CompileRealTime -3,CompileCPUTime -4,InstanceLoadingRealTime -5,InstanceLoadingCPUTime -6,LoadingFactRealTime -7,LoadingFactCPUTime -8,QueryRealTime -9,QueryCPUTime -10,WritingResultRealTime -11,WritingResultCPUTime -12
-                        datalog_to_cpp = (float(last_line[1]), float(last_line[2]))
-                        cpp_to_o = (float(last_line[3]), float(last_line[4]))
-                        instance_loading_time = (
-                            float(last_line[5]),
-                            float(last_line[6]),
-                        )
-                        facts_loading_time = (float(last_line[7]), float(last_line[8]))
-                        running = (float(last_line[9]), float(last_line[10]))
-                        writing = (float(last_line[11]), float(last_line[12]))
                         data[key].append(
-                            (
-                                graph_size,
-                                {
-                                    'DatalogToCpp': datalog_to_cpp,
-                                    'CppToO': cpp_to_o,
-                                    'InstanceLoading': instance_loading_time,
-                                    'LoadFacts': facts_loading_time,
-                                    'Querying': running,
-                                    'Writing': writing,
-                                },
-                            )
+                            (graph_size, self.__process_souffle_data(last_line))
                         )
-
                     elif env_name in [
                         'postgres',
                         'mariadb',
@@ -307,58 +186,83 @@ class BaseTableAndPlotGenerator:
                         'cockroachdb',
                         'singlestoredb',
                     ]:
-                        create_table = (float(last_line[1]), float(last_line[2]))
-                        load_data = (float(last_line[3]), float(last_line[4]))
-                        create_index = (
-                            float(last_line[5]),
-                            float(last_line[6]),
-                        )
-                        analyze = (float(last_line[7]), float(last_line[8]))
-                        execute_query = (float(last_line[9]), float(last_line[10]))
-                        write_res = (float(last_line[11]), float(last_line[12]))
                         data[key].append(
-                            (
-                                graph_size,
-                                {
-                                    'CreateTable': create_table,
-                                    'LoadData': load_data,
-                                    'CreateIndex': create_index,
-                                    'Analyze': analyze,
-                                    'ExecuteQuery': execute_query,
-                                    'WriteRes': write_res,
-                                },
-                            )
+                            (graph_size, self.__process_sql_data(last_line))
                         )
-
+                    elif env_name == 'mongodb':
+                        data[key].append(
+                            (graph_size, self.__process_mongo_data(last_line))
+                        )
                     elif env_name == 'alda':
-                        try:
-                            # Average - 0, ElapsedRealTime - 1, ElapsedCPUTime - 2
-                            elapsed_time = (float(last_line[1]), float(last_line[2]))
-                        except IndexError:
-                            elapsed_time = (float(last_line[0]), float(last_line[1]))
-                        data[key].append((graph_size, {'Overall': elapsed_time}))
-
+                        data[key].append(
+                            (graph_size, self.__process_alda_data(last_line))
+                        )
             except Exception as e:
                 logging.error(f"Error processing file {csv_file}: {e}")
         self.data = data
 
-    def __find_cpu_time(self, key: tuple, size: int, query_type: str) -> float:
-        """
-        This function finds the CPU time for a given environment, graph type, mode, size, and query type.
+    @staticmethod
+    def __process_clingo_data(last_line: list[str]) -> dict[str, tuple[float, float]]:
+        return {
+            'LoadRules': (float(last_line[1]), float(last_line[2])),
+            'LoadFacts': (float(last_line[3]), float(last_line[4])),
+            'Ground': (float(last_line[5]), float(last_line[6])),
+            'Querying': (float(last_line[7]), float(last_line[8])),
+            'Writing': (float(last_line[9]), float(last_line[10])),
+        }
 
-        Args:
-            `key (tuple)`: A tuple containing the environment name, graph type, and mode.
-            `size (int)`: The graph size.
-            `query_type (str)`: The query type.
+    @staticmethod
+    def __process_xsb_data(last_line: list[str]) -> dict[str, tuple[float, float]]:
+        return {
+            'LoadRules': (float(last_line[1]), float(last_line[2])),
+            'LoadFacts': (float(last_line[3]), float(last_line[4])),
+            'Querying': (float(last_line[5]), float(last_line[6])),
+            'Writing': (float(last_line[7]), float(last_line[8])),
+        }
 
-        Returns:
-            `float`: The CPU time for the given environment, graph type, mode, size, and query type. If the CPU time is not found, the function returns None.
+    @staticmethod
+    def __process_souffle_data(last_line: list[str]) -> dict[str, tuple[float, float]]:
+        return {
+            'DatalogToCpp': (float(last_line[1]), float(last_line[2])),
+            'CppToO': (float(last_line[3]), float(last_line[4])),
+            'InstanceLoading': (float(last_line[5]), float(last_line[6])),
+            'LoadFacts': (float(last_line[7]), float(last_line[8])),
+            'Querying': (float(last_line[9]), float(last_line[10])),
+            'Writing': (float(last_line[11]), float(last_line[12])),
+        }
 
-        The function operates as follows:
-        1. It checks if the key is in the data dictionary. If it is, it proceeds with the following steps.
-        2. It iterates over the values for the given key. If the first element of the entry is equal to the size, it returns the CPU time for the given query type.
-        3. If the CPU time is not found, the function returns None.
-        """
+    @staticmethod
+    def __process_sql_data(last_line: list[str]) -> dict[str, tuple[float, float]]:
+        return {
+            'CreateTable': (float(last_line[1]), float(last_line[2])),
+            'LoadData': (float(last_line[3]), float(last_line[4])),
+            'CreateIndex': (float(last_line[5]), float(last_line[6])),
+            'Analyze': (float(last_line[7]), float(last_line[8])),
+            'ExecuteQuery': (float(last_line[9]), float(last_line[10])),
+            'WriteRes': (float(last_line[11]), float(last_line[12])),
+        }
+
+    @staticmethod
+    def __process_mongo_data(last_line: list[str]) -> dict[str, tuple[float, float]]:
+        return {
+            'CreateTable': (float(last_line[1]), float(last_line[2])),
+            'LoadData': (float(last_line[3]), float(last_line[4])),
+            'CreateIndex': (float(last_line[5]), float(last_line[6])),
+            'ExecuteQuery': (float(last_line[7]), float(last_line[8])),
+            'WriteRes': (float(last_line[9]), float(last_line[10])),
+        }
+
+    @staticmethod
+    def __process_alda_data(last_line: list[str]) -> dict[str, tuple[float, float]]:
+        try:
+            elapsed_time = (float(last_line[1]), float(last_line[2]))
+        except IndexError:
+            elapsed_time = (float(last_line[0]), float(last_line[1]))
+        return {'Overall': elapsed_time}
+
+    def __find_cpu_time(
+        self, key: tuple[str, str, str], size: int, query_type: str
+    ) -> Union[float, None]:
         if key in self.data:
             for entry in self.data[key]:
                 if entry[0] == size:
@@ -366,16 +270,6 @@ class BaseTableAndPlotGenerator:
         return None
 
     def __find_max_cpu_time_across_envs(self, graph_type: str, mode: str) -> float:
-        """
-        This function finds the maximum CPU time for a given graph type and mode across all environments and sizes.
-
-        Args:
-            `graph_type (str)`: The graph type.
-            `mode (str)`: The recursion mode.
-
-        Returns:
-            `float`: The maximum CPU time.
-        """
         max_cpu_time = 0
         for key, entries in self.data.items():
             env_name, g_type, m = key
@@ -386,17 +280,6 @@ class BaseTableAndPlotGenerator:
         return max_cpu_time
 
     def __find_max_real_time(self, env_name: str, graph_type: str, mode: str) -> float:
-        """
-        Find the maximum real-time value for double_recursion within the same graph_type and environment.
-
-        Args:
-            `env_name (str)`: The environment name.
-            `graph_type (str)`: The graph type.
-            `mode (str)`: The recursion mode (double_recursion).
-
-        Returns:
-            `float`: The maximum real-time value.
-        """
         max_real_time = 0
         key = (env_name, graph_type, mode)
         if key in self.data:
@@ -405,13 +288,8 @@ class BaseTableAndPlotGenerator:
                 max_real_time = max(max_real_time, max(real_times))
         return max_real_time
 
-    def __is_latexindent_installed(self) -> bool:
-        """
-        Check if latexindent is installed.
-
-        Returns:
-            bool: True if latexindent is installed, False otherwise.
-        """
+    @staticmethod
+    def __is_latexindent_installed() -> bool:
         try:
             subprocess.run(
                 ['latexindent', '--version'],
@@ -420,18 +298,10 @@ class BaseTableAndPlotGenerator:
                 stderr=subprocess.PIPE,
             )
             return True
-        except subprocess.CalledProcessError:
-            return False
-        except FileNotFoundError:
+        except (subprocess.CalledProcessError, FileNotFoundError):
             return False
 
     def __format_latex_file(self, file_path: Path) -> None:
-        """
-        Format the LaTeX file using latexindent if it is installed.
-
-        Args:
-            file_path (Path): Path to the LaTeX file to format.
-        """
         if self.__is_latexindent_installed():
             try:
                 subprocess.run(['latexindent', '-w', str(file_path)], check=True)
@@ -441,92 +311,60 @@ class BaseTableAndPlotGenerator:
         else:
             logging.warning('latexindent is not installed. Skipping formatting.')
 
-    def __list_to_ordered_set(self, input_list: list) -> set:
-        """
-        This function converts a list to an ordered set.
-
-        Args:
-            `input_list (list)`: A list of elements.
-
-        Returns:
-            `set`: An ordered set of elements.
-
-        """
+    @staticmethod
+    def __list_to_ordered_set(input_list: list) -> set:
         return set(dict.fromkeys(input_list))
 
-    def __compile_latex_to_pdf(self, directory: Path):
-        """
-        This function compiles LaTeX files to PDFs using the available LaTeX distribution.
-
-        Args:
-            `directory (Path)`: A Path object representing the directory containing the LaTeX files.
-
-        The function first checks for the available LaTeX distributions in the system. It then iterates over the files in the directory and compiles the LaTeX files to PDFs using the available LaTeX distribution. If no LaTeX distribution is found, the function logs an error message.
-        """
-        latex_distributions = ['xelatex', 'pdflatex', 'lualatex']
-        latex_distribution = None
-
-        for distribution in latex_distributions:
-            try:
-                subprocess.run(
-                    ['which', distribution], check=True, stdout=subprocess.DEVNULL
-                )
-                latex_distribution = distribution
-                break
-            except subprocess.CalledProcessError:
-                continue
-
+    def __compile_latex_to_pdf(self, directory: Path) -> None:
+        latex_distribution = self.__find_latex_distribution()
         if latex_distribution is None:
             logging.error('No LaTeX distribution found on the system.')
-            # Return
             return
 
         for f in directory.iterdir():
             logging.info(f'Compiling {f} to PDF.')
             if f.suffix == '.tex':
-                if latex_distribution == 'xelatex':
-                    subprocess.run(
-                        [latex_distribution, '--shell-escape', f.name],
-                        cwd=directory,
-                        check=True,
-                    )
-                else:
-                    subprocess.run(
-                        [latex_distribution, f.name], cwd=directory, check=True
-                    )
+                self.__compile_file(f, latex_distribution, directory)
 
         for f in directory.iterdir():
             if f.suffix not in ['.tex', '.pdf']:
                 f.unlink()
 
-    def __read_latex_content(self, file_path: Path) -> str:
-        """
-        This function reads the content of a LaTeX file.
+    @staticmethod
+    def __find_latex_distribution() -> Union[str, None]:
+        latex_distributions = ['xelatex', 'pdflatex', 'lualatex']
+        for distribution in latex_distributions:
+            try:
+                subprocess.run(
+                    ['which', distribution], check=True, stdout=subprocess.DEVNULL
+                )
+                return distribution
+            except subprocess.CalledProcessError:
+                continue
+        return None
 
-        Args:
-            `file_path (Path)`: A Path object representing the path to the LaTeX file.
+    @staticmethod
+    def __compile_file(file: Path, latex_distribution: str, directory: Path) -> None:
+        try:
+            if latex_distribution == 'xelatex':
+                subprocess.run(
+                    [latex_distribution, '--shell-escape', file.name],
+                    cwd=directory,
+                    check=True,
+                )
+            else:
+                subprocess.run(
+                    [latex_distribution, file.name], cwd=directory, check=True
+                )
+        except subprocess.CalledProcessError as e:
+            logging.error(f'Error compiling {file}: {e}')
 
-        Returns:
-            `str`: The content of the LaTeX file as a string.
-
-        The function reads the content of the LaTeX file using the 'utf-8' encoding and returns it as a string.
-        """
+    @staticmethod
+    def __read_latex_content(file_path: Path) -> str:
         with open(file_path, 'r', encoding='utf-8') as file:
             return file.read()
 
     def __extract_axis_content(self, latex_content: str, tool: str) -> str:
-        """
-        This function extracts the axis content from a LaTeX file.
-
-        Args:
-            `latex_content (str)`: The content of the LaTeX file as a string.
-            `tool (str)`: The tool name.
-
-        Returns:
-            `str`: The axis content as a string.
-
-        The function uses a regular expression to extract the axis content from the LaTeX file. If the tool is 'xsb', it adds a 'bar shift' option to the axis content. If the tool is 'clingo' or 'souffle', it modifies the axis content to match the expected format for the comparison charts.
-        """
         match = re.search(r'\\begin{axis}.*?\\end{axis}', latex_content, re.DOTALL)
         if match:
             axis_content = match.group(0)
@@ -538,42 +376,35 @@ class BaseTableAndPlotGenerator:
                     1,
                 )
             elif tool in ['clingo', 'souffle']:
-                if tool == 'clingo':
-                    axis_content = re.sub(
-                        r'\\begin{axis}\[',
-                        r'\\begin{axis}[bar shift=-3.7pt, ',
-                        axis_content,
-                        1,
-                    )
-                elif tool == 'souffle':
-                    axis_content = re.sub(
-                        r'\\begin{axis}\[',
-                        r'\\begin{axis}[bar shift=18pt, ',
-                        axis_content,
-                        1,
-                    )
-
-                axis_content = re.sub(r'(axis x line\*=)[^,]*', r'\1none', axis_content)
-                axis_content = re.sub(r'(axis y line\*=)[^,]*', r'\1none', axis_content)
-                axis_content = re.sub(
-                    r'major grid style={draw=gray!20},',
-                    'major grid style={draw=none},',
-                    axis_content,
-                )
-                axis_content = re.sub(r'xlabel={.*?},', '', axis_content)
-                axis_content = re.sub(r'ylabel={.*?},', '', axis_content)
-                axis_content = re.sub(r'(?m)^\s*\n', '', axis_content)
-
+                axis_content = self.__adjust_axis_content(axis_content, tool)
             return axis_content
         return ''
 
-    def __write_latex_header(self, f) -> None:
-        """
-        Write the LaTeX header to the file.
+    @staticmethod
+    def __adjust_axis_content(axis_content: str, tool: str) -> str:
+        if tool == 'clingo':
+            axis_content = re.sub(
+                r'\\begin{axis}\[', r'\\begin{axis}[bar shift=-3.7pt, ', axis_content, 1
+            )
+        elif tool == 'souffle':
+            axis_content = re.sub(
+                r'\\begin{axis}\[', r'\\begin{axis}[bar shift=18pt, ', axis_content, 1
+            )
 
-        Args:
-            `file`: The file object to write to.
-        """
+        axis_content = re.sub(r'(axis x line\*=)[^,]*', r'\1none', axis_content)
+        axis_content = re.sub(r'(axis y line\*=)[^,]*', r'\1none', axis_content)
+        axis_content = re.sub(
+            r'major grid style={draw=gray!20},',
+            'major grid style={draw=none},',
+            axis_content,
+        )
+        axis_content = re.sub(r'xlabel={.*?},', '', axis_content)
+        axis_content = re.sub(r'ylabel={.*?},', '', axis_content)
+        axis_content = re.sub(r'(?m)^\s*\n', '', axis_content)
+        return axis_content
+
+    @staticmethod
+    def __write_latex_header(f) -> None:
         f.write('\\documentclass[border=10pt]{standalone}\n')
         f.write('\\usepackage[svgnames]{xcolor}\n')
         f.write('\\usepackage{amsmath}\n')
@@ -584,26 +415,11 @@ class BaseTableAndPlotGenerator:
         f.write('\\renewcommand*\\familydefault{\\sfdefault}\n')
         f.write('\\begin{document}\n')
 
-    def __write_latex_footer(self, f) -> None:
-        """
-        Write the LaTeX footer to the file.
-
-        Args:
-            `file`: The file object to write to.
-        """
+    @staticmethod
+    def __write_latex_footer(f) -> None:
         f.write('\\end{document}\n')
 
-    def __adjust_ymax(self, max_value_func: callable, func_params: tuple) -> float:
-        """
-        Adjust the maximum value for the y-axis.
-
-        Args:
-            `max_value_func (callable)`: A function that returns the maximum value.
-            `func_params (tuple)`: The parameters to pass to the function.
-
-        Returns:
-            `float`: The adjusted maximum value.
-        """
+    def __adjust_ymax(self, max_value_func: Callable, func_params: tuple) -> float:
         max_value = max_value_func(*func_params)
         if max_value < 1:
             return max_value + 0.02
@@ -629,8 +445,8 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
         self,
         f,
         env_name: str,
-        key: tuple,
-        values: list,
+        key: tuple[str, str, str],
+        values: list[tuple[int, dict[str, tuple[float, float]]]],
         component_legend_colors: list[tuple[str, str]],
         max_real_time: float,
     ) -> None:
@@ -850,13 +666,13 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
                 for graph_type in sorted(graph_types):
                     latex_file.write(f'{graph_type.replace("_", " ").title()} ')
                     for size in sizes:
-                        xsb_time = self.__find_cpu_time(
+                        xsb_time = self._BaseTableAndPlotGenerator__find_cpu_time(
                             ('xsb', graph_type, mode), size, 'Querying'
                         )
-                        clingo_time = self.__find_cpu_time(
+                        clingo_time = self._BaseTableAndPlotGenerator__find_cpu_time(
                             ('clingo', graph_type, mode), size, 'Querying'
                         )
-                        souffle_time = self.__find_cpu_time(
+                        souffle_time = self._BaseTableAndPlotGenerator__find_cpu_time(
                             ('souffle', graph_type, mode), size, 'Querying'
                         )
                         latex_file.write(
@@ -1118,8 +934,7 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
                 self.__generate_latex_comparison_charts(
                     self.latex_file_dir, env_name, compile_file_alone
                 )
-        # self.__generate_latex_comparison_tables(self.latex_file_dir, compile_file_alone)
-        # self.__generate_comparison_csv_files(self.latex_file_dir, compile_file_alone)
+        self.__generate_latex_comparison_tables(self.latex_file_dir)
         self.__combine_files_for_comparison(
             self.latex_file_dir / 'comparison' / 'charts', compile_file_alone
         )

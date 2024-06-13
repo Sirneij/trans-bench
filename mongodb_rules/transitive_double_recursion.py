@@ -27,7 +27,15 @@ class MongoDBDoubleRecursion(MongoDBOperations):
                 },
                 {'$unwind': '$left_paths'},
                 {'$unwind': '$right_paths'},
-                {'$project': {'_id': 0, 'x': '$left_paths.x', 'y': '$right_paths.y'}},
+                {
+                    '$group': {
+                        '_id': {'x': '$left_paths.x', 'y': '$right_paths.y'},
+                        'x': {'$first': '$left_paths.x'},
+                        'y': {'$first': '$right_paths.y'},
+                    }
+                },
+                {'$project': {'_id': 0, 'x': 1, 'y': 1}},
                 {'$out': output_collection},
-            ]
+            ],
+            allowDiskUse=True,
         )

@@ -34,16 +34,16 @@ class AnalyzeDBs(AnalyzeSystems):
         module = importlib.import_module(module_name)
         return getattr(module, class_name)
 
-    def write_timing_results(self, timing_results: Dict[str, float]) -> None:
+    def write_timing_results(
+        self, timing_results: Dict[str, float], headers: list[str]
+    ) -> None:
         """Write timing results to CSV."""
         is_new_file = not self.timing_path.exists()
         with open(self.timing_path, 'a', newline='') as csvfile:
             csv_writer = csv.writer(csvfile)
             if is_new_file:
-                csv_writer.writerow(self.headers_rdbms)
-            csv_writer.writerow(
-                [timing_results[header] for header in self.headers_rdbms]
-            )
+                csv_writer.writerow(headers)
+            csv_writer.writerow([timing_results[header] for header in headers])
         logging.info(f'Timing results saved to: {self.timing_path}')
 
     def solve_with_postgres(self) -> None:
@@ -98,7 +98,7 @@ class AnalyzeDBs(AnalyzeSystems):
         finally:
             conn.close()
 
-        self.write_timing_results(timing_results)
+        self.write_timing_results(timing_results, self.headers_rdbms)
 
     def solve_with_mariadb(self) -> None:
         conn = self.connect_db(self.environment)
@@ -150,7 +150,7 @@ class AnalyzeDBs(AnalyzeSystems):
         finally:
             conn.close()
 
-        self.write_timing_results(timing_results)
+        self.write_timing_results(timing_results, self.headers_rdbms)
 
         self.copy_file('/tmp/mariadb_results.csv', results_path)
         self.remove_file('/tmp/mariadb_results.csv')
@@ -180,7 +180,7 @@ class AnalyzeDBs(AnalyzeSystems):
             except Exception as e:
                 logging.error(f'Error executing command: {command}. Error: {e}')
 
-        self.write_timing_results(timing_results)
+        self.write_timing_results(timing_results, self.headers_rdbms)
 
     def solve_with_neo4j(self) -> None:
         self.driver = self.connect_db(self.environment)
@@ -231,7 +231,7 @@ class AnalyzeDBs(AnalyzeSystems):
                 timing_results[self.headers_nosql[-1]],
             ) = self.execute_with_timing(lambda: None)
 
-        self.write_timing_results(timing_results)
+        self.write_timing_results(timing_results, self.headers_neo4j)
 
         self.run_pexpect_command(
             f'sudo rm {neo4j_import_dir}/{fact_file_name}', machine_user_password
@@ -268,7 +268,7 @@ class AnalyzeDBs(AnalyzeSystems):
             (
                 timing_results['CreateIndexRealTime'],
                 timing_results['CreateIndexCPUTime'],
-            ) = self.execute_with_timing(mongo_operations.create_index, 'edge', 'y')
+            ) = self.execute_with_timing(mongo_operations.create_index, 'edge')
             (
                 timing_results['ExecuteQueryRealTime'],
                 timing_results['ExecuteQueryCPUTime'],
@@ -284,7 +284,7 @@ class AnalyzeDBs(AnalyzeSystems):
         except Exception as e:
             logging.error(f'MongoDB error: {e}')
 
-        self.write_timing_results(timing_results)
+        self.write_timing_results(timing_results, self.headers_mongodb)
         logging.info(
             f'(MongoDB) Experiment timing results saved to: {self.timing_path}'
         )
@@ -360,7 +360,7 @@ class AnalyzeDBs(AnalyzeSystems):
         finally:
             conn.close()
 
-        self.write_timing_results(timing_results)
+        self.write_timing_results(timing_results, self.headers_rdbms)
         logging.info(
             f'(CockroachDB) Experiment timing results saved to: {self.timing_path}'
         )
@@ -415,7 +415,7 @@ class AnalyzeDBs(AnalyzeSystems):
         finally:
             conn.close()
 
-        self.write_timing_results(timing_results)
+        self.write_timing_results(timing_results, self.headers_rdbms)
         self.copy_file('/tmp/singlestore_results.csv', results_path)
         self.remove_file('/tmp/singlestore_results.csv')
 

@@ -45,9 +45,9 @@ class MongoDBOperations(Base):
         except Exception as e:
             logging.error(f"An unexpected error occurred: {e}")
 
-    def create_index(self, collection_name, field_name):
+    def create_index(self, collection_name):
         collection = self.db[collection_name]
-        collection.create_index([(field_name, ASCENDING)], background=True)
+        collection.create_index([('x', ASCENDING), ('y', ASCENDING)], background=True)
 
     def export_to_csv(self, collection_name, output_file):
         collection = self.db[collection_name]
