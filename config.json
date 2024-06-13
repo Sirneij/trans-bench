@@ -59,5 +59,14 @@
                 "singlestoredb": ".py"
             }
         }
-    }
+    },
+    "environmentsToCombine": [
+        "xsb",
+        "postgres",
+        "mariadb",
+        "duckdb",
+        "mongodb",
+        "neo4j",
+        "cockroachdb"
+    ]
 }

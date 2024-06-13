@@ -1,10 +1,11 @@
 import argparse
+import json
 import logging
 import math
 import re
 import subprocess
 from pathlib import Path
-from typing import Callable, Union
+from typing import Any, Callable, Union
 
 logging.basicConfig(
     level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s'
@@ -390,32 +391,37 @@ class BaseTableAndPlotGenerator:
         with open(file_path, 'r', encoding='utf-8') as file:
             return file.read()
 
-    def __extract_axis_content(self, latex_content: str, tool: str) -> str:
+    def __extract_axis_content(
+        self, latex_content: str, tool: str, environments: list[str]
+    ) -> str:
         match = re.search(r'\\begin{axis}.*?\\end{axis}', latex_content, re.DOTALL)
         if match:
             axis_content = match.group(0)
-            if tool == 'xsb':
+            if tool == environments[0]:
                 axis_content = re.sub(
                     r'\\begin{axis}\[',
                     r'\\begin{axis}[bar shift=-25pt, ',
                     axis_content,
                     1,
                 )
-            elif tool in ['clingo', 'souffle']:
-                axis_content = self.__adjust_axis_content(axis_content, tool)
+            elif tool in environments[1:]:
+                axis_content = self.__adjust_axis_content(
+                    axis_content, tool, environments
+                )
             return axis_content
         return ''
 
     @staticmethod
-    def __adjust_axis_content(axis_content: str, tool: str) -> str:
-        if tool == 'clingo':
-            axis_content = re.sub(
-                r'\\begin{axis}\[', r'\\begin{axis}[bar shift=-3.7pt, ', axis_content, 1
-            )
-        elif tool == 'souffle':
-            axis_content = re.sub(
-                r'\\begin{axis}\[', r'\\begin{axis}[bar shift=18pt, ', axis_content, 1
-            )
+    def __adjust_axis_content(
+        axis_content: str, tool: str, environments: list[str]
+    ) -> str:
+
+        axis_content = re.sub(
+            r'\\begin{axis}\[',
+            rf'\\begin{{axis}}[bar shift={-25 + 3.7 * environments.index(tool)}pt, ',
+            axis_content,
+            1,
+        )
 
         axis_content = re.sub(r'(axis x line\*=)[^,]*', r'\1none', axis_content)
         axis_content = re.sub(r'(axis y line\*=)[^,]*', r'\1none', axis_content)
@@ -464,8 +470,17 @@ class BaseTableAndPlotGenerator:
 
 
 class TableAndPlotGenerator(BaseTableAndPlotGenerator):
-    def __init__(self, timing_base_dir: Path, pattern: str, latex_file_dir: Path):
+    def __init__(
+        self,
+        timing_base_dir: Path,
+        pattern: str,
+        latex_file_dir: Path,
+        config: dict[str, Any] | None = None,
+        envs: list[str] | None = None,
+    ):
         super().__init__(timing_base_dir, pattern, latex_file_dir)
+        self.config = config
+        self.environments = config['environmentsToCombine'] if config else envs
 
     def __write_latex_body_for_environment(
         self,
@@ -755,22 +770,22 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
                     f.write('\\begin{tikzpicture}\n')
                     f.write('\\begin{axis}[\n')
                     f.write('   ybar stacked,\n')
-                    f.write('   width=1.7\\textwidth,\n')
-                    f.write('   bar width=0.7cm,\n')
+                    f.write('   width=2\\textwidth,\n')
+                    f.write('   bar width=0.35cm,\n')
                     f.write('   ymajorgrids, tick align=inside,\n')
                     f.write('   major grid style={draw=gray!20},\n')
                     f.write('   xtick=data,\n')
                     f.write(f'   ymin=0, ymax={ymax},\n')
                     f.write('   axis x line*=bottom,\n')
                     f.write('   axis y line*=left,\n')
-                    f.write('   enlarge x limits=0.05,\n')
+                    f.write('   enlarge x limits=0.01,\n')
                     f.write('   legend style={\n')
-                    if env_name == 'xsb':
+                    if env_name == self.environments[0]:
                         f.write('       at={(0.23, 0.97)},\n')
-                    elif env_name == 'clingo':
-                        f.write('       at={(0.454, 0.97)},\n')
-                    elif env_name == 'souffle':
-                        f.write('       at={(0.69, 0.97)},\n')
+                    else:
+                        f.write(
+                            f'       at={{({0.224 * (self.environments.index(env_name))+1}, 0.97)}},\n'
+                        )
                     f.write('       anchor=north east,\n')
                     f.write('       legend columns=1,\n')
                     f.write('       font=\\Huge,\n')
@@ -852,7 +867,9 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
 
         The function iterates over the tools and reads the LaTeX content from the corresponding files. It then extracts the axis content using the extract_axis_content function and appends it to a list. If the axis content is not empty, it is added to the list. Finally, the function returns the combined axis content as a string.
         """
-        tools = ['xsb', 'clingo', 'souffle']
+        tools = (
+            self.config['environmentsToCombine'] if self.config else self.environments
+        )
         axis_contents = []
         for tool in tools:
             file_path = directory_path / tool / mode / f'{file_name}.tex'
@@ -862,7 +879,7 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
                     file_path
                 )
                 axis_content = self._BaseTableAndPlotGenerator__extract_axis_content(
-                    latex_content, tool
+                    latex_content, tool, tools
                 )
                 axis_contents.append(axis_content)
             else:
@@ -926,7 +943,7 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
 \\begin{{document}}
 \\begin{{tikzpicture}}
                         {combined_content}
-\\node[anchor=south, draw, fill=white] at (rel axis cs:0.42,1) {{\\Huge Left: XSB, Middle: Clingo, Right: Soufflé}};
+\\node[anchor=south, draw, fill=white] at (rel axis cs:0.42,1) {{\\Huge L-R: {', '.join(map(str, self.environments))}}};
 \\end{{tikzpicture}}
 \\end{{document}}
                     """
@@ -968,6 +985,23 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--config', type=str, required=False, help='JSON string of the config'
+    )
+    parser.add_argument(
+        '--environments',
+        nargs='+',
+        default=[
+            'xsb',
+            'postgres',
+            'mariadb',
+            'duckdb',
+            'mongodb',
+            'neo4j',
+            'cockroachdb',
+        ],
+        help='Specify the list of environments to combine',
+    )
     # Compile the LaTeX files to PDFs alone
     parser.add_argument(
         '--compile-latex',
@@ -976,13 +1010,15 @@ def main():
     )
     args = parser.parse_args()
 
+    config = json.loads(args.config if args.config else '{}')
+
     timing_base_dir = Path('timing')
     pattern = r'^timing_(.*?)_graph_(\d+)\.csv$'
     latex_file_dir = Path('output')
     latex_file_dir.mkdir(exist_ok=True)
 
     table_plot_generator = TableAndPlotGenerator(
-        timing_base_dir, pattern, latex_file_dir
+        timing_base_dir, pattern, latex_file_dir, config, args.environments
     )
     table_plot_generator.generate_plot_table(args.compile_latex)
 
