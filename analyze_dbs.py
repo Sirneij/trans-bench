@@ -200,36 +200,54 @@ class AnalyzeDBs(AnalyzeSystems):
 
         cypher_script = cypher_script.replace('{data_file}', str(fact_file_name))
         commands = [
-            command.strip() for command in cypher_script.split(';') if command.strip()
+            f'{command.strip()};'
+            for command in cypher_script.split(';')
+            if command.strip()
         ]
-        timing_results = {header: 0 for header in self.headers_nosql}
+        timing_results = {header: 0 for header in self.headers_neo4j}
 
-        with self.driver.session() as session:
-            for i, command in enumerate(commands[:-1]):
+        try:
+
+            with self.driver.session() as session:
+                for i, command in enumerate(commands[:-1]):
+                    (
+                        timing_results[self.headers_neo4j[2 * i]],
+                        timing_results[self.headers_neo4j[2 * i + 1]],
+                    ) = self.execute_with_timing(session.run, command)
+
+                    logging.info(
+                        f'Command: {command}. Time: {self.headers_neo4j[2 * i]}, {self.headers_neo4j[2 * i + 1]}'
+                    )
+
+                query = commands[-1]
+                start_time = os.times()
+                result = session.run(query)
+                end_time = os.times()
                 (
-                    timing_results[self.headers_nosql[2 * i]],
-                    timing_results[self.headers_nosql[2 * i + 1]],
-                ) = self.execute_with_timing(session.run, command)
+                    timing_results[self.headers_neo4j[-4]],
+                    timing_results[self.headers_neo4j[-3]],
+                ) = self.estimate_time_duration(start_time, end_time)
+                logging.info(
+                    f'Command: {query}, Times: {self.headers_neo4j[-4]}, {self.headers_neo4j[-3]}'
+                )
 
-            query = commands[-1]
-            start_time = os.times()
-            result = session.run(query)
-            records = [(record["startX"], record["endY"]) for record in result]
-            end_time = os.times()
-            (
-                timing_results[self.headers_nosql[-4]],
-                timing_results[self.headers_nosql[-3]],
-            ) = self.estimate_time_duration(start_time, end_time)
+                start_time = os.times()
+                records = [(record['startX'], record['endY']) for record in result]
+                with open(results_path, 'w', newline='') as file:
+                    writer = csv.writer(file)
+                    writer.writerow(['startX', 'endY'])
+                    writer.writerows(records)
+                end_time = os.times()
+                (
+                    timing_results[self.headers_neo4j[-2]],
+                    timing_results[self.headers_neo4j[-1]],
+                ) = self.estimate_time_duration(start_time, end_time)
+                logging.info(
+                    f'Times: {self.headers_neo4j[-2]}, {self.headers_neo4j[-1]}'
+                )
 
-            with open(results_path, 'w', newline='') as file:
-                writer = csv.writer(file)
-                writer.writerow(["startX", "endY"])
-                writer.writerows(records)
-
-            (
-                timing_results[self.headers_nosql[-2]],
-                timing_results[self.headers_nosql[-1]],
-            ) = self.execute_with_timing(lambda: None)
+        except Exception as e:
+            logging.error(f'Neo4J error: {e}')
 
         self.write_timing_results(timing_results, self.headers_neo4j)
 

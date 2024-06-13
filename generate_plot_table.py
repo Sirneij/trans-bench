@@ -32,6 +32,8 @@ class BaseTableAndPlotGenerator:
             'ExecuteQuery',
             'WriteRes',
         ]
+        mongodb_components = [comp for comp in common_components if comp != 'Analyze']
+        neo4j_components = ['DeleteData'] + mongodb_components[1:]
         return {
             'alda': ['Overall'],
             'xsb': ['LoadRules', 'LoadFacts', 'Querying', 'Writing'],
@@ -49,7 +51,8 @@ class BaseTableAndPlotGenerator:
             'duckdb': common_components,
             'cockroachdb': common_components,
             'singlestoredb': common_components,
-            'mongodb': common_components.remove('Analyze'),
+            'mongodb': mongodb_components,
+            'neo4j': neo4j_components,
         }
 
     @staticmethod
@@ -65,6 +68,8 @@ class BaseTableAndPlotGenerator:
         mongodb_colors = {
             key: value for key, value in common_colors.items() if key != 'Analyze'
         }
+        neo4j_colors = mongodb_colors.copy()
+        neo4j_colors['DeleteData'] = neo4j_colors.pop('CreateTable')
         return {
             'alda': {'Overall': 'LimeGreen'},
             'xsb': {
@@ -94,6 +99,7 @@ class BaseTableAndPlotGenerator:
             'cockroachdb': common_colors,
             'singlestoredb': common_colors,
             'mongodb': mongodb_colors,
+            'neo4j': neo4j_colors,
         }
 
     @staticmethod
@@ -109,6 +115,8 @@ class BaseTableAndPlotGenerator:
         mongodb_legends = {
             key: value for key, value in common_legends.items() if key != 'Analyze'
         }
+        neo4j_legends = mongodb_legends.copy()
+        neo4j_legends['DeleteData'] = neo4j_legends.pop('CreateTable')
         return {
             'alda': {'Overall': 'Overall'},
             'xsb': {
@@ -138,6 +146,7 @@ class BaseTableAndPlotGenerator:
             'cockroachdb': common_legends,
             'singlestoredb': common_legends,
             'mongodb': mongodb_legends,
+            'neo4j': neo4j_legends,
         }
 
     @staticmethod
@@ -192,6 +201,10 @@ class BaseTableAndPlotGenerator:
                     elif env_name == 'mongodb':
                         data[key].append(
                             (graph_size, self.__process_mongo_data(last_line))
+                        )
+                    elif env_name == 'neo4j':
+                        data[key].append(
+                            (graph_size, self.__process_neo4j_data(last_line))
                         )
                     elif env_name == 'alda':
                         data[key].append(
@@ -250,6 +263,19 @@ class BaseTableAndPlotGenerator:
             'CreateIndex': (float(last_line[5]), float(last_line[6])),
             'ExecuteQuery': (float(last_line[7]), float(last_line[8])),
             'WriteRes': (float(last_line[9]), float(last_line[10])),
+        }
+
+    @staticmethod
+    def __process_neo4j_data(last_line: list[str]) -> dict[str, tuple[float, float]]:
+        return {
+            'DeleteData': (float(last_line[1]), float(last_line[2])),
+            'LoadData': (float(last_line[3]), float(last_line[4])),
+            'CreateIndex': (
+                float(last_line[5]) + float(last_line[7]),
+                float(last_line[6]) + float(last_line[8]),
+            ),
+            'ExecuteQuery': (float(last_line[9]), float(last_line[10])),
+            'WriteRes': (float(last_line[11]), float(last_line[12])),
         }
 
     @staticmethod
