@@ -266,6 +266,8 @@ class Experiment(Base):
         """
         self.__delete_existing_timing_data()
 
+        config_str = json.dumps(self.config)
+
         for env in self.environments:
             self.__generate_input_data(env, self.size_range, self.graph_types)
             for graph_type in self.graph_types:
@@ -298,7 +300,7 @@ class Experiment(Base):
                         )
 
         # Generate latex plots and tables of the
-        subprocess.run(['python', 'generate_plot_table.py'])
+        subprocess.run(['python', 'generate_plot_table.py', '--config', config_str])
 
 
 def load_config(file_path: str) -> dict[str, Any]:
