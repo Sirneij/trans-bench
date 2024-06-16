@@ -1,0 +1,546 @@
+
+\documentclass[border=10pt, 12pt]{standalone}
+\usepackage[svgnames]{xcolor}
+\usepackage{amsmath}
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest}
+\usepackage[sfdefault]{FiraSans}
+\usepackage{FiraMono}
+\renewcommand*\familydefault{\sfdefault}
+\begin{document}
+\begin{tikzpicture}
+                        \begin{axis}[bar shift=-25pt, 
+   ybar stacked,
+   width=2\textwidth,
+   bar width=0.35cm,
+   ymajorgrids, tick align=inside,
+   major grid style={draw=gray!20},
+   xtick=data,
+   ymin=0, ymax=9.033333333830038,
+   axis x line*=bottom,
+   axis y line*=left,
+   enlarge x limits=0.01,
+   legend style={
+       at={(0.23, 0.97)},
+       anchor=north east,
+       legend columns=1,
+       font=\Huge,
+   },
+   ylabel={CPU Time (seconds)},
+   xlabel={Number of nodes},
+   label style={font=\Huge},
+   tick label style={font=\Huge},
+]
+\addlegendimage{fill=DodgerBlue, draw=black, line width=0.2pt}
+\addlegendentry{WriteRes}
+\addlegendimage{fill=Crimson, draw=black, line width=0.2pt}
+\addlegendentry{Query}
+\addlegendimage{fill=LimeGreen, draw=black, line width=0.2pt}
+\addlegendentry{ReadData}
+\addlegendimage{fill=LightPink, draw=black, line width=0.2pt}
+\addlegendentry{LoadRules}
+\addplot +[fill=LightPink, draw=black, line width=0.2pt] coordinates {
+(50, 0.0033996666666666667)
+(100, 0.005092666666666666)
+(150, 0.006569333333333333)
+(200, 0.0031886666666666665)
+(250, 0.004979666666666667)
+(300, 0.003637999999999999)
+(350, 0.005184999999999997)
+(400, 0.00493166666666667)
+};
+\addplot +[fill=LimeGreen, draw=black, line width=0.2pt] coordinates {
+(50, 0.0006920000000000042)
+(100, 0.0031666666666666666)
+(150, 0.004001666666666667)
+(200, 0.0028580000000000046)
+(250, 0.005025000000000007)
+(300, 0.004421999999999996)
+(350, 0.00715466666666667)
+(400, 0.007785333333333334)
+};
+\addplot +[fill=Crimson, draw=black, line width=0.2pt] coordinates {
+(50, 1.59999999999975e-05)
+(100, 6.533333333333159e-05)
+(150, 9.233333333333317e-05)
+(200, 9.733333333332904e-05)
+(250, 8.299999999999513e-05)
+(300, 8.866666666666744e-05)
+(350, 0.00012399999999999667)
+(400, 0.00013799999999999902)
+};
+\addplot +[fill=DodgerBlue, draw=black, line width=0.2pt] coordinates {
+(50, 0.0009703333333333357)
+(100, 0.005445666666666668)
+(150, 0.007921333333333338)
+(200, 0.010418666666666672)
+(250, 0.011607000000000004)
+(300, 0.010902666666666666)
+(350, 0.016127000000000002)
+(400, 0.020295333333333332)
+};
+\end{axis}
+
+\begin{axis}[bar shift=-21.3pt, 
+   ybar stacked,
+   width=2\textwidth,
+   bar width=0.35cm,
+   ymajorgrids, tick align=inside,
+   major grid style={draw=none},
+   xtick=data,
+   ymin=0, ymax=9.033333333830038,
+   axis x line*=none,
+   axis y line*=none,
+   enlarge x limits=0.01,
+   legend style={
+       at={(1.224, 0.97)},
+       anchor=north east,
+       legend columns=1,
+       font=\Huge,
+   },
+   label style={font=\Huge},
+   tick label style={font=\Huge},
+]
+\addlegendimage{fill=DodgerBlue, draw=black, line width=0.2pt}
+\addlegendentry{WriteRes}
+\addlegendimage{fill=Crimson, draw=black, line width=0.2pt}
+\addlegendentry{Query}
+\addlegendimage{fill=LimeGreen, draw=black, line width=0.2pt}
+\addlegendentry{Analyze}
+\addlegendimage{fill=LightPink, draw=black, line width=0.2pt}
+\addlegendentry{CreateIndex}
+\addlegendimage{fill=DarkOrange, draw=black, line width=0.2pt}
+\addlegendentry{LoadData}
+\addlegendimage{fill=LightGoldenrod, draw=black, line width=0.2pt}
+\addlegendentry{CreateTable}
+\addplot +[fill=LightGoldenrod, draw=black, line width=0.2pt] coordinates {
+(50, 0.0)
+(100, 0.0)
+(150, 0.0)
+(200, 0.0)
+(250, 0.0)
+(300, 0.0)
+(350, 0.0)
+(400, 0.0)
+};
+\addplot +[fill=DarkOrange, draw=black, line width=0.2pt] coordinates {
+(50, 0.0)
+(100, 0.0)
+(150, 0.0)
+(200, 0.0)
+(250, 0.0)
+(300, 0.0)
+(350, 0.0)
+(400, 0.0)
+};
+\addplot +[fill=LightPink, draw=black, line width=0.2pt] coordinates {
+(50, 0.0)
+(100, 0.0)
+(150, 0.0)
+(200, 0.0)
+(250, 0.006666666666666672)
+(300, 0.0)
+(350, 0.0)
+(400, 0.0)
+};
+\addplot +[fill=LimeGreen, draw=black, line width=0.2pt] coordinates {
+(50, 0.0)
+(100, 0.0)
+(150, 0.0)
+(200, 0.0)
+(250, 0.0)
+(300, 0.0)
+(350, 0.0)
+(400, 0.0)
+};
+\addplot +[fill=Crimson, draw=black, line width=0.2pt] coordinates {
+(50, 0.0)
+(100, 0.0)
+(150, 0.0)
+(200, 0.0)
+(250, 0.0)
+(300, 0.0)
+(350, 0.0)
+(400, 0.0)
+};
+\addplot +[fill=DodgerBlue, draw=black, line width=0.2pt] coordinates {
+(50, 0.0)
+(100, 0.0)
+(150, 0.0)
+(200, 0.0)
+(250, 0.003333333333333318)
+(300, 0.0)
+(350, 0.0)
+(400, 0.003333333333333336)
+};
+\end{axis}
+
+\begin{axis}[bar shift=-17.6pt, 
+   ybar stacked,
+   width=2\textwidth,
+   bar width=0.35cm,
+   ymajorgrids, tick align=inside,
+   major grid style={draw=none},
+   xtick=data,
+   ymin=0, ymax=9.033333333830038,
+   axis x line*=none,
+   axis y line*=none,
+   enlarge x limits=0.01,
+   legend style={
+       at={(1.448, 0.97)},
+       anchor=north east,
+       legend columns=1,
+       font=\Huge,
+   },
+   label style={font=\Huge},
+   tick label style={font=\Huge},
+]
+\addlegendimage{fill=DodgerBlue, draw=black, line width=0.2pt}
+\addlegendentry{WriteRes}
+\addlegendimage{fill=Crimson, draw=black, line width=0.2pt}
+\addlegendentry{Query}
+\addlegendimage{fill=LimeGreen, draw=black, line width=0.2pt}
+\addlegendentry{Analyze}
+\addlegendimage{fill=LightPink, draw=black, line width=0.2pt}
+\addlegendentry{CreateIndex}
+\addlegendimage{fill=DarkOrange, draw=black, line width=0.2pt}
+\addlegendentry{LoadData}
+\addlegendimage{fill=LightGoldenrod, draw=black, line width=0.2pt}
+\addlegendentry{CreateTable}
+\addplot +[fill=LightGoldenrod, draw=black, line width=0.2pt] coordinates {
+(50, 0.0)
+(100, 0.0)
+(150, 0.0)
+(200, 0.0)
+(250, 0.0)
+(300, 0.0)
+(350, 0.0)
+(400, 0.0)
+};
+\addplot +[fill=DarkOrange, draw=black, line width=0.2pt] coordinates {
+(50, 0.0)
+(100, 0.0)
+(150, 0.0)
+(200, 0.0)
+(250, 0.0)
+(300, 0.0)
+(350, 0.0)
+(400, 0.0)
+};
+\addplot +[fill=LightPink, draw=black, line width=0.2pt] coordinates {
+(50, 0.0)
+(100, 0.0)
+(150, 0.0)
+(200, 0.0)
+(250, 0.0)
+(300, 0.0)
+(350, 0.0066666666666666706)
+(400, 0.0)
+};
+\addplot +[fill=LimeGreen, draw=black, line width=0.2pt] coordinates {
+(50, 0.0)
+(100, 0.0)
+(150, 0.0)
+(200, 0.0)
+(250, 0.0)
+(300, 0.0)
+(350, 0.0)
+(400, 0.0066666666666666706)
+};
+\addplot +[fill=Crimson, draw=black, line width=0.2pt] coordinates {
+(50, 0.0)
+(100, 0.0)
+(150, 0.0)
+(200, 0.0)
+(250, 0.0)
+(300, 0.0)
+(350, 0.0)
+(400, 0.0)
+};
+\addplot +[fill=DodgerBlue, draw=black, line width=0.2pt] coordinates {
+(50, 0.0)
+(100, 0.0)
+(150, 0.0)
+(200, 0.0)
+(250, 0.0)
+(300, 0.0)
+(350, 0.0)
+(400, 0.0)
+};
+\end{axis}
+
+\begin{axis}[bar shift=-13.899999999999999pt, 
+   ybar stacked,
+   width=2\textwidth,
+   bar width=0.35cm,
+   ymajorgrids, tick align=inside,
+   major grid style={draw=none},
+   xtick=data,
+   ymin=0, ymax=9.033333333830038,
+   axis x line*=none,
+   axis y line*=none,
+   enlarge x limits=0.01,
+   legend style={
+       at={(1.6720000000000002, 0.97)},
+       anchor=north east,
+       legend columns=1,
+       font=\Huge,
+   },
+   label style={font=\Huge},
+   tick label style={font=\Huge},
+]
+\addlegendimage{fill=DodgerBlue, draw=black, line width=0.2pt}
+\addlegendentry{WriteRes}
+\addlegendimage{fill=Crimson, draw=black, line width=0.2pt}
+\addlegendentry{Query}
+\addlegendimage{fill=LimeGreen, draw=black, line width=0.2pt}
+\addlegendentry{Analyze}
+\addlegendimage{fill=LightPink, draw=black, line width=0.2pt}
+\addlegendentry{CreateIndex}
+\addlegendimage{fill=DarkOrange, draw=black, line width=0.2pt}
+\addlegendentry{LoadData}
+\addlegendimage{fill=LightGoldenrod, draw=black, line width=0.2pt}
+\addlegendentry{CreateTable}
+\addplot +[fill=LightGoldenrod, draw=black, line width=0.2pt] coordinates {
+(50, 0.0)
+(100, 0.003333333333333336)
+(150, 0.003333333333333318)
+(200, 0.0)
+(250, 0.0)
+(300, 0.0)
+(350, 0.0)
+(400, 0.0)
+};
+\addplot +[fill=DarkOrange, draw=black, line width=0.2pt] coordinates {
+(50, 0.010000000000000004)
+(100, 0.0)
+(150, 0.003333333333333336)
+(200, 0.006666666666666672)
+(250, 0.0)
+(300, 0.0066666666666666706)
+(350, 0.003333333333333336)
+(400, 0.0)
+};
+\addplot +[fill=LightPink, draw=black, line width=0.2pt] coordinates {
+(50, 0.003333333333333337)
+(100, 0.0)
+(150, 0.0)
+(200, 0.0)
+(250, 0.006666666666666668)
+(300, 0.0)
+(350, 0.003333333333333337)
+(400, 0.006666666666666672)
+};
+\addplot +[fill=LimeGreen, draw=black, line width=0.2pt] coordinates {
+(50, 0.0)
+(100, 0.0066666666666666706)
+(150, 0.0)
+(200, 0.0)
+(250, 0.0)
+(300, 0.0)
+(350, 0.0)
+(400, 0.0)
+};
+\addplot +[fill=Crimson, draw=black, line width=0.2pt] coordinates {
+(50, 0.0)
+(100, 0.003333333333333336)
+(150, 0.0)
+(200, 0.0)
+(250, 0.006666666666666668)
+(300, 0.003333333333333336)
+(350, 0.0)
+(400, 0.003333333333333336)
+};
+\addplot +[fill=DodgerBlue, draw=black, line width=0.2pt] coordinates {
+(50, 0.0)
+(100, 0.003333333333333336)
+(150, 0.006666666666666668)
+(200, 0.0)
+(250, 0.0)
+(300, 0.0)
+(350, 0.0)
+(400, 0.0)
+};
+\end{axis}
+
+\begin{axis}[bar shift=-6.5pt, 
+   ybar stacked,
+   width=2\textwidth,
+   bar width=0.35cm,
+   ymajorgrids, tick align=inside,
+   major grid style={draw=none},
+   xtick=data,
+   ymin=0, ymax=9.033333333830038,
+   axis x line*=none,
+   axis y line*=none,
+   enlarge x limits=0.01,
+   legend style={
+       at={(2.12, 0.97)},
+       anchor=north east,
+       legend columns=1,
+       font=\Huge,
+   },
+   label style={font=\Huge},
+   tick label style={font=\Huge},
+]
+\addlegendimage{fill=DodgerBlue, draw=black, line width=0.2pt}
+\addlegendentry{WriteRes}
+\addlegendimage{fill=Crimson, draw=black, line width=0.2pt}
+\addlegendentry{Query}
+\addlegendimage{fill=LightPink, draw=black, line width=0.2pt}
+\addlegendentry{CreateIndex}
+\addlegendimage{fill=DarkOrange, draw=black, line width=0.2pt}
+\addlegendentry{LoadData}
+\addlegendimage{fill=LightGoldenrod, draw=black, line width=0.2pt}
+\addlegendentry{CreateTable}
+\addplot +[fill=LightGoldenrod, draw=black, line width=0.2pt] coordinates {
+(50, 0.003333333333333318)
+(100, 0.013333333333333338)
+(150, 0.013333333333333322)
+(200, 0.0033333333333333375)
+(250, 0.003333333333333336)
+(300, 0.0)
+(350, 0.010000000000000009)
+(400, 0.0)
+};
+\addplot +[fill=DarkOrange, draw=black, line width=0.2pt] coordinates {
+(50, 0.0)
+(100, 0.0)
+(150, 0.0)
+(200, 0.0)
+(250, 0.0)
+(300, 0.003333333333333336)
+(350, 0.0)
+(400, 0.006666666666666672)
+};
+\addplot +[fill=LightPink, draw=black, line width=0.2pt] coordinates {
+(50, 0.003333333333333337)
+(100, 0.003333333333333336)
+(150, 0.0)
+(200, 0.003333333333333318)
+(250, 0.006666666666666673)
+(300, 0.0066666666666666515)
+(350, 0.0)
+(400, 0.003333333333333336)
+};
+\addplot +[fill=Crimson, draw=black, line width=0.2pt] coordinates {
+(50, 0.0)
+(100, 0.0)
+(150, 0.0)
+(200, 0.0)
+(250, 0.0)
+(300, 0.003333333333333336)
+(350, 0.003333333333333337)
+(400, 0.0)
+};
+\addplot +[fill=DodgerBlue, draw=black, line width=0.2pt] coordinates {
+(50, 0.0066666666666666706)
+(100, 0.0)
+(150, 0.0)
+(200, 0.003333333333333336)
+(250, 0.00999999999999999)
+(300, 0.006666666666666672)
+(350, 0.016666666666666656)
+(400, 0.006666666666666672)
+};
+\end{axis}
+
+\begin{axis}[bar shift=-2.799999999999997pt, 
+   ybar stacked,
+   width=2\textwidth,
+   bar width=0.35cm,
+   ymajorgrids, tick align=inside,
+   major grid style={draw=none},
+   xtick=data,
+   ymin=0, ymax=9.033333333830038,
+   axis x line*=none,
+   axis y line*=none,
+   enlarge x limits=0.01,
+   legend style={
+       at={(2.3440000000000003, 0.97)},
+       anchor=north east,
+       legend columns=1,
+       font=\Huge,
+   },
+   label style={font=\Huge},
+   tick label style={font=\Huge},
+]
+\addlegendimage{fill=DodgerBlue, draw=black, line width=0.2pt}
+\addlegendentry{WriteRes}
+\addlegendimage{fill=Crimson, draw=black, line width=0.2pt}
+\addlegendentry{Query}
+\addlegendimage{fill=LimeGreen, draw=black, line width=0.2pt}
+\addlegendentry{Analyze}
+\addlegendimage{fill=LightPink, draw=black, line width=0.2pt}
+\addlegendentry{CreateIndex}
+\addlegendimage{fill=DarkOrange, draw=black, line width=0.2pt}
+\addlegendentry{LoadData}
+\addlegendimage{fill=LightGoldenrod, draw=black, line width=0.2pt}
+\addlegendentry{CreateTable}
+\addplot +[fill=LightGoldenrod, draw=black, line width=0.2pt] coordinates {
+(50, 0.0)
+(100, 0.0)
+(150, 0.0)
+(200, 0.006666666666666672)
+(250, 0.0066666666666666706)
+(300, 0.0)
+(350, 0.0)
+(400, 0.0)
+};
+\addplot +[fill=DarkOrange, draw=black, line width=0.2pt] coordinates {
+(50, 0.0)
+(100, 0.0)
+(150, 0.0)
+(200, 0.0)
+(250, 0.0)
+(300, 0.0)
+(350, 0.006666666666666668)
+(400, 0.0)
+};
+\addplot +[fill=LightPink, draw=black, line width=0.2pt] coordinates {
+(50, 0.0)
+(100, 0.0)
+(150, 0.0)
+(200, 0.0)
+(250, 0.0)
+(300, 0.0)
+(350, 0.0)
+(400, 0.0)
+};
+\addplot +[fill=LimeGreen, draw=black, line width=0.2pt] coordinates {
+(50, 0.0)
+(100, 0.0)
+(150, 0.0)
+(200, 0.0)
+(250, 0.0)
+(300, 0.0)
+(350, 0.0)
+(400, 0.0)
+};
+\addplot +[fill=Crimson, draw=black, line width=0.2pt] coordinates {
+(50, 0.0)
+(100, 0.0)
+(150, 0.0)
+(200, 0.0066666666666666706)
+(250, 0.0)
+(300, 0.0)
+(350, 0.0)
+(400, 0.0)
+};
+\addplot +[fill=DodgerBlue, draw=black, line width=0.2pt] coordinates {
+(50, 0.0)
+(100, 0.0)
+(150, 0.0)
+(200, 0.0)
+(250, 0.0)
+(300, 0.0)
+(350, 0.003333333333333336)
+(400, 0.0)
+};
+\end{axis}
+
+
+\node[anchor=south, draw, fill=white] at (rel axis cs:0.42,1) {\Huge L-R: xsb, postgres, mariadb, duckdb, mongodb, neo4j, cockroachdb};
+\end{tikzpicture}
+\end{document}
+                    

@@ -6,7 +6,7 @@
 
 Ensure you fill in database credentials of MariaDB.
 
-*NOTE:* There is an issue with mariadb that prevents programs from writing into any directory of choice even after `secure_file_priv = ""` was set in `~/.my.cnf` or `/etc/mysql/my.cnf` in Ubuntu (`~/.my.ini` works for Windows) but could write into `/tmp/` so the results were temporarily written in `/tmp/mariadb_results.csv` and thereafter move it into the desired directory using `sudo` priviledges. As a result, some lines were added to `analyze_dbs.py::AnalyzeDBs::solve_with_mariadb` method for safe-keeping.
+*NOTE:* There is an issue with mariadb that prevents programs from writing into any directory of choice even after `secure_file_priv = ""` was set in `~/.my.cnf` or `/etc/mysql/my.cnf` in Ubuntu (`~/.my.ini` works for Windows) but could write into `/tmp/` so the results were temporarily written in `/tmp/mariadb_results.csv` and thereafter move it into the desired directory using `sudo` priviledges. As a result, some lines were added to `analyze_dbs.py::AnalyzeDBs::solve_with_mariadb` method for safe-keeping. You may still be required to insert your user password while the analysis is going on as a result.
 
 ### CockroachDB
 

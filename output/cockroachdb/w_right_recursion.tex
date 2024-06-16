@@ -1,0 +1,186 @@
+\documentclass[border=10pt]{standalone}
+\usepackage[svgnames]{xcolor}
+\usepackage{amsmath}
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest}
+\usepackage[sfdefault]{FiraSans}
+\usepackage{FiraMono}
+\renewcommand*\familydefault{\sfdefault}
+\begin{document}
+\begin{tikzpicture}
+\begin{axis}[
+   ybar stacked,
+   title={Cockroachdb performance for Right recursion},
+   bar shift=-10pt,
+   width=1.5\textwidth,
+   bar width=0.7cm,
+   ymajorgrids, tick align=inside,
+   major grid style={draw=gray!20},
+   xtick=data,
+   ymin=0, ymax=0.916666668355465,
+   axis x line*=bottom,
+   axis y line*=left,
+   enlarge x limits=0.1,
+   legend style={
+       at={(0.23, 1)},
+       anchor=north,
+       legend columns=1,
+       font=\Huge,
+   },
+   ylabel={Time (seconds)},
+   xlabel={Number of nodes $\times 10$},
+   label style={font=\Huge},
+   tick label style={font=\Huge},
+]
+\addlegendimage{fill=DodgerBlue, draw=black, line width=0.2pt}
+\addlegendentry{WriteRes}
+\addlegendimage{fill=Crimson, draw=black, line width=0.2pt}
+\addlegendentry{Query}
+\addlegendimage{fill=LimeGreen, draw=black, line width=0.2pt}
+\addlegendentry{Analyze}
+\addlegendimage{fill=LightPink, draw=black, line width=0.2pt}
+\addlegendentry{CreateIndex}
+\addlegendimage{fill=DarkOrange, draw=black, line width=0.2pt}
+\addlegendentry{LoadData}
+\addlegendimage{fill=LightGoldenrod, draw=black, line width=0.2pt}
+\addlegendentry{CreateTable}
+\addplot +[fill=LightGoldenrod, draw=black, line width=0.5pt] coordinates {
+    (500, 0.020000000794728596)
+    (1000, 0.020000000794728596)
+    (1500, 0.019999998311201733)
+    (2000, 0.02666666607062022)
+    (2500, 0.04000000158945719)
+    (3000, 0.020000000794728596)
+    (3500, 0.019999998311201733)
+    (4000, 0.019999998311201733)
+};
+\addplot +[fill=DarkOrange, draw=black, line width=0.5pt] coordinates {
+    (500, 0.32333333045244217)
+    (1000, 0.34333333124717075)
+    (1500, 0.5566666672627131)
+    (2000, 0.40333333363135654)
+    (2500, 0.4299999997019768)
+    (3000, 0.3566666667660077)
+    (3500, 0.34666666636864346)
+    (4000, 0.339999998609225)
+};
+\addplot +[fill=LightPink, draw=black, line width=0.5pt] coordinates {
+    (500, 0.6500000034769376)
+    (1000, 1.4600000033775966)
+    (1500, 0.6233333299557368)
+    (2000, 2.1399999981125197)
+    (2500, 0.8000000019868215)
+    (3000, 0.7000000004967054)
+    (3500, 0.6666666666666666)
+    (4000, 0.7500000024835268)
+};
+\addplot +[fill=LimeGreen, draw=black, line width=0.5pt] coordinates {
+    (500, 0.20000000049670538)
+    (1000, 0.20999999841054282)
+    (1500, 0.3666666696468989)
+    (2000, 0.3400000010927518)
+    (2500, 0.2633333330353101)
+    (3000, 0.2500000024835269)
+    (3500, 0.2800000011920929)
+    (4000, 0.25333333263794583)
+};
+\addplot +[fill=Crimson, draw=black, line width=0.5pt] coordinates {
+    (500, 0.27666666358709335)
+    (1000, 0.2866666664679845)
+    (1500, 0.5933333337306976)
+    (2000, 0.37333333243926364)
+    (2500, 0.3333333333333333)
+    (3000, 0.28333332886298496)
+    (3500, 0.279999998708566)
+    (4000, 0.3033333321412404)
+};
+\addplot +[fill=DodgerBlue, draw=black, line width=0.5pt] coordinates {
+    (500, 0.020000000794728596)
+    (1000, 0.02666666607062022)
+    (1500, 0.026666668554147083)
+    (2000, 0.030000001192092896)
+    (2500, 0.019999998311201733)
+    (3000, 0.023333335916201275)
+    (3500, 0.02666666607062022)
+    (4000, 0.030000001192092896)
+};
+\end{axis}
+\begin{axis}[
+   ybar stacked,
+   bar shift=13pt,
+   width=1.5\textwidth,
+   bar width=0.7cm,
+   ymajorgrids, tick align=inside,
+   major grid style={draw=none},
+   xtick=data,
+   ymin=0, ymax=0.916666668355465,
+   axis x line*=none,
+   axis y line*=none,
+   enlarge x limits=0.1,
+   label style={font=\Huge},
+   tick label style={font=\Huge},
+]
+\addplot +[fill=LightGoldenrod, draw=black, line width=0.5pt] coordinates {
+    (500, 0.003333333333333336)
+    (1000, 0.0)
+    (1500, 0.0)
+    (2000, 0.0)
+    (2500, 0.0)
+    (3000, 0.0)
+    (3500, 0.0)
+    (4000, 0.0)
+};
+\addplot +[fill=DarkOrange, draw=black, line width=0.5pt] coordinates {
+    (500, 0.0)
+    (1000, 0.0)
+    (1500, 0.0)
+    (2000, 0.0)
+    (2500, 0.0)
+    (3000, 0.0)
+    (3500, 0.0)
+    (4000, 0.0)
+};
+\addplot +[fill=LightPink, draw=black, line width=0.5pt] coordinates {
+    (500, 0.0)
+    (1000, 0.0)
+    (1500, 0.0)
+    (2000, 0.0)
+    (2500, 0.0)
+    (3000, 0.0)
+    (3500, 0.0)
+    (4000, 0.0)
+};
+\addplot +[fill=LimeGreen, draw=black, line width=0.5pt] coordinates {
+    (500, 0.0)
+    (1000, 0.0)
+    (1500, 0.0)
+    (2000, 0.0)
+    (2500, 0.0)
+    (3000, 0.0)
+    (3500, 0.0)
+    (4000, 0.0)
+};
+\addplot +[fill=Crimson, draw=black, line width=0.5pt] coordinates {
+    (500, 0.0)
+    (1000, 0.0)
+    (1500, 0.0)
+    (2000, 0.0)
+    (2500, 0.0)
+    (3000, 0.0)
+    (3500, 0.0)
+    (4000, 0.0)
+};
+\addplot +[fill=DodgerBlue, draw=black, line width=0.5pt] coordinates {
+    (500, 0.0)
+    (1000, 0.0)
+    (1500, 0.0)
+    (2000, 0.0)
+    (2500, 0.0)
+    (3000, 0.0)
+    (3500, 0.0)
+    (4000, 0.0)
+};
+\end{axis}
+\end{tikzpicture}
+
+\end{document}

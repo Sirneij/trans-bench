@@ -314,6 +314,16 @@ class BaseTableAndPlotGenerator:
                 real_times = [value[0] for value in entry[1].values()]
                 max_real_time = max(max_real_time, max(real_times))
         return max_real_time
+    
+    def __find_max_real_time_across_envs(self, graph_type: str, mode: str) -> float:
+        max_real_time = 0
+        for key, entries in self.data.items():
+            env_name, g_type, m = key
+            if g_type == graph_type and m == mode:
+                for entry in entries:
+                    real_times = [value[0] for value in entry[1].values()]
+                    max_real_time = max(max_real_time, max(real_times))
+        return max_real_time
 
     @staticmethod
     def __is_latexindent_installed() -> bool:
@@ -456,11 +466,11 @@ class BaseTableAndPlotGenerator:
         if max_value < 1:
             return max_value + 0.02
         elif 1 <= max_value < 5:
-            return max_value + 2
+            return max_value + 8
         elif 5 <= max_value < 10:
-            return max_value + 3
+            return max_value + 20
         elif 10 <= max_value < 100:
-            return max_value + 5
+            return max_value + 40
         elif 100 <= max_value < 1000:
             return max_value + 50
         elif 1000 <= max_value < 10000:
@@ -625,7 +635,7 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
                 # Find the maximum real-time value for double_recursion
                 max_real_time = self._BaseTableAndPlotGenerator__adjust_ymax(
                     self._BaseTableAndPlotGenerator__find_max_real_time,
-                    (env_name, key[1], 'double_recursion'),
+                    (env_name, key[1], 'left_recursion'),
                 )
 
                 with open(full_file_name, 'w') as f:
@@ -758,8 +768,8 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
             )
             for graph_type in sorted(graph_types):
                 ymax = self._BaseTableAndPlotGenerator__adjust_ymax(
-                    self._BaseTableAndPlotGenerator__find_max_cpu_time_across_envs,
-                    (graph_type, 'double_recursion'),
+                    self._BaseTableAndPlotGenerator__find_max_real_time_across_envs,
+                    (graph_type, 'left_recursion'),
                 )
                 file_folder = file_dir / mode
                 file_folder.mkdir(exist_ok=True, parents=True)

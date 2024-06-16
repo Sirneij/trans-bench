@@ -365,7 +365,10 @@ class AnalyzeDBs(AnalyzeSystems):
 
             cockroachdb_operations.drop_tc_path_tc_result_tables()
 
-            cp_cmd = f'cp {external_directory}tmp/*.csv {results_path}'
+            external_dir = f'{external_directory}tmp/*.csv'
+
+            logging.info(f'External directory: {external_dir}')
+            cp_cmd = f'cp {external_dir} {results_path}'
             rm_cmd = f'rm -r {external_directory}tmp'
             subprocess.run(
                 cp_cmd, shell=True, text=True, capture_output=True, check=True

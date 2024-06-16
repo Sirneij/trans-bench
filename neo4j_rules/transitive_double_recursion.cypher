@@ -9,4 +9,4 @@ CREATE INDEX IF NOT EXISTS FOR (n:Node) ON (n.x);
 CREATE INDEX IF NOT EXISTS FOR (n:Node) ON (n.y);
 
 MATCH (start:Node)-[:CONNECTED_TO*]->(mid:Node)-[:CONNECTED_TO*]->(end:Node)
-RETURN DISTINCT start.x AS startX, end.y AS endY;
+RETURN start.x AS startX, end.y AS endY;

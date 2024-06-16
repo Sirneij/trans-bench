@@ -9,4 +9,4 @@ CREATE INDEX IF NOT EXISTS FOR (n:Node) ON (n.x);
 CREATE INDEX IF NOT EXISTS FOR (n:Node) ON (n.y);
 
 MATCH path = (end:Node)<-[:CONNECTED_TO*]-(start:Node)
-RETURN DISTINCT start.x AS startX, end.y AS endY;
+RETURN start.x AS startX, end.y AS endY;

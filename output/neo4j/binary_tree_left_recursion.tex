@@ -1,0 +1,164 @@
+\documentclass[border=10pt]{standalone}
+\usepackage[svgnames]{xcolor}
+\usepackage{amsmath}
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest}
+\usepackage[sfdefault]{FiraSans}
+\usepackage{FiraMono}
+\renewcommand*\familydefault{\sfdefault}
+\begin{document}
+\begin{tikzpicture}
+\begin{axis}[
+   ybar stacked,
+   title={Neo4j performance for Left recursion},
+   bar shift=-10pt,
+   width=1.5\textwidth,
+   bar width=0.7cm,
+   ymajorgrids, tick align=inside,
+   major grid style={draw=gray!20},
+   xtick=data,
+   ymin=0, ymax=0.063333334227403,
+   axis x line*=bottom,
+   axis y line*=left,
+   enlarge x limits=0.1,
+   legend style={
+       at={(0.23, 1)},
+       anchor=north,
+       legend columns=1,
+       font=\Huge,
+   },
+   ylabel={Time (seconds)},
+   xlabel={Height of the tree},
+   label style={font=\Huge},
+   tick label style={font=\Huge},
+]
+\addlegendimage{fill=DodgerBlue, draw=black, line width=0.2pt}
+\addlegendentry{WriteRes}
+\addlegendimage{fill=Crimson, draw=black, line width=0.2pt}
+\addlegendentry{Query}
+\addlegendimage{fill=LightPink, draw=black, line width=0.2pt}
+\addlegendentry{CreateIndex}
+\addlegendimage{fill=DarkOrange, draw=black, line width=0.2pt}
+\addlegendentry{LoadData}
+\addlegendimage{fill=LightGoldenrod, draw=black, line width=0.2pt}
+\addlegendentry{CreateTable}
+\addplot +[fill=LightGoldenrod, draw=black, line width=0.5pt] coordinates {
+    (5, 0.01666666567325592)
+    (6, 0.010000000397364298)
+    (7, 0.013333335518836975)
+    (7, 0.010000002880891165)
+    (7, 0.010000000397364298)
+    (8, 0.013333330551783243)
+    (8, 0.009999997913837433)
+    (8, 0.009999997913837433)
+};
+\addplot +[fill=DarkOrange, draw=black, line width=0.5pt] coordinates {
+    (5, 0.02999999870856603)
+    (6, 0.04333333422740301)
+    (7, 0.01333333303531011)
+    (7, 0.01333333303531011)
+    (7, 0.009999997913837433)
+    (8, 0.01666666567325592)
+    (8, 0.016666668156782787)
+    (8, 0.013333335518836975)
+};
+\addplot +[fill=LightPink, draw=black, line width=0.5pt] coordinates {
+    (5, 0.01333333303531011)
+    (6, 0.01333333303531011)
+    (7, 0.013333335518836975)
+    (7, 0.01333333303531011)
+    (7, 0.009999997913837433)
+    (8, 0.010000002880891165)
+    (8, 0.010000000397364298)
+    (8, 0.01666666567325592)
+};
+\addplot +[fill=Crimson, draw=black, line width=0.5pt] coordinates {
+    (5, 0.02666666607062022)
+    (6, 0.0)
+    (7, 0.01333333303531011)
+    (7, 0.0)
+    (7, 0.0)
+    (8, 0.0066666677594184875)
+    (8, 0.003333332637945811)
+    (8, 0.0)
+};
+\addplot +[fill=DodgerBlue, draw=black, line width=0.5pt] coordinates {
+    (5, 0.0033333351214726767)
+    (6, 0.0)
+    (7, 0.006666665275891622)
+    (7, 0.006666665275891622)
+    (7, 0.01000000536441803)
+    (8, 0.006666665275891622)
+    (8, 0.009999997913837433)
+    (8, 0.010000002880891165)
+};
+\end{axis}
+\begin{axis}[
+   ybar stacked,
+   bar shift=13pt,
+   width=1.5\textwidth,
+   bar width=0.7cm,
+   ymajorgrids, tick align=inside,
+   major grid style={draw=none},
+   xtick=data,
+   ymin=0, ymax=0.063333334227403,
+   axis x line*=none,
+   axis y line*=none,
+   enlarge x limits=0.1,
+   label style={font=\Huge},
+   tick label style={font=\Huge},
+]
+\addplot +[fill=LightGoldenrod, draw=black, line width=0.5pt] coordinates {
+    (5, 0.0)
+    (6, 0.006666666666666674)
+    (7, 0.003333333333333337)
+    (7, 0.006666666666666672)
+    (7, 0.0)
+    (8, 0.003333333333333336)
+    (8, 0.010000000000000009)
+    (8, 0.010000000000000004)
+};
+\addplot +[fill=DarkOrange, draw=black, line width=0.5pt] coordinates {
+    (5, 0.0)
+    (6, 0.0)
+    (7, 0.0)
+    (7, 0.0)
+    (7, 0.0)
+    (8, 0.0)
+    (8, 0.0)
+    (8, 0.0033333333333333184)
+};
+\addplot +[fill=LightPink, draw=black, line width=0.5pt] coordinates {
+    (5, 0.010000000000000004)
+    (6, 0.003333333333333336)
+    (7, 0.006666666666666668)
+    (7, 0.0)
+    (7, 0.006666666666666668)
+    (8, 0.0)
+    (8, 0.0)
+    (8, 0.0)
+};
+\addplot +[fill=Crimson, draw=black, line width=0.5pt] coordinates {
+    (5, 0.0)
+    (6, 0.0)
+    (7, 0.003333333333333319)
+    (7, 0.003333333333333336)
+    (7, 0.003333333333333337)
+    (8, 0.0033333333333333184)
+    (8, 0.006666666666666669)
+    (8, 0.0)
+};
+\addplot +[fill=DodgerBlue, draw=black, line width=0.5pt] coordinates {
+    (5, 0.0)
+    (6, 0.006666666666666668)
+    (7, 0.003333333333333337)
+    (7, 0.003333333333333336)
+    (7, 0.0)
+    (8, 0.006666666666666672)
+    (8, 0.006666666666666654)
+    (8, 0.006666666666666672)
+};
+\end{axis}
+\end{tikzpicture}
+
+\end{document}
