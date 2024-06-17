@@ -1006,7 +1006,7 @@ def main():
             'postgres',
             'mariadb',
             'duckdb',
-            'mongodb',
+            # 'mongodb',
             'neo4j',
             'cockroachdb',
         ],

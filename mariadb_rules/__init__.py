@@ -14,8 +14,6 @@ class MariaDBOperations(Base):
     def execute_query(self, query: str, params: Any = None) -> None:
         cursor = self.conn.cursor()
         cursor.execute(query, params)
-        self.conn.commit()
-        cursor.close()
 
     def import_data_from_file(
         self, table_name: str, file_path: str, delimiter: str = '\t'
