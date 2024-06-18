@@ -167,7 +167,9 @@ class AnalyzeDBs(AnalyzeSystems):
         self.write_timing_results(timing_results, self.headers_rdbms)
 
         self.copy_file('/tmp/mariadb_results.csv', results_path)
-        self.remove_file('/tmp/mariadb_results.csv')
+        machine_user_password = self.config['machineUserPassword']
+        remove = f'sudo rm -rf /tmp/mariadb_results.csv'
+        self.run_pexpect_command(remove, machine_user_password)
 
     def solve_with_duckdb(self) -> None:
         conn = self.connect_db(self.environment, self.rule_path)
@@ -419,10 +421,26 @@ class AnalyzeDBs(AnalyzeSystems):
     def run_pexpect_command(self, command: str, password: str) -> None:
         """Run a shell command using pexpect with password input."""
         try:
+            # Spawn the command
             child = pexpect.spawn(command)
-            child.expect('password')
+
+            # Wait for the sudo password prompt
+            child.expect(r'\[sudo\] password for .*:', timeout=10)
+
+            # Send the password
             child.sendline(password)
+
+            # Wait for the command to complete
             child.expect(pexpect.EOF)
+
+            # Get the output if needed
+            output = child.before.decode('utf-8')
+            logging.info(f'Command output: {output}')
+
+        except pexpect.exceptions.TIMEOUT as e:
+            logging.error(f'Timeout error when running `{command}`: {e}')
+        except pexpect.exceptions.EOF as e:
+            logging.error(f'Unexpected EOF error when running `{command}`: {e}')
         except Exception as e:
             logging.error(f'Command `{command}` error: {e}')
 
