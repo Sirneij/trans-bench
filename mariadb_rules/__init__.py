@@ -12,7 +12,7 @@ class MariaDBOperations(Base):
         self.conn.autocommit(True)
 
     def execute_query(self, query: str, params: Any = None) -> None:
-        cursor = self.conn.cursor()
+        cursor: MySQLdb.cursors.BaseCursor = self.conn.cursor()
         cursor.execute(query, params)
 
     def import_data_from_file(

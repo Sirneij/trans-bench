@@ -1,10 +1,10 @@
 from cockroachdb_rules import CockroachDBOperations
 
 
-class CockroachDBLeftRecursion(CockroachDBOperations):
+class CockroachDBRightRecursion(CockroachDBOperations):
     def run_recursive_query(self) -> None:
         """
-        Runs the left recursion query for transitive closure.
+        Runs the right recursion query for transitive closure.
         """
         self.execute_query(
             """
@@ -12,7 +12,7 @@ class CockroachDBLeftRecursion(CockroachDBOperations):
         WITH RECURSIVE tc AS (
             SELECT x, y FROM edge
             UNION
-            SELECT edge.x, tc.y FROM edge JOIN tc ON edge.y = tc.x
+            SELECT tc.x, edge.y FROM tc JOIN edge ON tc.y = edge.x
         )
         SELECT * FROM tc;
         """

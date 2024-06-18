@@ -6,7 +6,7 @@ CREATE TABLE tc_result AS
 WITH RECURSIVE tc AS (
     SELECT x, y FROM edge
     UNION
-    SELECT edge.x, tc.y FROM edge JOIN tc ON edge.y = tc.x
+    SELECT tc.x, edge.y FROM tc JOIN edge ON tc.y = edge.x
 )
 SELECT * FROM tc;
 COPY (SELECT * FROM tc_result) TO '{output_file}' WITH (HEADER, DELIMITER ',');

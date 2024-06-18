@@ -70,7 +70,6 @@ class Base:
         MongoClient,
         psycopg2.extensions.connection,
         MySQLdb.Connection,
-        s2.connection.Connection,
     ]:
         env_name = env_name.lower()
         connection_methods = {
@@ -80,7 +79,6 @@ class Base:
             'cockroachdb': self._connect_psycopg2,
             'postgres': self._connect_psycopg2,
             'mariadb': self._connect_mariadb,
-            'singlestoredb': self._connect_singlestoredb,
         }
 
         if env_name not in connection_methods:
@@ -127,11 +125,6 @@ class Base:
             port=self.config[env_name]['port'],
             local_infile=1,  # Enable LOAD DATA LOCAL INFILE
         )
-
-    def _connect_singlestoredb(
-        self, env_name: str, rule_path: Optional[str] = None
-    ) -> s2.connection:
-        return s2.connect(self.config[env_name]['dbURL'])
 
     def close(self) -> None:
         if self.driver:

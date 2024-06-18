@@ -12,7 +12,7 @@ class CockroachDBDoubleRecursion(CockroachDBOperations):
         WITH RECURSIVE tc AS (
             SELECT x, y FROM edge
             UNION
-            SELECT a.x, b.y FROM tc AS a, tc AS b WHERE a.y = b.x
+            SELECT tc1.x, tc2.y FROM tc AS tc1, tc AS tc2 WHERE tc1.y = tc2.x
         )
         SELECT * FROM tc;
         """

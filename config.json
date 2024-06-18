@@ -23,9 +23,6 @@
         "dbURL": "postgresql://root@localhost:26257/defaultdb?sslmode=disable",
         "externalDirectory": "~/cockroach-data/extern/"
     },
-    "singlestoredb": {
-        "dbURL": "root:sirneij@127.0.0.1:3307/benchmark?local_infile=True"
-    },
     "machineUserPassword": "sirneij",
     "defaults": {
         "systems": {
@@ -43,8 +40,7 @@
                 "duckdb",
                 "mongodb",
                 "neo4j",
-                "cockroachdb",
-                "singlestoredb"
+                "cockroachdb"
             ],
             "environmentExtensions": {
                 "clingo": ".lp",
@@ -55,8 +51,7 @@
                 "duckdb": ".sql",
                 "neo4j": ".cypher",
                 "mongodb": ".py",
-                "cockroachdb": ".py",
-                "singlestoredb": ".py"
+                "cockroachdb": ".py"
             }
         }
     },

@@ -30,14 +30,17 @@ class MongoDBOperations(Base):
         try:
             with open(data_file, 'r') as f:
                 reader = csv.reader(f, delimiter='\t')
-                batch = []
-                for row in reader:
-                    batch.append({'x': int(row[0]), 'y': int(row[1])})
-                    if len(batch) == chunk_size:
-                        collection.insert_many(batch, ordered=False)
-                        batch = []
-                if batch:
-                    collection.insert_many(batch, ordered=False)
+                collection.insert_many(
+                    [{'x': int(row[0]), 'y': int(row[1])} for row in reader],
+                    ordered=False,
+                )
+                # for row in reader:
+                #     batch.append({'x': int(row[0]), 'y': int(row[1])})
+                #     if len(batch) == chunk_size:
+                #         collection.insert_many(batch, ordered=False)
+                #         batch = []
+                # if batch:
+                #     collection.insert_many(batch, ordered=False)
         except (errors.BulkWriteError, errors.PyMongoError) as e:
             logging.error(f"An error occurred: {e}")
         except FileNotFoundError:
@@ -56,7 +59,7 @@ class MongoDBOperations(Base):
             with open(output_file, 'w', newline='') as f:
                 writer = csv.writer(f)
                 writer.writerow(['x', 'y'])
-                for document in cursor:
-                    writer.writerow([document['x'], document['y']])
+                writer.writerow([[document['x'], document['y']] for document in cursor])
+
         except Exception as e:
             logging.error(f"An error occurred while writing to CSV: {e}")

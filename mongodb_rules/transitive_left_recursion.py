@@ -1,16 +1,16 @@
 from mongodb_rules import MongoDBOperations
 
 
-class MongoDBLeftRecursion(MongoDBOperations):
+class MongoDBRightRecursion(MongoDBOperations):
     def recursive_query(self, input_collection, output_collection):
         self.db[input_collection].aggregate(
             [
                 {
                     '$graphLookup': {
                         'from': input_collection,
-                        'startWith': '$x',
-                        'connectFromField': 'x',
-                        'connectToField': 'y',
+                        'startWith': '$y',
+                        'connectFromField': 'y',
+                        'connectToField': 'x',
                         'as': 'paths',
                         'restrictSearchWithMatch': {},
                     }

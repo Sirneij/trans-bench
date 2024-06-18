@@ -51,7 +51,6 @@ class BaseTableAndPlotGenerator:
             'mariadb': common_components,
             'duckdb': common_components,
             'cockroachdb': common_components,
-            'singlestoredb': common_components,
             'mongodb': mongodb_components,
             'neo4j': neo4j_components,
         }
@@ -98,7 +97,6 @@ class BaseTableAndPlotGenerator:
             'mariadb': common_colors,
             'duckdb': common_colors,
             'cockroachdb': common_colors,
-            'singlestoredb': common_colors,
             'mongodb': mongodb_colors,
             'neo4j': neo4j_colors,
         }
@@ -145,7 +143,6 @@ class BaseTableAndPlotGenerator:
             'mariadb': common_legends,
             'duckdb': common_legends,
             'cockroachdb': common_legends,
-            'singlestoredb': common_legends,
             'mongodb': mongodb_legends,
             'neo4j': neo4j_legends,
         }
@@ -194,7 +191,6 @@ class BaseTableAndPlotGenerator:
                         'mariadb',
                         'duckdb',
                         'cockroachdb',
-                        'singlestoredb',
                     ]:
                         data[key].append(
                             (graph_size, self.__process_sql_data(last_line))
@@ -314,7 +310,7 @@ class BaseTableAndPlotGenerator:
                 real_times = [value[0] for value in entry[1].values()]
                 max_real_time = max(max_real_time, max(real_times))
         return max_real_time
-    
+
     def __find_max_real_time_across_envs(self, graph_type: str, mode: str) -> float:
         max_real_time = 0
         for key, entries in self.data.items():

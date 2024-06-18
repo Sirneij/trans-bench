@@ -7,6 +7,7 @@ import logging
 import os
 import subprocess
 from typing import Any, Dict
+import psutil
 
 import pexpect
 
@@ -24,10 +25,15 @@ class AnalyzeDBs(AnalyzeSystems):
 
     def execute_with_timing(self, operation: callable, *args, **kwargs) -> tuple:
         """Execute an operation and measure its real and CPU time."""
+        process = psutil.Process()
+        start_cpu_time = process.cpu_times().user + process.cpu_times().system
         start_time = os.times()
         operation(*args, **kwargs)
         end_time = os.times()
-        return self.estimate_time_duration(start_time, end_time)
+        end_cpu_time = process.cpu_times().user + process.cpu_times().system
+        cpu_time = end_cpu_time - start_cpu_time
+        real_time, _ = self.estimate_time_duration(start_time, end_time)
+        return real_time, cpu_time
 
     def dynamic_import(self, module_name: str, class_name: str) -> Any:
         """Dynamically import a class from a module."""
@@ -342,7 +348,7 @@ class AnalyzeDBs(AnalyzeSystems):
                 )
             )
 
-            cmd = f'rm {external_directory}{filename}'
+            cmd = f'rm -r {external_directory}{filename}'
             subprocess.run(cmd, shell=True, text=True, capture_output=True, check=True)
 
             (
@@ -369,7 +375,7 @@ class AnalyzeDBs(AnalyzeSystems):
 
             logging.info(f'External directory: {external_dir}')
             cp_cmd = f'cp {external_dir} {results_path}'
-            rm_cmd = f'rm -r {external_directory}tmp'
+            rm_cmd = f'rm -r {external_directory}tmp/*.csv'
             subprocess.run(
                 cp_cmd, shell=True, text=True, capture_output=True, check=True
             )
@@ -385,60 +391,6 @@ class AnalyzeDBs(AnalyzeSystems):
         logging.info(
             f'(CockroachDB) Experiment timing results saved to: {self.timing_path}'
         )
-
-    def solve_with_singlestoredb(self) -> None:
-        conn = self.connect_db(self.environment)
-        module_name = self.rule_path.stem
-        class_name = f'SingleStore{module_name.split("_")[1].capitalize()}Recursion'
-        logging.info(
-            f'Executing for SingleStore. Module: {module_name}, class: {class_name}'
-        )
-
-        SingleStoreRecursionClass = self.dynamic_import(
-            f'singlestoredb_rules.{module_name}', class_name
-        )
-        singlestoredb_operations = SingleStoreRecursionClass(self.config, conn)
-
-        results_path = self.output_folder / 'singlestore_results.csv'
-        timing_results = {header: 0 for header in self.headers_rdbms}
-
-        try:
-            singlestoredb_operations.drop_tc_path_tc_result_tables()
-            (
-                timing_results['CreateTableRealTime'],
-                timing_results['CreateTableCPUTime'],
-            ) = self.execute_with_timing(singlestoredb_operations.create_tc_path_table)
-            timing_results['LoadDataRealTime'], timing_results['LoadDataCPUTime'] = (
-                self.execute_with_timing(
-                    singlestoredb_operations.import_data_from_file,
-                    'edge',
-                    f'{self.input_path}',
-                )
-            )
-            (
-                timing_results['CreateIndexRealTime'],
-                timing_results['CreateIndexCPUTime'],
-            ) = self.execute_with_timing(singlestoredb_operations.create_tc_path_index)
-            timing_results['AnalyzeRealTime'], timing_results['AnalyzeCPUTime'] = (
-                self.execute_with_timing(singlestoredb_operations.analyze_tc_path_table)
-            )
-            (
-                timing_results['ExecuteQueryRealTime'],
-                timing_results['ExecuteQueryCPUTime'],
-            ) = self.execute_with_timing(singlestoredb_operations.run_recursive_query)
-            (
-                timing_results['WriteResultRealTime'],
-                timing_results['WriteResultCPUTime'],
-            ) = self.execute_with_timing(singlestoredb_operations.export_data_to_file)
-            singlestoredb_operations.drop_tc_path_tc_result_tables()
-        except Exception as e:
-            logging.error(f'SingleStoreDB error: {e}')
-        finally:
-            conn.close()
-
-        self.write_timing_results(timing_results, self.headers_rdbms)
-        self.copy_file('/tmp/singlestore_results.csv', results_path)
-        self.remove_file('/tmp/singlestore_results.csv')
 
     def run_pexpect_command(self, command: str, password: str) -> None:
         """Run a shell command using pexpect with password input."""
