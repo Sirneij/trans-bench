@@ -230,48 +230,52 @@ class AnalyzeDBs(AnalyzeSystems):
         ]
         timing_results = {header: 0 for header in self.headers_neo4j}
 
+        session = self.driver.session()
         try:
 
-            with self.driver.session() as session:
-                for i, command in enumerate(commands[:-2]):
-                    (
-                        timing_results[self.headers_neo4j[2 * i]],
-                        timing_results[self.headers_neo4j[2 * i + 1]],
-                        _,
-                    ) = self.execute_with_timing(session.run, command)
+            for i, command in enumerate(commands[:-2]):
+                (
+                    timing_results[self.headers_neo4j[2 * i]],
+                    timing_results[self.headers_neo4j[2 * i + 1]],
+                    _,
+                ) = self.execute_with_timing(session.run, command)
 
-                    logging.info(
-                        f'Command: {command}. Time: {self.headers_neo4j[2 * i]}, {self.headers_neo4j[2 * i + 1]}'
-                    )
+                logging.info(
+                    f'Command: {command}. Time: {self.headers_neo4j[2 * i]}, {self.headers_neo4j[2 * i + 1]}'
+                )
 
-                query = commands[-2]
-                try:
-                    (
-                        timing_results[self.headers_neo4j[-4]],
-                        timing_results[self.headers_neo4j[-3]],
-                        _,
-                    ) = self.execute_with_timing(session.run, query)
-                except Exception as e:
-                    logging.error(f'Penultimate Neo4J query error: {e}, Query: {query}')
+            query = commands[-2]
+            try:
+                (
+                    timing_results[self.headers_neo4j[-4]],
+                    timing_results[self.headers_neo4j[-3]],
+                    _,
+                ) = self.execute_with_timing(session.run, query)
+            except Exception as e:
+                logging.error(f'Penultimate Neo4J query error: {e}, Query: {query}')
 
-                query = commands[-1]
-                try:
-                    (
-                        real_total_query_write,
-                        cpu_total_query_write,
-                        _,
-                    ) = self.execute_with_timing(session.run, query)
-                    timing_results[self.headers_neo4j[-2]] = (
-                        real_total_query_write - timing_results[self.headers_neo4j[-4]]
-                    )
-                    timing_results[self.headers_neo4j[-1]] = (
-                        cpu_total_query_write - timing_results[self.headers_neo4j[-3]]
-                    )
-                except Exception as e:
-                    logging.error(f'Last Neo4J query error: {e}, Query: {query}')
+            query = commands[-1]
+            try:
+                (
+                    real_total_query_write,
+                    cpu_total_query_write,
+                    _,
+                ) = self.execute_with_timing(session.run, query)
+                timing_results[self.headers_neo4j[-2]] = (
+                    real_total_query_write - timing_results[self.headers_neo4j[-4]]
+                )
+                timing_results[self.headers_neo4j[-1]] = (
+                    cpu_total_query_write - timing_results[self.headers_neo4j[-3]]
+                )
+            except Exception as e:
+                logging.error(f'Last Neo4J query error: {e}, Query: {query}')
 
         except Exception as e:
             logging.error(f'Neo4J error: {e}')
+
+        finally:
+            session.close()
+            self.driver.close()
 
         self.write_timing_results(timing_results, self.headers_neo4j)
 

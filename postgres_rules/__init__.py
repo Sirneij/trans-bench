@@ -16,7 +16,7 @@ class PostgresOperations(Base):
         """
         super().__init__(config)
         self.conn = conn
-        # self.conn.set_session(autocommit=True)
+        self.conn.set_session(autocommit=True)
 
     def execute_query(self, query: str, params: Any = None) -> None:
         """
@@ -26,8 +26,8 @@ class PostgresOperations(Base):
             query (str): The SQL query to execute.
             params (Any, optional): Parameters to pass to the query. Defaults to None.
         """
-        with self.conn.cursor() as cursor:
-            cursor.execute(query, params)
+        cursor = self.conn.cursor()
+        cursor.execute(query, params)
 
     def import_data_from_tsv(self, table_name: str, file_path: str) -> None:
         """
