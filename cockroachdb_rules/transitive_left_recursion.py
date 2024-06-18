@@ -1,7 +1,7 @@
 from cockroachdb_rules import CockroachDBOperations
 
 
-class CockroachDBRightRecursion(CockroachDBOperations):
+class CockroachDBLeftRecursion(CockroachDBOperations):
     def run_recursive_query(self) -> None:
         """
         Runs the right recursion query for transitive closure.

@@ -1,7 +1,7 @@
 from postgres_rules import PostgresOperations
 
 
-class PostgreSQLRightRecursion(PostgresOperations):
+class PostgreSQLLeftRecursion(PostgresOperations):
     def run_recursive_query(self) -> None:
         """
         Runs the right recursion query for transitive closure.

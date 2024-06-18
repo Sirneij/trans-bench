@@ -16,7 +16,7 @@ class PostgresOperations(Base):
         """
         super().__init__(config)
         self.conn = conn
-        self.conn.set_session(autocommit=True)
+        # self.conn.set_session(autocommit=True)
 
     def execute_query(self, query: str, params: Any = None) -> None:
         """

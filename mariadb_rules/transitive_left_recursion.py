@@ -1,7 +1,7 @@
 from mariadb_rules import MariaDBOperations
 
 
-class MariaDBRightRecursion(MariaDBOperations):
+class MariaDBLeftRecursion(MariaDBOperations):
     def run_recursive_query(self) -> None:
         """
         Runs the right recursion query for transitive closure.

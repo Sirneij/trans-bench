@@ -370,6 +370,88 @@
    ymajorgrids, tick align=inside,
    major grid style={draw=none},
    xtick=data,
+   ymin=0, ymax=19758.773333333433,
+   axis x line*=none,
+   axis y line*=none,
+   enlarge x limits=0.01,
+   legend style={
+       at={(1.896, 0.97)},
+       anchor=north east,
+       legend columns=1,
+       font=\Huge,
+   },
+   label style={font=\Huge},
+   tick label style={font=\Huge},
+]
+\addlegendimage{fill=DodgerBlue, draw=black, line width=0.2pt}
+\addlegendentry{WriteRes}
+\addlegendimage{fill=Crimson, draw=black, line width=0.2pt}
+\addlegendentry{Query}
+\addlegendimage{fill=LightPink, draw=black, line width=0.2pt}
+\addlegendentry{CreateIndex}
+\addlegendimage{fill=DarkOrange, draw=black, line width=0.2pt}
+\addlegendentry{LoadData}
+\addlegendimage{fill=LightGoldenrod, draw=black, line width=0.2pt}
+\addlegendentry{CreateTable}
+\addplot +[fill=LightGoldenrod, draw=black, line width=0.2pt] coordinates {
+(50, 0.010000000000000007)
+(100, 0.0)
+(150, 0.006666666666666672)
+(200, None)
+(250, None)
+(300, None)
+(350, None)
+(400, None)
+};
+\addplot +[fill=DarkOrange, draw=black, line width=0.2pt] coordinates {
+(50, 0.013333333333333345)
+(100, 0.04999999999999999)
+(150, 0.14333333333333334)
+(200, None)
+(250, None)
+(300, None)
+(350, None)
+(400, None)
+};
+\addplot +[fill=LightPink, draw=black, line width=0.2pt] coordinates {
+(50, 0.0)
+(100, 0.0)
+(150, 0.0)
+(200, None)
+(250, None)
+(300, None)
+(350, None)
+(400, None)
+};
+\addplot +[fill=Crimson, draw=black, line width=0.2pt] coordinates {
+(50, 0.023333333333333334)
+(100, 0.8799999999999999)
+(150, 13.473333333333334)
+(200, None)
+(250, None)
+(300, None)
+(350, None)
+(400, None)
+};
+\addplot +[fill=DodgerBlue, draw=black, line width=0.2pt] coordinates {
+(50, 0.0)
+(100, 0.010000000000000009)
+(150, 0.0433333333333327)
+(200, None)
+(250, None)
+(300, None)
+(350, None)
+(400, None)
+};
+\end{axis}
+
+\begin{axis}[bar shift=-6.5pt, 
+   ybar stacked,
+   width=2\textwidth,
+   bar width=0.35cm,
+   ymajorgrids, tick align=inside,
+   major grid style={draw=none},
+   xtick=data,
    ymin=0, ymax=871.1066666692495,
    axis x line*=none,
    axis y line*=none,
@@ -445,7 +527,7 @@
 };
 \end{axis}
 
-\begin{axis}[bar shift=-6.5pt, 
+\begin{axis}[bar shift=-2.799999999999997pt, 
    ybar stacked,
    width=2\textwidth,
    bar width=0.35cm,
@@ -540,7 +622,7 @@
 \end{axis}
 
 
-\node[anchor=south, draw, fill=white] at (rel axis cs:0.42,1) {\Huge L-R: xsb, postgres, mariadb, duckdb, neo4j, cockroachdb};
+\node[anchor=south, draw, fill=white] at (rel axis cs:0.42,1) {\Huge L-R: xsb, postgres, mariadb, duckdb, mongodb, neo4j, cockroachdb};
 \end{tikzpicture}
 \end{document}
                     

@@ -6,8 +6,8 @@ import json
 import logging
 import os
 import subprocess
+from time import perf_counter, process_time
 from typing import Any, Dict
-import psutil
 
 import pexpect
 
@@ -25,15 +25,15 @@ class AnalyzeDBs(AnalyzeSystems):
 
     def execute_with_timing(self, operation: callable, *args, **kwargs) -> tuple:
         """Execute an operation and measure its real and CPU time."""
-        process = psutil.Process()
-        start_cpu_time = process.cpu_times().user + process.cpu_times().system
-        start_time = os.times()
-        operation(*args, **kwargs)
-        end_time = os.times()
-        end_cpu_time = process.cpu_times().user + process.cpu_times().system
+        start_cpu_time = process_time()
+        start_time = perf_counter()
+        result = operation(*args, **kwargs)
+        end_time = perf_counter()
+        end_cpu_time = process_time()
         cpu_time = end_cpu_time - start_cpu_time
-        real_time, _ = self.estimate_time_duration(start_time, end_time)
-        return real_time, cpu_time
+        real_time = end_time - start_time
+        logging.info(f'CPU time start: {start_time}, CPU time end: {end_cpu_time}')
+        return real_time, cpu_time, result
 
     def dynamic_import(self, module_name: str, class_name: str) -> Any:
         """Dynamically import a class from a module."""
@@ -73,8 +73,9 @@ class AnalyzeDBs(AnalyzeSystems):
             (
                 timing_results['CreateTableRealTime'],
                 timing_results['CreateTableCPUTime'],
+                _,
             ) = self.execute_with_timing(postgres_operations.create_tc_path_table)
-            timing_results['LoadDataRealTime'], timing_results['LoadDataCPUTime'] = (
+            timing_results['LoadDataRealTime'], timing_results['LoadDataCPUTime'], _ = (
                 self.execute_with_timing(
                     postgres_operations.import_data_from_tsv,
                     'edge',
@@ -84,17 +85,20 @@ class AnalyzeDBs(AnalyzeSystems):
             (
                 timing_results['CreateIndexRealTime'],
                 timing_results['CreateIndexCPUTime'],
+                _,
             ) = self.execute_with_timing(postgres_operations.create_tc_path_index)
-            timing_results['AnalyzeRealTime'], timing_results['AnalyzeCPUTime'] = (
+            timing_results['AnalyzeRealTime'], timing_results['AnalyzeCPUTime'], _ = (
                 self.execute_with_timing(postgres_operations.analyze_tc_path_table)
             )
             (
                 timing_results['ExecuteQueryRealTime'],
                 timing_results['ExecuteQueryCPUTime'],
+                _,
             ) = self.execute_with_timing(postgres_operations.run_recursive_query)
             (
                 timing_results['WriteResultRealTime'],
                 timing_results['WriteResultCPUTime'],
+                _,
             ) = self.execute_with_timing(
                 postgres_operations.export_transitive_closure_results, results_path
             )
@@ -127,8 +131,9 @@ class AnalyzeDBs(AnalyzeSystems):
             (
                 timing_results['CreateTableRealTime'],
                 timing_results['CreateTableCPUTime'],
+                _,
             ) = self.execute_with_timing(mariadb_operations.create_tc_path_table)
-            timing_results['LoadDataRealTime'], timing_results['LoadDataCPUTime'] = (
+            timing_results['LoadDataRealTime'], timing_results['LoadDataCPUTime'], _ = (
                 self.execute_with_timing(
                     mariadb_operations.import_data_from_file,
                     'edge',
@@ -138,17 +143,20 @@ class AnalyzeDBs(AnalyzeSystems):
             (
                 timing_results['CreateIndexRealTime'],
                 timing_results['CreateIndexCPUTime'],
+                _,
             ) = self.execute_with_timing(mariadb_operations.create_tc_path_index)
-            timing_results['AnalyzeRealTime'], timing_results['AnalyzeCPUTime'] = (
+            timing_results['AnalyzeRealTime'], timing_results['AnalyzeCPUTime'], _ = (
                 self.execute_with_timing(mariadb_operations.analyze_tc_path_table)
             )
             (
                 timing_results['ExecuteQueryRealTime'],
                 timing_results['ExecuteQueryCPUTime'],
+                _,
             ) = self.execute_with_timing(mariadb_operations.run_recursive_query)
             (
                 timing_results['WriteResultRealTime'],
                 timing_results['WriteResultCPUTime'],
+                _,
             ) = self.execute_with_timing(mariadb_operations.export_data_to_file)
             mariadb_operations.drop_tc_path_tc_result_tables()
         except Exception as e:
@@ -177,14 +185,21 @@ class AnalyzeDBs(AnalyzeSystems):
         ]
         timing_results = {header: 0 for header in self.headers_rdbms}
 
-        for i, command in enumerate(sql_commands):
-            try:
-                (
-                    timing_results[self.headers_rdbms[2 * i]],
-                    timing_results[self.headers_rdbms[2 * i + 1]],
-                ) = self.execute_with_timing(conn.execute, command)
-            except Exception as e:
-                logging.error(f'Error executing command: {command}. Error: {e}')
+        try:
+
+            for i, command in enumerate(sql_commands):
+                try:
+                    (
+                        timing_results[self.headers_rdbms[2 * i]],
+                        timing_results[self.headers_rdbms[2 * i + 1]],
+                        _,
+                    ) = self.execute_with_timing(conn.execute, command)
+                except Exception as e:
+                    logging.error(f'Error executing command: {command}. Error: {e}')
+        except Exception as e:
+            logging.error(f'Error from DuckDB: {e}')
+        finally:
+            conn.close()
 
         self.write_timing_results(timing_results, self.headers_rdbms)
 
@@ -205,6 +220,7 @@ class AnalyzeDBs(AnalyzeSystems):
             cypher_script = f.read()
 
         cypher_script = cypher_script.replace('{data_file}', str(fact_file_name))
+        cypher_script = cypher_script.replace('{output_file}', str(results_path))
         commands = [
             f'{command.strip()};'
             for command in cypher_script.split(';')
@@ -215,42 +231,42 @@ class AnalyzeDBs(AnalyzeSystems):
         try:
 
             with self.driver.session() as session:
-                for i, command in enumerate(commands[:-1]):
+                for i, command in enumerate(commands[:-2]):
                     (
                         timing_results[self.headers_neo4j[2 * i]],
                         timing_results[self.headers_neo4j[2 * i + 1]],
+                        _,
                     ) = self.execute_with_timing(session.run, command)
 
                     logging.info(
                         f'Command: {command}. Time: {self.headers_neo4j[2 * i]}, {self.headers_neo4j[2 * i + 1]}'
                     )
 
-                query = commands[-1]
-                start_time = os.times()
-                result = session.run(query)
-                end_time = os.times()
-                (
-                    timing_results[self.headers_neo4j[-4]],
-                    timing_results[self.headers_neo4j[-3]],
-                ) = self.estimate_time_duration(start_time, end_time)
-                logging.info(
-                    f'Command: {query}, Times: {self.headers_neo4j[-4]}, {self.headers_neo4j[-3]}'
-                )
+                query = commands[-2]
+                try:
+                    (
+                        timing_results[self.headers_neo4j[-4]],
+                        timing_results[self.headers_neo4j[-3]],
+                        _,
+                    ) = self.execute_with_timing(session.run, query)
+                except Exception as e:
+                    logging.error(f'Penultimate Neo4J query error: {e}, Query: {query}')
 
-                start_time = os.times()
-                records = [(record['startX'], record['endY']) for record in result]
-                with open(results_path, 'w', newline='') as file:
-                    writer = csv.writer(file)
-                    writer.writerow(['startX', 'endY'])
-                    writer.writerows(records)
-                end_time = os.times()
-                (
-                    timing_results[self.headers_neo4j[-2]],
-                    timing_results[self.headers_neo4j[-1]],
-                ) = self.estimate_time_duration(start_time, end_time)
-                logging.info(
-                    f'Times: {self.headers_neo4j[-2]}, {self.headers_neo4j[-1]}'
-                )
+                query = commands[-1]
+                try:
+                    (
+                        real_total_query_write,
+                        cpu_total_query_write,
+                        _,
+                    ) = self.execute_with_timing(session.run, query)
+                    timing_results[self.headers_neo4j[-2]] = (
+                        real_total_query_write - timing_results[self.headers_neo4j[-4]]
+                    )
+                    timing_results[self.headers_neo4j[-1]] = (
+                        cpu_total_query_write - timing_results[self.headers_neo4j[-3]]
+                    )
+                except Exception as e:
+                    logging.error(f'Last Neo4J query error: {e}, Query: {query}')
 
         except Exception as e:
             logging.error(f'Neo4J error: {e}')
@@ -281,10 +297,11 @@ class AnalyzeDBs(AnalyzeSystems):
             (
                 timing_results['CreateTableRealTime'],
                 timing_results['CreateTableCPUTime'],
+                _,
             ) = self.execute_with_timing(
                 mongo_operations.create_collection, 'edge', 'tc_result'
             )
-            timing_results['LoadDataRealTime'], timing_results['LoadDataCPUTime'] = (
+            timing_results['LoadDataRealTime'], timing_results['LoadDataCPUTime'], _ = (
                 self.execute_with_timing(
                     mongo_operations.insert_data, 'edge', self.input_path
                 )
@@ -292,16 +309,19 @@ class AnalyzeDBs(AnalyzeSystems):
             (
                 timing_results['CreateIndexRealTime'],
                 timing_results['CreateIndexCPUTime'],
+                _,
             ) = self.execute_with_timing(mongo_operations.create_index, 'edge')
             (
                 timing_results['ExecuteQueryRealTime'],
                 timing_results['ExecuteQueryCPUTime'],
+                _,
             ) = self.execute_with_timing(
                 mongo_operations.recursive_query, 'edge', 'tc_result'
             )
             (
                 timing_results['WriteResultRealTime'],
                 timing_results['WriteResultCPUTime'],
+                _,
             ) = self.execute_with_timing(
                 mongo_operations.export_to_csv, 'tc_result', results_path
             )
@@ -336,13 +356,14 @@ class AnalyzeDBs(AnalyzeSystems):
             (
                 timing_results['CreateTableRealTime'],
                 timing_results['CreateTableCPUTime'],
+                _,
             ) = self.execute_with_timing(cockroachdb_operations.create_tc_path_table)
 
             cmd = f'mkdir -p {external_directory} && cp {self.input_path} {external_directory}'
             subprocess.run(cmd, shell=True, text=True, capture_output=True, check=True)
 
             filename = f'{self.input_path.stem + self.input_path.suffix}'
-            timing_results['LoadDataRealTime'], timing_results['LoadDataCPUTime'] = (
+            timing_results['LoadDataRealTime'], timing_results['LoadDataCPUTime'], _ = (
                 self.execute_with_timing(
                     cockroachdb_operations.import_data_from_tsv, 'edge', filename
                 )
@@ -354,17 +375,20 @@ class AnalyzeDBs(AnalyzeSystems):
             (
                 timing_results['CreateIndexRealTime'],
                 timing_results['CreateIndexCPUTime'],
+                _,
             ) = self.execute_with_timing(cockroachdb_operations.create_tc_path_index)
-            timing_results['AnalyzeRealTime'], timing_results['AnalyzeCPUTime'] = (
+            timing_results['AnalyzeRealTime'], timing_results['AnalyzeCPUTime'], _ = (
                 self.execute_with_timing(cockroachdb_operations.analyze_tc_path_table)
             )
             (
                 timing_results['ExecuteQueryRealTime'],
                 timing_results['ExecuteQueryCPUTime'],
+                _,
             ) = self.execute_with_timing(cockroachdb_operations.run_recursive_query)
             (
                 timing_results['WriteResultRealTime'],
                 timing_results['WriteResultCPUTime'],
+                _,
             ) = self.execute_with_timing(
                 cockroachdb_operations.export_transitive_closure_results, results_path
             )

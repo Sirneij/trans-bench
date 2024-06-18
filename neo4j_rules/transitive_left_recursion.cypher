@@ -10,3 +10,11 @@ CREATE INDEX IF NOT EXISTS FOR (n:Node) ON (n.y);
 
 MATCH path = (end:Node)<-[:CONNECTED_TO*]-(start:Node)
 RETURN start.x AS startX, end.y AS endY;
+
+CALL apoc.export.csv.query(
+    "MATCH (end:Node)<-[:CONNECTED_TO*]-(start:Node) RETURN start.x AS startX, end.y AS endY",
+    "temp/trans-bench/{output_file}",
+    {}
+)
+YIELD file, nodes, relationships, properties, time, rows, batchSize, batches, done, data
+RETURN file, rows;
