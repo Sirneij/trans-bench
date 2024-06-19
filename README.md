@@ -16,6 +16,11 @@ Having [installed CockroachDB][1], you must [run the `cockroach start-single-nod
 cockroach start-single-node --advertise-addr 'localhost' --insecure
 ```
 
+## Run command
+
+```sh
+python transitive.py --size-range 50 401 50 --modes left_recursion right_recursion --environments xsb postgres mariadb duckdb cockroachdb neo4j mongodb --num-runs 2
+```
 
 [1]: https://www.cockroachlabs.com/docs/v24.1/install-cockroachdb "Install CockroachDB"
 [2]: https://www.cockroachlabs.com/docs/stable/build-a-python-app-with-cockroachdb?filters=local "Step 1. Start CockroachDB"

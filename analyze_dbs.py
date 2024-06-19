@@ -405,7 +405,7 @@ class AnalyzeDBs(AnalyzeSystems):
 
             logging.info(f'External directory: {external_dir}')
             cp_cmd = f'cp {external_dir} {results_path}'
-            rm_cmd = f'rm -r {external_directory}tmp/*.csv'
+            rm_cmd = f'rm -rf {external_directory}tmp'
             subprocess.run(
                 cp_cmd, shell=True, text=True, capture_output=True, check=True
             )
