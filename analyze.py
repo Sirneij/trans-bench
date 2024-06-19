@@ -144,6 +144,16 @@ def create_overall_csvs(unique_result: dict, size: int):
 
     graph_types = list(unique_result.keys())
 
+    environment_mapping = {
+        'xsb': 'XSB',
+        'postgres': 'PostgreSQL',
+        'mariadb': 'MariaDB',
+        'cockroachdb': 'CockroachDB',
+        'neo4j': 'Neo4J',
+        'duckdb': 'DuckDB',
+        'mongodb': 'MongoDB',
+    }
+
     environments = sorted(
         {
             env
@@ -152,6 +162,7 @@ def create_overall_csvs(unique_result: dict, size: int):
             for env in table['environment'].unique()
         }
     )
+    environments = ['xsb'] + [env for env in environments if env != 'xsb']
 
     for (graph_type, recursion_variant), results in unique_result.items():
         short_name = get_short_graph_name(graph_type, size)
@@ -174,43 +185,19 @@ def create_overall_csvs(unique_result: dict, size: int):
             if not cpu_time_value.empty:
                 row_cpu_time[i + 1] = cpu_time_value.values[0]
 
-        positions_real_time = '-'.join(
-            str(
-                sorted_by_real_time.index[sorted_by_real_time['environment'] == env][0]
-                + 1
-            )
-            for env in environments
-            if not sorted_by_real_time.loc[
-                sorted_by_real_time['environment'] == env, 'real_time'
-            ].empty
-        )
-        positions_cpu_time = '-'.join(
-            str(
-                sorted_by_cpu_time.index[sorted_by_cpu_time['environment'] == env][0]
-                + 1
-            )
-            for env in environments
-            if not sorted_by_cpu_time.loc[
-                sorted_by_cpu_time['environment'] == env, 'cpu_time'
-            ].empty
-        )
-
-        row_real_time.append(positions_real_time)
-        row_cpu_time.append(positions_cpu_time)
-
         overall_data[recursion_variant]['real_time'].append(row_real_time)
         overall_data[recursion_variant]['cpu_time'].append(row_cpu_time)
 
-    columns = ['graph\_type'] + environments + ['positions']
+    columns = ['graph\_type'] + [environment_mapping[env] for env in environments]
 
     captions = {
         'left_recursion': {
-            'real_time': "Performance comparison of different environments based on real time for various graph types using left recursion. Each row represents the time taken by different environments to process the graph type. The \\texttt{positions} column indicates the ranking of environments based on their performance.",
-            'cpu_time': "CPU time analysis of different environments for various graph types using left recursion. This table highlights the CPU time taken by each environment to execute queries on the graph type. The \\texttt{positions} column shows the ranking of environments based on their CPU time performance.",
+            'real_time': "Performance comparison of different environments based on real time, in seconds, for various graph types using left recursion. Each row represents the time taken by different environments to process the graph type.",
+            'cpu_time': "CPU time analysis of different environments for various graph types using left recursion. This table highlights the CPU time taken, in seconds, by each environment to execute queries on the graph type.",
         },
         'right_recursion': {
-            'real_time': "Real time performance comparison of different environments for various graph types using right recursion. This table shows the real time taken by each environment to process the graph type. The \\texttt{positions} column indicates the ranking of environments based on their performance.",
-            'cpu_time': "CPU time performance of different environments for various graph types using right recursion. This table displays the CPU time required by each environment to execute queries on the graph type. The \\texttt{positions} column shows the ranking of environments based on their CPU time performance.",
+            'real_time': "Real time, in seconds, performance comparison of different environments for various graph types using right recursion. This table shows the real time taken by each environment to process the graph type.",
+            'cpu_time': "CPU time performance of different environments for various graph types using right recursion. This table displays the CPU time, in seconds, required by each environment to execute queries on the graph type.",
         },
     }
 

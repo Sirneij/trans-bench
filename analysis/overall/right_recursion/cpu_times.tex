@@ -1,23 +1,23 @@
 \begin{table}
-\caption{CPU time performance of different environments for various graph types using right recursion. This table displays the CPU time required by each environment to execute queries on the graph type. The \texttt{positions} column shows the ranking of environments based on their CPU time performance.}
+\caption{CPU time performance of different environments for various graph types using right recursion. This table displays the CPU time, in seconds, required by each environment to execute queries on the graph type.}
 \label{table:results}
-\begin{tabular}{lrrrrrrl}
+\begin{tabular}{lrrrrrr}
 \toprule
-graph\_type & cockroachdb & duckdb & mariadb & neo4j & postgres & xsb & positions \\
+graph\_type & XSB & CockroachDB & DuckDB & MariaDB & Neo4J & PostgreSQL \\
 \midrule
-$\text{BinTree}_{h=9}$ & 0.000201 & 0.015738 & 0.000117 & 0.000836 & 0.000154 & 0.000533 & 3-6-1-5-2-4 \\
-$\text{Cmpl}_{n=400}$ & 0.000137 & 7.567370 & 0.000247 & 0.001794 & 0.000162 & 8.712522 & 1-5-3-4-2-6 \\
-$\text{Cyc}_{n=400}$ & 0.000138 & 0.651525 & 0.000144 & 0.000889 & 0.000186 & 0.037241 & 1-6-2-4-3-5 \\
-$\text{CycExtra}_{n=400,k=10}$ & 0.000167 & 0.421202 & 0.000117 & 0.000953 & 0.000201 & 0.267418 & 2-6-1-4-3-5 \\
-$\text{Grid}_{n=400}$ & 0.000202 & 0.103985 & 0.000217 & 0.000735 & 0.000145 & 0.014846 & 2-6-3-4-1-5 \\
-$\text{MaxAcyc}_{n=400}$ & 0.000136 & 1.072462 & 0.000135 & 0.000951 & 0.000207 & 1.299975 & 2-5-1-4-3-6 \\
-$\text{PathDisj}_{n=400,k=10}$ & 0.000242 & 1.441519 & 0.000132 & 0.000889 & 0.000188 & 0.180534 & 3-6-1-4-2-5 \\
-$\text{Path}_{n=400}$ & 0.000212 & 0.603508 & 0.000127 & 0.000876 & 0.000172 & 0.012599 & 3-6-1-4-2-5 \\
-$\text{BinTreeRev}_{h=9}$ & 0.000149 & 0.017491 & 0.000120 & 0.000833 & 0.000155 & 0.000370 & 2-6-1-5-3-4 \\
-$\text{Star}_{n=400}$ & 0.000172 & 0.005699 & 0.000155 & 0.000789 & 0.000210 & 0.000107 & 3-6-2-5-4-1 \\
-$\text{W}_{n=400,k=10}$ & 0.000169 & 0.006644 & 0.000108 & 0.000886 & 0.000149 & 0.001558 & 3-6-1-4-2-5 \\
-$\text{X}_{n=400, k=10}$ & 0.000256 & 0.008171 & 0.000106 & 0.000757 & 0.000161 & 0.000863 & 3-6-1-4-2-5 \\
-$\text{Y}_{n=400,k=10}$ & 0.000191 & 0.021241 & 0.000130 & 0.000718 & 0.000178 & 0.000762 & 3-6-1-4-2-5 \\
+$\text{BinTree}_{h=9}$ & 0.000533 & 0.000201 & 0.015738 & 0.000117 & 0.000836 & 0.000154 \\
+$\text{Cmpl}_{n=400}$ & 8.712522 & 0.000137 & 7.567370 & 0.000247 & 0.001794 & 0.000162 \\
+$\text{Cyc}_{n=400}$ & 0.037241 & 0.000138 & 0.651525 & 0.000144 & 0.000889 & 0.000186 \\
+$\text{CycExtra}_{n=400,k=10}$ & 0.267418 & 0.000167 & 0.421202 & 0.000117 & 0.000953 & 0.000201 \\
+$\text{Grid}_{n=400}$ & 0.014846 & 0.000202 & 0.103985 & 0.000217 & 0.000735 & 0.000145 \\
+$\text{MaxAcyc}_{n=400}$ & 1.299975 & 0.000136 & 1.072462 & 0.000135 & 0.000951 & 0.000207 \\
+$\text{PathDisj}_{n=400,k=10}$ & 0.180534 & 0.000242 & 1.441519 & 0.000132 & 0.000889 & 0.000188 \\
+$\text{Path}_{n=400}$ & 0.012599 & 0.000212 & 0.603508 & 0.000127 & 0.000876 & 0.000172 \\
+$\text{BinTreeRev}_{h=9}$ & 0.000370 & 0.000149 & 0.017491 & 0.000120 & 0.000833 & 0.000155 \\
+$\text{Star}_{n=400}$ & 0.000107 & 0.000172 & 0.005699 & 0.000155 & 0.000789 & 0.000210 \\
+$\text{W}_{n=400,k=10}$ & 0.001558 & 0.000169 & 0.006644 & 0.000108 & 0.000886 & 0.000149 \\
+$\text{X}_{n=400, k=10}$ & 0.000863 & 0.000256 & 0.008171 & 0.000106 & 0.000757 & 0.000161 \\
+$\text{Y}_{n=400,k=10}$ & 0.000762 & 0.000191 & 0.021241 & 0.000130 & 0.000718 & 0.000178 \\
 \bottomrule
 \end{tabular}
 \end{table}
