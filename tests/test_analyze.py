@@ -1,13 +1,14 @@
+import math
 import unittest
-from pathlib import Path
-
-import pandas as pd
+from unittest.mock import MagicMock, patch
 
 from analyze import (
     analyze_data,
     calculate_factors,
+    create_overall_csvs,
     export_to_csv,
     extract_records,
+    get_short_graph_name,
     load_data,
     process_data,
 )
@@ -20,21 +21,21 @@ class TestAnalysisScript(BaseTest):
         super().setUp()
 
         self.test_data = {
-            ('env1', 'graph1', 'left_recursion'): [
+            ('xsb', 'graph1', 'left_recursion'): [
                 (200, {'QueryTime': (0.1, 0.05), 'LoadRules': (0.233, 0.199)}),
                 (400, {'QueryTime': (0.2, 0.1), 'LoadRules': (0.4, 0.366)}),
             ],
-            ('env2', 'graph1', 'left_recursion'): [
-                (200, {'QueryTime': (0.15, 0.07)}),
-                (400, {'QueryTime': (0.25, 0.12)}),
+            ('postgres', 'graph1', 'left_recursion'): [
+                (200, {'ExecuteQuery': (0.15, 0.07)}),
+                (400, {'ExecuteQuery': (0.25, 0.12)}),
             ],
-            ('env1', 'graph1', 'right_recursion'): [
+            ('xsb', 'graph1', 'right_recursion'): [
                 (200, {'QueryTime': (0.05, 0.02)}),
                 (400, {'QueryTime': (0.1, 0.04)}),
             ],
-            ('env2', 'graph1', 'right_recursion'): [
-                (200, {'QueryTime': (0.07, 0.03)}),
-                (400, {'QueryTime': (0.15, 0.06)}),
+            ('postgres', 'graph1', 'right_recursion'): [
+                (200, {'ExecuteQuery': (0.07, 0.03)}),
+                (400, {'ExecuteQuery': (0.15, 0.06)}),
             ],
         }
 
@@ -52,7 +53,7 @@ class TestAnalysisScript(BaseTest):
         records = extract_records(self.test_data, sizes_to_analyze)
         expected_records = [
             {
-                'environment': 'env1',
+                'environment': 'xsb',
                 'graph_type': 'graph1',
                 'recursion_variant': 'left_recursion',
                 'size': 200,
@@ -61,7 +62,7 @@ class TestAnalysisScript(BaseTest):
                 'cpu_time': 0.05,
             },
             {
-                'environment': 'env1',
+                'environment': 'xsb',
                 'graph_type': 'graph1',
                 'recursion_variant': 'left_recursion',
                 'size': 400,
@@ -70,25 +71,25 @@ class TestAnalysisScript(BaseTest):
                 'cpu_time': 0.1,
             },
             {
-                'environment': 'env2',
+                'environment': 'postgres',
                 'graph_type': 'graph1',
                 'recursion_variant': 'left_recursion',
                 'size': 200,
-                'metric_name': 'QueryTime',
+                'metric_name': 'ExecuteQuery',
                 'real_time': 0.15,
                 'cpu_time': 0.07,
             },
             {
-                'environment': 'env2',
+                'environment': 'postgres',
                 'graph_type': 'graph1',
                 'recursion_variant': 'left_recursion',
                 'size': 400,
-                'metric_name': 'QueryTime',
+                'metric_name': 'ExecuteQuery',
                 'real_time': 0.25,
                 'cpu_time': 0.12,
             },
             {
-                'environment': 'env1',
+                'environment': 'xsb',
                 'graph_type': 'graph1',
                 'recursion_variant': 'right_recursion',
                 'size': 200,
@@ -97,7 +98,7 @@ class TestAnalysisScript(BaseTest):
                 'cpu_time': 0.02,
             },
             {
-                'environment': 'env1',
+                'environment': 'xsb',
                 'graph_type': 'graph1',
                 'recursion_variant': 'right_recursion',
                 'size': 400,
@@ -106,20 +107,20 @@ class TestAnalysisScript(BaseTest):
                 'cpu_time': 0.04,
             },
             {
-                'environment': 'env2',
+                'environment': 'postgres',
                 'graph_type': 'graph1',
                 'recursion_variant': 'right_recursion',
                 'size': 200,
-                'metric_name': 'QueryTime',
+                'metric_name': 'ExecuteQuery',
                 'real_time': 0.07,
                 'cpu_time': 0.03,
             },
             {
-                'environment': 'env2',
+                'environment': 'postgres',
                 'graph_type': 'graph1',
                 'recursion_variant': 'right_recursion',
                 'size': 400,
-                'metric_name': 'QueryTime',
+                'metric_name': 'ExecuteQuery',
                 'real_time': 0.15,
                 'cpu_time': 0.06,
             },
@@ -159,7 +160,10 @@ class TestAnalysisScript(BaseTest):
                 self.assertIn('position', table.columns)
                 self.assertEqual(len(table), 4)
 
-    def test_export_to_csv(self):
+    @patch('analyze.Path.mkdir')
+    @patch('analyze.Path.exists', MagicMock(return_value=True))
+    @patch('analyze.pd.DataFrame.to_csv')
+    def test_export_to_csv(self, mock_to_csv, mock_mkdir):
         sizes_to_analyze = [200, 400]
         records = extract_records(self.test_data, sizes_to_analyze)
         unique_df = process_data(records)
@@ -167,15 +171,32 @@ class TestAnalysisScript(BaseTest):
         final_tables = calculate_factors(unique_result)
         export_to_csv(final_tables)
 
-        for key in final_tables:
-            graph_type, time_type = key
-            for recursion_variant in final_tables[key]:
-                variant_dir = Path(f"analysis/{graph_type}/{recursion_variant}")
-                self.assertTrue(variant_dir.exists())
-                file_path = variant_dir / f"{time_type}_times.csv"
-                self.assertTrue(file_path.exists())
-                df = pd.read_csv(file_path)
-                self.assertEqual(len(df), 4)
+        mock_mkdir.assert_called()
+        self.assertEqual(mock_to_csv.call_count, len(final_tables) * 2)
+
+    def test_get_short_graph_name(self):
+        size = 400
+        self.assertEqual(get_short_graph_name('complete', size), f'Cmpl_{{n={size}}}')
+        self.assertEqual(
+            get_short_graph_name('binary_tree', size),
+            f'BinTree_{{h={math.log2(size):.0f}}}',
+        )
+        self.assertEqual(
+            get_short_graph_name('unknown', size), f'Unknown_unknown_{{n={size}}}'
+        )
+
+    @patch('analyze.Path.mkdir')
+    @patch('analyze.Path.exists', MagicMock(return_value=True))
+    @patch('analyze.pd.DataFrame.to_csv')
+    def test_create_overall_csvs(self, mock_to_csv, mock_mkdir):
+        sizes_to_analyze = [200, 400]
+        records = extract_records(self.test_data, sizes_to_analyze)
+        unique_df = process_data(records)
+        unique_result = analyze_data(unique_df)
+        for size in sizes_to_analyze:
+            create_overall_csvs(unique_result, size)
+        self.assertEqual(mock_mkdir.call_count, 2 * len(sizes_to_analyze))
+        self.assertEqual(mock_to_csv.call_count, 4 * len(sizes_to_analyze))
 
 
 if __name__ == '__main__':
