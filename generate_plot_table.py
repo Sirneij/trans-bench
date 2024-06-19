@@ -1,9 +1,9 @@
 import argparse
+import csv
 import json
 import logging
 import math
 import re
-import csv
 import subprocess
 from pathlib import Path
 from typing import Any, Callable, Union
@@ -158,7 +158,7 @@ class BaseTableAndPlotGenerator:
             'x': 'n',
         }
 
-    def __collect_data(self) -> None:
+    def collect_data(self) -> None:
         data = {}
         for csv_file in self.timing_base_dir.glob('**/*_graph_*.csv'):
             try:
@@ -974,7 +974,7 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
 
         The function first collects the timing data using the collect_data function. It then iterates over the environments and generates LaTeX files for each environment using the generate_latex_for_environment function. If the environment is not 'alda', it generates LaTeX comparison charts using the generate_latex_comparison_charts function. Finally, it generates LaTeX comparison tables using the generate_latex_comparison_tables function and combines the files for comparison using the combine_files_for_comparison function.
         """
-        self._BaseTableAndPlotGenerator__collect_data()
+        self.collect_data()
         # environments = set(key[0] for key in self.data)
         # for env_name in environments:
         #     self.__generate_latex_for_environment(
