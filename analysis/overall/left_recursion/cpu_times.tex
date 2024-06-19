@@ -1,0 +1,23 @@
+\begin{table}
+\caption{CPU time analysis of different environments for various graph types using left recursion. This table highlights the CPU time taken by each environment to execute queries on the graph type. The \texttt{positions} column shows the ranking of environments based on their CPU time performance.}
+\label{table:results}
+\begin{tabular}{lrrrrrrl}
+\toprule
+graph\_type & cockroachdb & duckdb & mariadb & neo4j & postgres & xsb & positions \\
+\midrule
+$\text{BinTree}_{h=9}$ & 0.000211 & 0.016364 & 0.000110 & 0.000965 & 0.000148 & 0.000377 & 3-6-1-5-2-4 \\
+$\text{Cmpl}_{n=400}$ & 0.000180 & 4.443275 & 0.000135 & 0.001255 & 0.000166 & 4.477480 & 3-5-1-4-2-6 \\
+$\text{Cyc}_{n=400}$ & 0.000159 & 0.770804 & 0.000203 & 0.000890 & 0.000199 & 0.048059 & 1-6-3-4-2-5 \\
+$\text{CycExtra}_{n=400,k=10}$ & 0.000208 & 0.313082 & 0.000128 & 0.000857 & 0.000211 & 0.167494 & 2-6-1-4-3-5 \\
+$\text{Grid}_{n=400}$ & 0.000183 & 0.098830 & 0.000145 & 0.000628 & 0.000144 & 0.007138 & 3-6-2-4-1-5 \\
+$\text{MaxAcyc}_{n=400}$ & 0.000161 & 1.006171 & 0.000130 & 0.001052 & 0.000160 & 0.692389 & 3-6-1-4-2-5 \\
+$\text{PathDisj}_{n=400,k=10}$ & 0.000178 & 0.801669 & 0.000128 & 0.001007 & 0.000162 & 0.247953 & 3-6-1-4-2-5 \\
+$\text{Path}_{n=400}$ & 0.000168 & 0.761487 & 0.000121 & 0.000708 & 0.000150 & 0.020442 & 3-6-1-4-2-5 \\
+$\text{BinTreeRev}_{h=9}$ & 0.000206 & 0.014136 & 0.000140 & 0.000893 & 0.000124 & 0.000298 & 3-6-2-5-1-4 \\
+$\text{Star}_{n=400}$ & 0.000204 & 0.004172 & 0.000168 & 0.000788 & 0.000125 & 0.000099 & 4-6-3-5-2-1 \\
+$\text{W}_{n=400,k=10}$ & 0.000218 & 0.006217 & 0.000112 & 0.000771 & 0.000130 & 0.001765 & 3-6-1-4-2-5 \\
+$\text{X}_{n=400, k=10}$ & 0.000265 & 0.011451 & 0.000128 & 0.000794 & 0.000184 & 0.000000 & 4-6-2-5-3-1 \\
+$\text{Y}_{n=400,k=10}$ & 0.000236 & 0.032228 & 0.000113 & 0.000750 & 0.000821 & 0.000587 & 2-6-1-4-5-3 \\
+\bottomrule
+\end{tabular}
+\end{table}
