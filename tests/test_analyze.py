@@ -1,6 +1,9 @@
 import math
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
+
+import pandas as pd
 
 from analyze import (
     analyze_data,
@@ -160,19 +163,20 @@ class TestAnalysisScript(BaseTest):
                 self.assertIn('position', table.columns)
                 self.assertEqual(len(table), 4)
 
-    @patch('analyze.Path.mkdir')
-    @patch('analyze.Path.exists', MagicMock(return_value=True))
-    @patch('analyze.pd.DataFrame.to_csv')
-    def test_export_to_csv(self, mock_to_csv, mock_mkdir):
+    def test_export_to_csv(self):
         sizes_to_analyze = [200, 400]
         records = extract_records(self.test_data, sizes_to_analyze)
         unique_df = process_data(records)
         unique_result = analyze_data(unique_df)
         final_tables = calculate_factors(unique_result)
-        export_to_csv(final_tables)
 
-        mock_mkdir.assert_called()
-        self.assertEqual(mock_to_csv.call_count, len(final_tables) * 2)
+        with patch('analyze.Path.mkdir') as mock_mkdir, patch(
+            'analyze.Path.exists', MagicMock(return_value=True)
+        ), patch('analyze.pd.DataFrame.to_csv') as mock_to_csv:
+            export_to_csv(final_tables)
+
+            mock_mkdir.assert_called()
+            self.assertEqual(mock_to_csv.call_count, len(final_tables) * 2)
 
     def test_get_short_graph_name(self):
         size = 400
@@ -185,18 +189,25 @@ class TestAnalysisScript(BaseTest):
             get_short_graph_name('unknown', size), f'Unknown_unknown_{{n={size}}}'
         )
 
-    @patch('analyze.Path.mkdir')
-    @patch('analyze.Path.exists', MagicMock(return_value=True))
-    @patch('analyze.pd.DataFrame.to_csv')
-    def test_create_overall_csvs(self, mock_to_csv, mock_mkdir):
+    def test_create_overall_csvs(self):
         sizes_to_analyze = [200, 400]
         records = extract_records(self.test_data, sizes_to_analyze)
         unique_df = process_data(records)
         unique_result = analyze_data(unique_df)
-        for size in sizes_to_analyze:
-            create_overall_csvs(unique_result, size)
-        self.assertEqual(mock_mkdir.call_count, 2 * len(sizes_to_analyze))
-        self.assertEqual(mock_to_csv.call_count, 4 * len(sizes_to_analyze))
+
+        with patch('analyze.Path.mkdir') as mock_mkdir, patch(
+            'analyze.Path.exists', MagicMock(return_value=True)
+        ), patch('analyze.pd.DataFrame.to_csv') as mock_to_csv, patch(
+            'analyze.pd.DataFrame.to_latex', return_value='dummy_latex'
+        ) as mock_to_latex, patch(
+            'builtins.open', new_callable=MagicMock
+        ):
+            for size in sizes_to_analyze:
+                create_overall_csvs(unique_result, size)
+
+            self.assertEqual(mock_mkdir.call_count, 2 * len(sizes_to_analyze))
+            self.assertEqual(mock_to_csv.call_count, 4 * len(sizes_to_analyze))
+            self.assertEqual(mock_to_latex.call_count, 4 * len(sizes_to_analyze))
 
 
 if __name__ == '__main__':
