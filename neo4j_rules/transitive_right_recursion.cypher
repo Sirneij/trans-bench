@@ -13,7 +13,7 @@ RETURN start.x AS startX, end.y AS endY;
 
 CALL apoc.export.csv.query(
     "MATCH (start:Node)-[:CONNECTED_TO*]->(end:Node) RETURN start.x AS startX, end.y AS endY",
-    "temp/trans-bench/{output_file}",
+    "{output_file}",
     {}
 )
 YIELD file, nodes, relationships, properties, time, rows, batchSize, batches, done, data

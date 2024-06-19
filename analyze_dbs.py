@@ -222,7 +222,9 @@ class AnalyzeDBs(AnalyzeSystems):
             cypher_script = f.read()
 
         cypher_script = cypher_script.replace('{data_file}', str(fact_file_name))
-        cypher_script = cypher_script.replace('{output_file}', str(results_path))
+        cypher_script = cypher_script.replace(
+            '{output_file}', str(results_path.resolve())
+        )
         commands = [
             f'{command.strip()};'
             for command in cypher_script.split(';')
@@ -259,7 +261,7 @@ class AnalyzeDBs(AnalyzeSystems):
                 (
                     real_total_query_write,
                     cpu_total_query_write,
-                    _,
+                    result,
                 ) = self.execute_with_timing(session.run, query)
                 timing_results[self.headers_neo4j[-2]] = (
                     real_total_query_write - timing_results[self.headers_neo4j[-4]]
@@ -267,6 +269,7 @@ class AnalyzeDBs(AnalyzeSystems):
                 timing_results[self.headers_neo4j[-1]] = (
                     cpu_total_query_write - timing_results[self.headers_neo4j[-3]]
                 )
+                logging.info(f'Command and Result Neo4J: {result} from query: {query}')
             except Exception as e:
                 logging.error(f'Last Neo4J query error: {e}, Query: {query}')
 
