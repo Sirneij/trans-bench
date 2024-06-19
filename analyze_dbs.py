@@ -270,6 +270,8 @@ class AnalyzeDBs(AnalyzeSystems):
                     cpu_total_query_write - timing_results[self.headers_neo4j[-3]]
                 )
                 logging.info(f'Command and Result Neo4J: {result} from query: {query}')
+                for rec in result:
+                    logging.info(f'Record: {rec}')
             except Exception as e:
                 logging.error(f'Last Neo4J query error: {e}, Query: {query}')
 

@@ -5,7 +5,8 @@ import subprocess
 from pathlib import Path
 
 import duckdb
-import pymysql
+# import pymysql
+from neo4j import GraphDatabase
 
 
 def estimate_time_duration(t1: tuple, t2: tuple) -> tuple[float, float]:
@@ -204,8 +205,36 @@ def parse_timings(output):
 
     return timings
 
+def measure_with_neo4j():
+    driver = GraphDatabase.driver(
+        'neo4j://localhost:7687',
+        auth=('neo4j', 'sirneij1'),
+    )
+    session = driver.session()
+
+    input_file = 'test_neo4j.cypher'
+    with open(input_file, 'r') as f:
+        cypher_script = f.read()
+
+    commands = [
+        f'{command.strip()};' for command in cypher_script.split(';') if command.strip()
+    ]
+
+    for cmd in commands:
+        try:
+            print(f"Executing command: {cmd}")
+            result = session.run(cmd)
+            for record in result:
+                print(record)
+        except Exception as e:
+            print(f'Error: {e}')
+    
+    session.close()
+    driver.close()
+
 
 if __name__ == '__main__':
     # measure_postresql_performance()
-    measure_mariadb_performance()
+    # measure_mariadb_performance()
     # measure_duckdb_performance()
+    measure_with_neo4j()
