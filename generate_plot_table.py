@@ -3,6 +3,7 @@ import json
 import logging
 import math
 import re
+import csv
 import subprocess
 from pathlib import Path
 from typing import Any, Callable, Union
@@ -964,6 +965,86 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
 
                 self._BaseTableAndPlotGenerator__compile_latex_to_pdf(mode_dir)
 
+    def __generate_csv_from_json(self):
+        # Organize data
+        organized_data = {'left_recursion': {}, 'right_recursion': {}}
+
+        for key, value in self.data.items():
+            environment, graph_type, recursion_variant = key
+            if recursion_variant not in organized_data:
+                continue
+
+            if graph_type not in organized_data[recursion_variant]:
+                organized_data[recursion_variant][graph_type] = {
+                    'cpu_times': {},
+                    'real_times': {},
+                    'environments': set(),
+                }
+
+            for size, metrics in value:
+                if 'Query' in metrics:
+                    query_metrics = metrics.get('Querying')
+                    if query_metrics:
+                        real_time, cpu_time = query_metrics
+                        if (
+                            size
+                            not in organized_data[recursion_variant][graph_type][
+                                'cpu_times'
+                            ]
+                        ):
+                            organized_data[recursion_variant][graph_type]['cpu_times'][
+                                size
+                            ] = {}
+                            organized_data[recursion_variant][graph_type]['real_times'][
+                                size
+                            ] = {}
+
+                        organized_data[recursion_variant][graph_type]['cpu_times'][size][
+                            environment
+                        ] = cpu_time
+                        organized_data[recursion_variant][graph_type]['real_times'][size][
+                            environment
+                        ] = real_time
+                        organized_data[recursion_variant][graph_type]['environments'].add(
+                            environment
+                        )
+
+        # Generate CSV files
+        output_dir = self.latex_file_dir / 'CSVs'
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        for recursion_variant, graph_types in organized_data.items():
+            for graph_type, times in graph_types.items():
+                graph_dir = output_dir / recursion_variant / graph_type
+                graph_dir.mkdir(parents=True, exist_ok=True)
+
+                sorted_sizes = sorted(times['cpu_times'].keys())
+                environments = sorted(times['environments'])
+
+                # CPU Times CSV
+                cpu_csv_path = graph_dir / 'cpu_times.csv'
+                with open(cpu_csv_path, 'a', newline='') as csvfile:
+                    writer = csv.writer(csvfile)
+                    writer.writerow(['environment'] + sorted_sizes)
+                    for env in environments:
+                        row = [env] + [
+                            times['cpu_times'][size].get(env, '')
+                            for size in sorted_sizes
+                        ]
+                        writer.writerow(row)
+
+                # Real Times CSV
+                real_csv_path = graph_dir / 'real_times.csv'
+                with open(real_csv_path, 'a', newline='') as csvfile:
+                    writer = csv.writer(csvfile)
+                    writer.writerow(['environment'] + sorted_sizes)
+                    for env in environments:
+                        row = [env] + [
+                            times['real_times'][size].get(env, '')
+                            for size in sorted_sizes
+                        ]
+                        writer.writerow(row)
+
     def generate_plot_table(self, compile_file_alone: bool) -> None:
         """
         This function generates plot tables for the timing data.
@@ -974,19 +1055,20 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
         The function first collects the timing data using the collect_data function. It then iterates over the environments and generates LaTeX files for each environment using the generate_latex_for_environment function. If the environment is not 'alda', it generates LaTeX comparison charts using the generate_latex_comparison_charts function. Finally, it generates LaTeX comparison tables using the generate_latex_comparison_tables function and combines the files for comparison using the combine_files_for_comparison function.
         """
         self._BaseTableAndPlotGenerator__collect_data()
-        environments = set(key[0] for key in self.data)
-        for env_name in environments:
-            self.__generate_latex_for_environment(
-                self.latex_file_dir, env_name, compile_file_alone
-            )
-            if env_name != 'alda':
-                self.__generate_latex_comparison_charts(
-                    self.latex_file_dir, env_name, compile_file_alone
-                )
-        self.__generate_latex_comparison_tables(self.latex_file_dir)
-        self.__combine_files_for_comparison(
-            self.latex_file_dir / 'comparison' / 'charts', compile_file_alone
-        )
+        self.__generate_csv_from_json()
+        # environments = set(key[0] for key in self.data)
+        # for env_name in environments:
+        #     self.__generate_latex_for_environment(
+        #         self.latex_file_dir, env_name, compile_file_alone
+        #     )
+        #     if env_name != 'alda':
+        #         self.__generate_latex_comparison_charts(
+        #             self.latex_file_dir, env_name, compile_file_alone
+        #         )
+        # self.__generate_latex_comparison_tables(self.latex_file_dir)
+        # self.__combine_files_for_comparison(
+        #     self.latex_file_dir / 'comparison' / 'charts', compile_file_alone
+        # )
 
 
 def main():
