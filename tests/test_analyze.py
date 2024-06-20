@@ -1,5 +1,4 @@
 import math
-from unittest import main as unittest_main
 from unittest.mock import MagicMock, patch
 
 from analyze import (
@@ -10,10 +9,9 @@ from analyze import (
     extract_records,
     get_short_graph_name,
     load_data,
-    run_main,
 )
 from analyze import main as analyze_main
-from analyze import process_data
+from analyze import process_data, run_main
 from tests import BaseTest
 
 
@@ -268,7 +266,3 @@ class TestAnalysisScript(BaseTest):
 
         # Verify that main was called with the expected arguments
         mock_main.assert_called_once_with('data.txt', [400])
-
-
-if __name__ == '__main__':
-    unittest_main()
