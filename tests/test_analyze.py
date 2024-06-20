@@ -1,9 +1,6 @@
 import math
-import unittest
-from pathlib import Path
+from unittest import main as unittest_main
 from unittest.mock import MagicMock, patch
-
-import pandas as pd
 
 from analyze import (
     analyze_data,
@@ -13,8 +10,10 @@ from analyze import (
     extract_records,
     get_short_graph_name,
     load_data,
-    process_data,
+    run_main,
 )
+from analyze import main as analyze_main
+from analyze import process_data
 from tests import BaseTest
 
 
@@ -209,6 +208,67 @@ class TestAnalysisScript(BaseTest):
             self.assertEqual(mock_to_csv.call_count, 4 * len(sizes_to_analyze))
             self.assertEqual(mock_to_latex.call_count, 4 * len(sizes_to_analyze))
 
+    @patch('analyze.create_overall_csvs')
+    @patch('analyze.export_to_csv')
+    @patch('analyze.calculate_factors')
+    @patch('analyze.analyze_data')
+    @patch('analyze.process_data')
+    @patch('analyze.extract_records')
+    @patch('analyze.load_data')
+    def test_main(
+        self,
+        mock_load_data,
+        mock_extract_records,
+        mock_process_data,
+        mock_analyze_data,
+        mock_calculate_factors,
+        mock_export_to_csv,
+        mock_create_overall_csvs,
+    ):
+        # Setup test data
+        mock_data = {'mock': 'data'}
+        mock_records = [{'mock': 'record'}]
+        mock_df = MagicMock()
+        mock_unique_result = {'mock': 'unique_result'}
+        mock_final_tables = {'mock': 'final_tables'}
+
+        # Configure mocks
+        mock_load_data.return_value = mock_data
+        mock_extract_records.return_value = mock_records
+        mock_process_data.return_value = mock_df
+        mock_analyze_data.return_value = mock_unique_result
+        mock_calculate_factors.return_value = mock_final_tables
+
+        # Test parameters
+        test_file_path = 'test_data.txt'
+        test_sizes_to_analyze = [200, 400]
+
+        # Call the main function
+        analyze_main(test_file_path, test_sizes_to_analyze)
+
+        # Verify that all functions were called with the expected arguments
+        mock_load_data.assert_called_once_with(test_file_path)
+        mock_extract_records.assert_called_once_with(mock_data, test_sizes_to_analyze)
+        mock_process_data.assert_called_once_with(mock_records)
+        mock_analyze_data.assert_called_once_with(mock_df)
+        mock_calculate_factors.assert_called_once_with(mock_unique_result)
+        mock_export_to_csv.assert_called_once_with(mock_final_tables)
+
+        # Verify create_overall_csvs called twice (once for each size)
+        self.assertEqual(
+            mock_create_overall_csvs.call_count, len(test_sizes_to_analyze)
+        )
+        for size in test_sizes_to_analyze:
+            mock_create_overall_csvs.assert_any_call(mock_unique_result, size)
+
+    @patch('analyze.main')
+    def test_run_main(self, mock_main):
+        # Call the function
+        run_main()
+
+        # Verify that main was called with the expected arguments
+        mock_main.assert_called_once_with('data.txt', [400])
+
 
 if __name__ == '__main__':
-    unittest.main()
+    unittest_main()

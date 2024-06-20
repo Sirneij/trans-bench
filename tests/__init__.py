@@ -10,6 +10,6 @@ class BaseTest(unittest.TestCase):
 
     def tearDown(self):
         # Remove the test directory after tests
-        for file in self.test_dir.glob("*"):
+        for file in self.test_dir.glob('*'):
             file.unlink()
         self.test_dir.rmdir()

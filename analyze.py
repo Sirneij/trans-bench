@@ -259,7 +259,11 @@ def main(file_path: str, sizes_to_analyze: List[int]):
         create_overall_csvs(unique_result, size)
 
 
-if __name__ == '__main__':
+def run_main():
     file_path = 'data.txt'
     sizes_to_analyze = [400]
     main(file_path, sizes_to_analyze)
+
+
+if __name__ == '__main__':
+    run_main()
