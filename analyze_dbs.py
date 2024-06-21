@@ -32,7 +32,7 @@ class AnalyzeDBs(AnalyzeSystems):
         end_cpu_time = process_time()
         cpu_time = end_cpu_time - start_cpu_time
         real_time = end_time - start_time
-        logging.info(f'CPU time start: {start_time}, CPU time end: {end_cpu_time}')
+        logging.info(f'CPU time start: {start_cpu_time}, CPU time end: {end_cpu_time}')
         return real_time, cpu_time, result
 
     def dynamic_import(self, module_name: str, class_name: str) -> Any:
