@@ -96,6 +96,8 @@ Some tests were written to verify the functionalities of the benchmark suite. Yo
 (virtualenv) ➜  trans-bench git:(main) ✗ python -m unittest discover -s tests
 ```
 
+## Extension
+
 [1]: https://www.cockroachlabs.com/docs/v24.1/install-cockroachdb "Install CockroachDB"
 [2]: https://www.cockroachlabs.com/docs/stable/build-a-python-app-with-cockroachdb?filters=local "Step 1. Start CockroachDB"
 [3]: https://neo4j.com/docs/operations-manual/current/installation/ "Installing Neo4J"
