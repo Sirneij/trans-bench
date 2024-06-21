@@ -66,18 +66,17 @@ class TestCommon(BaseTest):
         # Mock the MongoClient
         client_instance = MagicMock()
         mock_client.return_value = client_instance
-        
+
         # Mock the database return
         db_instance = MagicMock()
         client_instance.__getitem__.return_value = db_instance
-        
+
         # Test the connection method
         result = self.base._connect_mongodb('mongodb')
-        
+
         # Assertions
         mock_client.assert_called_once_with('mongodb://localhost:27017')
         self.assertEqual(result, db_instance)
-
 
     @patch('psycopg2.connect')
     def test_connect_psycopg2(self, mock_connect):

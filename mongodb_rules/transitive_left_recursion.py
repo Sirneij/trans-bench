@@ -1,7 +1,7 @@
 from mongodb_rules import MongoDBOperations
 
 
-class MongoDBRightRecursion(MongoDBOperations):
+class MongoDBLeftRecursion(MongoDBOperations):
     def recursive_query(self, input_collection, output_collection):
         self.db[input_collection].aggregate(
             [

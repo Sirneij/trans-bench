@@ -142,16 +142,30 @@ def create_overall_csvs(unique_result: dict, size: int):
         'right_recursion': {'real_time': [], 'cpu_time': []},
     }
 
-    graph_types = list(unique_result.keys())
+    graph_names_order = [
+        'complete',
+        'max_acyclic',
+        'cycle',
+        'cycle_with_shortcuts',
+        'path',
+        'multi_path',
+        'grid',
+        'star',
+        'binary_tree',
+        'reverse_binary_tree',
+        'x',
+        'y',
+        'w',
+    ]
 
     environment_mapping = {
         'xsb': 'XSB',
         'postgres': 'PostgreSQL',
         'mariadb': 'MariaDB',
-        'cockroachdb': 'CockroachDB',
-        'neo4j': 'Neo4J',
         'duckdb': 'DuckDB',
-        'mongodb': 'MongoDB',
+        # 'mongodb': 'MongoDB',
+        'neo4j': 'Neo4J',
+        'cockroachdb': 'CockroachDB',
     }
 
     environments = sorted(
@@ -162,7 +176,7 @@ def create_overall_csvs(unique_result: dict, size: int):
             for env in table['environment'].unique()
         }
     )
-    environments = ['xsb'] + [env for env in environments if env != 'xsb']
+    environments = list(environment_mapping.keys())
 
     for (graph_type, recursion_variant), results in unique_result.items():
         short_name = get_short_graph_name(graph_type, size)
@@ -185,10 +199,10 @@ def create_overall_csvs(unique_result: dict, size: int):
             if not cpu_time_value.empty:
                 row_cpu_time[i + 1] = cpu_time_value.values[0]
 
-        overall_data[recursion_variant]['real_time'].append(row_real_time)
-        overall_data[recursion_variant]['cpu_time'].append(row_cpu_time)
+        overall_data[recursion_variant]['real_time'].append((graph_type, row_real_time))
+        overall_data[recursion_variant]['cpu_time'].append((graph_type, row_cpu_time))
 
-    columns = ['graph\_type'] + [environment_mapping[env] for env in environments]
+    columns = ['graph_type'] + [environment_mapping[env] for env in environments]
 
     captions = {
         'left_recursion': {
@@ -202,12 +216,19 @@ def create_overall_csvs(unique_result: dict, size: int):
     }
 
     for recursion_variant in overall_data:
+        real_time_sorted = sorted(
+            overall_data[recursion_variant]['real_time'],
+            key=lambda x: graph_names_order.index(x[0]),
+        )
+        cpu_time_sorted = sorted(
+            overall_data[recursion_variant]['cpu_time'],
+            key=lambda x: graph_names_order.index(x[0]),
+        )
+
         df_real_time = pd.DataFrame(
-            overall_data[recursion_variant]['real_time'], columns=columns
+            [row for _, row in real_time_sorted], columns=columns
         )
-        df_cpu_time = pd.DataFrame(
-            overall_data[recursion_variant]['cpu_time'], columns=columns
-        )
+        df_cpu_time = pd.DataFrame([row for _, row in cpu_time_sorted], columns=columns)
 
         overall_dir = Path(f'analysis/overall/{recursion_variant}')
         overall_dir.mkdir(parents=True, exist_ok=True)
