@@ -4,16 +4,16 @@
     },
     "mariadb": {
         "host": "localhost",
-        "user": "root",
+        "user": "sirneij",
         "password": "sirneij",
-        "database": "sirneij",
+        "database": "benchmark",
         "port": 3306
     },
     "neo4j": {
-        "uri": " neo4j://localhost:7687",
+        "uri": "neo4j://localhost:7687",
         "user": "neo4j",
         "password": "sirneij1",
-        "import_directory": "/var/lib/neo4j/import"
+        "import_directory": "~/systems/neo4j/import"
     },
     "mongodb": {
         "uri": "mongodb://127.0.0.1:27017/",
