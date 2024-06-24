@@ -4,17 +4,17 @@ and a user readable version by file.
 
 import ast
 import os
-import sys
-import shutil
 import pickle
+import shutil
+import sys
 from collections.abc import Collection
-from pprint import pprint, pformat
+from pprint import pformat, pprint
 
-ValueIdDict = dict()    # ValueIdDict[node] = id
-ValueDict = dict()      # ValueDict[id] = node
-FileDict = dict()       # FileDict[id] = file_id
+ValueIdDict = dict()  # ValueIdDict[node] = id
+ValueDict = dict()  # ValueDict[id] = node
+FileDict = dict()  # FileDict[id] = file_id
 is_Sub = set()
-valueTag = set()        # type of values: int, float, str, bool, etc.
+valueTag = set()  # type of values: int, float, str, bool, etc.
 allFacts = set()
 
 
@@ -51,19 +51,34 @@ def getid(node):
 
 def viewDast(node, context=[]):
     classname = getname(node)
-    nodeflag = isinstance(node, ast.AST) or (isinstance(node, type) and issubclass(node, ast.AST))
+    nodeflag = isinstance(node, ast.AST) or (
+        isinstance(node, type) and issubclass(node, ast.AST)
+    )
 
     if node is not None:
         if nodeflag:
             children = [(a, getattr(node, a)) for a in node._fields if hasattr(node, a)]
-            attributes = [(a, getattr(node, a)) for a in node._attributes if hasattr(node, a)]
-            subs = children+attributes
+            attributes = [
+                (a, getattr(node, a)) for a in node._attributes if hasattr(node, a)
+            ]
+            subs = children + attributes
         else:
             valueTag.add(classname)
             return set()
 
-        own_view = (classname, getid(node), tuple((n, getid(c)) for n, c in children), tuple(
-            (a, getid(b)) if nodeflag else ((a, str(b)) if isinstance(b, str) else (a, b)) for a, b in attributes))
+        own_view = (
+            classname,
+            getid(node),
+            tuple((n, getid(c)) for n, c in children),
+            tuple(
+                (
+                    (a, getid(b))
+                    if nodeflag
+                    else ((a, str(b)) if isinstance(b, str) else (a, b))
+                )
+                for a, b in attributes
+            ),
+        )
         ctxFact = {('Context', getid(node), ctx) for ctx in context[1:]}
         FileDict[getid(node)] = context[0]
         if classname in {'Module', 'Class', 'Function'}:
@@ -71,7 +86,11 @@ def viewDast(node, context=[]):
 
         sub_views = set()
         for _, c in subs:
-            if isinstance(c, Collection) and not isinstance(c, str) and not isinstance(c, bytes):
+            if (
+                isinstance(c, Collection)
+                and not isinstance(c, str)
+                and not isinstance(c, bytes)
+            ):
                 sub_views |= list_viewDast(c, context)
             else:
                 sub_views |= viewDast(c, context)
@@ -95,7 +114,11 @@ def list_viewDast(ast_list, context=[]):
 
     count = 0
     for c in ast_list:
-        if isinstance(c, Collection) and not isinstance(c, str) and not isinstance(c, bytes):
+        if (
+            isinstance(c, Collection)
+            and not isinstance(c, str)
+            and not isinstance(c, bytes)
+        ):
             elem_views |= list_viewDast(c, context)
         else:
             elem_views |= viewDast(c, context)
@@ -119,7 +142,9 @@ def view_file(path, outputDir, prefix):
         facts = viewDast(pyast, [pkgid])
         allFacts |= facts
         deli = '\\' if sys.platform == 'win32' else '/'
-        open(os.path.join(outputDir, _id.replace(deli, '.')+'.py'), 'w').write('\n'.join(repr(x) for x in facts))
+        open(os.path.join(outputDir, _id.replace(deli, '.') + '.py'), 'w').write(
+            '\n'.join(repr(x) for x in facts)
+        )
 
 
 def view_directory(path, outputDir, prefix):
@@ -131,10 +156,18 @@ def view_directory(path, outputDir, prefix):
             if not (f.startswith('.') or f == 'desktop.ini'):
                 nonExt, Ext = os.path.splitext(f)
                 if Ext == '.py' or Ext == '.da':
-                    is_Sub.add(('is_Sub', getid(os.path.join(prefix, nonExt)), getid(prefix)))
+                    is_Sub.add(
+                        ('is_Sub', getid(os.path.join(prefix, nonExt)), getid(prefix))
+                    )
                     view_file(file, outputDir, prefix)
                 elif Ext == '.so':
-                    is_Sub.add(('is_Sub', getid(os.path.join(prefix, f[:-len(subfix)])), getid(prefix)))
+                    is_Sub.add(
+                        (
+                            'is_Sub',
+                            getid(os.path.join(prefix, f[: -len(subfix)])),
+                            getid(prefix),
+                        )
+                    )
         if os.path.isdir(file):
             if not (f == '__pycache__' or f == 'tests' or f.startswith('.')):
                 is_Sub.add(('is_Sub', (getid(os.path.join(prefix, f))), getid(prefix)))
@@ -152,7 +185,9 @@ if not os.path.exists(dbFolder):
 def dump_facts(datafolder, varname, data):
     print('dumping ' + varname)
     pickle.dump(data, open(os.path.join(datafolder, pickleFolder, varname), 'wb'))
-    with open(os.path.join(datafolder, 'text-rep', varname), 'w', encoding='utf8') as text_out:
+    with open(
+        os.path.join(datafolder, 'text-rep', varname), 'w', encoding='utf8'
+    ) as text_out:
         text_out.write(pformat(data))
 
 
@@ -171,9 +206,13 @@ def dump_vars(datafolder):
             factdict[f[0]].add(tuple(list(f)[1:]))
         else:
             _, id_, fields, attributes = f
-            factdict[f[0]].add((id_,) +
-                               tuple([a if a else None for (b, a) in fields if b not in ignoreField]) +
-                               tuple([d if d else None for (c, d) in attributes if c not in ignoreAttr]))
+            factdict[f[0]].add(
+                (id_,)
+                + tuple([a if a else None for (b, a) in fields if b not in ignoreField])
+                + tuple(
+                    [d if d else None for (c, d) in attributes if c not in ignoreAttr]
+                )
+            )
 
     for key, value in factdict.items():
         dump_facts(datafolder, key, value)

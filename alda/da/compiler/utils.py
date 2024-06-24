@@ -22,14 +22,15 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+import ast
 import io
 import sys
 
 import da
 from da.tools.unparse import Unparser
+
 from .. import common
 from . import dast
-import ast
 
 DB_ERROR = 0
 DB_WARN = 1
@@ -45,6 +46,7 @@ KW_INFER = "infer"
 KW_CONSTRAINT = "csp_"
 KW_QUERY = "query"
 
+
 ##########
 # Exceptions:
 class CompilerException(Exception):
@@ -55,8 +57,13 @@ class CompilerException(Exception):
         self.name = name
         self.msg = msg
 
-class MalformedStatementError(CompilerException): pass
-class ResolverException(CompilerException): pass
+
+class MalformedStatementError(CompilerException):
+    pass
+
+
+class ResolverException(CompilerException):
+    pass
 
 
 def to_source(tree):
@@ -68,6 +75,7 @@ def to_source(tree):
     else:
         return ast.unparse(tree)
 
+
 def to_file(tree, fd):
     if sys.version_info < (3, 9):
         fd.write(VERSION_HEADER.format(da.__version__))
@@ -77,42 +85,53 @@ def to_file(tree, fd):
         fd.write(output)
         return len(output)
 
+
 def set_debug_level(level):
     global Debug
     if is_valid_debug_level(level):
         Debug = level
 
+
 def get_debug_level():
     return Debug
+
 
 def is_valid_debug_level(level):
     return type(level) is int and DB_ERROR <= level and level <= DB_DEBUG
 
+
 # Common utility functions
+
 
 def printe(mesg, lineno=0, col_offset=0, filename="", outfd=sys.stderr):
     if Debug >= DB_ERROR:
         fs = "%s:%d:%d: error: %s"
         print(fs % (filename, lineno, col_offset, mesg), file=outfd)
 
+
 def printw(mesg, lineno=0, col_offset=0, filename="", outfd=sys.stderr):
     if Debug >= DB_WARN:
         fs = "%s:%d:%d: warning: %s"
         print(fs % (filename, lineno, col_offset, mesg), file=outfd)
+
 
 def printd(mesg, lineno=0, col_offset=0, filename="", outfd=sys.stderr):
     if Debug >= DB_DEBUG:
         fs = "%s:%d:%d: DEBUG: %s"
         print(fs % (filename, lineno, col_offset, mesg), file=outfd)
 
+
 def printi(mesg, lineno=0, col_offset=0, filename="", outfd=sys.stdout):
     if Debug >= DB_INFO:
         fs = "%s:%d:%d: %s"
         print(fs % (filename, lineno, col_offset, mesg), file=outfd)
 
+
 class Namespace:
     """A simple container for storing arbitrary attributes."""
+
     pass
+
 
 class OptionsManager:
     def __init__(self, cmdline_args, module_args, default=False):
@@ -130,6 +149,7 @@ class OptionsManager:
             return getattr(self.module_args, option)
         else:
             return self.default
+
 
 class CompilerMessagePrinter:
 
@@ -189,17 +209,21 @@ class CompilerMessagePrinter:
             return False
         if isinstance(node, dast.Function):
             if node.name.startswith(name):
-            # if node.name == name:
+                # if node.name == name:
                 return True
             else:
                 return False
         else:
-            return self.find_function(node.parent,name)
+            return self.find_function(node.parent, name)
 
     def test_parent(self, node):
-        if common.get_runtime_option('rule', default=False) and self.find_function(node, KW_RULES):
+        if common.get_runtime_option('rule', default=False) and self.find_function(
+            node, KW_RULES
+        ):
             return True
-        if common.get_runtime_option('constraint', default=False) and self.find_function(node, KW_CONSTRAINT):
+        if common.get_runtime_option(
+            'constraint', default=False
+        ) and self.find_function(node, KW_CONSTRAINT):
             return True
         return False
 

@@ -1,7 +1,9 @@
-from da.compiler.dast import DistNode, NameScope, NamedVar
 from pprint import pprint
 
-class DARules(DistNode): 
+from da.compiler.dast import DistNode, NamedVar, NameScope
+
+
+class DARules(DistNode):
     _fields = []
 
     def __init__(self, *args):
@@ -9,19 +11,22 @@ class DARules(DistNode):
         # print('fields:', self._fields)
         # print('args:', args)
         # super().__init__(parent,ast)
-        assert(len(self._fields) == len(args))
+        assert len(self._fields) == len(args)
         for f, a in zip(self._fields, args):
             setattr(self, f, a)
 
-class LogicVar (DARules):
+
+class LogicVar(DARules):
     _fields = ['name']
 
-class Assertion (DARules):
+
+class Assertion(DARules):
     _fields = ['pred', 'args']
 
     @property
     def arity(self):
         return len(self.args)
+
 
 class Rule(DARules):
     _fields = ['concl', 'hypos']
@@ -40,8 +45,10 @@ class Rule(DARules):
                 return c.arity
         return None
 
+
 class RuleSet(NameScope):
-    _fields = NameScope._fields+['decls', 'rules']
+    _fields = NameScope._fields + ['decls', 'rules']
+
     def __init__(self, parent=None, ast=None):
         super().__init__(parent, ast)
         self.decls = ""
@@ -86,7 +93,7 @@ class RuleSet(NameScope):
         return {x for x in self.derived if x.name in self._names}
 
     def add_name(self, name):
-        """Override the add_name function in Namescope, 
+        """Override the add_name function in Namescope,
         Find names not only within current scope, but from parent scope
         """
         obj = self.find_name(name)
@@ -98,8 +105,7 @@ class RuleSet(NameScope):
             return obj
 
     def get_arity(self, pred):
-        """get the arity of predicate pred
-        """
+        """get the arity of predicate pred"""
         for r in self.rules:
             a = r.get_arity(pred)
             if a:
@@ -107,10 +113,8 @@ class RuleSet(NameScope):
         return None
 
     def all_initialized_by(self, node):
-        """ if all the bounded variables assigned by the ast node.
-        """
+        """if all the bounded variables assigned by the ast node."""
         for b in self.bounded_base | self.bounded_derived:
             if not (b.last_assignment_before(node) or b.is_assigned_in(node)):
                 return False
         return True
-

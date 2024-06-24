@@ -1,6 +1,6 @@
-#Visitor in DastDict is borrowed wholesale from
-#Bo Lin and Yanhong Annie Liu
-#distalgo/da/compiler/psuedo.py
+# Visitor in DastDict is borrowed wholesale from
+# Bo Lin and Yanhong Annie Liu
+# distalgo/da/compiler/psuedo.py
 
 """
 For each attributed listed in node.__dict__ for the visited note, this visitor
@@ -11,37 +11,33 @@ Dict entries are printed in the order in which nodes are visited, thus the order
 matches the nested structure of the output of daast_nest.py.
 """
 
-import sys, ast
+import ast
+import sys
+
 from da.compiler.dast import *
 from da.compiler.parser import daast_from_file
 from da.compiler.ui import parse_all_args
 
-EVENT_TYPES = {
-    ReceivedEvent: 'receive',
-    SentEvent:     'send'
-}
-
+EVENT_TYPES = {ReceivedEvent: 'receive', SentEvent: 'send'}
 
 
 class DastDict:
     """Methods in this class recursively traverse an AST and
     output source code for the abstract syntax; original formatting
-    is disregarded. """
-
+    is disregarded."""
 
     def __init__(self, tree):
         """Unparser(tree, file=sys.stdout) -> None.
-         Print the source for tree to file."""
-        print('********** BEGIN', tree, '**********', flush = True)
+        Print the source for tree to file."""
+        print('********** BEGIN', tree, '**********', flush=True)
         self.dispatch(tree)
-        print('********** END', tree, '**********', flush = True)
+        print('********** END', tree, '**********', flush=True)
 
     def print_dict(self, t):
-        print(t.__class__.__name__, flush = True)
+        print(t.__class__.__name__, flush=True)
         for d in t.__dict__:
-            print('\t', d, '||=>', t.__dict__[d], ':', type(t.__dict__[d]), flush = True)
-        print('\n', flush = True)
-
+            print('\t', d, '||=>', t.__dict__[d], ':', type(t.__dict__[d]), flush=True)
+        print('\n', flush=True)
 
     def dispatch(self, tree):
         "Dispatcher function, dispatching tree type T to method _T."
@@ -49,9 +45,8 @@ class DastDict:
             for t in tree:
                 self.dispatch(t)
             return
-        meth = getattr(self, "_"+tree.__class__.__name__)
+        meth = getattr(self, "_" + tree.__class__.__name__)
         meth(tree)
-
 
     ############### Unparsing methods ######################
     # There should be one method per concrete grammar type #
@@ -76,7 +71,7 @@ class DastDict:
     def _ImportStmt(self, t):
         self.print_dict(t)
         for target in t.items:
-           self.dispatch(target)
+            self.dispatch(target)
 
     def _ImportFromStmt(self, t):
         self.print_dict(t)
@@ -124,12 +119,12 @@ class DastDict:
 
     def _GlobalStmt(self, t):
         self.print_dict(t)
-        #names
+        # names
         pass
 
     def _NonlocalStmt(self, t):
         self.print_dict(t)
-        #names
+        # names
         pass
 
     def _AwaitStmt(self, t):
@@ -234,7 +229,7 @@ class DastDict:
             for e in t.bases:
                 self.dispatch(e)
         self.dispatch(t.args)
-        #t.ordered_local_names
+        # t.ordered_local_names
         if t.configurations:
             for key, value in t.configurations:
                 self.dispatch(value)
@@ -276,15 +271,14 @@ class DastDict:
         self.dispatch(t.condition)
         self.dispatch(t.body)
         # collapse nested ifs into equivalent elifs.
-        while (t.elsebody and len(t.elsebody) == 1 and
-               isinstance(t.elsebody[0], IfStmt)):
+        while t.elsebody and len(t.elsebody) == 1 and isinstance(t.elsebody[0], IfStmt):
             t = t.elsebody[0]
             self.dispatch(t.condition)
             self.dispatch(t.body)
         # final else
         if t.elsebody:
             self.dispatch(t.elsebody)
- 
+
     def _WhileStmt(self, t):
         self.print_dict(t)
         self.dispatch(t.condition)
@@ -304,18 +298,18 @@ class DastDict:
         self.print_dict(t)
         if isinstance(t.value, DistNode):
             self.dispatch(t.value)
-        #t.value may not be a DistNode
+        # t.value may not be a DistNode
         elif t.value:
             pass
 
     def _NameExpr(self, t):
         self.print_dict(t)
         self.dispatch(t.subexprs)
-                                                        
+
     def _ConstantExpr(self, t):
         self.print_dict(t)
         pass
-    
+
     def _SelfExpr(self, t):
         self.print_dict(t)
         pass
@@ -352,17 +346,19 @@ class DastDict:
 
     def _SetExpr(self, t):
         self.print_dict(t)
-        assert(t.subexprs) # should be at least one element
+        assert t.subexprs  # should be at least one element
         for subexpr in t.subexprs:
             self.dispatch(subexpr)
-            
+
     def _DictExpr(self, t):
         assert len(t.keys) == len(t.values)
         self.print_dict(t)
+
         def write_pair(pair):
             (k, v) = pair
             self.dispatch(k)
             self.dispatch(v)
+
         for p in zip(t.keys, t.values):
             write_pair(p)
 
@@ -383,7 +379,7 @@ class DastDict:
         self.dispatch(t.elem)
         for c in t.conditions:
             self.dispatch(c)
-            
+
     def _SetCompExpr(self, t):
         self.print_dict(t)
         self.dispatch(t.elem)
@@ -442,7 +438,7 @@ class DastDict:
         else:
             for s in t.subexprs:
                 delf.dispatch(s)
-                
+
     def _UnaryExpr(self, t):
         self.print_dict(t)
         self.dispatch(t.right)
@@ -478,14 +474,14 @@ class DastDict:
         if isinstance(t.func, DistNode):
             self.dispatch(t.func)
         else:
-            #func may not be a DistNode (may be a string instead)
+            # func may not be a DistNode (may be a string instead)
             pass
         self._callargs(t)
 
     _BuiltinCallExpr = _CallExpr
     _ApiCallExpr = _CallExpr
 
-    def _AttributeExpr(self,t):
+    def _AttributeExpr(self, t):
         self.print_dict(t)
         self.dispatch(t.value)
         # Special case: 3.__abs__() is a syntax error, so if t.value
@@ -533,7 +529,7 @@ class DastDict:
         if t.value:
             self.dispatch(t.value)
         else:
-            #if t.value == None, then this is a wildcard expression '_'
+            # if t.value == None, then this is a wildcard expression '_'
             pass
 
     def _BoundPattern(self, t):
@@ -586,7 +582,7 @@ class DastDict:
 
     def _Alias(self, t):
         self.print_dict(t)
-        #.name and .asname are both strings now
+        # .name and .asname are both strings now
         pass
 
     def _callargs(self, t):
@@ -594,8 +590,8 @@ class DastDict:
         for e in t.args:
             self.dispatch(e)
         for key, value in t.keywords:
-            #key will not be a DistNode
-            #self.dispatch(key)
+            # key will not be a DistNode
+            # self.dispatch(key)
             self.dispatch(value)
         if t.starargs:
             self.dispatch(t.starargs)
@@ -608,13 +604,13 @@ class DastDict:
         if t.optional_vars:
             self.dispatch(t.optional_vars)
 
-            
+
 if __name__ == '__main__':
-    #recurse_count = 20
+    # recurse_count = 20
     if len(sys.argv) > 1:
         in_fn = sys.argv[1]
         the_daast = daast_from_file(in_fn, parse_all_args([]))
         dp = DastDict(the_daast)
     else:
-        print('An input file name must be provided.', flush = True)
-#end main()
+        print('An input file name must be provided.', flush=True)
+# end main()

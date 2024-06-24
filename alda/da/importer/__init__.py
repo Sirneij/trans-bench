@@ -30,8 +30,7 @@ if PythonVersion < (3, 7):
 elif PythonVersion.major == 3 and PythonVersion.minor in [7, 8, 9, 10, 11, 12]:
     from . import py37 as real_lib
 else:
-    raise RuntimeError("Python version {} is not supported."
-                       .format(PythonVersion))
+    raise RuntimeError("Python version {} is not supported.".format(PythonVersion))
 
 da_cache_from_source = real_lib.da_cache_from_source
 

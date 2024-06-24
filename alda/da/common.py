@@ -22,29 +22,28 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-import os
-import sys
 import copy
-import time
-import pickle
-import os.path
 import logging
-import warnings
+import os
+import os.path
+import pickle
+import sys
 import threading
-
-from datetime import datetime
+import time
+import warnings
 from collections import abc, deque, namedtuple
-from inspect import signature
-from inspect import Parameter
+from datetime import datetime
 from functools import wraps
+from inspect import Parameter, signature
 
 MAJOR_VERSION = 1
 MINOR_VERSION = 1
 PATCH_VERSION = 2
 PRERELEASE_VERSION = "rc16"
 
-__version__ = "{}.{}.{}{}".format(MAJOR_VERSION, MINOR_VERSION, PATCH_VERSION,
-                                   PRERELEASE_VERSION)
+__version__ = "{}.{}.{}{}".format(
+    MAJOR_VERSION, MINOR_VERSION, PATCH_VERSION, PRERELEASE_VERSION
+)
 
 INCOQ_MODULE_NAME = "incoq.mars.runtime"
 
@@ -59,17 +58,17 @@ IncOQBaseType = None
 # all loaded DistAlgo modules, corresponds to sys.modules:
 modules = dict()
 
-CONSOLE_LOG_FORMAT = \
+CONSOLE_LOG_FORMAT = (
     '[%(relativeCreated)d] %(name)s<%(processName)s>:%(levelname)s: %(message)s'
-FILE_LOG_FORMAT = \
-    '[%(asctime)s] %(name)s<%(processName)s>:%(levelname)s: %(message)s'
+)
+FILE_LOG_FORMAT = '[%(asctime)s] %(name)s<%(processName)s>:%(levelname)s: %(message)s'
 
 # Define custom levels for text output from user code using the `output`,
 # `debug`, and `error` builtins, to differentiate output from user programs and
 # log messages from the DistAlgo system:
-logging.addLevelName(logging.INFO+1, "OUTPUT")
-logging.addLevelName(logging.INFO+2, "USRERR")
-logging.addLevelName(logging.DEBUG+1, "USRDBG")
+logging.addLevelName(logging.INFO + 1, "OUTPUT")
+logging.addLevelName(logging.INFO + 2, "USRERR")
+logging.addLevelName(logging.DEBUG + 1, "USRDBG")
 
 log = logging.getLogger(__name__)
 
@@ -77,10 +76,15 @@ api_registry = dict()
 builtin_registry = dict()
 internal_registry = dict()
 
-class InvalidStateException(RuntimeError): pass
 
-class ConfigurationError(RuntimeError): pass
-    
+class InvalidStateException(RuntimeError):
+    pass
+
+
+class ConfigurationError(RuntimeError):
+    pass
+
+
 def get_runtime_option(key, default=None):
     """Returns the configured value of runtime option 'key', or 'default' if 'key'
     is not configured.
@@ -94,19 +98,27 @@ def get_runtime_option(key, default=None):
 
     return GlobalOptions.get(key, default)
 
+
 def set_runtime_option(key, value):
     if GlobalOptions is None:
         raise InvalidStateException("DistAlgo is not initialized.")
 
     GlobalOptions[key] = value
 
+
 def _version_as_bytes():
-    """Return a 4-byte representation of the version number.
-    """
+    """Return a 4-byte representation of the version number."""
     prerelease = sum(ord(c) for c in PRERELEASE_VERSION) % 256
-    return (((MAJOR_VERSION & 0xff) << 24) | ((MINOR_VERSION & 0xff) << 16) |
-            ((PATCH_VERSION & 0xff) << 8) | prerelease).to_bytes(4, 'big')
+    return (
+        ((MAJOR_VERSION & 0xFF) << 24)
+        | ((MINOR_VERSION & 0xFF) << 16)
+        | ((PATCH_VERSION & 0xFF) << 8)
+        | prerelease
+    ).to_bytes(4, 'big')
+
+
 VERSION_BYTES = _version_as_bytes()
+
 
 def _parse_items(items):
     subs = dict()
@@ -114,10 +126,12 @@ def _parse_items(items):
         for item in items:
             parts = item.split(':')
             if len(parts) != 2:
-                raise InvalidStateException('unrecognized substitute spec: {}'
-                                            .format(item))
+                raise InvalidStateException(
+                    'unrecognized substitute spec: {}'.format(item)
+                )
             subs[parts[0]] = parts[1]
     return subs
+
 
 def _set_hostname():
     """Sets a canonical hostname for this process.
@@ -145,14 +159,16 @@ def _set_hostname():
         GlobalOptions['hostname'] = socket.gethostbyname(hostname)
     except socket.error as e:
         if GlobalOptions.get('hostname') is None:
-            msg = (f'This system is configured to use "{hostname}" as its fully '
-                   'qualified domain name, but it is not resolvable. Please '
-                   'specify a hostname or an IP address via the "--hostname"'
-                   '(or equivalently "-H") command line argument. If you only '
-                   'intend to connect to other DistAlgo nodes running on '
-                   'this system, you can use "-H localhost". Otherwise, '
-                   'you must specify a hostname or an IP address that is '
-                   'reachable from remote hosts.')
+            msg = (
+                f'This system is configured to use "{hostname}" as its fully '
+                'qualified domain name, but it is not resolvable. Please '
+                'specify a hostname or an IP address via the "--hostname"'
+                '(or equivalently "-H") command line argument. If you only '
+                'intend to connect to other DistAlgo nodes running on '
+                'this system, you can use "-H localhost". Otherwise, '
+                'you must specify a hostname or an IP address that is '
+                'reachable from remote hosts.'
+            )
         else:
             msg = f'"{hostname}" is not a resolvable hostname.'
         raise ConfigurationError(msg) from e
@@ -176,10 +192,12 @@ def initialize_runtime_options(options=None):
     if options:
         GlobalOptions.update(options)
     # Parse '--substitute-classes' and '--substitute-modules':
-    GlobalOptions['substitute_classes'] = \
-                            _parse_items(GlobalOptions.get('substitute_classes'))
-    GlobalOptions['substitute_modules'] = \
-                            _parse_items(GlobalOptions.get('substitute_modules'))
+    GlobalOptions['substitute_classes'] = _parse_items(
+        GlobalOptions.get('substitute_classes')
+    )
+    GlobalOptions['substitute_modules'] = _parse_items(
+        GlobalOptions.get('substitute_modules')
+    )
 
     if GlobalOptions.get('nodename') is None:
         GlobalOptions['nodename'] = ''
@@ -193,29 +211,33 @@ def initialize_runtime_options(options=None):
 
     # Convert 'compiler_flags' to a namespace object that can be passed directly
     # to the compiler:
-    GlobalOptions['compiler_args'] \
-        = compiler.ui.parse_compiler_args(
-            GlobalOptions.get('compiler_flags', '').split())
+    GlobalOptions['compiler_args'] = compiler.ui.parse_compiler_args(
+        GlobalOptions.get('compiler_flags', '').split()
+    )
 
     # Make sure the directory for storing trace files exists:
     if GlobalOptions.get('record_trace'):
         if 'logdir' not in GlobalOptions:
-            raise ConfigurationError(
-                "'record_trace' enabled without setting 'logdir'")
+            raise ConfigurationError("'record_trace' enabled without setting 'logdir'")
         os.makedirs(GlobalOptions['logdir'], exist_ok=True)
+
 
 def set_global_config(props):
     GlobalConfig.update(props)
 
+
 def global_config():
     return GlobalConfig
+
 
 def _set_node(node_id):
     global CurrentNode
     CurrentNode = node_id
 
+
 def pid_of_node():
     return CurrentNode
+
 
 def get_inc_module():
     if GlobalOptions is None:
@@ -223,6 +245,7 @@ def get_inc_module():
     if not hasattr(sys.modules, GlobalOptions['inc_module_name']):
         return None
     return sys.modules[GlobalOptions['inc_module_name']]
+
 
 def add_da_module(module):
     """Register 'module' as a DistAlgo module.
@@ -232,6 +255,7 @@ def add_da_module(module):
     """
     modules[module.__name__] = module
     setup_logging_for_module(module.__name__)
+
 
 def sysinit():
     """Initialize the DistAlgo system.
@@ -253,6 +277,7 @@ def sysinit():
     # Setup system logging:
     setup_logging_for_module('da', CONSOLE_LOG_FORMAT, FILE_LOG_FORMAT)
 
+
 def global_init(config):
     """Convenience method for one-time system setup.
 
@@ -263,23 +288,24 @@ def global_init(config):
     initialize_runtime_options(config)
     sysinit()
 
-DA_MODULE_CONSOLE_FORMAT = \
-    '[%(relativeCreated)d] %(name)s%(daPid)s:%(levelname)s: %(message)s'
-DA_MODULE_FILE_FORMAT = \
-    '[%(asctime)s] %(name)s%(daPid)s:%(levelname)s: %(message)s'
-def setup_logging_for_module(modulename,
-                             consolefmt=DA_MODULE_CONSOLE_FORMAT,
-                             filefmt=DA_MODULE_FILE_FORMAT):
-    """Configures package level logger.
 
-    """
+DA_MODULE_CONSOLE_FORMAT = (
+    '[%(relativeCreated)d] %(name)s%(daPid)s:%(levelname)s: %(message)s'
+)
+DA_MODULE_FILE_FORMAT = '[%(asctime)s] %(name)s%(daPid)s:%(levelname)s: %(message)s'
+
+
+def setup_logging_for_module(
+    modulename, consolefmt=DA_MODULE_CONSOLE_FORMAT, filefmt=DA_MODULE_FILE_FORMAT
+):
+    """Configures package level logger."""
     if GlobalOptions is None:
         # We're not yet initialized, which will happen when using `import_da`
         # under spawning semantics. This is fine, as logging will be setup after
         # `OSProcessContainer.run` gets called. We can safely ignore this call:
         return
     rootlog = logging.getLogger(modulename)
-    rootlog.handlers = []       # Clear all handlers
+    rootlog.handlers = []  # Clear all handlers
 
     if not GlobalOptions['no_log']:
         rootlog.propagate = False
@@ -312,29 +338,33 @@ def setup_logging_for_module(modulename,
     else:
         rootlog.addHandler(logging.NullHandler())
 
+
 def load_modules():
     import importlib
+
     global IncOQBaseType
     if not GlobalOptions['load_inc_module']:
         return
     main = sys.modules[GlobalOptions['this_module_name']]
     inc = importlib.import_module(GlobalOptions['inc_module_name'])
     if inc.JbStyle:
-        IncOQBaseType = importlib.import_module(INCOQ_MODULE_NAME) \
-                        .IncOQType
+        IncOQBaseType = importlib.import_module(INCOQ_MODULE_NAME).IncOQType
     if GlobalOptions['control_module_name'] is not None:
         ctrl = importlib.import_module(GlobalOptions['control_module_name'])
         main.IncModule = ModuleIntrument(ctrl, inc)
     else:
         main.IncModule = inc
 
+
 ####################
 # Process ID
 ####################
 ILLEGAL_NAME_CHARS = set('@#:')
 
+
 def check_name(name):
     return not (set(name) & ILLEGAL_NAME_CHARS)
+
 
 def name_split_host(name):
     """Splits `name` into 'processname', 'hostname', and 'port' components."""
@@ -359,6 +389,7 @@ def name_split_host(name):
     else:
         return (None, None, None)
 
+
 def name_split_node(name):
     """Splits `name` into 'processname', 'nodename' components."""
     assert '@' not in name
@@ -370,16 +401,17 @@ def name_split_node(name):
     else:
         return (None, None)
 
+
 #########################
 # Custom pickling
+
 
 class _ObjectLoader(pickle.Unpickler):
     """Unpickler that honors the '--substitute_classes' command line option."""
 
     def __init__(self, file, **rest):
         super().__init__(file, **rest)
-        if GlobalOptions['substitute_classes'] or \
-           GlobalOptions['substitute_modules']:
+        if GlobalOptions['substitute_classes'] or GlobalOptions['substitute_modules']:
             self.find_class = self._find_class
 
     def _find_class(self, module, name):
@@ -387,9 +419,11 @@ class _ObjectLoader(pickle.Unpickler):
         name = GlobalOptions['substitute_classes'].get(name, name)
         return super().find_class(module, name)
 
+
 def _loads(buf):
     file = io.BytesIO(buf)
     return _ObjectLoader(file).load()
+
 
 # default to the standard library if we don't need to do anything wacky:
 ObjectLoader = _ObjectLoader
@@ -400,9 +434,14 @@ dumps = pickle.dumps
 #####################
 # Process Id
 
-class ProcessId(namedtuple("_ProcessId",
-                           'uid, seqno, pcls, \
-                           name, nodename, hostname, transports')):
+
+class ProcessId(
+    namedtuple(
+        "_ProcessId",
+        'uid, seqno, pcls, \
+                           name, nodename, hostname, transports',
+    )
+):
     """An instance of `ProcessId` uniquely identifies a DistAlgo process instance.
 
     A `ProcessId` instance should contain all necessary information for any
@@ -417,6 +456,7 @@ class ProcessId(namedtuple("_ProcessId",
     of `ProcessId` instances.
 
     """
+
     __slots__ = ()
     _pid_counter = 0
     _lock = threading.Lock()
@@ -424,8 +464,9 @@ class ProcessId(namedtuple("_ProcessId",
     _callbacks = dict()
 
     def __new__(cls, uid, seqno, pcls, name, nodename, hostname, transports):
-        obj = super().__new__(cls, uid, seqno, pcls, name, nodename, hostname,
-                              transports)
+        obj = super().__new__(
+            cls, uid, seqno, pcls, name, nodename, hostname, transports
+        )
         if len(name) > 0:
             fullname = (name, nodename)
             with ProcessId._lock:
@@ -437,10 +478,13 @@ class ProcessId(namedtuple("_ProcessId",
                         # cached entry:
                         obj = entry
                     elif obj.uid != entry.uid:
-                        log.warning("Process name '%s#%s' reassigned from %s "
-                                    "to %s.", name, nodename,
-                                    ProcessId._full_form_(entry),
-                                    ProcessId._full_form_(obj))
+                        log.warning(
+                            "Process name '%s#%s' reassigned from %s " "to %s.",
+                            name,
+                            nodename,
+                            ProcessId._full_form_(entry),
+                            ProcessId._full_form_(obj),
+                        )
                 if entry != obj:
                     ProcessId._named[fullname] = obj
                 if callbacks is not None:
@@ -480,15 +524,13 @@ class ProcessId(namedtuple("_ProcessId",
 
     @staticmethod
     def gen_uid(hostname, pid):
-        """Generate a globally unique 96-bit id.
-
-        """
+        """Generate a globally unique 96-bit id."""
         # 54 bits of timestamp:
-        tstamp = int(time.time() * 1000) & 0x3fffffffffffff
+        tstamp = int(time.time() * 1000) & 0x3FFFFFFFFFFFFF
         # 16 bits of hostname hash
-        hh = int(hash(hostname)) & 0xffff
+        hh = int(hash(hostname)) & 0xFFFF
         # 16 bits of os pid
-        pid %= 0xffff
+        pid %= 0xFFFF
         # 10 bit global counter
         with ProcessId._lock:
             cnt = ProcessId._pid_counter = (ProcessId._pid_counter + 1) % 1024
@@ -496,21 +538,22 @@ class ProcessId(namedtuple("_ProcessId",
 
     @classmethod
     def _create(idcls, pcls, transports, name=""):
-        """Creates a new `ProcessId` instance.
-
-        """
+        """Creates a new `ProcessId` instance."""
         hostname = get_runtime_option('hostname')
         nodename = get_runtime_option('nodename')
-        uid = ProcessId.gen_uid(hostname,
-                                pid=threading.current_thread().ident)
-        return idcls(uid=uid, seqno=1, pcls=pcls,
-                     name=name, nodename=nodename,
-                     hostname=hostname, transports=transports)
+        uid = ProcessId.gen_uid(hostname, pid=threading.current_thread().ident)
+        return idcls(
+            uid=uid,
+            seqno=1,
+            pcls=pcls,
+            name=name,
+            nodename=nodename,
+            hostname=hostname,
+            transports=transports,
+        )
 
     def address_for_transport(self, transport):
-        """Returns the address corresponding to `transport`.
-
-        """
+        """Returns the address corresponding to `transport`."""
         if len(self.transports) <= transport.slot_index:
             return None
         addr = self.transports[transport.slot_index]
@@ -548,12 +591,13 @@ class ProcessId(namedtuple("_ProcessId",
             else:
                 # otherwise, we use `uid` truncated to the last 5 hex digits:
                 return "<{0.pcls.__name__}:{1:05x}#{0.nodename}>".format(
-                    self, self.uid & 0xfffff)
+                    self, self.uid & 0xFFFFF
+                )
         else:
             if len(self.name) > 0:
                 return "<{0.pcls.__name__}:{0.name}>".format(self)
             else:
-                return "<{0.pcls.__name__}:{1:05x}>".format(self, self.uid & 0xfffff)
+                return "<{0.pcls.__name__}:{1:05x}>".format(self, self.uid & 0xFFFFF)
 
     def _long_form_(self):
         """Constructs a short string representation of this pid.
@@ -579,10 +623,12 @@ class ProcessId(namedtuple("_ProcessId",
         This form may be more useful in debugging.
 
         """
-        fmt = "ProcessId(uid={0.uid:x}, seqno={0.seqno}, " \
-              "pcls={0.pcls.__name__}, " \
-              "name='{0.name}', nodename='{0.nodename}', " \
-              "hostname='{0.hostname}', transports={0.transports})"
+        fmt = (
+            "ProcessId(uid={0.uid:x}, seqno={0.seqno}, "
+            "pcls={0.pcls.__name__}, "
+            "name='{0.name}', nodename='{0.nodename}', "
+            "hostname='{0.hostname}', transports={0.transports})"
+        )
         return fmt.format(self)
 
     __str__ = __repr__ = _short_form_
@@ -593,9 +639,12 @@ class ProcessId(namedtuple("_ProcessId",
     def __deepcopy__(self, memo):
         return self
 
+
 ####################
 
 warnings.simplefilter("default", DeprecationWarning)
+
+
 def deprecated(func):
     """Declare 'func' as deprecated.
 
@@ -603,14 +652,20 @@ def deprecated(func):
     will result in a warning being emmitted when the function is used.
 
     """
+
     def newFunc(*args, **kwargs):
-        warnings.warn("Call to deprecated function %s." % func.__name__,
-                      category=DeprecationWarning, stacklevel=2)
+        warnings.warn(
+            "Call to deprecated function %s." % func.__name__,
+            category=DeprecationWarning,
+            stacklevel=2,
+        )
         return func(*args, **kwargs)
+
     newFunc.__name__ = func.__name__
     newFunc.__doc__ = func.__doc__
     newFunc.__dict__.update(func.__dict__)
     return newFunc
+
 
 def api(func):
     """Declare 'func' as DistPy API.
@@ -635,21 +690,28 @@ def api(func):
             return None
         for argname in binding.arguments:
             atype = sig.parameters[argname].annotation
-            if (atype is not Parameter.empty and
-                    not isinstance(binding.arguments[argname], atype)):
+            if atype is not Parameter.empty and not isinstance(
+                binding.arguments[argname], atype
+            ):
                 log.error(
-                    "'%s' called with wrong type argument: "
-                     "%s, expected %s, got %s.",
-                    funame, argname, str(atype),
-                    str(binding.arguments[argname].__class__))
+                    "'%s' called with wrong type argument: " "%s, expected %s, got %s.",
+                    funame,
+                    argname,
+                    str(atype),
+                    str(binding.arguments[argname].__class__),
+                )
                 return None
         result = func(*args, **kwargs)
-        if (sig.return_annotation is not Parameter.empty and
-                not isinstance(result, sig.return_annotation)):
+        if sig.return_annotation is not Parameter.empty and not isinstance(
+            result, sig.return_annotation
+        ):
             log.warning(
                 "Possible bug: API function '%s' return value type mismatch: "
                 "declared %s, returned %s.",
-                funame, sig.return_annotation, result.__class__)
+                funame,
+                sig.return_annotation,
+                result.__class__,
+            )
         return result
 
     _func_impl.__name__ = func.__name__
@@ -657,6 +719,7 @@ def api(func):
     _func_impl.__dict__.update(func.__dict__)
     api_registry[funame] = _func_impl
     return _func_impl
+
 
 def builtin(func):
     """Declare `func` as DistAlgo builtin.
@@ -672,6 +735,7 @@ def builtin(func):
         builtin_registry[funame] = func
         return func
 
+
 def internal(func):
     """Declare `func` as `DistProcess` internal implementation.
 
@@ -683,15 +747,27 @@ def internal(func):
     internal_registry[funame] = func
     return func
 
+
 class Namespace(object):
     pass
 
+
 class Null(object):
-    def __init__(self, *args, **kwargs): pass
-    def __call__(self, *args, **kwargs): return self
-    def __getattribute__(self, attr): return self
-    def __setattr__(self, attr, value): pass
-    def __delattr__(self, attr): pass
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def __call__(self, *args, **kwargs):
+        return self
+
+    def __getattribute__(self, attr):
+        return self
+
+    def __setattr__(self, attr, value):
+        pass
+
+    def __delattr__(self, attr):
+        pass
+
 
 class BufferIOWrapper:
     def __init__(self, barray):
@@ -703,10 +779,14 @@ class BufferIOWrapper:
         end = self.fptr + len(data)
         if end > self.total_bytes:
             raise IOError("buffer full.")
-        self.buffer[self.fptr:end] = data
+        self.buffer[self.fptr : end] = data
         self.fptr = end
 
-class QueueEmpty(Exception): pass
+
+class QueueEmpty(Exception):
+    pass
+
+
 class WaitableQueue:
     """This class implements a fast waitable queue based on a `deque`.
 
@@ -716,6 +796,7 @@ class WaitableQueue:
     the CPython GIL when the queue is non-empty.
 
     """
+
     def __init__(self, iterable=[], maxlen=None, trace_files=None):
         self._q = deque(iterable, maxlen)
         self._condition = threading.Condition()
@@ -767,9 +848,7 @@ class WaitableQueue:
         # Other exceptions will be propagated
 
     def _pop_and_record(self, block=True, timeout=None):
-        """Version of `pop` that records a trace of queue items.
-
-        """
+        """Version of `pop` that records a trace of queue items."""
         if block and timeout:
             delay = time.time()
         else:
@@ -791,10 +870,10 @@ class WaitableQueue:
     def __len__(self):
         return self._q.__len__()
 
-class ReplayQueue:
-    """A queue that simply replays recorded messages in order.
 
-    """
+class ReplayQueue:
+    """A queue that simply replays recorded messages in order."""
+
     def __init__(self, in_stream, out_stream):
         self._in_file = in_stream
         self._out_file = out_stream
@@ -826,16 +905,21 @@ class ReplayQueue:
 #########################
 # LRU queue:
 
+
 class Node(object):
     __slots__ = ['prev', 'next', 'me']
+
     def __init__(self, prev, me):
         self.prev = prev
         self.me = me
         self.next = None
+
     def __str__(self):
         return str(self.me)
+
     def __repr__(self):
         return self.me.__repr__()
+
 
 class LRU:
     """
@@ -844,6 +928,7 @@ class LRU:
     http://pype.sourceforge.net
     Copyright 2003 Josiah Carlson.
     """
+
     def __init__(self, count, pairs=[]):
         self.count = max(count, 1)
         self.d = {}
@@ -851,12 +936,15 @@ class LRU:
         self.last = None
         for key, value in pairs:
             self[key] = value
+
     def __contains__(self, obj):
         return obj in self.d
+
     def __getitem__(self, obj):
         a = self.d[obj].me
         self[a[0]] = a[1]
         return a[1]
+
     def __setitem__(self, obj, val):
         if obj in self.d:
             del self[obj]
@@ -878,6 +966,7 @@ class LRU:
             a.next = None
             del self.d[a.me[0]]
             del a
+
     def __delitem__(self, obj):
         nobj = self.d[obj]
         if nobj.prev:
@@ -889,38 +978,50 @@ class LRU:
         else:
             self.last = nobj.prev
         del self.d[obj]
+
     def __iter__(self):
         cur = self.first
         while cur != None:
             cur2 = cur.next
             yield cur.me[1]
             cur = cur2
+
     def __str__(self):
         return str(self.d)
+
     def __repr__(self):
         return self.d.__repr__()
+
     def iteritems(self):
         cur = self.first
         while cur != None:
             cur2 = cur.next
             yield cur.me
             cur = cur2
+
     def iterkeys(self):
         return iter(self.d)
+
     def itervalues(self):
-        for i,j in self.iteritems():
+        for i, j in self.iteritems():
             yield j
+
     def keys(self):
         return self.d.keys()
+
     def get(self, k, d=None):
         v = self.d.get(k)
-        if v is None: return None
+        if v is None:
+            return None
         a = v.me
         self[a[0]] = a[1]
         return a[1]
 
 
-class IntrumentationError(Exception): pass
+class IntrumentationError(Exception):
+    pass
+
+
 class FunctionInstrument(object):
     def __init__(self, control_func, subject_func):
         super().__setattr__('_control', control_func)
@@ -930,12 +1031,12 @@ class FunctionInstrument(object):
         ctrl_result = self._control(*args, **kwargs)
         subj_result = self._subject(*args, **kwargs)
         if ctrl_result != subj_result:
-            raise IntrumentationError("Result mismatch for %s: "
-                                      "control returned %s; "
-                                      "subject returned %s." %
-                                      (self._control.__name__,
-                                       str(ctrl_result),
-                                       str(subj_result)))
+            raise IntrumentationError(
+                "Result mismatch for %s: "
+                "control returned %s; "
+                "subject returned %s."
+                % (self._control.__name__, str(ctrl_result), str(subj_result))
+            )
         return subj_result
 
     def __setattr__(self, attr, value):
@@ -948,6 +1049,7 @@ class FunctionInstrument(object):
         delattr(self._control, attr)
         delattr(self._subject, attr)
 
+
 class ModuleIntrument(object):
     def __init__(self, control, subject):
         super().__setattr__('_control', control)
@@ -957,15 +1059,16 @@ class ModuleIntrument(object):
         ctrl_attr = getattr(super().__getattribute__('_control'), attr)
         subj_attr = getattr(super().__getattribute__('_subject'), attr)
         if type(ctrl_attr) is not type(subj_attr):
-            raise IntrumentationError("Attribute mismatch for %s:"
-                                      "control is type %s; "
-                                      "subject is type %s." %
-                                      (attr, str(type(ctrl_attr)),
-                                       str(type(subj_attr))))
-        if hasattr(ctrl_attr, '__call__') and \
-           (ctrl_attr.__name__.startswith("Query_") or
-            ctrl_attr.__name__ == "init"):
-                return FunctionInstrument(ctrl_attr, subj_attr)
+            raise IntrumentationError(
+                "Attribute mismatch for %s:"
+                "control is type %s; "
+                "subject is type %s."
+                % (attr, str(type(ctrl_attr)), str(type(subj_attr)))
+            )
+        if hasattr(ctrl_attr, '__call__') and (
+            ctrl_attr.__name__.startswith("Query_") or ctrl_attr.__name__ == "init"
+        ):
+            return FunctionInstrument(ctrl_attr, subj_attr)
         else:
             return subj_attr
 
@@ -1016,17 +1119,19 @@ def _install():
                 break
         if i == len(cmd):
             raise RuntimeError('Unsupported Python version!!!')
-        cmd[i+1] = 'import da; ' + cmd[i+1]
+        cmd[i + 1] = 'import da; ' + cmd[i + 1]
         return cmd
 
     multiprocessing.spawn.prepare = _advised_prepare
     multiprocessing.spawn.get_preparation_data = _advised_get_preparation_data
     multiprocessing.spawn.get_command_line = _advised_get_command_line
 
+
 if __name__ == "__main__":
+
     @api
-    def testapi(a : int, b : list) -> dict:
-        print (a, b)
+    def testapi(a: int, b: list) -> dict:
+        print(a, b)
         return []
 
     testapi(1, [2])

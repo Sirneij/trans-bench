@@ -23,8 +23,8 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import logging
-import socket
 import selectors
+import socket
 import threading
 
 __all__ = ["SelectorLoop"]
@@ -33,11 +33,14 @@ logger = logging.getLogger(__name__)
 
 RECV_BUF_SIZE = 32
 
-class TerminateLoop(Exception): pass
-class SelectorLoop(object):
-    """Wrapper around a Selector object providing a background message loop.
 
-    """
+class TerminateLoop(Exception):
+    pass
+
+
+class SelectorLoop(object):
+    """Wrapper around a Selector object providing a background message loop."""
+
     def __init__(self, selectorcls=selectors.DefaultSelector):
         super().__init__()
         # Multiplexer for all sockets:
@@ -64,17 +67,16 @@ class SelectorLoop(object):
             return len(reg)
 
     def register(self, conn, callback, data=None):
-        """Registers a new connection object.
-
-        """
+        """Registers a new connection object."""
         try:
             self.selector.register(conn, selectors.EVENT_READ, (callback, data))
             self.notify()
         except ValueError as e:
             # The conn object was already closed, so call the callback to
             # trigger any cleanup routines from the caller
-            self._log.debug("Registering invalid connection %s: %r",
-                            conn, e, exc_info=1)
+            self._log.debug(
+                "Registering invalid connection %s: %r", conn, e, exc_info=1
+            )
             callback(conn, data)
 
     def deregister(self, conn):
@@ -113,8 +115,9 @@ class SelectorLoop(object):
     def run(self):
         try:
             self.notifier, self.event = socket.socketpair()
-            self.selector.register(self.event, selectors.EVENT_READ,
-                                   (self._handle_event, None))
+            self.selector.register(
+                self.event, selectors.EVENT_READ, (self._handle_event, None)
+            )
             while True:
                 events = self.selector.select()
                 for key, _ in events:
@@ -128,7 +131,10 @@ class SelectorLoop(object):
                         else:
                             self._log.debug(
                                 "socket.error when receiving from %s: %r",
-                                key, e, exc_info=1)
+                                key,
+                                e,
+                                exc_info=1,
+                            )
                             self.deregister(key.fileobj)
         except TerminateLoop:
             pass

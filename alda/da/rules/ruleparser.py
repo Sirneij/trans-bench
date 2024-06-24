@@ -1,12 +1,15 @@
-from functools import cmp_to_key
-from da.compiler.utils import CompilerMessagePrinter, MalformedStatementError
-from da.compiler import dast
-from ast import *
-from . import ruleast
-import sys
 import os
-from .rule_io import write_file, clear_cache
+import sys
+from ast import *
+from functools import cmp_to_key
 from pprint import pprint
+
+from da.compiler import dast
+from da.compiler.utils import CompilerMessagePrinter, MalformedStatementError
+
+from . import ruleast
+from .rule_io import clear_cache, write_file
+
 # from .resolver import RuleResolver
 
 KW_RULES = "rules_"
@@ -21,19 +24,24 @@ UniqueUpperCasePrefix = 'V'
 UniqueLowerCasePrefix = 'p'
 
 
-def ruleast_from_daast(daast, filename='<str>', options=None):  # , _package=None, _parent=None):
+def ruleast_from_daast(
+    daast, filename='<str>', options=None
+):  # , _package=None, _parent=None):
     try:
         rp = Parser(filename, None)
         ruleast = rp.visit(daast)
         rp2 = ParserSecondPass(filename, rp)  # , _package, options)
         ruleast = rp2.visit(ruleast)
-        sys.stderr.write("%s Rules compiled with %d errors and %d warnings.\n" %
-                         (filename, rp2.errcnt, rp2.warncnt))
+        sys.stderr.write(
+            "%s Rules compiled with %d errors and %d warnings.\n"
+            % (filename, rp2.errcnt, rp2.warncnt)
+        )
         if rp2.errcnt == 0:
             return ruleast
     except SyntaxError as e:
-        sys.stderr.write("%s:%d:%d: SyntaxError: %s" % (e.filename, e.lineno,
-                                                        e.offset, e.text))
+        sys.stderr.write(
+            "%s:%d:%d: SyntaxError: %s" % (e.filename, e.lineno, e.offset, e.text)
+        )
     return None
 
 
@@ -91,14 +99,22 @@ class Parser(NodeTransformer, CompilerMessagePrinter):
                         arg1 = self.current_scope.find_name('self')
                     res = self.create_expr(dast.IfExpr)
                     res.condition = self.create_expr(dast.CallExpr)
-                    res.condition.func = self.create_expr(dast.NameExpr, value=self.current_scope.find_name('hasattr'))
-                    res.condition.args = [arg1,
-                                          self.create_expr(dast.ConstantExpr, value=str(node.name))]
+                    res.condition.func = self.create_expr(
+                        dast.NameExpr, value=self.current_scope.find_name('hasattr')
+                    )
+                    res.condition.args = [
+                        arg1,
+                        self.create_expr(dast.ConstantExpr, value=str(node.name)),
+                    ]
                     res.condition.keywords = []
                     res.body = self.create_expr(dast.CallExpr)
-                    res.body.func = self.create_expr(dast.NameExpr, value=self.current_scope.find_name('getattr'))
-                    res.body.args = [arg1,
-                                     self.create_expr(dast.ConstantExpr, value=str(node.name))]
+                    res.body.func = self.create_expr(
+                        dast.NameExpr, value=self.current_scope.find_name('getattr')
+                    )
+                    res.body.args = [
+                        arg1,
+                        self.create_expr(dast.ConstantExpr, value=str(node.name)),
+                    ]
                     res.body.keywords = []
                     res.orbody = self.create_expr(dast.NameExpr, value=node)
                     return res
@@ -106,35 +122,58 @@ class Parser(NodeTransformer, CompilerMessagePrinter):
             return self.create_expr(dast.NameExpr, value=node)
 
     def gen_assignInfer(self, rule_set, user_binding=None):
-        """ assign the return value of infer to all bounded derived variables
+        """assign the return value of infer to all bounded derived variables
         the case when queries are not specified
         """
         derived = list(rule_set.bounded_derived)
         if not derived:
             return None
-        queries = self.create_expr(dast.ListExpr,
-                                   subexprs=[self.create_expr(dast.ConstantExpr, value=v.name) for v in derived])
+        queries = self.create_expr(
+            dast.ListExpr,
+            subexprs=[
+                self.create_expr(dast.ConstantExpr, value=v.name) for v in derived
+            ],
+        )
         stmt = self.create_expr(dast.AssignmentStmt)
         if len(derived) <= 1:
             stmt.targets = [self.gen_name(v) for v in derived]
         else:
-            stmt.targets = [self.create_expr(dast.TupleExpr, subexprs=[self.gen_name(v) for v in derived])]
+            stmt.targets = [
+                self.create_expr(
+                    dast.TupleExpr, subexprs=[self.gen_name(v) for v in derived]
+                )
+            ]
         stmt.value = self.gen_infer_call(rule_set, user_binding, queries)
         for v in rule_set.bounded_derived:
             v.add_assignment(stmt)
         return stmt
 
     def gen_infer_call(self, rule_set, user_binding=None, user_query=None):
-        """ generate infer call of rule_set with user_binding and user_query
+        """generate infer call of rule_set with user_binding and user_query
         an addition arity argument is added storing the arities of all predicates used in the rule.
         """
         callinf = self.create_expr(dast.CallExpr)
-        func = self.create_expr(dast.NameExpr, value=self.current_scope.find_name(KW_INFER))
-        keywords = [('rules', self.create_expr(dast.ConstantExpr, value=self.moduleName+'.'+rule_set.unique_name))]
+        func = self.create_expr(
+            dast.NameExpr, value=self.current_scope.find_name(KW_INFER)
+        )
+        keywords = [
+            (
+                'rules',
+                self.create_expr(
+                    dast.ConstantExpr,
+                    value=self.moduleName + '.' + rule_set.unique_name,
+                ),
+            )
+        ]
         arity = self.create_expr(dast.DictExpr)
-        allpred = list(rule_set.base)+list(rule_set.derived)
-        arity.keys = [self.create_expr(dast.ConstantExpr, value=p.name) for p in allpred]
-        arity.values = [self.create_expr(dast.ConstantExpr, value=rule_set.get_arity(p)) for p in allpred]
+        allpred = list(rule_set.base) + list(rule_set.derived)
+        arity.keys = [
+            self.create_expr(dast.ConstantExpr, value=p.name) for p in allpred
+        ]
+        arity.values = [
+            self.create_expr(dast.ConstantExpr, value=rule_set.get_arity(p))
+            for p in allpred
+        ]
 
         keywords.append(('arity', arity))
         keywords.append(('bindings', user_binding))
@@ -146,7 +185,7 @@ class Parser(NodeTransformer, CompilerMessagePrinter):
         return callinf
 
     def gen_inline_if(self, userDict, v, rule_set):
-        """generate the following code: 
+        """generate the following code:
         userDict[v.name] if v.name in userDict else self.gen_name(v, rule_set)
         """
         ifexpr = self.create_expr(dast.IfExpr)
@@ -163,9 +202,9 @@ class Parser(NodeTransformer, CompilerMessagePrinter):
         ifexpr.orbody = self.gen_name(v, rule_set)
         return ifexpr
 
-### add try except to decide whether a binding can be found at runtime, not used for now ###
+    ### add try except to decide whether a binding can be found at runtime, not used for now ###
     def gen_bind_name(self, name):
-        return '__binding_'+name.name+'__'
+        return '__binding_' + name.name + '__'
 
     def get_bind_name(self, name):
         var = self.current_scope.find_name(self.gen_bind_name(name))
@@ -191,19 +230,31 @@ class Parser(NodeTransformer, CompilerMessagePrinter):
             name.add_read(body)
 
         exp = self.create_expr(dast.ExceptHandler)
-        exp.type = self.create_expr(dast.NameExpr, value=self.current_scope.find_name('NameError'))
+        exp.type = self.create_expr(
+            dast.NameExpr, value=self.current_scope.find_name('NameError')
+        )
 
         warn = self.create_expr(dast.SimpleStmt)
         warn.expr = self.create_expr(dast.CallExpr)
-        warn.expr.func = self.create_expr(dast.NameExpr, value=self.current_scope.find_name('print'))
-        warn.expr.args = [self.create_expr(dast.ConstantExpr, value='Warning: predicate %s unbounded, use empty set instead' % name.name)]
+        warn.expr.func = self.create_expr(
+            dast.NameExpr, value=self.current_scope.find_name('print')
+        )
+        warn.expr.args = [
+            self.create_expr(
+                dast.ConstantExpr,
+                value='Warning: predicate %s unbounded, use empty set instead'
+                % name.name,
+            )
+        ]
         warn.expr.keywords = []
         exp.body.append(warn)
 
         assign = self.create_expr(dast.AssignmentStmt)
         assign.targets.append(self.create_expr(dast.NameExpr, value=var))
         emptyset = self.create_expr(dast.CallExpr)
-        emptyset.func = self.create_expr(dast.NameExpr, value=self.current_scope.find_name('set'))
+        emptyset.func = self.create_expr(
+            dast.NameExpr, value=self.current_scope.find_name('set')
+        )
         emptyset.args = []
         emptyset.keywords = []
         assign.value = emptyset
@@ -212,11 +263,11 @@ class Parser(NodeTransformer, CompilerMessagePrinter):
         trystmt.excepthandlers.append(exp)
         self.pop_state()
         return trystmt
-############################################################################################
+
+    ############################################################################################
 
     def gen_set_flag(self, flag_var, val):
-        """ generate the assignment statement that set the flag to val(True/False)
-        """
+        """generate the assignment statement that set the flag to val(True/False)"""
         assignstmt = self.create_expr(dast.AssignmentStmt)
         assignstmt.targets = [flag_var]
         boolvar = dast.TrueExpr if val else dast.FalseExpr
@@ -224,10 +275,10 @@ class Parser(NodeTransformer, CompilerMessagePrinter):
         return assignstmt
 
     def gen_rule_func_def(self, ruleset):
-        """ generate the definition of rule function
+        """generate the definition of rule function
         1. complete the parameter of the function. add 'self' as first parameter if ruleset defined in a Class
         2. complete the all base predicate with user input bindings and bounded base variable
-        3. generate the call to infer, 
+        3. generate the call to infer,
                 3.1 set all the context of bounded base predicate to ReadCtx in the infer statement
                         so that later, a recursive update of bounded base predicate will be generated
                 3.2 call infer with bindings and queries
@@ -268,9 +319,13 @@ class Parser(NodeTransformer, CompilerMessagePrinter):
         dictcomp.elem = kv
         dm = self.create_expr(dast.DomainSpec)
         dm.domain = user_binding
-        dm.pattern = self.create_expr(dast.TupleExpr, subexprs=[
-            self.create_expr(dast.NameExpr, value=dictcomp.find_name('key')),
-            self.create_expr(dast.NameExpr, value=dictcomp.find_name('val'))])
+        dm.pattern = self.create_expr(
+            dast.TupleExpr,
+            subexprs=[
+                self.create_expr(dast.NameExpr, value=dictcomp.find_name('key')),
+                self.create_expr(dast.NameExpr, value=dictcomp.find_name('val')),
+            ],
+        )
         dictcomp.conditions.append(dm)
 
         # assign the dict comprehension to userDict
@@ -283,7 +338,9 @@ class Parser(NodeTransformer, CompilerMessagePrinter):
         emptyUserDict = self.create_expr(dast.AssignmentStmt)
         emptyUserDict.targets = [userDict]
         emptyUserDict.value = self.create_expr(dast.CallExpr)
-        emptyUserDict.value.func = self.create_expr(dast.NameExpr, value=self.current_scope.find_name('dict'))
+        emptyUserDict.value.func = self.create_expr(
+            dast.NameExpr, value=self.current_scope.find_name('dict')
+        )
         emptyUserDict.value.args = []
         emptyUserDict.value.keywords = []
         bindingif.elsebody.append(emptyUserDict)
@@ -295,12 +352,20 @@ class Parser(NodeTransformer, CompilerMessagePrinter):
 
         # create the binding value by list
         # [UserDict[name] if name in UserDict else RuleDefult, ...]
-        bindings = self.create_expr(dast.ListExpr,
-                                    subexprs=[self.create_expr(dast.TupleExpr,
-                                                               subexprs=[self.create_expr(dast.ConstantExpr, value=v.name),
-                                                                         # self.get_bind_name(v)])
-                                                                         self.gen_inline_if(userDict, v, ruleset)])
-                                              for v in ruleset.base])
+        bindings = self.create_expr(
+            dast.ListExpr,
+            subexprs=[
+                self.create_expr(
+                    dast.TupleExpr,
+                    subexprs=[
+                        self.create_expr(dast.ConstantExpr, value=v.name),
+                        # self.get_bind_name(v)])
+                        self.gen_inline_if(userDict, v, ruleset),
+                    ],
+                )
+                for v in ruleset.base
+            ],
+        )
         # assign the list to variable bindings
         assignBinding = self.create_expr(dast.AssignmentStmt)
         assignBinding.targets = [user_binding]
@@ -332,9 +397,16 @@ class Parser(NodeTransformer, CompilerMessagePrinter):
             # if no derived predicate are bounded and the user calls infer without specifying query, raise an error
             raiseError = self.create_expr(dast.RaiseStmt)
             raiseError.expr = self.create_expr(dast.CallExpr)
-            raiseError.expr.func = self.create_expr(dast.NameExpr, value=self.current_scope.find_name('Exception'))
-            raiseError.expr.args = [self.create_expr(
-                dast.ConstantExpr, value='%s: queries not specified and no derived variables are defined' % ruleset.decls)]
+            raiseError.expr.func = self.create_expr(
+                dast.NameExpr, value=self.current_scope.find_name('Exception')
+            )
+            raiseError.expr.args = [
+                self.create_expr(
+                    dast.ConstantExpr,
+                    value='%s: queries not specified and no derived variables are defined'
+                    % ruleset.decls,
+                )
+            ]
             raiseError.expr.keywords = []
             ifstmt.elsebody.append(raiseError)
 
@@ -345,9 +417,10 @@ class Parser(NodeTransformer, CompilerMessagePrinter):
         return fd
 
     def visit_Function(self, node):
-        """ replace the definition of function rules_xxx to a function the can be called with 2 parameters: bindings and queries
-        """
-        if node.name.startswith(KW_RULES) or node.name == KW_RULE_FUNC:  # if node.name == KW_RULES:
+        """replace the definition of function rules_xxx to a function the can be called with 2 parameters: bindings and queries"""
+        if (
+            node.name.startswith(KW_RULES) or node.name == KW_RULE_FUNC
+        ):  # if node.name == KW_RULES:
             ruleset = RuleParser(self.filename, self).visit(node)
             # when the function is defined with the syntax def rules(name=RULENAME) or def rules(RULENAME)
             # 	rename the function name to RULENAME
@@ -394,8 +467,7 @@ class Parser(NodeTransformer, CompilerMessagePrinter):
 
 
 class RuleParser(NodeVisitor, CompilerMessagePrinter):
-    """ parse the dast into rule ast
-    """
+    """parse the dast into rule ast"""
 
     def __init__(self, filename="", _parent=None):
         CompilerMessagePrinter.__init__(self, filename, _parent=_parent)
@@ -405,8 +477,7 @@ class RuleParser(NodeVisitor, CompilerMessagePrinter):
         self.moduleName = os.path.splitext(os.path.basename(self.filename))[0]
 
     def add_flag_vars(self, var):
-        """ add a update flag variable corresponding to var
-        """
+        """add a update flag variable corresponding to var"""
         (ctx, (loc, _)) = var._indexes[0]
         assert ctx is dast.AssignmentCtx
         scope = var.scope
@@ -423,18 +494,22 @@ class RuleParser(NodeVisitor, CompilerMessagePrinter):
             assrtn.negation = True
             return assrtn
         else:
-            self.error("Invalid formalization of rule set, logic operator %s not allowed" % node.op.__name__, node)
+            self.error(
+                "Invalid formalization of rule set, logic operator %s not allowed"
+                % node.op.__name__,
+                node,
+            )
         return
 
     def visit_Arguments(self, node):
-        """ valid arguments
+        """valid arguments
         def rules(NameOfRuleSet)
         def rules(name='NameOfRuleSet')
         def rules(name=NameOfRuleSet)
 
-        1. if there exists a first parameter without default value, 
+        1. if there exists a first parameter without default value,
                 the rule is valid, the other parameters are ignored.
-        2. else if name parameter presents with default value, 
+        2. else if name parameter presents with default value,
                 the rule is valid, the other parameters are ignored.
         """
         args = []
@@ -474,7 +549,11 @@ class RuleParser(NodeVisitor, CompilerMessagePrinter):
 
         if rule_name is not None:
             if len(invalid) > 0:
-                self.warn('Invalid parameter(s) /%s/, ignored' % self.invalid_par_tostring(invalid), node)
+                self.warn(
+                    'Invalid parameter(s) /%s/, ignored'
+                    % self.invalid_par_tostring(invalid),
+                    node,
+                )
             return rule_name
         else:
             return None
@@ -489,15 +568,20 @@ class RuleParser(NodeVisitor, CompilerMessagePrinter):
         return ', '.join(output)
 
     def visit_Function(self, node):
-        if node.name.startswith(KW_RULES) or node.name == KW_RULE_FUNC:  # if node.name == KW_RULES:
+        if (
+            node.name.startswith(KW_RULES) or node.name == KW_RULE_FUNC
+        ):  # if node.name == KW_RULES:
             self.current_rule = ruleast.RuleSet(node.parent, node.ast)
             if node.name.startswith(KW_RULES):
                 self.current_rule.decls = node.name
             else:
                 rule_name = self.visit(node.args)
                 if not rule_name:
-                    self.error("Invalid formalization of rule set: \
-					function definition is not allowed in the scope of rule set", node.name)
+                    self.error(
+                        "Invalid formalization of rule set: \
+					function definition is not allowed in the scope of rule set",
+                        node.name,
+                    )
                     return
                 self.current_rule.decls = rule_name
             if get_docstring(node._ast):
@@ -508,7 +592,7 @@ class RuleParser(NodeVisitor, CompilerMessagePrinter):
 
             # write the rule to file, and add the file name to RuleSet object
             res.filename = self.moduleName + '.' + res.unique_name
-            write_file(res.filename+'.rules', XSBTranslator().visit(res))
+            write_file(res.filename + '.rules', XSBTranslator().visit(res))
 
             # check if any derived variable can be automatically maintained
             # 	condition: all base predicates are bounded and some derived predicates are bounded
@@ -525,7 +609,11 @@ class RuleParser(NodeVisitor, CompilerMessagePrinter):
                     if not hasattr(v, 'infer'):
                         v.infer = set()
                     elif res in v.infer:
-                        self.error('Variable %s defined as derived predicate for multiple RuleSet' % v.name, node)
+                        self.error(
+                            'Variable %s defined as derived predicate for multiple RuleSet'
+                            % v.name,
+                            node,
+                        )
                     v.infer.add(res)
 
             for v in res.bounded_derived:
@@ -533,12 +621,14 @@ class RuleParser(NodeVisitor, CompilerMessagePrinter):
 
             return res
         else:
-            self.error("Invalid formalization of rule set: \
-				function definition is not allowed in the scope of rule set", node.name)
+            self.error(
+                "Invalid formalization of rule set: \
+				function definition is not allowed in the scope of rule set",
+                node.name,
+            )
 
     def visit_IfExpr(self, node):
-        """ rules in form of: if hypos: concl
-        """
+        """rules in form of: if hypos: concl"""
         raise NotImplementedError
 
     def flatten(self, x):
@@ -548,13 +638,18 @@ class RuleParser(NodeVisitor, CompilerMessagePrinter):
             return [x]
 
     def visit_TupleExpr(self, node):
-        """ rules of form: p1, if_(p2,...)
+        """rules of form: p1, if_(p2,...)
         conclusion must be of from p(a1,...)
         conditions must start with if_
         """
-        if len(node.subexprs) != 2 or \
-           not isinstance(node.subexprs[0], dast.CallExpr) or \
-           not (isinstance(node.subexprs[1], dast.CallExpr) and node.subexprs[1].func.name == KW_COND):
+        if (
+            len(node.subexprs) != 2
+            or not isinstance(node.subexprs[0], dast.CallExpr)
+            or not (
+                isinstance(node.subexprs[1], dast.CallExpr)
+                and node.subexprs[1].func.name == KW_COND
+            )
+        ):
             # self.error('ERROR: invalid formalization of rules', node)
             # return
 
@@ -569,7 +664,10 @@ class RuleParser(NodeVisitor, CompilerMessagePrinter):
     def visit_CallExpr(self, node):
         if node.func.name == KW_COND:
             return [self.visit(a) for a in node.args]
-        return ruleast.Assertion(self.current_rule.add_name(node.func.name), [x for a in node.args for x in self.flatten(self.visit(a))])
+        return ruleast.Assertion(
+            self.current_rule.add_name(node.func.name),
+            [x for a in node.args for x in self.flatten(self.visit(a))],
+        )
 
     def visit_BinaryExpr(self, node):
         node.left = self.visit(node.left)
@@ -613,18 +711,26 @@ OperatorMap = {
 class XSBTranslator(NodeVisitor):
 
     def visit_RuleSet(self, node):
-        return ':- auto_table.\n'+'\n'.join(self.visit(rule) for rule in node.rules)
+        return ':- auto_table.\n' + '\n'.join(self.visit(rule) for rule in node.rules)
 
     def visit_Rule(self, node):
         if node.hypos == None:
             return self.visit(node.concl) + '.'
-        return self.visit(node.concl) + ' :- ' + \
-            ','.join(self.visit(assrtn) for assrtn in node.hypos) + '.'
+        return (
+            self.visit(node.concl)
+            + ' :- '
+            + ','.join(self.visit(assrtn) for assrtn in node.hypos)
+            + '.'
+        )
 
     def visit_Assertion(self, node):
         # print(node.args)
-        assrtn = self.visit(node.pred) + '(' + \
-            ','.join(self.visit(arg) for arg in node.args) + ')'
+        assrtn = (
+            self.visit(node.pred)
+            + '('
+            + ','.join(self.visit(arg) for arg in node.args)
+            + ')'
+        )
         if hasattr(node, 'negation') and node.negation:
             return 'tnot(%s)' % assrtn
         return assrtn
@@ -645,7 +751,9 @@ class XSBTranslator(NodeVisitor):
         # possible transforming as follow:
         # a binary expr: a+b need to be translate to Tmp = a+b,
         # and put this statement in the hypo and replace the original a+b with Tmp
-        return self.visit(node.left) + OperatorMap[node.operator] + self.visit(node.right)
+        return (
+            self.visit(node.left) + OperatorMap[node.operator] + self.visit(node.right)
+        )
 
 
 def sort_rulesets(a, b):
@@ -670,7 +778,7 @@ class ParserSecondPass(NodeTransformer, CompilerMessagePrinter):
         # 						 _parent=self)
 
     def generic_visit(self, node):
-        """ override generic_visit function, 
+        """override generic_visit function,
         to avoid repeately visiting a node when new nodes are added before it
         the other parts are copied from Python ast.generic_visit source code
         """
@@ -738,8 +846,7 @@ class ParserSecondPass(NodeTransformer, CompilerMessagePrinter):
         return expr
 
     def gen_set_flag(self, flag_var, val):
-        """ generate the assignment statement that set the flag to val(True/False)
-        """
+        """generate the assignment statement that set the flag to val(True/False)"""
         assignstmt = self.create_expr(dast.AssignmentStmt)
         assignstmt.targets = [flag_var]
         boolvar = dast.TrueExpr if val else dast.FalseExpr
@@ -747,7 +854,7 @@ class ParserSecondPass(NodeTransformer, CompilerMessagePrinter):
         return assignstmt
 
     def gen_infer_at_use(self, d, rs):
-        """ generate infer before the use of variable d with ruleset rs. 
+        """generate infer before the use of variable d with ruleset rs.
         1. test d's update flag before generation
         2. recusively call gen_infer_at_use on bounded base predicate of ruleset rs before infering d
         3. set d's update flag to false
@@ -775,25 +882,30 @@ class ParserSecondPass(NodeTransformer, CompilerMessagePrinter):
         return rulecall
 
     def insert_at_any_body_at_stmt(self, stmt, inserts, before=False):
-        """ insert before/after stmt
-        """
+        """insert before/after stmt"""
         for body in ['body', 'elsebody', 'finalbody']:
             if not hasattr(stmt.parent, body):
                 continue
             for i, b in enumerate(getattr(stmt.parent, body)):
                 if b is stmt:
                     for j, ins in enumerate(inserts):
-                        getattr(stmt.parent, body).insert(i+j+(0 if before else 1), ins)
+                        getattr(stmt.parent, body).insert(
+                            i + j + (0 if before else 1), ins
+                        )
                     return
 
     def add_implicit_infer(self, node):
-        """ add implicit function call of infer to Scope: node
+        """add implicit function call of infer to Scope: node
         add infer before the use of derived predicates
         """
         if hasattr(node, 'rulesets'):
-            override_dict = dict()  # key: function_name, val: tuple: (function, (dict key: stmt, val: set of ruleset))
-            setup_init = set()		# set of ruleset
-            for rs in sorted(node.rulesets.values(), key=cmp_to_key(sort_rulesets)):  # iterate through rulesets
+            override_dict = (
+                dict()
+            )  # key: function_name, val: tuple: (function, (dict key: stmt, val: set of ruleset))
+            setup_init = set()  # set of ruleset
+            for rs in sorted(
+                node.rulesets.values(), key=cmp_to_key(sort_rulesets)
+            ):  # iterate through rulesets
                 # only generate infer when all the base predicates are bounded and some derived predicates are bounded
                 if rs.unbounded_base or not rs.bounded_derived:
                     continue
@@ -801,13 +913,17 @@ class ParserSecondPass(NodeTransformer, CompilerMessagePrinter):
                 # add infer calls when derived predicates are used (ReadCtx)
                 processed = set()
                 for d in rs.bounded_derived:
-                    for (ctx, (loc, _)) in d._indexes:
-                        stmt = loc.statement if isinstance(loc, dast.Expression) else loc
+                    for ctx, (loc, _) in d._indexes:
+                        stmt = (
+                            loc.statement if isinstance(loc, dast.Expression) else loc
+                        )
                         if stmt in processed:
                             continue
                         if ctx is dast.ReadCtx:
                             processed.add(stmt)
-                            self.insert_at_any_body_at_stmt(stmt, [self.gen_infer_at_use(d, rs)], True)
+                            self.insert_at_any_body_at_stmt(
+                                stmt, [self.gen_infer_at_use(d, rs)], True
+                            )
                         elif ctx is dast.AssignmentCtx:
                             # set update flag after assignment ctx.
                             # TODO: add error check if explicit assignment happens after initialization
@@ -818,11 +934,16 @@ class ParserSecondPass(NodeTransformer, CompilerMessagePrinter):
                 for b in rs.bounded_base:
                     if not hasattr(b, 'trigger_infer') or rs not in b.trigger_infer:
                         continue
-                    for (ctx, (loc, _)) in b._indexes:
+                    for ctx, (loc, _) in b._indexes:
                         if not (ctx is dast.AssignmentCtx or ctx is dast.UpdateCtx):
                             continue
-                        stmt = loc.statement if isinstance(loc, dast.Expression) else loc
-                        flagstmts = [self.gen_set_flag(d.flag_var, True) for d in rs.bounded_derived]
+                        stmt = (
+                            loc.statement if isinstance(loc, dast.Expression) else loc
+                        )
+                        flagstmts = [
+                            self.gen_set_flag(d.flag_var, True)
+                            for d in rs.bounded_derived
+                        ]
                         self.insert_at_any_body_at_stmt(stmt, flagstmts)
 
     def find_rules_func(self, name):
@@ -852,7 +973,10 @@ class ParserSecondPass(NodeTransformer, CompilerMessagePrinter):
                 if whereinfer or not scope.parent_scope:
                     break
                 scope = scope.parent_scope
-            if not (isinstance(whereinfer, dast.ImportFromStmt) and whereinfer.module == 'da.rules.infer'):
+            if not (
+                isinstance(whereinfer, dast.ImportFromStmt)
+                and whereinfer.module == 'da.rules.infer'
+            ):
                 return self.generic_visit(node)
             rule_name = None
             user_binding = None
@@ -864,14 +988,14 @@ class ParserSecondPass(NodeTransformer, CompilerMessagePrinter):
                         # When the rules are defined with the def rules syntax
                         # 	the rule name refereed by infer function should be re-discovered
                         # 	and change to the updated NamedVar
-                        if (isinstance(val, dast.NameExpr)):
+                        if isinstance(val, dast.NameExpr):
                             new_val = scope.find_name(val.name)
                             val.value = new_val
                             rule_var = val
-                        elif (isinstance(val, dast.ConstantExpr)):
+                        elif isinstance(val, dast.ConstantExpr):
                             new_val = scope.find_name(val.value)
                             rule_var = self.create_expr(dast.NameExpr, value=new_val)
-                        elif (isinstance(val, dast.AttributeExpr)):
+                        elif isinstance(val, dast.AttributeExpr):
                             rule_var = val
                         else:
                             raise Exception("Unsupported node type" + type(val))
@@ -880,7 +1004,9 @@ class ParserSecondPass(NodeTransformer, CompilerMessagePrinter):
                     elif key == 'queries':
                         user_query = val
                     else:
-                        self.warn('Invalid argument %s in call of infer, ignored' % key, node)
+                        self.warn(
+                            'Invalid argument %s in call of infer, ignored' % key, node
+                        )
             if not rule_var:
                 self.error('Infer function requires keyword argument: rules', node)
             rulecall = self.gen_rule_func_call(rule_var, user_binding, user_query)
@@ -888,26 +1014,26 @@ class ParserSecondPass(NodeTransformer, CompilerMessagePrinter):
         else:
             return self.generic_visit(node)
 
-#################### infer at update: not used any more ####################
+    #################### infer at update: not used any more ####################
     def add_infer_direct(self, ruleset, stmt):
-        """ add call of infer directly after stmt
-        """
+        """add call of infer directly after stmt"""
         parent = stmt.parent
         assert isinstance(parent, dast.NameScope)
-        if (isinstance(parent.parent, dast.Process) and parent.name == "setup") or \
-           (isinstance(parent.parent, dast.ClassStmt) and parent.name == "__init__"):
+        if (isinstance(parent.parent, dast.Process) and parent.name == "setup") or (
+            isinstance(parent.parent, dast.ClassStmt) and parent.name == "__init__"
+        ):
             return parent.name
 
         inferstmt = self.gen_assignInfer(ruleset)
         for i, ele in enumerate(parent.body):
             if ele is stmt:  # and ruleset.all_initialized_by(ele):
-                parent.body.insert(i+1, inferstmt)
+                parent.body.insert(i + 1, inferstmt)
 
     def gen_infer_simplified(self, node, func_name=None, rulesets=None):
-        """ simplified processing of infer 
-        for functions that already exist in scope, 
+        """simplified processing of infer
+        for functions that already exist in scope,
                 add all infers at the end of the function
-        for functions that need to overridden, 
+        for functions that need to overridden,
                 generate functions whose bodies are of the following form:
                         super().func_name(...)
                         infer(...)
@@ -953,8 +1079,7 @@ class ParserSecondPass(NodeTransformer, CompilerMessagePrinter):
                 func.body.append(inferstmt)
 
     def gen_super_call(self, func_name, setupargs=None):
-        """ generate the statement of calling super().func(...)
-        """
+        """generate the statement of calling super().func(...)"""
         basefunc = func_name.parent
         call = self.create_expr(dast.CallExpr)
         spfunc = self.create_expr(dast.AttributeExpr)
@@ -984,8 +1109,12 @@ class ParserSecondPass(NodeTransformer, CompilerMessagePrinter):
         # key: func_name, val: (container_function, stmt, rs)
         for func_name, val in func_dict.items():
             # override setup/init function:
-            if isinstance(node, dast.Process) and func_name == "setup" or \
-               isinstance(node, dast.ClassStmt) and func_name == "__init__":
+            if (
+                isinstance(node, dast.Process)
+                and func_name == "setup"
+                or isinstance(node, dast.ClassStmt)
+                and func_name == "__init__"
+            ):
                 rls = set.union(*[rs for _, rs in val.items()])
                 self.gen_infer_simplified(node, func_name, rls)
                 continue
@@ -998,7 +1127,9 @@ class ParserSecondPass(NodeTransformer, CompilerMessagePrinter):
                 continue
 
             # override regular function
-            position_dict = dict()  # key: index of statement, val: list of infer functions
+            position_dict = (
+                dict()
+            )  # key: index of statement, val: list of infer functions
             for func, stmt, ruleset in val:
                 for i, ele in enumerate(func.body):
                     if ele is stmt:
@@ -1021,23 +1152,27 @@ class ParserSecondPass(NodeTransformer, CompilerMessagePrinter):
                 node.body.append(newfunc)
 
     def add_implicit_infer_at_update(self, node):
-        """ add implicit function call of infer to Scope: node
+        """add implicit function call of infer to Scope: node
         add infer after each update to base predicate
         not used any more
         """
         if hasattr(node, 'rulesets'):
-            override_dict = dict()  # key: function_name, val: tuple: (function, (dict key: stmt, val: set of ruleset))
-            setup_init = set()		# set of ruleset
+            override_dict = (
+                dict()
+            )  # key: function_name, val: tuple: (function, (dict key: stmt, val: set of ruleset))
+            setup_init = set()  # set of ruleset
             for _, rs in node.rulesets.items():  # iterate through rulesets
-                for v in rs.bounded_base:		# iterate through all bounded base predciates
+                for v in rs.bounded_base:  # iterate through all bounded base predciates
                     if not hasattr(v, 'trigger_infer') or rs not in v.trigger_infer:
                         continue
-                    for (ctx, (loc, _)) in v._indexes:  # iterate through the index
+                    for ctx, (loc, _) in v._indexes:  # iterate through the index
                         # find the assignments/updates
                         if not (ctx is dast.AssignmentCtx or ctx is dast.UpdateCtx):
                             continue
                         # find the statement containing the assignments/updates
-                        stmt = loc.statement if isinstance(loc, dast.Expression) else loc
+                        stmt = (
+                            loc.statement if isinstance(loc, dast.Expression) else loc
+                        )
 
                         # case 1: the rule is defined in Program/Function, kind of globally
                         if isinstance(node, (dast.Program, dast.Function)):
@@ -1051,7 +1186,9 @@ class ParserSecondPass(NodeTransformer, CompilerMessagePrinter):
                             # check if the statement appears at current scope
                             while scope and scope is not node:
                                 # get the function containing the statement
-                                if not container_function and isinstance(scope, dast.Function):
+                                if not container_function and isinstance(
+                                    scope, dast.Function
+                                ):
                                     container_function = scope
                                 scope = scope.parent
 
@@ -1064,7 +1201,9 @@ class ParserSecondPass(NodeTransformer, CompilerMessagePrinter):
                                     override_dict[container_function.name] = set()
                                 # if stmt not in override_dict[container_function.name]:
                                 # 	override_dict[container_function.name][stmt] = set()
-                                override_dict[container_function.name].add((container_function, stmt, rs))
+                                override_dict[container_function.name].add(
+                                    (container_function, stmt, rs)
+                                )
                             else:
                                 # the function is in current class, directly add call of infer after stmt
                                 if self.add_infer_direct(rs, stmt):

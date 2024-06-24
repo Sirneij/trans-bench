@@ -1,32 +1,43 @@
-from da.compiler.utils import CompilerMessagePrinter, MalformedStatementError, set_debug_level, get_debug_level
-from da.compiler import dast
-from argparse import Namespace
-from da.compiler.parser import Parser as daParser
-from ast import *
-from . import constraint_ast as cast
-from .translate_minizinc import Translator
-import sys
 import os
+import sys
+from argparse import Namespace
+from ast import *
 from pprint import pprint
-from .csp_io import write_file, clear_cache
 
+from da.compiler import dast
+from da.compiler.parser import Parser as daParser
+from da.compiler.utils import (
+    CompilerMessagePrinter,
+    MalformedStatementError,
+    get_debug_level,
+    set_debug_level,
+)
+
+from . import constraint_ast as cast
+from .csp_io import clear_cache, write_file
+from .translate_minizinc import Translator
 
 KW_CONSTRAINT = "csp_"
 KW_QUERY = "_query"
 
 
-def cast_from_daast(daast, filename='<str>', options=None):  # , _package=None, _parent=None):
+def cast_from_daast(
+    daast, filename='<str>', options=None
+):  # , _package=None, _parent=None):
     try:
         cp = Parser(filename, None)
         cspast = cp.visit(daast)
-        sys.stderr.write("%s Constraints compiled with %d errors and %d warnings.\n" %
-                         (filename, cp.errcnt, cp.warncnt))
+        sys.stderr.write(
+            "%s Constraints compiled with %d errors and %d warnings.\n"
+            % (filename, cp.errcnt, cp.warncnt)
+        )
 
         if cp.errcnt == 0:
             return cspast
     except SyntaxError as e:
-        sys.stderr.write("%s:%d:%d: SyntaxError: %s" % (e.filename, e.lineno,
-                                                        e.offset, e.text))
+        sys.stderr.write(
+            "%s:%d:%d: SyntaxError: %s" % (e.filename, e.lineno, e.offset, e.text)
+        )
     return None
 
 
@@ -76,8 +87,7 @@ class Parser(NodeTransformer, CompilerMessagePrinter):
         return expr
 
     def visit_Function(self, node):
-        """ replace the definition of function cons_xxx to a function the can be called with parameters
-        """
+        """replace the definition of function cons_xxx to a function the can be called with parameters"""
         if node.name.startswith(KW_CONSTRAINT):
             csparser = CSPParser(self.filename, self)
             cspAST = csparser.visit(node)
@@ -116,10 +126,17 @@ else:\n
             node.body = []
             self.push_state(node)
             src = func_template.format(
-                KW_QUERY=KW_QUERY, RuleTarget=tarfile, KWARGS=', '.join(['%s=%s' % (a.name, a.name) for a in node.args.args]),
+                KW_QUERY=KW_QUERY,
+                RuleTarget=tarfile,
+                KWARGS=', '.join(['%s=%s' % (a.name, a.name) for a in node.args.args]),
                 ReturnVars=', '.join(["'%s'" % v for v in cspAST.objective.variables]),
-                OBJNAME=None
-                if not cspAST.objective.objective or not isinstance(cspAST.objective.objective.obj, str) else "'%s'" % cspAST.objective.objective.obj)
+                OBJNAME=(
+                    None
+                    if not cspAST.objective.objective
+                    or not isinstance(cspAST.objective.objective.obj, str)
+                    else "'%s'" % cspAST.objective.objective.obj
+                ),
+            )
 
             template_body = daast_from_str(src)
             node.body = template_body
@@ -209,7 +226,7 @@ else:\n
     visit_Process = visit_Scope
 
     def visit_SubscriptExpr(self, node):
-        """ int[lb:ub:step] := set(range(lb, ub+1, step))
+        """int[lb:ub:step] := set(range(lb, ub+1, step))
         do not support the following
                 int[:ub] := <= ub
                 int[lb:] := >= lb
@@ -222,24 +239,43 @@ else:\n
         if t == 'int' and isinstance(node.index, dast.SliceExpr):
             # range(lb, ub+1, step)
             expr = self.create_expr(dast.CallExpr)
-            expr.func = self.create_expr(dast.NameExpr, value=self.current_scope.find_name('range'))
-            lower = node.index.lower if isinstance(node.index.lower, dast.Expression) else \
-                self.create_expr(dast.ConstantExpr, value=self.visit(node.index.lower))
-            upper = node.index.upper if isinstance(node.index.upper, dast.Expression) else \
-                self.create_expr(dast.ConstantExpr, value=self.visit(node.index.upper))
+            expr.func = self.create_expr(
+                dast.NameExpr, value=self.current_scope.find_name('range')
+            )
+            lower = (
+                node.index.lower
+                if isinstance(node.index.lower, dast.Expression)
+                else self.create_expr(
+                    dast.ConstantExpr, value=self.visit(node.index.lower)
+                )
+            )
+            upper = (
+                node.index.upper
+                if isinstance(node.index.upper, dast.Expression)
+                else self.create_expr(
+                    dast.ConstantExpr, value=self.visit(node.index.upper)
+                )
+            )
             upper1 = self.create_expr(dast.BinaryExpr)
             upper1.left = upper
             upper1.right = self.create_expr(dast.ConstantExpr, value=1)
             upper1.operator = dast.AddOp
             expr.args = [lower, upper1]
             if node.index.step:
-                step = node.index.step if isinstance(node.index.step, dast.Expression) else \
-                    self.create_expr(dast.ConstantExpr, value=self.visit(node.index.step))
+                step = (
+                    node.index.step
+                    if isinstance(node.index.step, dast.Expression)
+                    else self.create_expr(
+                        dast.ConstantExpr, value=self.visit(node.index.step)
+                    )
+                )
                 expr.args.append(step)
             expr.keywords = []
             # set(...)
             setexpr = self.create_expr(dast.CallExpr)
-            setexpr.func = self.create_expr(dast.NameExpr, value=self.current_scope.find_name('set'))
+            setexpr.func = self.create_expr(
+                dast.NameExpr, value=self.current_scope.find_name('set')
+            )
             setexpr.args = [expr]
             setexpr.keywords = []
             return setexpr
@@ -282,8 +318,10 @@ class CSPParser(NodeVisitor, CompilerMessagePrinter):
             for n in self.current_constraint.variables:
                 if n in self.func_pars:
                     self.current_constraint.variables[n].domain.parameter = True
-                elif self.current_constraint.variables[n].value and \
-                        all(n in self.func_pars for n in self.current_constraint.variables[n].value.names & all_vars):
+                elif self.current_constraint.variables[n].value and all(
+                    n in self.func_pars
+                    for n in self.current_constraint.variables[n].value.names & all_vars
+                ):
                     self.current_constraint.variables[n].domain.parameter = True
                 else:
                     self.current_constraint.variables[n].domain.parameter = False
@@ -293,21 +331,34 @@ class CSPParser(NodeVisitor, CompilerMessagePrinter):
             # constraints in forms of function
             # if node.args:
             # 	print(node.args)
-            self.current_constraint.constraints[node.name] = cast.Constraint(node.name, [b.expr for b in node.body])
+            self.current_constraint.constraints[node.name] = cast.Constraint(
+                node.name, [b.expr for b in node.body]
+            )
 
     def visit_AssignmentStmt(self, node):
         t = node.targets[0]
         if not isinstance(t, dast.NameExpr):
-            self.error("Invalid assignment expression target. Only variables are allowed", node)
+            self.error(
+                "Invalid assignment expression target. Only variables are allowed", node
+            )
         for stmt, typectx in t.value.assignments:
             if stmt is node:
-                if isinstance(typectx, dast.BooleanExpr) or isinstance(typectx, dast.CallExpr):
+                if isinstance(typectx, dast.BooleanExpr) or isinstance(
+                    typectx, dast.CallExpr
+                ):
                     if len(node.targets) != 1:
-                        self.error("SyntaxError: contraint can only be assigned to one target", node)
-                    self.current_constraint.constraints[t.name] = cast.Constraint(t.name, [node.value])
+                        self.error(
+                            "SyntaxError: contraint can only be assigned to one target",
+                            node,
+                        )
+                    self.current_constraint.constraints[t.name] = cast.Constraint(
+                        t.name, [node.value]
+                    )
                 else:
                     domain = self.domainParser.visit(typectx)
-                    self.current_constraint.variables[t.name] = cast.Variable(t.name, domain, node.value)
+                    self.current_constraint.variables[t.name] = cast.Variable(
+                        t.name, domain, node.value
+                    )
                 break
 
     def visit_ReturnStmt(self, node):
@@ -326,7 +377,10 @@ class CSPParser(NodeVisitor, CompilerMessagePrinter):
         # the first arguemnt of target are the target variables
         var = args[0]
         if isinstance(var, dast.TupleExpr):
-            variables = [v.subexprs[0].name if isinstance(v, dast.NameExpr) else v for v in var.subexprs]
+            variables = [
+                v.subexprs[0].name if isinstance(v, dast.NameExpr) else v
+                for v in var.subexprs
+            ]
         else:
             if isinstance(var, dast.NameExpr):
                 variables = [var.subexprs[0].name]
@@ -347,13 +401,17 @@ class CSPParser(NodeVisitor, CompilerMessagePrinter):
             elif isinstance(c, dast.CallExpr):
                 # ['func', 'args', 'keywords', 'starargs', 'kwargs']
                 funcName = c.func.name
-                if funcName == 'to_min' or funcName == 'to_max':  # the optimization goal
+                if (
+                    funcName == 'to_min' or funcName == 'to_max'
+                ):  # the optimization goal
                     if funcName == 'to_min':
                         op = 'min'
                     else:
                         op = 'max'
                     if len(c.args) != 1:
-                        self.error("line %s: wrong number of argument. expect 1." % node.lineno)
+                        self.error(
+                            "line %s: wrong number of argument. expect 1." % node.lineno
+                        )
                         return None
                     objexpr = c.args[0]
                     if isinstance(objexpr, dast.NameExpr):
@@ -362,7 +420,9 @@ class CSPParser(NodeVisitor, CompilerMessagePrinter):
                         obj = objexpr
                     objective = cast.Objective(op, obj)
                 else:
-                    constraints.append(c)  # global constraint or other self defined constraint
+                    constraints.append(
+                        c
+                    )  # global constraint or other self defined constraint
             elif isinstance(c, dast.BooleanExpr):  # boolean constraint
                 constraints.append(c)
             else:
@@ -377,7 +437,9 @@ class CSPParser(NodeVisitor, CompilerMessagePrinter):
         for c in delset:
             del self.current_constraint.constraints[c]
 
-        self.current_constraint.objective = cast.Target(variables, constraints, objective, allFlag)
+        self.current_constraint.objective = cast.Target(
+            variables, constraints, objective, allFlag
+        )
 
 
 # DomainBasic: int, float, str, bool
@@ -449,7 +511,9 @@ class DomainParser(NodeVisitor, CompilerMessagePrinter):
         if t == 'int' or t == 'float':
             try:
                 assert isinstance(node.index, dast.SliceExpr)
-                return cast.DomainBasic(t, node.index.lower, node.index.upper, node.index.step)
+                return cast.DomainBasic(
+                    t, node.index.lower, node.index.upper, node.index.step
+                )
             except ValueError as e:
                 self.error(e, node)
             except AssertionError as e:
@@ -461,13 +525,19 @@ class DomainParser(NodeVisitor, CompilerMessagePrinter):
             domain = self.visit(node.index)
             if isinstance(domain, cast.DomainTuple):
                 if len(domain.elements) != 2:
-                    self.error("Malformed domain declaration: dict domain has exactly 2 components", node)
+                    self.error(
+                        "Malformed domain declaration: dict domain has exactly 2 components",
+                        node,
+                    )
                 return cast.DomainMap(domain.elements[0], domain.elements[1])
             elif isinstance(domain, dict):
                 try:
                     return cast.DomainMap(domain['key'], domain['val'])
                 except:
-                    self.error("Malformed domain declaration: dict domain contains only 'key' and 'val' components", node)
+                    self.error(
+                        "Malformed domain declaration: dict domain contains only 'key' and 'val' components",
+                        node,
+                    )
             else:
                 self.error("Malformed domain declaration: dict", node)
 

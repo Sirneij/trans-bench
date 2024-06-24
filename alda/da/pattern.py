@@ -1,8 +1,8 @@
 from .freeze import deepfreeze
 
+
 class PatternElement:
-    """Tree structure representing a message pattern.
-    """
+    """Tree structure representing a message pattern."""
 
     def __init__(self, value):
         self.value = value
@@ -37,8 +37,7 @@ class PatternElement:
                         seen.add(True)
                         yield True
 
-    def match(self, message, bindings=None,
-              ignore_bound_vars=False, **context):
+    def match(self, message, bindings=None, ignore_bound_vars=False, **context):
         return False
 
     def match_iter(self, iterable, **context):
@@ -54,28 +53,30 @@ class PatternElement:
     def __repr__(self):
         return str(self)
 
+
 class ConstantPattern(PatternElement):
-    def match(self, message, bindings=None,
-              ignore_bound_vars=False, **context):
+    def match(self, message, bindings=None, ignore_bound_vars=False, **context):
         return self.value == message
 
     def __str__(self):
         return "=" + repr(self.value)
 
+
 class SelfPattern(ConstantPattern):
     def __init__(self):
         super().__init__(None)
 
-    def match(self, message, bindings=None,
-              ignore_bound_vars=False, SELF_ID=None, **context):
+    def match(
+        self, message, bindings=None, ignore_bound_vars=False, SELF_ID=None, **context
+    ):
         return message == SELF_ID
 
     def __str__(self):
         return "=SELF"
 
+
 class BoundPattern(PatternElement):
-    def match(self, message, bindings=None,
-              ignore_bound_vars=False, **context):
+    def match(self, message, bindings=None, ignore_bound_vars=False, **context):
         if ignore_bound_vars:
             return True
         try:
@@ -86,9 +87,9 @@ class BoundPattern(PatternElement):
     def __str__(self):
         return "=" + self.value
 
+
 class FreePattern(PatternElement):
-    def match(self, message, bindings=None,
-              ignore_bound_vars=False, **context):
+    def match(self, message, bindings=None, ignore_bound_vars=False, **context):
         if bindings is None:
             bindings = dict()
         if self.value is not None:
@@ -105,13 +106,12 @@ class FreePattern(PatternElement):
         else:
             return self.value
 
+
 class TuplePattern(PatternElement):
-    def match(self, message, bindings=None,
-              ignore_bound_vars=False, **context):
+    def match(self, message, bindings=None, ignore_bound_vars=False, **context):
         if bindings is None:
             bindings = dict()
-        if (type(message) is not tuple or
-            len(message) != len(self.value)):
+        if type(message) is not tuple or len(message) != len(self.value):
             return False
         # Fall through
         for pat, mem in zip(self.value, message):
@@ -122,13 +122,12 @@ class TuplePattern(PatternElement):
     def __str__(self):
         return "(" + ",".join([str(p) for p in self.value]) + ")"
 
+
 class ListPattern(PatternElement):
-    def match(self, message, bindings=None,
-              ignore_bound_vars=False, **context):
+    def match(self, message, bindings=None, ignore_bound_vars=False, **context):
         if bindings is None:
             bindings = dict()
-        if (type(message) is not list or
-            len(message) != len(self.value)):
+        if type(message) is not list or len(message) != len(self.value):
             return False
         # Fall through
         for pat, mem in zip(self.value, message):
@@ -141,46 +140,68 @@ class ListPattern(PatternElement):
 
 
 class Event:
-    """ Describes a single event.
+    """Describes a single event.
 
     Instances of Event are created by the backend thread and passed to the
     front end.
     """
+
     def __init__(self, envelope, message):
         (self.timestamp, self.destination, self.source) = envelope
         self.message = message
 
     def to_tuple(self):
         """Generates a tuple representation for this event."""
-        return (type(self),
-                (self.timestamp, self.destination, self.source),
-                deepfreeze(self.message))
+        return (
+            type(self),
+            (self.timestamp, self.destination, self.source),
+            deepfreeze(self.message),
+        )
 
     def __str__(self):
-        buf = ["<", type(self).__name__,
-               " time:", str(self.timestamp),
-               " to:", repr(self.destination),
-               " from:", repr(self.source),
-               " msg:", repr(self.message),
-               ">"]
+        buf = [
+            "<",
+            type(self).__name__,
+            " time:",
+            str(self.timestamp),
+            " to:",
+            repr(self.destination),
+            " from:",
+            repr(self.source),
+            " msg:",
+            repr(self.message),
+            ">",
+        ]
         return "".join(buf)
 
     def __repr__(self):
         return str(self)
 
 
-class ReceivedEvent(Event): pass
-class SentEvent(Event): pass
+class ReceivedEvent(Event):
+    pass
+
+
+class SentEvent(Event):
+    pass
 
 
 class EventPattern:
-    """ Describes an event "pattern" that can be used to match against Event
+    """Describes an event "pattern" that can be used to match against Event
     instances.
     """
 
-    def __init__(self, eventtype, name, pattern,
-                 sources=None, destinations=None, timestamps=None,
-                 record_history=False, handlers=[]):
+    def __init__(
+        self,
+        eventtype,
+        name,
+        pattern,
+        sources=None,
+        destinations=None,
+        timestamps=None,
+        record_history=False,
+        handlers=[],
+    ):
         self.eventtype = eventtype
         self.name = name
         self.pattern = pattern
@@ -199,8 +220,7 @@ class EventPattern:
                 else:
                     yield True
 
-    def match(self, event, bindings=None,
-              ignore_bound_vars=False, **context):
+    def match(self, event, bindings=None, ignore_bound_vars=False, **context):
         if isinstance(event, tuple):
             event = event[0](*event[1:])
         if type(event) is not self.eventtype:
@@ -210,51 +230,47 @@ class EventPattern:
 
         if self.sources is not None:
             for pat in self.sources:
-                if pat.match(event.source, bindings,
-                             ignore_bound_vars, **context):
+                if pat.match(event.source, bindings, ignore_bound_vars, **context):
                     break
             else:
                 return False
 
         if self.destinations is not None:
             for pat in self.destinations:
-                if pat.match(event.destination, bindings,
-                             ignore_bound_vars, **context):
+                if pat.match(event.destination, bindings, ignore_bound_vars, **context):
                     break
             else:
                 return False
 
         if self.timestamps is not None:
             for pat in self.timestamps:
-                if pat.match(event.timestamp, bindings,
-                             ignore_bound_vars, **context):
+                if pat.match(event.timestamp, bindings, ignore_bound_vars, **context):
                     break
             else:
                 return False
 
-        if (self.pattern is not None and
-                not self.pattern.match(event.message, bindings,
-                                       ignore_bound_vars, **context)):
+        if self.pattern is not None and not self.pattern.match(
+            event.message, bindings, ignore_bound_vars, **context
+        ):
             return False
         else:
             return True
 
     def __str__(self):
-        buf = ["<", self.eventtype.__name__,
-               " name:", self.name,
-               " msg:", str(self.pattern)]
+        buf = [
+            "<",
+            self.eventtype.__name__,
+            " name:",
+            self.name,
+            " msg:",
+            str(self.pattern),
+        ]
         if self.sources is not None:
-            buf.extend([" from:{",
-                        ",".join([str(s) for s in self.sources]),
-                        "}"])
+            buf.extend([" from:{", ",".join([str(s) for s in self.sources]), "}"])
         if self.destinations is not None:
-            buf.extend([" to:{",
-                        ",".join([str(s) for s in self.destinations]),
-                        "}"])
+            buf.extend([" to:{", ",".join([str(s) for s in self.destinations]), "}"])
         if self.timestamps is not None:
-            buf.extend([" time:{",
-                        ",".join([str(s) for s in self.timestamps]),
-                        "}"])
+            buf.extend([" time:{", ",".join([str(s) for s in self.timestamps]), "}"])
         buf.extend([">"])
         return "".join(buf)
 
@@ -273,14 +289,16 @@ if __name__ == "__main__":
     #           PatternElement(ConstantVar, 5)]
     #          )
     #  ])
-    eventpat = EventPattern(ReceivedEvent,
-                            'ReceivedEvent_1',
-                            TuplePattern([ConstantPattern('Request'),
-                                          FreePattern('reqts')]),
-                            sources=[FreePattern('source')],
-                            destinations=None,
-                            timestamps=None,
-                            record_history=False, handlers=[])
+    eventpat = EventPattern(
+        ReceivedEvent,
+        'ReceivedEvent_1',
+        TuplePattern([ConstantPattern('Request'), FreePattern('reqts')]),
+        sources=[FreePattern('source')],
+        destinations=None,
+        timestamps=None,
+        record_history=False,
+        handlers=[],
+    )
     # evtpat = EventPattern(ReceiveEvent,
     #                       "abc",
     #                       pattern,

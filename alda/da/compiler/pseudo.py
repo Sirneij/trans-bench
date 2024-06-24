@@ -24,72 +24,60 @@
 
 import ast
 import sys
+
 from da.compiler.dast import *
 
-BOOLOP_SYMBOLS = {
-    AndOp:        '∧',
-    OrOp:         '∨',
-    NotOp:        '¬'
-}
+BOOLOP_SYMBOLS = {AndOp: '∧', OrOp: '∨', NotOp: '¬'}
 
-QUANTOP_SYMBOLS = {
-    ExistentialOp:  '∃',
-    UniversalOp:    '∀'
-}
+QUANTOP_SYMBOLS = {ExistentialOp: '∃', UniversalOp: '∀'}
 
 BINOP_SYMBOLS = {
-    AddOp:        '+',
-    SubOp:        '-',
-    MultOp:       '*',
-    DivOp:        '/',
-    FloorDivOp:   '//',
-    ModOp:        '%',
-    LShiftOp:     '<<',
-    RShiftOp:     '>>',
-    BitOrOp:      '|',
-    BitAndOp:     '&',
-    BitXorOp:     '^',
-    PowOp:        '**'
+    AddOp: '+',
+    SubOp: '-',
+    MultOp: '*',
+    DivOp: '/',
+    FloorDivOp: '//',
+    ModOp: '%',
+    LShiftOp: '<<',
+    RShiftOp: '>>',
+    BitOrOp: '|',
+    BitAndOp: '&',
+    BitXorOp: '^',
+    PowOp: '**',
 }
 
 CMPOP_SYMBOLS = {
-    EqOp:         '==',
-    GtOp:         '>',
-    GtEOp:        '>=',
-    InOp:         '∈',
-    IsOp:         'is',
-    IsNotOp:      'is not',
-    LtOp:         '<',
-    LtEOp:        '<=',
-    NotEqOp:      '≠',
-    NotInOp:      '∉'
+    EqOp: '==',
+    GtOp: '>',
+    GtEOp: '>=',
+    InOp: '∈',
+    IsOp: 'is',
+    IsNotOp: 'is not',
+    LtOp: '<',
+    LtEOp: '<=',
+    NotEqOp: '≠',
+    NotInOp: '∉',
 }
 
-UNARYOP_SYMBOLS = {
-    InvertOp:     '~',
-    NotOp:        'not',
-    UAddOp:       '+',
-    USubOp:       '-'
-}
+UNARYOP_SYMBOLS = {InvertOp: '~', NotOp: 'not', UAddOp: '+', USubOp: '-'}
 
-EVENT_TYPES = {
-    ReceivedEvent: 'receive',
-    SentEvent:     'send'
-}
+EVENT_TYPES = {ReceivedEvent: 'receive', SentEvent: 'send'}
 
 # Large float and imaginary literals get turned into infinities in the AST.
 # We unparse those infinities to INFSTR.
 INFSTR = "1e" + repr(sys.float_info.max_10_exp + 1)
 
+
 def to_pseudo(tree):
     import io
+
     textbuf = io.StringIO(newline='')
     DastUnparser(tree, textbuf)
     return textbuf.getvalue()
 
+
 def interleave(inter, f, seq):
-    """Call f on each item in seq, calling inter() in between.
-    """
+    """Call f on each item in seq, calling inter() in between."""
     seq = iter(seq)
     try:
         f(next(seq))
@@ -100,14 +88,15 @@ def interleave(inter, f, seq):
             inter()
             f(x)
 
+
 class DastUnparser:
     """Methods in this class recursively traverse an AST and
     output source code for the abstract syntax; original formatting
-    is disregarded. """
+    is disregarded."""
 
     def __init__(self, tree, file=sys.stdout, indent_width=4):
         """Unparser(tree, file=sys.stdout) -> None.
-         Print the source for tree to file."""
+        Print the source for tree to file."""
         self.f = file
         self.counter = 0
         self._indent = 0
@@ -116,9 +105,9 @@ class DastUnparser:
         print("", file=self.f)
         self.f.flush()
 
-    def fill(self, text = ""):
+    def fill(self, text=""):
         "Indent a piece of text, according to the current indentation level"
-        text = ("\n"+" "*self._indent_width*self._indent + text)
+        text = "\n" + " " * self._indent_width * self._indent + text
         self.f.write(text)
         self.counter += len(text)
 
@@ -149,9 +138,8 @@ class DastUnparser:
             return
         if isinstance(tree, Statement) and tree.label:
             self.label(tree.label)
-        meth = getattr(self, "_"+tree.__class__.__name__)
+        meth = getattr(self, "_" + tree.__class__.__name__)
         meth(tree)
-
 
     ############### Unparsing methods ######################
     # There should be one method per concrete grammar type #
@@ -258,7 +246,6 @@ class DastUnparser:
                     self.leave()
             self.leave()
 
-
     def _Branch(self, t):
         self.dispatch(t.condition)
         self.enter()
@@ -343,21 +330,29 @@ class DastUnparser:
         self.write("(")
         comma = False
         for e in t.bases:
-            if comma: self.write(", ")
-            else: comma = True
+            if comma:
+                self.write(", ")
+            else:
+                comma = True
             self.dispatch(e)
         for e in t.keywords:
-            if comma: self.write(", ")
-            else: comma = True
+            if comma:
+                self.write(", ")
+            else:
+                comma = True
             self.dispatch(e)
         if t.starargs:
-            if comma: self.write(", ")
-            else: comma = True
+            if comma:
+                self.write(", ")
+            else:
+                comma = True
             self.write("*")
             self.dispatch(t.starargs)
         if t.kwargs:
-            if comma: self.write(", ")
-            else: comma = True
+            if comma:
+                self.write(", ")
+            else:
+                comma = True
             self.write("**")
             self.dispatch(t.kwargs)
         self.write(")")
@@ -376,8 +371,10 @@ class DastUnparser:
             self.write(" extends ")
             comma = False
             for e in t.bases:
-                if comma: self.write(", ")
-                else: comma = True
+                if comma:
+                    self.write(", ")
+                else:
+                    comma = True
                 self.dispatch(e)
         self.enter()
         self.label("#PARAMS")
@@ -418,7 +415,7 @@ class DastUnparser:
         for deco in t.decorators:
             self.fill("@")
             self.dispatch(deco)
-        self.fill("def "+t.name + "(")
+        self.fill("def " + t.name + "(")
         self.dispatch(t.args)
         self.write(")")
         self.enter()
@@ -430,8 +427,10 @@ class DastUnparser:
         self.fill("on ")
         first = True
         for evt in t.events:
-            if first: first = False
-            else: self.write(" or ")
+            if first:
+                first = False
+            else:
+                self.write(" or ")
             self.write(EVENT_TYPES[evt.type] + " ")
             self.dispatch(evt)
         if t.labels:
@@ -468,8 +467,7 @@ class DastUnparser:
         self.dispatch(t.body)
         self.leave()
         # collapse nested ifs into equivalent elifs.
-        while (t.elsebody and len(t.elsebody) == 1 and
-               isinstance(t.elsebody[0], IfStmt)):
+        while t.elsebody and len(t.elsebody) == 1 and isinstance(t.elsebody[0], IfStmt):
             t = t.elsebody[0]
             self.fill("elif ")
             self.dispatch(t.condition)
@@ -559,7 +557,7 @@ class DastUnparser:
         self.write(")")
 
     def _SetExpr(self, t):
-        assert(t.subexprs) # should be at least one element
+        assert t.subexprs  # should be at least one element
         self.write("{")
         interleave(lambda: self.write(", "), self.dispatch, t.subexprs)
         self.write("}")
@@ -567,11 +565,13 @@ class DastUnparser:
     def _DictExpr(self, t):
         assert len(t.keys) == len(t.values)
         self.write("{")
+
         def write_pair(pair):
             (k, v) = pair
             self.dispatch(k)
             self.write(": ")
             self.dispatch(v)
+
         interleave(lambda: self.write(", "), write_pair, zip(t.keys, t.values))
         self.write("}")
 
@@ -725,13 +725,12 @@ class DastUnparser:
     def _NameExpr(self, t):
         self.dispatch(t.value)
 
-    def _AttributeExpr(self,t):
+    def _AttributeExpr(self, t):
         self.dispatch(t.value)
         # Special case: 3.__abs__() is a syntax error, so if t.value
         # is an integer literal then we need to either parenthesize
         # it or add an extra space to get 3 .__abs__().
-        if isinstance(t.value, ConstantExpr) and \
-           isinstance(t.value.value, int):
+        if isinstance(t.value, ConstantExpr) and isinstance(t.value.value, int):
             self.write(" ")
         self.write(".")
         self.write(t.attr)
@@ -792,8 +791,10 @@ class DastUnparser:
         # normal arguments
         defaults = [None] * (len(t.args) - len(t.defaults)) + t.defaults
         for a, d in zip(t.args, defaults):
-            if first: first = False
-            else: self.write(", ")
+            if first:
+                first = False
+            else:
+                self.write(", ")
             self.dispatch(a)
             if d:
                 self.write("=")
@@ -801,8 +802,10 @@ class DastUnparser:
 
         # varargs, or bare '*' if no varargs but keyword-only arguments present
         if t.vararg or t.kwonlyargs:
-            if first:first = False
-            else: self.write(", ")
+            if first:
+                first = False
+            else:
+                self.write(", ")
             self.write("*")
             if t.vararg:
                 self.dispatch(t.vararg)
@@ -821,8 +824,10 @@ class DastUnparser:
 
         # kwargs
         if t.kwarg:
-            if first:first = False
-            else: self.write(", ")
+            if first:
+                first = False
+            else:
+                self.write(", ")
             self.write("**")
             self.dispatch(t.kwarg.arg)
 
@@ -859,23 +864,31 @@ class DastUnparser:
     def _callargs(self, t):
         comma = False
         for e in t.args:
-            if comma: self.write(", ")
-            else: comma = True
+            if comma:
+                self.write(", ")
+            else:
+                comma = True
             self.dispatch(e)
         for key, value in t.keywords:
-            if comma: self.write(", ")
-            else: comma = True
+            if comma:
+                self.write(", ")
+            else:
+                comma = True
             self.write(key)
             self.write("=")
             self.dispatch(value)
         if t.starargs:
-            if comma: self.write(", ")
-            else: comma = True
+            if comma:
+                self.write(", ")
+            else:
+                comma = True
             self.write("*")
             self.dispatch(t.starargs)
         if t.kwargs:
-            if comma: self.write(", ")
-            else: comma = True
+            if comma:
+                self.write(", ")
+            else:
+                comma = True
             self.write("**")
             self.dispatch(t.kwargs)
 
@@ -885,8 +898,10 @@ class DastUnparser:
             self.write(" as ")
             self.dispatch(t.optional_vars)
 
+
 if __name__ == '__main__':
     from da.compiler.ui import daast_from_file
     from da.compiler.utils import to_pseudo
+
     ast = daast_from_file("../test/await.da")
     print(to_pseudo(ast))

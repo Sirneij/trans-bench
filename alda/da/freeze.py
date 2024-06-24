@@ -26,6 +26,7 @@ class frozendict(dict):
 
     def _blocked_attribute(obj):
         raise AttributeError("A frozendict cannot be modified.")
+
     _blocked_attribute = property(_blocked_attribute)
 
     __delitem__ = __setitem__ = clear = _blocked_attribute
@@ -54,8 +55,9 @@ class frozendict(dict):
         if not hasattr(self, '_cached_hash'):
             return super().__setitem__(key, val)
         else:
-            raise AttributeError("Attempting to update frozendict after "
-                                 "hash value has been read.")
+            raise AttributeError(
+                "Attempting to update frozendict after " "hash value has been read."
+            )
 
 
 class frozenlist(list):
@@ -67,10 +69,12 @@ class frozenlist(list):
 
     def _blocked_attribute(obj):
         raise AttributeError("A frozenlist cannot be modified.")
+
     _blocked_attribute = property(_blocked_attribute)
 
-    append = extend = insert = remove = sort = clear = pop = reverse = \
-    __iadd__ = __imul__ = __delitem__ = __setitem__ =  _blocked_attribute
+    append = extend = insert = remove = sort = clear = pop = reverse = __iadd__ = (
+        __imul__
+    ) = __delitem__ = __setitem__ = _blocked_attribute
 
     def __new__(cls, *args, **kws):
         new = list.__new__(cls)
@@ -95,8 +99,9 @@ class frozenlist(list):
         if not hasattr(self, '_cached_hash'):
             return super().append(elem)
         else:
-            raise AttributeError("Attempting to modify frozenlist after "
-                                 "hash value has been read.")
+            raise AttributeError(
+                "Attempting to modify frozenlist after " "hash value has been read."
+            )
 
 
 def deepfreeze(x, memo=None, _nil=[]):
@@ -122,7 +127,7 @@ def deepfreeze(x, memo=None, _nil=[]):
     else:
         try:
             issc = issubclass(cls, type)
-        except TypeError: # cls is not a class (old Boost; see SF #502085)
+        except TypeError:  # cls is not a class (old Boost; see SF #502085)
             issc = 0
         if issc:
             y = _deepfreeze_atomic(x, memo)
@@ -143,8 +148,7 @@ def deepfreeze(x, memo=None, _nil=[]):
                         if reductor:
                             rv = reductor()
                         else:
-                            raise Error(
-                                "un(deep)copyable object of type %s" % cls)
+                            raise Error("un(deep)copyable object of type %s" % cls)
                 if isinstance(rv, str):
                     y = x
                 else:
@@ -153,13 +157,17 @@ def deepfreeze(x, memo=None, _nil=[]):
     # If is its own copy, don't memoize.
     if y is not x:
         memo[d] = y
-        _keep_alive(x, memo) # Make sure x lives at least as long as d
+        _keep_alive(x, memo)  # Make sure x lives at least as long as d
     return y
+
 
 _deepfreeze_dispatch = d = {}
 
+
 def _deepfreeze_atomic(x, memo):
     return x
+
+
 d[type(None)] = _deepfreeze_atomic
 d[type(Ellipsis)] = _deepfreeze_atomic
 d[type(NotImplemented)] = _deepfreeze_atomic
@@ -178,6 +186,7 @@ d[types.BuiltinFunctionType] = _deepfreeze_atomic
 d[types.FunctionType] = _deepfreeze_atomic
 d[weakref.ref] = _deepfreeze_atomic
 
+
 def _deepfreeze_set(x, memo, deepfreeze=deepfreeze):
     # A set can not contain itself, so we can freeze its elements before putting
     # the set in the memo:
@@ -186,13 +195,19 @@ def _deepfreeze_set(x, memo, deepfreeze=deepfreeze):
     # might contain a reference to it:
     memo[id(x)] = y
     return y
+
+
 d[set] = _deepfreeze_set
+
 
 def _deepfreeze_bytearray(x, memo, deepfreeze=deepfreeze):
     y = bytes(x)
     memo[id(x)] = y
     return y
+
+
 d[bytearray] = _deepfreeze_bytearray
+
 
 def _deepfreeze_list(x, memo, deepfreeze=deepfreeze):
     y = frozenlist()
@@ -201,7 +216,10 @@ def _deepfreeze_list(x, memo, deepfreeze=deepfreeze):
     for a in x:
         append(deepfreeze(a, memo))
     return y
+
+
 d[list] = _deepfreeze_list
+
 
 def _deepfreeze_tuple(x, memo, deepfreeze=deepfreeze):
     y = [deepfreeze(a, memo) for a in x]
@@ -218,7 +236,10 @@ def _deepfreeze_tuple(x, memo, deepfreeze=deepfreeze):
     else:
         y = x
     return y
+
+
 d[tuple] = _deepfreeze_tuple
+
 
 def _deepfreeze_dict(x, memo, deepfreeze=deepfreeze):
     y = frozendict()
@@ -227,13 +248,19 @@ def _deepfreeze_dict(x, memo, deepfreeze=deepfreeze):
     for key, value in x.items():
         update(deepfreeze(key, memo), deepfreeze(value, memo))
     return y
+
+
 d[dict] = _deepfreeze_dict
 
-def _deepfreeze_method(x, memo): # Copy instance methods
+
+def _deepfreeze_method(x, memo):  # Copy instance methods
     return type(x)(x.__func__, deepfreeze(x.__self__, memo))
+
+
 d[types.MethodType] = _deepfreeze_method
 
 del d
+
 
 def _keep_alive(x, memo):
     """Keeps a reference to the object x in the memo.
@@ -249,11 +276,12 @@ def _keep_alive(x, memo):
         memo[id(memo)].append(x)
     except KeyError:
         # aha, this is the first one :-)
-        memo[id(memo)]=[x]
+        memo[id(memo)] = [x]
 
-def _reconstruct(x, memo, func, args,
-                 state=None, listiter=None, dictiter=None,
-                 deepfreeze=deepfreeze):
+
+def _reconstruct(
+    x, memo, func, args, state=None, listiter=None, dictiter=None, deepfreeze=deepfreeze
+):
     deep = memo is not None
     if deep and args:
         args = (deepfreeze(arg, memo) for arg in args)
@@ -295,5 +323,6 @@ def _reconstruct(x, memo, func, args,
             for key, value in dictiter:
                 y[key] = value
     return y
+
 
 del types, weakref

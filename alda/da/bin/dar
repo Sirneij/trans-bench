@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-import sys
-import runpy
 import os.path as path
+import runpy
+import sys
 
 binpath = sys.path[0]
 rootpath = path.dirname(path.abspath(binpath))

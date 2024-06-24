@@ -1,5 +1,6 @@
-from gen import *
 import sys
+
+from gen import *
 
 # get the system List
 sysList = []
@@ -19,7 +20,7 @@ for i in range(len(sizes)):
     DB = Database("testDB")
     DB.Add_Relations(R)
     DB.Generate()
-    DB.SavePrologGraph(sysList,filenamePrefix+str(sizes[i]))
+    DB.SavePrologGraph(sysList, filenamePrefix + str(sizes[i]))
 
 D = Domain(1, 2000)
 filenamePrefix = "tc_d2000_parsize"
@@ -30,7 +31,7 @@ for i in range(len(sizes)):
     DB = Database("testDB")
     DB.Add_Relations(R)
     DB.Generate()
-    DB.SavePrologGraph(sysList,filenamePrefix+str(sizes[i]))
+    DB.SavePrologGraph(sysList, filenamePrefix + str(sizes[i]))
 
 
 # generate date files for sg
@@ -47,7 +48,9 @@ for i in range(len(sizes1)):
     DB.Add_Relations(R1)
     DB.Add_Relations(R2)
     DB.Generate()
-    DB.SavePrologGraph(sysList,filenamePrefix + str(sizes1[i]) + "_sibsize" + str(sizes2[i]))
+    DB.SavePrologGraph(
+        sysList, filenamePrefix + str(sizes1[i]) + "_sibsize" + str(sizes2[i])
+    )
 
 D = Domain(1, 1000)
 filenamePrefix = "sg_d1000_parsize"
@@ -62,4 +65,6 @@ for i in range(len(sizes1)):
     DB.Add_Relations(R1)
     DB.Add_Relations(R2)
     DB.Generate()
-    DB.SavePrologGraph(sysList,filenamePrefix + str(sizes1[i]) + "_sibsize" + str(sizes2[i]))
+    DB.SavePrologGraph(
+        sysList, filenamePrefix + str(sizes1[i]) + "_sibsize" + str(sizes2[i])
+    )

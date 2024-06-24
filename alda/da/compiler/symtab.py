@@ -23,15 +23,16 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import ast
-import sys
 import importlib.util
+import sys
 
 from . import dast
 from .parser import Parser
-from .utils import ResolverException, CompilerMessagePrinter
+from .utils import CompilerMessagePrinter, ResolverException
 
 # all DistAlgo modules parsed so far:
 modules = dict()
+
 
 class Resolver(CompilerMessagePrinter):
     """Finds definitions for names and attributes."""
@@ -48,8 +49,7 @@ class Resolver(CompilerMessagePrinter):
             real_name = '.' * impstmt.level + impstmt.module
             return importlib.util.resolve_name(real_name, self.package)
         except ValueError as e:
-            raise ResolverException('module name resolution failed', impstmt) \
-                from e
+            raise ResolverException('module name resolution failed', impstmt) from e
 
     def _daast_from_str(self, src, filename, package):
         # a modified version of `parser.daast_from_str` that does not print
@@ -61,13 +61,15 @@ class Resolver(CompilerMessagePrinter):
                 return dt.program
             else:
                 raise ResolverException(
-                    "parsing errors while trying to resolve '{}'".format(package))
+                    "parsing errors while trying to resolve '{}'".format(package)
+                )
         except SyntaxError as e:
-            sys.stderr.write("%s:%d:%d: SyntaxError: %s" % (e.filename, e.lineno,
-                                                            e.offset, e.text))
+            sys.stderr.write(
+                "%s:%d:%d: SyntaxError: %s" % (e.filename, e.lineno, e.offset, e.text)
+            )
             raise ResolverException(
-                "SyntaxError occurred while trying to resolve '{}'"
-                .format(package)) from e
+                "SyntaxError occurred while trying to resolve '{}'".format(package)
+            ) from e
 
     def _get_ast_for_module(self, name):
         """Given a module `name`, return an AST representation of the source."""
@@ -79,11 +81,11 @@ class Resolver(CompilerMessagePrinter):
             spec = importlib.util.find_spec(name)
             if spec is None:
                 raise ResolverException(
-                    "unable to find source file for module '{}'".format(name))
+                    "unable to find source file for module '{}'".format(name)
+                )
             src = spec.loader.get_source(name)
         except Exception as e:
-            raise ResolverException("unable to load module '{}'".format(name)) \
-                from e
+            raise ResolverException("unable to load module '{}'".format(name)) from e
         mod = self._daast_from_str(src, filename=spec.origin, package=name)
         assert isinstance(mod, dast.Program)
         modules[name] = mod
@@ -97,7 +99,8 @@ class Resolver(CompilerMessagePrinter):
             defstmt = name.last_assignment_before(expr)
             if defstmt is None:
                 raise ResolverException(
-                    "unable to find definition for '{}'".format(name.name), expr)
+                    "unable to find definition for '{}'".format(name.name), expr
+                )
             elif isinstance(defstmt, dast.Process):
                 return defstmt
             elif isinstance(defstmt, dast.ImportFromStmt):
@@ -112,17 +115,22 @@ class Resolver(CompilerMessagePrinter):
                     if procdef.name == orig_name:
                         return procdef
                 raise ResolverException(
-                    'unable to find definition for {} in module {}'
-                    .format(orig_name, mod_name), expr)
+                    'unable to find definition for {} in module {}'.format(
+                        orig_name, mod_name
+                    ),
+                    expr,
+                )
             else:
-                raise ResolverException('unsupported definition type {}'
-                                        .format(type(defstmt)), defstmt)
+                raise ResolverException(
+                    'unsupported definition type {}'.format(type(defstmt)), defstmt
+                )
 
         elif isinstance(expr, dast.AttributeExpr):
             defstmt = self._find_definitions_for_attr(expr)
             if not isinstance(defstmt, dast.Process):
                 raise ResolverException(
-                    "unable to resolve '{}' to a process".format(expr.text_repr))
+                    "unable to resolve '{}' to a process".format(expr.text_repr)
+                )
             else:
                 return defstmt
         else:
@@ -136,7 +144,8 @@ class Resolver(CompilerMessagePrinter):
 
             if defstmt is None:
                 raise ResolverException(
-                    "unable to find definition for '{}'".format(name.name), expr)
+                    "unable to find definition for '{}'".format(name.name), expr
+                )
 
             elif isinstance(defstmt, dast.NameScope):
                 return defstmt
@@ -155,8 +164,11 @@ class Resolver(CompilerMessagePrinter):
                         if isinstance(stmt, dast.NameScope):
                             return stmt
                 raise ResolverException(
-                    'unable to find definition for {} in module {}'
-                    .format(orig_name, mod_name), expr)
+                    'unable to find definition for {} in module {}'.format(
+                        orig_name, mod_name
+                    ),
+                    expr,
+                )
 
             elif isinstance(defstmt, dast.ImportStmt):
                 # first check if this name is an alias..
@@ -192,8 +204,9 @@ class Resolver(CompilerMessagePrinter):
                 return (1, candidates)
 
             else:
-                raise ResolverException('unsupported definition type {}'
-                                        .format(type(defstmt)), defstmt)
+                raise ResolverException(
+                    'unsupported definition type {}'.format(type(defstmt)), defstmt
+                )
 
         elif isinstance(expr, dast.AttributeExpr):
             defs = self._find_definitions_for_attr(expr.value)
@@ -204,7 +217,8 @@ class Resolver(CompilerMessagePrinter):
                         if isinstance(stmt, dast.NameScope):
                             return stmt
                 raise ResolverException(
-                    "unable to find definition for '{}'".format(expr.text_repr))
+                    "unable to find definition for '{}'".format(expr.text_repr)
+                )
             elif isinstance(defs, tuple):
                 prefix_len, defs = defs
                 candidates = []
@@ -217,7 +231,7 @@ class Resolver(CompilerMessagePrinter):
                 elif len(candidates) == 1:
                     # only one candidate left, check to see if we have the full
                     # module name:
-                    name =  candidates[0]
+                    name = candidates[0]
                     parts = name.split('.')
                     if len(parts) == prefix_len + 1:
                         # we have full module name, so load it:
@@ -227,10 +241,9 @@ class Resolver(CompilerMessagePrinter):
                         return (prefix_len + 1, candidates)
                 else:
                     raise ResolverException(
-                        "unable to find definition for '{}'"
-                        .format(expr.text_repr))
+                        "unable to find definition for '{}'".format(expr.text_repr)
+                    )
             else:
                 raise ResolverException(
-                    "unsupported definition type {} for {}"
-                    .format(defs, expr.value))
-
+                    "unsupported definition type {} for {}".format(defs, expr.value)
+                )

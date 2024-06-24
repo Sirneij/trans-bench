@@ -26,31 +26,63 @@ import logging
 
 from ..common import get_runtime_option
 
-__all__ = ["ChannelCaps", "TransportException",
-           "VersionMismatchException", "AuthenticationException",
-           "BindingException", "NoAvailablePortsException",
-           "NoTargetTransportException", "InvalidTransportStateException",
-           "PacketSizeExceededException",
-           "Transport"]
+__all__ = [
+    "ChannelCaps",
+    "TransportException",
+    "VersionMismatchException",
+    "AuthenticationException",
+    "BindingException",
+    "NoAvailablePortsException",
+    "NoTargetTransportException",
+    "InvalidTransportStateException",
+    "PacketSizeExceededException",
+    "Transport",
+]
 
 logger = logging.getLogger(__name__)
 
+
 class ChannelCaps:
     """An enum of channel capabilities."""
-    FIFO         = 1
-    RELIABLE     = 2
-    INTERHOST    = 4
-    BROADCAST    = 8
+
+    FIFO = 1
+    RELIABLE = 2
+    INTERHOST = 4
+    BROADCAST = 8
     RELIABLEFIFO = FIFO | RELIABLE
 
-class TransportException(Exception): pass
-class VersionMismatchException(TransportException): pass
-class AuthenticationException(TransportException): pass
-class BindingException(TransportException): pass
-class NoAvailablePortsException(BindingException): pass
-class NoTargetTransportException(TransportException): pass
-class InvalidTransportStateException(TransportException): pass
-class PacketSizeExceededException(TransportException): pass
+
+class TransportException(Exception):
+    pass
+
+
+class VersionMismatchException(TransportException):
+    pass
+
+
+class AuthenticationException(TransportException):
+    pass
+
+
+class BindingException(TransportException):
+    pass
+
+
+class NoAvailablePortsException(BindingException):
+    pass
+
+
+class NoTargetTransportException(TransportException):
+    pass
+
+
+class InvalidTransportStateException(TransportException):
+    pass
+
+
+class PacketSizeExceededException(TransportException):
+    pass
+
 
 class Transport:
     """Implements an inter-process communication channel for sending of data.
@@ -61,8 +93,10 @@ class Transport:
     DistAlgo.
 
     """
+
     slot_index = 0
     capabilities = ~0
+
     def __init__(self, authkey):
         super().__init__()
         self.queue = None
@@ -77,15 +111,11 @@ class Transport:
         self.hostname = hostname
 
     def start(self, queue, mesgloop=None):
-        """Starts the transport.
-
-        """
+        """Starts the transport."""
         raise NotImplementedError()
 
     def close(self):
-        """Stops the transport and clean up resources.
-
-        """
+        """Stops the transport and clean up resources."""
         pass
 
     def send(self, data, dest, **params):
@@ -120,4 +150,3 @@ class Transport:
 
     def __str__(self):
         return self.__class__.__name__
-

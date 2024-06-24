@@ -243,17 +243,19 @@ def create_overall_csvs(unique_result: dict, size: int):
             df_real_time,
             overall_dir / 'real_times.tex',
             captions[recursion_variant]['real_time'],
-            f'table:{recursion_variant}_real_time'
+            f'table:{recursion_variant}_real_time',
         )
         create_latex_table(
             df_cpu_time,
             overall_dir / 'cpu_times.tex',
             captions[recursion_variant]['cpu_time'],
-            f'table:{recursion_variant}_cpu_time'
+            f'table:{recursion_variant}_cpu_time',
         )
 
 
-def create_latex_table(df: pd.DataFrame, file_path: Path, caption: str = '', label: str = ''):
+def create_latex_table(
+    df: pd.DataFrame, file_path: Path, caption: str = '', label: str = ''
+):
     def format_cell(cell):
         # Use regular expression to find sequences before '_'
         formatted_cell = re.sub(r'([^_]+)(?=_)', r'\\text{\1}', cell)

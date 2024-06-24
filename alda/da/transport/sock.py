@@ -22,23 +22,25 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-import sys
-import time
+import logging
 import random
 import socket
-import logging
+import sys
 import threading
+import time
+from itertools import chain
 
+from ..common import VERSION_BYTES, get_runtime_option
 from .base import *
 from .manager import transport
 from .mesgloop import SelectorLoop
-from ..common import VERSION_BYTES, get_runtime_option
-
-from itertools import chain
 
 __all__ = [
-    "SocketTransport", "UdpTransport", "TcpTransport",
-    "HEADER_SIZE", "BYTEORDER"
+    "SocketTransport",
+    "UdpTransport",
+    "TcpTransport",
+    "HEADER_SIZE",
+    "BYTEORDER",
 ]
 
 logger = logging.getLogger(__name__)
@@ -48,15 +50,16 @@ ADDRESS_SIZE = 4
 BYTEORDER = 'big'
 MAX_RETRIES = 3
 
-DEFAULT_MESSAGE_BUFFER_SIZE = (4 * 1024)
+DEFAULT_MESSAGE_BUFFER_SIZE = 4 * 1024
 DEFAULT_MIN_PORT = 10000
 DEFAULT_MAX_PORT = 65535
 
-class SocketTransport(Transport):
-    """Base class for socket-based transports.
 
-    """
+class SocketTransport(Transport):
+    """Base class for socket-based transports."""
+
     capabilities = ~(ChannelCaps.INTERHOST)
+
     def __init__(self, authkey):
         super().__init__(authkey)
         self._log = logger.getChild(self.__class__.__name__)
@@ -67,11 +70,13 @@ class SocketTransport(Transport):
         self.shared_loop = False
         self.buffer_size = 0
 
-    def initialize(self, port=None, strict=False, linear=False,
-                   retries=MAX_RETRIES, **rest):
+    def initialize(
+        self, port=None, strict=False, linear=False, retries=MAX_RETRIES, **rest
+    ):
         super().initialize(**rest)
-        self.buffer_size = get_runtime_option('message_buffer_size',
-                                              DEFAULT_MESSAGE_BUFFER_SIZE)
+        self.buffer_size = get_runtime_option(
+            'message_buffer_size', DEFAULT_MESSAGE_BUFFER_SIZE
+        )
         min_port = get_runtime_option('min_port', DEFAULT_MIN_PORT)
         max_port = get_runtime_option('max_port', DEFAULT_MAX_PORT)
         assert self.conn is not None
@@ -108,17 +113,18 @@ class SocketTransport(Transport):
                     retry += 1
                 else:
                     raise BindingException(
-                        "Failed to bind to an available port.") from e
+                        "Failed to bind to an available port."
+                    ) from e
         self._log.debug("Transport initialized at address %s", address)
 
     def serialize(self, pipe, pid):
         from multiprocessing.reduction import send_handle
+
         send_handle(pipe, self.conn.fileno(), pid)
 
     def start(self, queue, mesgloop=None):
         if self.conn is None:
-            raise InvalidTransportStateException(
-                "Transport has not been initialized!")
+            raise InvalidTransportStateException("Transport has not been initialized!")
         self.queue = queue
         self.mesgloop = mesgloop
         if self.mesgloop is None:
@@ -169,11 +175,11 @@ class SocketTransport(Transport):
 DIGEST_LENGTH = 16
 DIGEST_HOLDER = b'0' * DIGEST_LENGTH
 
+
 @transport
 class UdpTransport(SocketTransport):
-    """A channel that supports sending and receiving messages via UDP.
+    """A channel that supports sending and receiving messages via UDP."""
 
-    """
     capabilities = ~(ChannelCaps.INTERHOST)
     data_offset = 4 + DIGEST_LENGTH
 
@@ -189,8 +195,10 @@ class UdpTransport(SocketTransport):
                     self.conn.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             else:
                 from multiprocessing.reduction import recv_handle
-                self.conn = socket.fromfd(recv_handle(pipe),
-                                          socket.AF_INET, socket.SOCK_DGRAM)
+
+                self.conn = socket.fromfd(
+                    recv_handle(pipe), socket.AF_INET, socket.SOCK_DGRAM
+                )
             super().initialize(strict=strict, **params)
         except Exception as e:
             if self.conn is not None:
@@ -207,6 +215,7 @@ class UdpTransport(SocketTransport):
     def _packet_from(self, chunk):
         if self.authkey is not None:
             import hmac
+
             digest = hmac.new(self.authkey, chunk, 'md5').digest()
             return (VERSION_BYTES, digest, chunk)
         else:
@@ -216,17 +225,19 @@ class UdpTransport(SocketTransport):
         if chunk[:4] != VERSION_BYTES:
             raise VersionMismatchException("wrong version: {}".format(chunk[:4]))
         if self.authkey is not None:
-            with memoryview(chunk)[self.data_offset:] as data:
+            with memoryview(chunk)[self.data_offset :] as data:
                 import hmac
+
                 digest = hmac.new(self.authkey, data, 'md5').digest()
-                if digest != chunk[4:self.data_offset]:
+                if digest != chunk[4 : self.data_offset]:
                     raise AuthenticationException(
-                        "wrong digest from {}: {}"
-                        .format(addr, chunk[4:self.data_offset]))
+                        "wrong digest from {}: {}".format(
+                            addr, chunk[4 : self.data_offset]
+                        )
+                    )
         else:
-            if chunk[4:self.data_offset] != DIGEST_HOLDER:
-                raise AuthenticationException('{} requires a cookie.'
-                                              .format(addr))
+            if chunk[4 : self.data_offset] != DIGEST_HOLDER:
+                raise AuthenticationException('{} requires a cookie.'.format(addr))
 
     def _sendmsg_nix(self, packet, target):
         packet_size = sum(len(e) for e in packet)
@@ -234,6 +245,7 @@ class UdpTransport(SocketTransport):
 
     def _sendmsg_nt(self, packet, target):
         from itertools import chain
+
         buf = bytes(chain(*packet))
         return self.conn.sendto(buf, target) == len(buf)
 
@@ -244,12 +256,12 @@ class UdpTransport(SocketTransport):
 
     def send(self, chunk, target, wait=0.01, retries=MAX_RETRIES, **_):
         if self.conn is None:
-            raise InvalidTransportStateException(
-                "Invalid transport state for sending.")
+            raise InvalidTransportStateException("Invalid transport state for sending.")
 
         if len(chunk) > self.buffer_size:
-            self._log.warning("Data size exceeded maximum buffer size!"
-                              " Outgoing packet dropped.")
+            self._log.warning(
+                "Data size exceeded maximum buffer size!" " Outgoing packet dropped."
+            )
             self._log.debug("Dropped packet: %s", chunk)
             raise PacketSizeExceededException()
         else:
@@ -266,8 +278,9 @@ class UdpTransport(SocketTransport):
                 except PermissionError as e:
                     # The 'conntrack' module of iptables will cause UDP `sendto`
                     # to return `EPERM` if it's sending too fast:
-                    self._log.debug("Packet to %s dropped by kernel, "
-                                    "reduce send rate.", target)
+                    self._log.debug(
+                        "Packet to %s dropped by kernel, " "reduce send rate.", target
+                    )
                     cnt += 1
                     if cnt >= retries:
                         raise TransportException("Packet blocked by OS.") from e
@@ -292,7 +305,7 @@ class UdpTransport(SocketTransport):
 
     def _recvmesg1(self, _conn, _data):
         try:
-            chunk, _, flags, remote= self._recvmsg()
+            chunk, _, flags, remote = self._recvmsg()
             if not chunk:
                 # XXX: zero length packet == closed socket??
                 self._log.debug("Transport closed, terminating receive loop.")
@@ -305,8 +318,7 @@ class UdpTransport(SocketTransport):
                     self._verify_packet(chunk, remote)
                     self.queue.append((self, chunk, remote))
                 except TransportException as e:
-                    self._log.warning("Packet from %s dropped due to: %r",
-                                      remote, e)
+                    self._log.warning("Packet from %s dropped due to: %r", remote, e)
         except (socket.error, AttributeError) as e:
             self._log.debug("Terminating receive loop due to %r", e)
 
@@ -327,10 +339,10 @@ VER_CHALLENGE = b'#VR#'
 WELCOME = b'#WELCOME#'
 FAILURE = b'#FAILURE#'
 
-class AuxConnectionData:
-    """Auxiliary data associated with each TCP connection.
 
-    """
+class AuxConnectionData:
+    """Auxiliary data associated with each TCP connection."""
+
     def __init__(self, peername, message_size, digest=None, provision=False):
         self.peername = peername
         self.message_size = message_size
@@ -345,15 +357,18 @@ class AuxConnectionData:
         self.lastptr = 0
         self.freeptr = 0
 
-class ConnectionClosedException(TransportException): pass
+
+class ConnectionClosedException(TransportException):
+    pass
+
+
 @transport
 class TcpTransport(SocketTransport):
-    """A channel that supports sending and receiving messages via TCP.
+    """A channel that supports sending and receiving messages via TCP."""
 
-    """
-    capabilities = ~((ChannelCaps.FIFO) |
-                     (ChannelCaps.RELIABLE) |
-                     (ChannelCaps.INTERHOST))
+    capabilities = ~(
+        (ChannelCaps.FIFO) | (ChannelCaps.RELIABLE) | (ChannelCaps.INTERHOST)
+    )
     data_offset = 0
 
     def __init__(self, authkey):
@@ -369,8 +384,10 @@ class TcpTransport(SocketTransport):
                     self.conn.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             else:
                 from multiprocessing.reduction import recv_handle
-                self.conn = socket.fromfd(recv_handle(pipe),
-                                          socket.AF_INET, socket.SOCK_STREAM)
+
+                self.conn = socket.fromfd(
+                    recv_handle(pipe), socket.AF_INET, socket.SOCK_STREAM
+                )
             super().initialize(strict=strict, **params)
         except Exception as e:
             if self.conn is not None:
@@ -401,12 +418,13 @@ class TcpTransport(SocketTransport):
 
     def _deliver_challenge(self, conn, addr):
         import os
+
         digest = None
         if self.authkey is not None:
             import hmac
+
             message = os.urandom(MESSAGE_LENGTH)
-            self._send_1((KEY_CHALLENGE, VERSION_BYTES, message),
-                         conn, addr)
+            self._send_1((KEY_CHALLENGE, VERSION_BYTES, message), conn, addr)
             digest = hmac.new(self.authkey, message, 'md5').digest()
         else:
             self._send_1((VER_CHALLENGE, VERSION_BYTES), conn, addr)
@@ -424,29 +442,32 @@ class TcpTransport(SocketTransport):
             if message != auxdata.digest:
                 self._send_1((FAILURE,), conn, addr)
                 raise AuthenticationException(
-                    'Digest from {0.peername} was wrong.'.format(auxdata))
+                    'Digest from {0.peername} was wrong.'.format(auxdata)
+                )
         else:
             if message == KEY_CHALLENGE:
                 raise AuthenticationException(
-                    '{0.peername} requires a cookie.'.format(auxdata))
+                    '{0.peername} requires a cookie.'.format(auxdata)
+                )
             if message != VER_CHALLENGE:
                 raise VersionMismatchException(
-                    'Version from {0.peername} is different.'.format(auxdata))
+                    'Version from {0.peername} is different.'.format(auxdata)
+                )
         # Set the remote peer's port number to its listen port:
         remote_port = int.from_bytes(port_bytes, BYTEORDER)
-        auxdata.peername  = addr[0], remote_port
+        auxdata.peername = addr[0], remote_port
         with self.lock:
             if auxdata.peername in self.cache:
-                self._log.debug("Dropping duplicate connection from %s.",
-                                auxdata.peername)
+                self._log.debug(
+                    "Dropping duplicate connection from %s.", auxdata.peername
+                )
                 conn.close()
                 return
             else:
                 self.cache[auxdata.peername] = conn
         self._send_1((WELCOME,), conn, addr)
         auxdata.provision()
-        self.mesgloop.register(conn, self._recvmesg_wrapper,
-                               (self._receive_1, auxdata))
+        self.mesgloop.register(conn, self._recvmesg_wrapper, (self._receive_1, auxdata))
 
     def _answer_challenge(self, conn, addr):
         # FIXME: same here...
@@ -454,25 +475,26 @@ class TcpTransport(SocketTransport):
         self._log.debug("=========answering %r", message)
         if self.authkey is not None:
             import hmac
-            if message[:len(KEY_CHALLENGE)] != KEY_CHALLENGE:
+
+            if message[: len(KEY_CHALLENGE)] != KEY_CHALLENGE:
                 self._send_challenge_reply(KEY_CHALLENGE, conn, addr)
-                raise AuthenticationException('{} has no cookie.'.
-                                              format(addr))
-            if message[len(KEY_CHALLENGE):len(KEY_CHALLENGE)+4] != VERSION_BYTES:
-                raise VersionMismatchException('Version at {} is different.'.
-                                               format(addr))
-            message = message[len(KEY_CHALLENGE)+4:]
+                raise AuthenticationException('{} has no cookie.'.format(addr))
+            if message[len(KEY_CHALLENGE) : len(KEY_CHALLENGE) + 4] != VERSION_BYTES:
+                raise VersionMismatchException(
+                    'Version at {} is different.'.format(addr)
+                )
+            message = message[len(KEY_CHALLENGE) + 4 :]
             digest = hmac.new(self.authkey, message, 'md5').digest()
             self._send_challenge_reply(digest, conn, addr)
         else:
-            if message[:len(KEY_CHALLENGE)] == KEY_CHALLENGE:
+            if message[: len(KEY_CHALLENGE)] == KEY_CHALLENGE:
                 self._send_challenge_reply(KEY_CHALLENGE, conn, addr)
-                raise AuthenticationException('{} requires a cookie.'.
-                                              format(addr))
+                raise AuthenticationException('{} requires a cookie.'.format(addr))
             elif message != VER_CHALLENGE + VERSION_BYTES:
                 self._send_challenge_reply(FAILURE, conn, addr)
-                raise VersionMismatchException('Version at {} is different.'.
-                                               format(addr))
+                raise VersionMismatchException(
+                    'Version at {} is different.'.format(addr)
+                )
             else:
                 self._send_challenge_reply(VER_CHALLENGE, conn, addr)
         # FIXME: ...and here
@@ -482,8 +504,7 @@ class TcpTransport(SocketTransport):
             # terminated, or we already have a connection
             raise ConnectionClosedException()
         elif response != WELCOME:
-            raise AuthenticationException('digest was rejected by {}.'.
-                                          format(addr))
+            raise AuthenticationException('digest was rejected by {}.'.format(addr))
 
     def _send_challenge_reply(self, result, conn, addr):
         self._send_1((self.address_bytes, result), conn, addr)
@@ -492,11 +513,11 @@ class TcpTransport(SocketTransport):
         conn, addr = self.conn.accept()
         self._log.debug("Accepted connection from %s.", addr)
         digest = self._deliver_challenge(conn, auxdata)
-        self.mesgloop.register(conn, self._recvmesg_wrapper,
-                               (self._verify_challenge,
-                                AuxConnectionData(addr,
-                                                  self.buffer_size,
-                                                  digest)))
+        self.mesgloop.register(
+            conn,
+            self._recvmesg_wrapper,
+            (self._verify_challenge, AuxConnectionData(addr, self.buffer_size, digest)),
+        )
 
     def _connect(self, target):
         self._log.debug("Initiating connection to %s.", target)
@@ -529,8 +550,15 @@ class TcpTransport(SocketTransport):
         except OSError:
             pass
 
-    def send(self, chunk, target, retries=MAX_RETRIES, wait=0.05,
-             retry_refused_connections=False, **_):
+    def send(
+        self,
+        chunk,
+        target,
+        retries=MAX_RETRIES,
+        wait=0.05,
+        retry_refused_connections=False,
+        **_
+    ):
         """Send `chunk` to `target`."""
         if target is None:
             raise NoTargetTransportException()
@@ -551,19 +579,25 @@ class TcpTransport(SocketTransport):
                 except ConnectionRefusedError as e:
                     if (not retry_refused_connections) or retry > retries:
                         raise TransportException(
-                            'connection refused by {}'.format(target)) from e
+                            'connection refused by {}'.format(target)
+                        ) from e
                 except (socket.error, socket.timeout) as e:
-                    self._log.debug("Sending to %s failed on %dth try: %r",
-                                    target, retry, e)
+                    self._log.debug(
+                        "Sending to %s failed on %dth try: %r", target, retry, e
+                    )
                     if conn is not None:
                         conn.close()
                         conn = None
                 except:
-                    self._log.debug("Sending to %s failed on %dth try: %r",
-                                    target, retry, sys.exc_info()[0])
+                    self._log.debug(
+                        "Sending to %s failed on %dth try: %r",
+                        target,
+                        retry,
+                        sys.exc_info()[0],
+                    )
 
                 if retry > retries:
-                    raise TransportException('max retries reached.')# from e
+                    raise TransportException('max retries reached.')  # from e
                 if retry > 1:
                     time.sleep(wait)
                 retry += 1
@@ -574,10 +608,13 @@ class TcpTransport(SocketTransport):
                     with self.lock:
                         self.cache[target] = conn
                     self.mesgloop.register(
-                        conn, self._recvmesg_wrapper,
-                        (self._receive_1,
-                         AuxConnectionData(target, self.buffer_size,
-                                           provision=True)))
+                        conn,
+                        self._recvmesg_wrapper,
+                        (
+                            self._receive_1,
+                            AuxConnectionData(target, self.buffer_size, provision=True),
+                        ),
+                    )
             else:
                 if target in self.cache:
                     with self.lock:
@@ -598,13 +635,10 @@ class TcpTransport(SocketTransport):
         try:
             callback(conn, aux)
         except TransportException as e:
-            self._log.warning("Exception when handling %s: %r",
-                              aux.peername, e)
+            self._log.warning("Exception when handling %s: %r", aux.peername, e)
             self._cleanup(conn, aux.peername)
         except socket.error as e:
-            self._log.debug(
-                "socket.error when receiving from %s: %r",
-                aux.peername, e)
+            self._log.debug("socket.error when receiving from %s: %r", aux.peername, e)
             self._cleanup(conn, aux.peername)
 
     def _receive_1(self, conn, aux):

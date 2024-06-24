@@ -22,55 +22,52 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-import sys
 import builtins
+import sys
 from ast import *
 from itertools import chain
-from . import dast, symtab
-from .utils import printd, printw, printe
-
 from pprint import pprint
 
+from . import dast, symtab
+from .utils import printd, printe, printw
+
 OperatorMap = {
-    dast.AddOp      : Add,
-    dast.SubOp      : Sub,
-    dast.MultOp     : Mult,
-    dast.MatMultOp  : MatMult,
-    dast.DivOp      : Div,
-    dast.ModOp      : Mod,
-    dast.PowOp      : Pow,
-    dast.LShiftOp   : LShift,
-    dast.RShiftOp   : RShift,
-    dast.BitOrOp    : BitOr,
-    dast.BitXorOp   : BitXor,
-    dast.BitAndOp   : BitAnd,
-    dast.FloorDivOp : FloorDiv,
-
-    dast.EqOp       : Eq,
-    dast.NotEqOp    : NotEq,
-    dast.LtOp       : Lt,
-    dast.LtEOp      : LtE,
-    dast.GtOp       : Gt,
-    dast.GtEOp      : GtE,
-    dast.IsOp       : Is,
-    dast.IsNotOp    : IsNot,
-    dast.InOp       : In,
-    dast.NotInOp    : NotIn,
-
-    dast.USubOp     : USub,
-    dast.UAddOp     : UAdd,
-    dast.InvertOp   : Invert,
-
-    dast.AndOp      : And,
-    dast.OrOp       : Or
+    dast.AddOp: Add,
+    dast.SubOp: Sub,
+    dast.MultOp: Mult,
+    dast.MatMultOp: MatMult,
+    dast.DivOp: Div,
+    dast.ModOp: Mod,
+    dast.PowOp: Pow,
+    dast.LShiftOp: LShift,
+    dast.RShiftOp: RShift,
+    dast.BitOrOp: BitOr,
+    dast.BitXorOp: BitXor,
+    dast.BitAndOp: BitAnd,
+    dast.FloorDivOp: FloorDiv,
+    dast.EqOp: Eq,
+    dast.NotEqOp: NotEq,
+    dast.LtOp: Lt,
+    dast.LtEOp: LtE,
+    dast.GtOp: Gt,
+    dast.GtEOp: GtE,
+    dast.IsOp: Is,
+    dast.IsNotOp: IsNot,
+    dast.InOp: In,
+    dast.NotInOp: NotIn,
+    dast.USubOp: USub,
+    dast.UAddOp: UAdd,
+    dast.InvertOp: Invert,
+    dast.AndOp: And,
+    dast.OrOp: Or,
 }
 
 AggregateMap = {
-    dast.MaxExpr : "max",
-    dast.MinExpr : "min",
-    dast.SizeExpr : "len",
-    dast.SumExpr : "sum",
-    dast.ProdExpr: "prod"
+    dast.MaxExpr: "max",
+    dast.MinExpr: "min",
+    dast.SizeExpr: "len",
+    dast.SumExpr: "sum",
+    dast.ProdExpr: "prod",
 }
 
 
@@ -79,7 +76,7 @@ GenCompMap = {
     dast.MinCompExpr: "minof",
     dast.MaxCompExpr: "maxof",
     dast.SumCompExpr: "sumof",
-    dast.PrdCompExpr: "prodof"
+    dast.PrdCompExpr: "prodof",
 }
 
 CONFIG_OBJECT_NAME = "_config_object"
@@ -89,27 +86,37 @@ CATCHALL_PARAM_NAME = "rest_%d"
 
 # FIXME: is there a better way than hardcoding these?
 KnownUpdateMethods = {
-    "add", "append", "extend", "update",
-    "insert", "reverse", "sort",
-    "delete", "remove", "pop", "clear", "discard"
+    "add",
+    "append",
+    "extend",
+    "update",
+    "insert",
+    "reverse",
+    "sort",
+    "delete",
+    "remove",
+    "pop",
+    "clear",
+    "discard",
 }
 
 
 ########## Convenience methods for creating AST nodes: ##########
 
+
 def pyCall(func, args=[], keywords=[], starargs=None, kwargs=None):
     if isinstance(func, str):
         func = pyName(func)
-    ast = Call(func,
-               list(args),
-               [keyword(arg, val) for arg, val in keywords])
+    ast = Call(func, list(args), [keyword(arg, val) for arg, val in keywords])
     propagate_attributes(func, ast)
     propagate_attributes(args, ast)
     propagate_attributes([val for _, val in keywords], ast)
     return ast
 
+
 def pyName(name, ctx=None):
     return Name(name, Load() if ctx is None else ctx)
+
 
 def pyNone():
     if sys.version_info < (3, 8):
@@ -117,60 +124,73 @@ def pyNone():
     else:
         return Constant(None)
 
+
 def pyTrue():
     if sys.version_info < (3, 8):
         return NameConstant(True)
     else:
         return Constant(True)
 
+
 def pyFalse():
     if sys.version_info < (3, 8):
         return NameConstant(False)
     return Constant(False)
 
+
 def pyNot(expr):
     ast = UnaryOp(Not(), expr)
     return propagate_attributes(expr, ast)
+
 
 def pyList(elts, ctx=None):
     ast = List(elts, Load() if ctx is None else ctx)
     return propagate_attributes(elts, ast)
 
+
 def pySet(elts, ctx=None):
     ast = Set(elts)
     return propagate_attributes(elts, ast)
+
 
 def pyTuple(elts, ctx=None):
     ast = Tuple(elts, Load() if ctx is None else ctx)
     return propagate_attributes(elts, ast)
 
+
 def pySetC(elts):
     return pyCall("set", args=elts)
+
 
 def pySubscr(value, index, ctx=None):
     ast = Subscript(value, index, Load() if ctx is None else ctx)
     return propagate_attributes((value, index), ast)
 
+
 def pySize(value):
     return pyCall("len", [value])
+
 
 def pyMin(value):
     return pyCall("min", [value])
 
+
 def pyMax(value):
     return pyCall("max", [value])
 
+
 def pyAttr(name, attr, ctx=None):
     if isinstance(name, str):
-        ast = Attribute(Name(name, Load()), attr,
-                         Load() if ctx is None else ctx)
+        ast = Attribute(Name(name, Load()), attr, Load() if ctx is None else ctx)
     else:
         ast = Attribute(name, attr, Load() if ctx is None else ctx)
     return propagate_attributes(ast.value, ast)
 
+
 def pyCompare(left, op, right):
     ast = Compare(left, [op()], [right])
     return propagate_fields(ast)
+
 
 def pyLabel(name, block=False, timeout=None):
     kws = [("block", pyTrue() if block else pyFalse())]
@@ -180,9 +200,12 @@ def pyLabel(name, block=False, timeout=None):
         strClass = Str
     else:
         strClass = Constant
-    return Expr(pyCall(func=pyAttr(pyCall("super"), "_label"),
-                       args=[strClass(name)],
-                       keywords=kws))
+    return Expr(
+        pyCall(
+            func=pyAttr(pyCall("super"), "_label"), args=[strClass(name)], keywords=kws
+        )
+    )
+
 
 def pycomprehension(target, iter, ifs, is_async=0):
     if sys.version_info < (3, 6):
@@ -190,60 +213,71 @@ def pycomprehension(target, iter, ifs, is_async=0):
     else:
         return comprehension(target, iter, ifs, is_async)
 
+
 def pyAssign(targets, value):
     ast = Assign(targets, value)
     return propagate_fields(ast)
+
 
 def pyAugAssign(target, op, value):
     ast = AugAssign(target, op(), value)
     return propagate_fields(ast)
 
+
 def pyFor(target, iter, body, orelse):
     ast = For(target, iter, body, orelse)
     return propagate_attributes([target, iter], ast)
+
 
 def pyIf(test, body, orelse):
     ast = If(test, body, orelse)
     return propagate_attributes(test, ast)
 
+
 def pyWhile(test, body, orelse):
     ast = While(test, body, orelse)
     return propagate_attributes(test, ast)
+
 
 def pyExpr(value):
     ast = Expr(value)
     return propagate_fields(ast)
 
+
 def pyReturn(value):
     ast = Return(value)
     return propagate_fields(ast)
 
-def pyClassDef(name, bases=[], keywords=[], starargs=None,
-               kwargs=None, body=[], decorator_list=[]):
-    return ClassDef(name,
-                    list(bases),
-                    [keyword(arg, val) for arg, val in keywords],
-                    list(body),
-                    list(decorator_list))
 
-def pyFunctionDef(name, args=[], kwarg=None, body=[], decorator_list=[],
-                  returns=None):
+def pyClassDef(
+    name, bases=[], keywords=[], starargs=None, kwargs=None, body=[], decorator_list=[]
+):
+    return ClassDef(
+        name,
+        list(bases),
+        [keyword(arg, val) for arg, val in keywords],
+        list(body),
+        list(decorator_list),
+    )
+
+
+def pyFunctionDef(name, args=[], kwarg=None, body=[], decorator_list=[], returns=None):
     argdict = {
         'args': [arg(n, None) for n in args],
         'vararg': None,
         'varargannotation': None,
         'kwonlyargs': [],
-        'kwarg': (arg(arg=kwarg, annotation=None)
-                if kwarg is not None else None),
+        'kwarg': (arg(arg=kwarg, annotation=None) if kwarg is not None else None),
         'kwargannotation': None,
         'defaults': [],
-        'kw_defaults': []
+        'kw_defaults': [],
     }
-    if sys.version_info >= (3 ,8):
+    if sys.version_info >= (3, 8):
         argdict['posonlyargs'] = []
     arglist = arguments(**argdict)
     ast = FunctionDef(name, arglist, list(body), list(decorator_list), returns)
     return ast
+
 
 def propagate_attributes(from_nodes, to_node):
     """Propagates the 'prebody' and 'postbody' attributes.
@@ -254,32 +288,34 @@ def propagate_attributes(from_nodes, to_node):
 
     """
     if isinstance(to_node, AST):
-        if not (isinstance(from_nodes, list) or
-                isinstance(from_nodes, tuple) or
-                isinstance(from_nodes, set)):
+        if not (
+            isinstance(from_nodes, list)
+            or isinstance(from_nodes, tuple)
+            or isinstance(from_nodes, set)
+        ):
             from_nodes = [from_nodes]
         for fro in from_nodes:
-            if (hasattr(fro, "prebody") and isinstance(fro.prebody, list)):
+            if hasattr(fro, "prebody") and isinstance(fro.prebody, list):
                 if not hasattr(to_node, "prebody"):
                     to_node.prebody = []
                 to_node.prebody.extend(fro.prebody)
-            if (hasattr(fro, "postbody") and isinstance(fro.postbody, list)):
+            if hasattr(fro, "postbody") and isinstance(fro.postbody, list):
                 if not hasattr(to_node, "postbody"):
                     to_node.postbody = []
                 to_node.postbody.extend(fro.postbody)
     return to_node
 
-def propagate_fields(node):
-    """Propagate attributes from `node`'s fields to `node`.
 
-    """
+def propagate_fields(node):
+    """Propagate attributes from `node`'s fields to `node`."""
     if hasattr(node, '_fields'):
         for f in node._fields:
             # Since Python 3.8
-            if f == 'type_comment' and getattr(node,f,None) is None:
+            if f == 'type_comment' and getattr(node, f, None) is None:
                 continue
             propagate_attributes(getattr(node, f), node)
     return node
+
 
 class MaxLineAndColFinder(NodeVisitor):
     """Find the number of the last line and its maximum column offset under a
@@ -296,8 +332,7 @@ class MaxLineAndColFinder(NodeVisitor):
         super().visit(node)
         if hasattr(node, 'lineno'):
             assert isinstance(node.lineno, int)
-            assert (hasattr(node, 'col_offset') and
-                    isinstance(node.col_offset, int))
+            assert hasattr(node, 'col_offset') and isinstance(node.col_offset, int)
             if self.max_lineno is None or node.lineno > self.max_lineno:
                 self.max_lineno = node.lineno
                 self.max_col_offset = node.col_offset
@@ -306,23 +341,41 @@ class MaxLineAndColFinder(NodeVisitor):
         if hasattr(node, 'end_lineno') and node.end_lineno is not None:
             # print(node.end_lineno, node.end_col_offset)
             assert isinstance(node.end_lineno, int)
-            assert (hasattr(node, 'end_col_offset') and
-                    isinstance(node.end_col_offset, int))
+            assert hasattr(node, 'end_col_offset') and isinstance(
+                node.end_col_offset, int
+            )
             if self.max_end_lineno is None or node.end_lineno > self.max_end_lineno:
                 self.max_end_lineno = node.end_lineno
                 self.max_end_col_offset = node.end_col_offset
             elif node.end_lineno == self.max_end_lineno:
-                self.max_end_col_offset = max(self.max_end_col_offset, node.end_col_offset, self.max_col_offset)
+                self.max_end_col_offset = max(
+                    self.max_end_col_offset, node.end_col_offset, self.max_col_offset
+                )
             else:
                 self.max_end_lineno = self.max_lineno
-                self.max_end_col_offset = max(self.max_end_col_offset, node.end_col_offset, self.max_col_offset)
+                self.max_end_col_offset = max(
+                    self.max_end_col_offset, node.end_col_offset, self.max_col_offset
+                )
+
 
 def _find_max_line_and_col(node):
     finder = MaxLineAndColFinder()
     finder.visit(node)
-    return finder.max_lineno, finder.max_col_offset, finder.max_end_lineno, finder.max_end_col_offset
+    return (
+        finder.max_lineno,
+        finder.max_col_offset,
+        finder.max_end_lineno,
+        finder.max_end_col_offset,
+    )
 
-def fixup_locations_in_block(block, last_lineno=None, last_col_offset=None, last_end_lineno=None, last_end_col_offset=None):
+
+def fixup_locations_in_block(
+    block,
+    last_lineno=None,
+    last_col_offset=None,
+    last_end_lineno=None,
+    last_end_col_offset=None,
+):
     """Make sure '.lineno' attributes are sane within 'block'
 
     `compile` expects .lineno attributes to be always monotonically increasing
@@ -340,11 +393,18 @@ def fixup_locations_in_block(block, last_lineno=None, last_col_offset=None, last
                 node.lineno = last_lineno
                 node.col_offset = last_col_offset
         if last_end_lineno is not None:
-            if not hasattr(node, 'end_lineno') or node.end_lineno is None or node.end_lineno < last_end_lineno:
+            if (
+                not hasattr(node, 'end_lineno')
+                or node.end_lineno is None
+                or node.end_lineno < last_end_lineno
+            ):
                 node.end_lineno = last_end_lineno
                 node.end_col_offset = last_end_col_offset
-        last_lineno, last_col_offset, last_end_lineno, last_end_col_offset = _find_max_line_and_col(node)
+        last_lineno, last_col_offset, last_end_lineno, last_end_col_offset = (
+            _find_max_line_and_col(node)
+        )
     return last_lineno, last_col_offset, last_end_lineno, last_end_col_offset
+
 
 class _LocationAttrRemoverCls(NodeVisitor):
     def visit(self, node):
@@ -353,7 +413,10 @@ class _LocationAttrRemoverCls(NodeVisitor):
             if hasattr(node, attr) and getattr(node, attr) is not None:
                 delattr(node, attr)
 
+
 LocationAttrRemover = _LocationAttrRemoverCls()
+
+
 def clear_location_attrs(nodes):
     """Remove .lineno and .col_offset attributes from all nodes in the subtrees
     rooted at 'nodes'.
@@ -363,6 +426,7 @@ def clear_location_attrs(nodes):
         LocationAttrRemover.visit(node)
     return nodes
 
+
 def is_all_wildcards(targets):
     """True if 'targets' contain only wildcards."""
 
@@ -371,7 +435,10 @@ def is_all_wildcards(targets):
             return False
     return True
 
-class PythonGeneratorException(Exception): pass
+
+class PythonGeneratorException(Exception):
+    pass
+
 
 def translate(distalgo_ast, filename="", options=None):
     pg = PythonGenerator(filename, options)
@@ -380,23 +447,25 @@ def translate(distalgo_ast, filename="", options=None):
     except Exception as ex:
         raise PythonGeneratorException(str(pg.current_node)) from ex
 
+
 # List of arguments needed to initialize a process:
 PROC_INITARGS = ["procimpl", "forwarder"]
 
 PREAMBLE = parse(
     """
 import da
-    """).body
-POSTAMBLE = parse("""
+    """
+).body
+POSTAMBLE = parse(
+    """
 if __name__ == "__main__":
     da.init(config)
-""").body
+"""
+).body
 
 
 class PythonGenerator(NodeVisitor):
-    """Transforms DistPy AST into Python AST.
-
-    """
+    """Transforms DistPy AST into Python AST."""
 
     def __init__(self, filename="", options=None):
         self.filename = filename
@@ -415,8 +484,7 @@ class PythonGenerator(NodeVisitor):
 
         self.current_node = None
         self.fromImportSet = set()  # a tuple of 2 or 3 elements, from _ import _[ as _]
-        self.importSet = set()      # a tuple of 1 or 2 elements, import _[ as _]
-
+        self.importSet = set()  # a tuple of 1 or 2 elements, import _[ as _]
 
     def get_option(self, option, default=None):
         if hasattr(self.cmdline_args, option):
@@ -514,7 +582,7 @@ class PythonGenerator(NodeVisitor):
             args.append(BinOp(self.visit(node.end), Add(), numClass(1)))
         if node.step:
             args.append(BinOp(self.visit(node.step), Sub(), args[0]))
-        return pyCall(pyName('range'),args)
+        return pyCall(pyName('range'), args)
 
     def visit_Program(self, node):
         self.module_args = node._compiler_options
@@ -532,22 +600,31 @@ class PythonGenerator(NodeVisitor):
         body.extend(self.postambles)
 
         self.fromImportSet.add(("da.dabuiltins", "*"))
-        importList = [Import([alias(t[0], t[1] if len(t)>1 else None)]) for t in self.importSet]
-        fromImportList = [ImportFrom(t[0], [alias(t[1], t[2] if len(t)>2 else None)], 0) for t in self.fromImportSet]
+        importList = [
+            Import([alias(t[0], t[1] if len(t) > 1 else None)]) for t in self.importSet
+        ]
+        fromImportList = [
+            ImportFrom(t[0], [alias(t[1], t[2] if len(t) > 2 else None)], 0)
+            for t in self.fromImportSet
+        ]
         # print(importList,fromImportList)
-        if sys.version_info >= (3 ,8):
-            return [Module(importList+fromImportList+body, type_ignores=[])]
+        if sys.version_info >= (3, 8):
+            return [Module(importList + fromImportList + body, type_ignores=[])]
         else:
-            return [Module(importList+fromImportList+body)]
+            return [Module(importList + fromImportList + body)]
 
     def generate_config(self, node):
         if sys.version_info < (3, 8):
             strClass = Str
         else:
             strClass = Constant
-        return Assign([pyName(CONFIG_OBJECT_NAME, Store())],
-                      Dict([strClass(key) for key, _ in node.configurations],
-                           [self.visit(val) for _, val in node.configurations]))
+        return Assign(
+            [pyName(CONFIG_OBJECT_NAME, Store())],
+            Dict(
+                [strClass(key) for key, _ in node.configurations],
+                [self.visit(val) for _, val in node.configurations],
+            ),
+        )
 
     def generate_event_def(self, node):
         evtype = pyAttr(pyAttr("da", "pat"), node.type.__name__)
@@ -567,35 +644,53 @@ class PythonGenerator(NodeVisitor):
         if len(node.timestamps) > 0:
             timestamps = pyList([self.visit(s) for s in node.timestamps])
         handlers = pyList([pyAttr("self", h.name) for h in node.handlers])
-        return pyCall(func=pyAttr(pyAttr("da", "pat"), "EventPattern"),
-                      args=[evtype, name, pattern],
-                      keywords=[("sources", sources),
-                                ("destinations", destinations),
-                                ("timestamps", timestamps),
-                                ("record_history", history),
-                                ("handlers", handlers)])
+        return pyCall(
+            func=pyAttr(pyAttr("da", "pat"), "EventPattern"),
+            args=[evtype, name, pattern],
+            keywords=[
+                ("sources", sources),
+                ("destinations", destinations),
+                ("timestamps", timestamps),
+                ("record_history", history),
+                ("handlers", handlers),
+            ],
+        )
 
     def history_initializers(self, node):
-        return [pyAssign(targets=[pyAttr("self", evt.name, Store())],
-                         value=pyList([]))
-                for evt in node.events if evt.record_history]
+        return [
+            pyAssign(targets=[pyAttr("self", evt.name, Store())], value=pyList([]))
+            for evt in node.events
+            if evt.record_history
+        ]
 
     def generate_init(self, node):
         body = [
-            pyExpr(pyCall(func=pyAttr(pyCall(pyName("super")), "__init__"),
-                          args=[pyName(n) for n in PROC_INITARGS],
-                          keywords=[(None, pyName('props'))]))
+            pyExpr(
+                pyCall(
+                    func=pyAttr(pyCall(pyName("super")), "__init__"),
+                    args=[pyName(n) for n in PROC_INITARGS],
+                    keywords=[(None, pyName('props'))],
+                )
+            )
         ]
         body.extend(self.history_initializers(node))
-        body.extend([
-            pyExpr(pyCall(func=pyAttr(pyAttr("self", "_events"), "extend"),
-                          args=[pyList([self.generate_event_def(evt)
-                                        for evt in node.events])]))
-        ])
-        return pyFunctionDef(name="__init__",
-                             args=(["self"] + PROC_INITARGS),
-                             kwarg='props',
-                             body=body)
+        body.extend(
+            [
+                pyExpr(
+                    pyCall(
+                        func=pyAttr(pyAttr("self", "_events"), "extend"),
+                        args=[
+                            pyList(
+                                [self.generate_event_def(evt) for evt in node.events]
+                            )
+                        ],
+                    )
+                )
+            ]
+        )
+        return pyFunctionDef(
+            name="__init__", args=(["self"] + PROC_INITARGS), kwarg='props', body=body
+        )
 
     def generate_handlers(self, node):
         """Generate the message handlers of a process."""
@@ -615,10 +710,8 @@ class PythonGenerator(NodeVisitor):
         kwonlyargs = [arg(ident.name, None) for ident in node.kwonlyargs]
         kw_defaults = [self.visit(expr) for expr in node.kw_defaults]
         defaults = [self.visit(expr) for expr in node.defaults]
-        vararg = arg(node.vararg.name, None) \
-                 if node.vararg is not None else None
-        kwarg = arg(node.kwarg.name, None) \
-                if node.kwarg is not None else None
+        vararg = arg(node.vararg.name, None) if node.vararg is not None else None
+        kwarg = arg(node.kwarg.name, None) if node.kwarg is not None else None
         self.current_context = Load
         argdict = {
             'args': args,
@@ -626,13 +719,12 @@ class PythonGenerator(NodeVisitor):
             'kwonlyargs': kwonlyargs,
             'kwarg': kwarg,
             'defaults': defaults,
-            'kw_defaults': kw_defaults
+            'kw_defaults': kw_defaults,
         }
         # Since Python 3.8
         if sys.version_info >= (3, 8):
             argdict['posonlyargs'] = []
         return arguments(**argdict)
-
 
     def visit_Process(self, node):
         printd("Compiling process %s" % node.name)
@@ -676,18 +768,22 @@ class PythonGenerator(NodeVisitor):
         fd.args = self.visit(node.parent.args)
         kwargname = CATCHALL_PARAM_NAME % node._index
         fd.args.kwarg = arg(kwargname, None)
-        superargs = [(argname.name, pyName(argname.name))
-                     for argname in node.parent.args.args]
+        superargs = [
+            (argname.name, pyName(argname.name)) for argname in node.parent.args.args
+        ]
         superargs.append((None, pyName(kwargname)))
-        fd.body.append(Expr(
-            pyCall(func=pyAttr(pyCall("super"), "setup"),
-                   keywords=superargs)))
-        fd.body.extend([
-            Assign(targets=[pyAttr(pyAttr("self", STATE_ATTR_NAME),
-                                   name, Store())],
-                   value=pyName(name))
-            for name in node.parent.ordered_names
-        ])
+        fd.body.append(
+            Expr(pyCall(func=pyAttr(pyCall("super"), "setup"), keywords=superargs))
+        )
+        fd.body.extend(
+            [
+                Assign(
+                    targets=[pyAttr(pyAttr("self", STATE_ATTR_NAME), name, Store())],
+                    value=pyName(name),
+                )
+                for name in node.parent.ordered_names
+            ]
+        )
 
     def visit_Function(self, node):
         fd = FunctionDef()
@@ -705,9 +801,11 @@ class PythonGenerator(NodeVisitor):
         return [fd]
 
     def visit_ClassStmt(self, node):
-        cd = pyClassDef(name=node.name,
-                        bases=[self.visit(e) for e in node.bases],
-                        body=self.body(node.body))
+        cd = pyClassDef(
+            name=node.name,
+            bases=[self.visit(e) for e in node.bases],
+            body=self.body(node.body),
+        )
         # ########################################
         # TODO: just pass these through until we figure out a use for them:
         cd.keywords = node.ast.keywords
@@ -731,7 +829,9 @@ class PythonGenerator(NodeVisitor):
         ctx = self.current_context
         self.current_context = Load
         val = self.visit(node.value)
-        if isinstance(node.index, dast.SliceExpr) or isinstance(node.index, dast.ExtSliceExpr):
+        if isinstance(node.index, dast.SliceExpr) or isinstance(
+            node.index, dast.ExtSliceExpr
+        ):
             idx = self.visit(node.index)
         else:
             if sys.version_info < (3, 9):
@@ -742,7 +842,7 @@ class PythonGenerator(NodeVisitor):
         self.current_context = ctx
         return pySubscr(val, idx, ctx())
 
-    def visit_ExtSliceExpr(self,node):
+    def visit_ExtSliceExpr(self, node):
         dims = [self.visit(d) for d in node.dims]
         if sys.version_info < (3, 9):
             ast = ExtSlice(dims)
@@ -799,9 +899,11 @@ class PythonGenerator(NodeVisitor):
         return pyNone()
 
     def visit_FormattedValueExpr(self, node):
-        return FormattedValue(self.visit(node.value), node.conversion,
-                              self.visit(node.format_spec)
-                              if node.format_spec else None)
+        return FormattedValue(
+            self.visit(node.value),
+            node.conversion,
+            self.visit(node.format_spec) if node.format_spec else None,
+        )
 
     def visit_TupleExpr(self, node):
         elts = [self.visit(e) for e in node.subexprs]
@@ -822,49 +924,52 @@ class PythonGenerator(NodeVisitor):
         return propagate_attributes(ast.values, ast)
 
     def visit_DictExpr(self, node):
-        ast = Dict([self.visit(e) for e in node.keys],
-                   [self.visit(e) for e in node.values])
+        ast = Dict(
+            [self.visit(e) for e in node.keys], [self.visit(e) for e in node.values]
+        )
         return propagate_attributes(ast.keys + ast.values, ast)
 
     def visit_IfExpr(self, node):
-        ast = IfExp(self.visit(node.condition),
-                    self.visit(node.body),
-                    self.visit(node.orbody))
+        ast = IfExp(
+            self.visit(node.condition), self.visit(node.body), self.visit(node.orbody)
+        )
         return propagate_attributes((ast.test, ast.body, ast.orelse), ast)
 
     def visit_CallExpr(self, node):
-        return pyCall(self.visit(node.func),
-                     [self.visit(a) for a in node.args],
-                     [(key, self.visit(value)) for key, value in node.keywords],
-                     self.visit(node.starargs)
-                     if node.starargs is not None else None,
-                     self.visit(node.kwargs)
-                     if node.kwargs is not None else None)
+        return pyCall(
+            self.visit(node.func),
+            [self.visit(a) for a in node.args],
+            [(key, self.visit(value)) for key, value in node.keywords],
+            self.visit(node.starargs) if node.starargs is not None else None,
+            self.visit(node.kwargs) if node.kwargs is not None else None,
+        )
 
     def visit_ApiCallExpr(self, node):
-        return pyCall(pyAttr("da", node.func),
-                     [self.visit(a) for a in node.args],
-                     [(key, self.visit(value)) for key, value in node.keywords],
-                     self.visit(node.starargs)
-                     if node.starargs is not None else None,
-                     self.visit(node.kwargs)
-                     if node.kwargs is not None else None)
+        return pyCall(
+            pyAttr("da", node.func),
+            [self.visit(a) for a in node.args],
+            [(key, self.visit(value)) for key, value in node.keywords],
+            self.visit(node.starargs) if node.starargs is not None else None,
+            self.visit(node.kwargs) if node.kwargs is not None else None,
+        )
 
     def visit_BuiltinCallExpr(self, node):
-        return pyCall(pyAttr("self", node.func),
-                     [self.visit(a) for a in node.args],
-                     [(key, self.visit(value)) for key, value in node.keywords],
-                     self.visit(node.starargs)
-                     if node.starargs is not None else None,
-                     self.visit(node.kwargs)
-                     if node.kwargs is not None else None)
+        return pyCall(
+            pyAttr("self", node.func),
+            [self.visit(a) for a in node.args],
+            [(key, self.visit(value)) for key, value in node.keywords],
+            self.visit(node.starargs) if node.starargs is not None else None,
+            self.visit(node.kwargs) if node.kwargs is not None else None,
+        )
 
     visit_SetupExpr = visit_StartExpr = visit_ConfigExpr = visit_BuiltinCallExpr
 
     def visit_AggregateExpr(self, node):
-        return pyCall(AggregateMap[type(node)],
-                     [self.visit(a) for a in node.args],
-                     [(key, self.visit(val)) for key,val in node.keywords])
+        return pyCall(
+            AggregateMap[type(node)],
+            [self.visit(a) for a in node.args],
+            [(key, self.visit(val)) for key, val in node.keywords],
+        )
 
     visit_MaxExpr = visit_AggregateExpr
     visit_MinExpr = visit_AggregateExpr
@@ -877,8 +982,9 @@ class PythonGenerator(NodeVisitor):
             ast = UnaryOp(Not(), self.visit(node.left))
             return propagate_attributes([ast.operand], ast)
         else:
-            ast = BoolOp(OperatorMap[node.operator](),
-                         [self.visit(e) for e in node.subexprs])
+            ast = BoolOp(
+                OperatorMap[node.operator](), [self.visit(e) for e in node.subexprs]
+            )
             return propagate_attributes(ast.values, ast)
 
     def visit_DomainSpec(self, node):
@@ -927,7 +1033,7 @@ class PythonGenerator(NodeVisitor):
         if node.operator is dast.UniversalOp:
             ifcond = pyNot(ifcond)
             ifbody = [pyReturn(pyFalse())]
-        else:                   # ExistentialExpr
+        else:  # ExistentialExpr
             ifbody = [pyReturn(pyTrue())]
         body.append(pyIf(ifcond, ifbody, []))
         body.extend(postbody)
@@ -945,11 +1051,12 @@ class PythonGenerator(NodeVisitor):
             if isinstance(curnode, dast.QueryExpr):
                 params |= set(curnode.ordered_local_freevars)
         params &= node.nameobjs
-        ast = pyCall(func=pyName(node.name),
-                     keywords=[(v.name, self.visit(v)) for v in params])
-        funast = pyFunctionDef(name=node.name,
-                               args=[v.name for v in params],
-                               body=funcbody)
+        ast = pyCall(
+            func=pyName(node.name), keywords=[(v.name, self.visit(v)) for v in params]
+        )
+        funast = pyFunctionDef(
+            name=node.name, args=[v.name for v in params], body=funcbody
+        )
         ast.prebody = [funast]
 
         nameset = node.freevars - params
@@ -965,9 +1072,12 @@ class PythonGenerator(NodeVisitor):
             # Assignment needed to ensure all vars are bound at this point
             if is_top_level_query:
                 ast.prebody.insert(
-                    0, Assign(targets=[pyName(nv.name, Store())
-                                       for nv in nameset],
-                              value=pyNone()))
+                    0,
+                    Assign(
+                        targets=[pyName(nv.name, Store()) for nv in nameset],
+                        value=pyNone(),
+                    ),
+                )
 
         if is_top_level_query:
             self.pattern_generator = None
@@ -1015,9 +1125,9 @@ class PythonGenerator(NodeVisitor):
                     ast = DictComp(key, value, generators)
                 else:
                     # No generators, degenerate to IfExp:
-                    ast = IfExp(test,
-                                propagate_fields(Dict([key], [value])),
-                                Dict([], []))
+                    ast = IfExp(
+                        test, propagate_fields(Dict([key], [value])), Dict([], [])
+                    )
                 return propagate_fields(ast)
             else:
                 elem = self.visit(node.elem)
@@ -1027,9 +1137,14 @@ class PythonGenerator(NodeVisitor):
                     elif isinstance(node, dast.ListCompExpr):
                         ast = ListComp(elem, generators)
                     elif isinstance(node, dast.LenCompExpr):
-                        ast = pyCall("lenof", args=[propagate_fields(ListComp(elem, generators))])
+                        ast = pyCall(
+                            "lenof", args=[propagate_fields(ListComp(elem, generators))]
+                        )
                     elif isinstance(node, tuple(GenCompMap.keys())):
-                        ast = pyCall(GenCompMap[type(node)], args=[propagate_fields(GeneratorExp(elem, generators))])
+                        ast = pyCall(
+                            GenCompMap[type(node)],
+                            args=[propagate_fields(GeneratorExp(elem, generators))],
+                        )
                     elif isinstance(node, dast.GeneratorExpr):
                         ast = GeneratorExp(elem, generators)
                     else:
@@ -1038,21 +1153,22 @@ class PythonGenerator(NodeVisitor):
                 else:
                     # No generators, degenerate to IfExp:
                     if isinstance(node, dast.SetCompExpr):
-                        ast = IfExp(test,
-                                    propagate_fields(pySet([elem])),
-                                    pySetC([]))
+                        ast = IfExp(test, propagate_fields(pySet([elem])), pySetC([]))
                     elif isinstance(node, dast.ListCompExpr):
-                        ast = IfExp(test,
-                                    propagate_fields(pyList([elem])),
-                                    pyList([]))
+                        ast = IfExp(test, propagate_fields(pyList([elem])), pyList([]))
                     elif isinstance(node, dast.TupleCompExpr):
-                        ast = IfExp(test,
-                                    propagate_fields(pyTuple([elem])),
-                                    pyTuple([]))
+                        ast = IfExp(
+                            test, propagate_fields(pyTuple([elem])), pyTuple([])
+                        )
                     elif isinstance(node, dast.LenCompExpr):
-                        ast = pyCall("lenof", args=[IfExp(test,
-                                                          propagate_fields(pyList([elem])),
-                                                          pyList([]))])
+                        ast = pyCall(
+                            "lenof",
+                            args=[
+                                IfExp(
+                                    test, propagate_fields(pyList([elem])), pyList([])
+                                )
+                            ],
+                        )
                     elif isinstance(node, dast.GeneratorExpr):
                         # Impossible:
                         self.error("Illegal generator expression.", node)
@@ -1089,13 +1205,16 @@ class PythonGenerator(NodeVisitor):
         right = self.visit(node.right)
         if isinstance(node.left, dast.PatternExpr):
             # 'PATTERN in DOMAIN'
-            context = [(v.unique_name, self.visit(v.value))
-                       for v in node.left.ordered_boundpatterns]
+            context = [
+                (v.unique_name, self.visit(v.value))
+                for v in node.left.ordered_boundpatterns
+            ]
             if node.immediate_container_of_type(dast.Process) is not None:
                 # Propagate value of current process id to `SelfPattern`:
                 context.append(("SELF_ID", pyAttr("self", "_id")))
-            ast = pyCall(func=pyAttr(left, "match_iter"),
-                         args=[right], keywords=context)
+            ast = pyCall(
+                func=pyAttr(left, "match_iter"), args=[right], keywords=context
+            )
         else:
             ast = pyCompare(left, OperatorMap[node.comparator], right)
         return ast
@@ -1130,8 +1249,7 @@ class PythonGenerator(NodeVisitor):
         else:
             val = pyList([self.visit(v) for v in node.value])
 
-        return pyCall(func=pyAttr(pyAttr("da", "pat"), type(node).__name__),
-                      args=[val])
+        return pyCall(func=pyAttr(pyAttr("da", "pat"), type(node).__name__), args=[val])
 
     visit_FreePattern = visit_PatternElement
     visit_BoundPattern = visit_PatternElement
@@ -1163,17 +1281,15 @@ class PythonGenerator(NodeVisitor):
     def visit_NamedVar(self, node):
         if isinstance(node.scope, dast.Process):
             if node.name in node.scope.methodnames:
-                return pyAttr("self", node.name,
-                              self.current_context())
+                return pyAttr("self", node.name, self.current_context())
             elif node.name in node.scope.staticnames:
-                return pyAttr(node.scope.name, node.name,
-                              self.current_context())
+                return pyAttr(node.scope.name, node.name, self.current_context())
             else:
-                return pyAttr(pyAttr("self", STATE_ATTR_NAME), node.name,
-                              self.current_context())
+                return pyAttr(
+                    pyAttr("self", STATE_ATTR_NAME), node.name, self.current_context()
+                )
         else:
             return pyName(node.name, self.current_context())
-
 
     def visit_MatchValue(self, node):
         value = self.visit(node.value)
@@ -1184,21 +1300,21 @@ class PythonGenerator(NodeVisitor):
         value = node.value
         ast = MatchSingleton(value)
         return propagate_attributes(ast.value, ast)
-    
+
     def visit_MatchSequence(self, node):
         patterns = [self.visit(p) for p in node.subexprs]
         ast = MatchSequence(patterns)
         return propagate_attributes(patterns, ast)
-    
+
     def visit_MatchStar(self, node):
         return MatchStar(node.name)
-    
+
     def visit_MatchMapping(self, node):
         patterns = [self.visit(p) for p in node.patterns]
         keys = [self.visit(k) for k in node.keys]
         ast = MatchMapping(keys, patterns, node.rest)
         return propagate_attributes(keys + patterns, ast)
-    
+
     def visit_MatchClass(self, node):
         cls = self.visit(node.cls)
         patterns = [self.visit(p) for p in node.patterns]
@@ -1206,7 +1322,7 @@ class PythonGenerator(NodeVisitor):
         kwd_patterns = [self.visit(k) for k in node.kwd_patterns]
         ast = MatchClass(cls, patterns, kwd_attrs, kwd_patterns)
         return propagate_attributes([cls] + patterns + kwd_attrs + kwd_patterns, ast)
-    
+
     def visit_MatchAs(self, node):
         if node.pattern:
             pattern = self.visit(node.pattern)
@@ -1214,12 +1330,12 @@ class PythonGenerator(NodeVisitor):
             pattern = None
         ast = MatchAs(pattern, node.name)
         return propagate_attributes(pattern, ast)
-    
+
     def visit_MatchOr(self, node):
         patterns = [self.visit(p) for p in node.patterns]
         ast = MatchOr(patterns)
         return propagate_attributes(patterns, ast)
-    
+
     def visit_MatchCase(self, node):
         pattern = self.visit(node.pattern)
         if node.guard:
@@ -1228,7 +1344,7 @@ class PythonGenerator(NodeVisitor):
             guard = None
         body = self.body(node.body)
         return match_case(pattern=pattern, guard=guard, body=body)
-    
+
     ########## Statements ##########
 
     def visit_MatchStmt(self, node):
@@ -1302,17 +1418,21 @@ class PythonGenerator(NodeVisitor):
             numClass = Num
         else:
             numClass = Constant
+
         def INCGRD():
             return pyAugAssign(pyName(node.unique_label, Store()), Add, numClass(1))
+
         def DEDGRD():
             return pyAugAssign(pyName(node.unique_label, Store()), Sub, numClass(1))
+
         conds = []
-        body = [INCGRD()]       # body of the main while loop
+        body = [INCGRD()]  # body of the main while loop
         last = body
         last_lineno, max_colno, last_end_lineno, max_end_colno = None, None, None, None
         timeout_branches = []
-        whilenode = pyWhile(pyCompare(pyName(node.unique_label), Eq, numClass(0)),
-                            body, [])
+        whilenode = pyWhile(
+            pyCompare(pyName(node.unique_label), Eq, numClass(0)), body, []
+        )
         main = [pyAssign([pyName(node.unique_label, Store())], numClass(0))]
         main.append(whilenode)
         for br in node.branches:
@@ -1326,7 +1446,9 @@ class PythonGenerator(NodeVisitor):
                 timeout_branches.append(br)
             ifbody = self.body(br.body)
             ifbody.append(INCGRD())
-            last_lineno, max_colno, last_end_lineno, max_end_colno = fixup_locations_in_block(ifbody)
+            last_lineno, max_colno, last_end_lineno, max_end_colno = (
+                fixup_locations_in_block(ifbody)
+            )
             brnode = pyIf(cond, ifbody, [])
             copy_location(brnode, br)
             last.append(brnode)
@@ -1342,14 +1464,23 @@ class PythonGenerator(NodeVisitor):
                 if last_lineno is not None:
                     ifbody[0].lineno, ifbody[0].col_offset = last_lineno, max_colno
                 if last_end_lineno is not None:
-                    ifbody[0].end_lineno, ifbody[0].end_col_offset = last_end_lineno, max_end_colno
+                    ifbody[0].end_lineno, ifbody[0].end_col_offset = (
+                        last_end_lineno,
+                        max_end_colno,
+                    )
                 fixup_locations_in_block(ifbody)
                 last.append(brnode)
                 last = brnode.orelse
         # Label call must come after the If tests:
-        last.append(pyLabel(node.label, block=True,
-                        timeout=(self.visit(node.timeout)
-                                 if node.timeout is not None else None)))
+        last.append(
+            pyLabel(
+                node.label,
+                block=True,
+                timeout=(
+                    self.visit(node.timeout) if node.timeout is not None else None
+                ),
+            )
+        )
         last.append(DEDGRD())
         if last_lineno is not None:
             last[0].lineno, last[0].col_offset = last_lineno, max_colno
@@ -1357,20 +1488,26 @@ class PythonGenerator(NodeVisitor):
             last[0].end_lineno, last[0].end_col_offset = last_end_lineno, max_end_colno
         fixup_locations_in_block(last)
         if node.is_in_loop:
-            propagate_continue \
-                = pyIf(test=pyCompare(pyName(node.unique_label), NotEq, numClass(2)),
-                       body=[Continue()], orelse=[])
-            propagate_break \
-                = pyIf(test=pyCompare(pyName(node.unique_label), NotEq, numClass(2)),
-                       body=[Break()], orelse=[])
+            propagate_continue = pyIf(
+                test=pyCompare(pyName(node.unique_label), NotEq, numClass(2)),
+                body=[Continue()],
+                orelse=[],
+            )
+            propagate_break = pyIf(
+                test=pyCompare(pyName(node.unique_label), NotEq, numClass(2)),
+                body=[Break()],
+                orelse=[],
+            )
             if last_lineno is not None:
-                propagate_continue.lineno, propagate_continue.col_offset \
-                    = propagate_break.lineno, propagate_break.col_offset \
-                    = last_lineno, max_colno
+                propagate_continue.lineno, propagate_continue.col_offset = (
+                    propagate_break.lineno,
+                    propagate_break.col_offset,
+                ) = (last_lineno, max_colno)
             if last_end_lineno is not None:
-                propagate_continue.end_lineno, propagate_continue.end_col_offset \
-                    = propagate_break.end_lineno, propagate_break.end_col_offset \
-                    = last_end_lineno, max_end_colno
+                propagate_continue.end_lineno, propagate_continue.end_col_offset = (
+                    propagate_break.end_lineno,
+                    propagate_break.end_col_offset,
+                ) = (last_end_lineno, max_end_colno)
             whilenode.orelse.append(propagate_continue)
             main.append(propagate_break)
         propagate_attributes(conds, main[0])
@@ -1382,13 +1519,16 @@ class PythonGenerator(NodeVisitor):
             numClass = Num
         else:
             numClass = Constant
+
         def INCGRD():
             return pyAugAssign(pyName(node.unique_label, Store()), Add, numClass(1))
+
         def DEDGRD():
             return pyAugAssign(pyName(node.unique_label, Store()), Sub, numClass(1))
+
         conds = []
         timeout_branches = []
-        body = [INCGRD()]       # body of the main while loop
+        body = [INCGRD()]  # body of the main while loop
         last = body
         last_lineno, max_colno = None, None
         for br in node.branches:
@@ -1400,7 +1540,9 @@ class PythonGenerator(NodeVisitor):
                 conds.append(cond)
                 ifbody = self.body(br.body)
                 ifbody.append(DEDGRD())
-                last_lineno, max_colno, last_end_lineno, max_end_colno = fixup_locations_in_block(ifbody)
+                last_lineno, max_colno, last_end_lineno, max_end_colno = (
+                    fixup_locations_in_block(ifbody)
+                )
                 brnode = pyIf(cond, ifbody, [])
                 copy_location(brnode, br)
                 last.append(brnode)
@@ -1417,25 +1559,42 @@ class PythonGenerator(NodeVisitor):
                 brnode.lineno, brnode.col_offset = last_lineno, max_colno
                 ifbody[0].lineno, ifbody[0].col_offset = last_lineno, max_colno
             if last_end_lineno:
-                brnode.end_lineno, brnode.end_col_offset = last_end_lineno, max_end_colno
-                ifbody[0].end_lineno, ifbody[0].end_col_offset = last_end_lineno, max_end_colno
-            last_lineno, max_colno, last_end_lineno, max_end_colno = fixup_locations_in_block(ifbody)
+                brnode.end_lineno, brnode.end_col_offset = (
+                    last_end_lineno,
+                    max_end_colno,
+                )
+                ifbody[0].end_lineno, ifbody[0].end_col_offset = (
+                    last_end_lineno,
+                    max_end_colno,
+                )
+            last_lineno, max_colno, last_end_lineno, max_end_colno = (
+                fixup_locations_in_block(ifbody)
+            )
             last.append(brnode)
             last = brnode.orelse
         # Label call must come after the If tests:
-        labelnode = pyIf(pyCompare(pyName(node.unique_label), Eq, numClass(0)),
-                         [pyLabel(node.label, block=True,
-                                  timeout=(self.visit(node.timeout)
-                                        if node.timeout is not None else None))
-                         ], [])
+        labelnode = pyIf(
+            pyCompare(pyName(node.unique_label), Eq, numClass(0)),
+            [
+                pyLabel(
+                    node.label,
+                    block=True,
+                    timeout=(
+                        self.visit(node.timeout) if node.timeout is not None else None
+                    ),
+                )
+            ],
+            [],
+        )
         last.append(labelnode)
         if last_lineno is not None:
             last[0].lineno, last[0].col_offset = last_lineno, max_colno
         if last_end_lineno is not None:
             last[0].end_lineno, last[0].end_col_offset = last_end_lineno, max_end_colno
         fixup_locations_in_block(last)
-        whilenode = pyWhile(pyCompare(pyName(node.unique_label), Eq, numClass(0)),
-                            body, [])
+        whilenode = pyWhile(
+            pyCompare(pyName(node.unique_label), Eq, numClass(0)), body, []
+        )
         main = [pyAssign([pyName(node.unique_label, Store())], numClass(0))]
         if node.timeout is not None:
             main.append(pyExpr(pyCall(pyAttr("self", "_timer_start"))))
@@ -1554,17 +1713,33 @@ for attr in dir(self):
         else:
             strClass = Constant
         stmts = self.visit_Function(node)
-        stmts.append(pyAssign(
-            [pyAttr(node.name, "_labels", Store())],
-            (pyNone() if node.labels is None else
-               pyCall(pyName("frozenset"),
-                      [pySet([strClass(l) for l in node.labels])]))))
-        stmts.append(pyAssign(
-            [pyAttr(node.name, "_notlabels", Store())],
-            (pyNone() if node.notlabels is None else
-               pyCall(pyName("frozenset"),
-                      [pySet([strClass(l) for l in node.notlabels])]))))
+        stmts.append(
+            pyAssign(
+                [pyAttr(node.name, "_labels", Store())],
+                (
+                    pyNone()
+                    if node.labels is None
+                    else pyCall(
+                        pyName("frozenset"), [pySet([strClass(l) for l in node.labels])]
+                    )
+                ),
+            )
+        )
+        stmts.append(
+            pyAssign(
+                [pyAttr(node.name, "_notlabels", Store())],
+                (
+                    pyNone()
+                    if node.notlabels is None
+                    else pyCall(
+                        pyName("frozenset"),
+                        [pySet([strClass(l) for l in node.notlabels])],
+                    )
+                ),
+            )
+        )
         return stmts
+
 
 class PatternComprehensionGenerator(PythonGenerator):
     def __init__(self, ctx=Load):
@@ -1593,8 +1768,7 @@ class PatternComprehensionGenerator(PythonGenerator):
         elif node.value in self.freevars:
             target = pyName(node.unique_name, ctx())
             self.current_context = Load
-            conds = [pyCompare(pyName(node.unique_name), Eq,
-                               self.visit(node.value))]
+            conds = [pyCompare(pyName(node.unique_name), Eq, self.visit(node.value))]
         else:
             target = self.visit(node.value)
             self.freevars.add(node.value)
@@ -1642,8 +1816,7 @@ class PatternComprehensionGenerator(PythonGenerator):
         return target
 
     def visit_ListPattern(self, node):
-        raise NotImplementedError(
-            "Can not compile list pattern to comprehension.")
+        raise NotImplementedError("Can not compile list pattern to comprehension.")
 
     def visit_PatternExpr(self, node):
         return self.visit(node.pattern)

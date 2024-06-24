@@ -1,6 +1,5 @@
 from da.compiler.dast import DistNode, NameScope
 
-
 """ MiniZinc AST
 Subset of MiniZinc Model
 % A MiniZinc model
@@ -45,33 +44,40 @@ Type-Inst Expressions
 					   | "list" "of" <ti-expr>
 """
 
+
 class DAConstraints(DistNode):
-	_fields = []
-	def __init__(self, *args):
-		"""Populate fields named in "fields" with values in *args."""
-		assert(len(self._fields) == len(args))
-		for f, a in zip(self._fields, args):
-			setattr(self, f, a)
+    _fields = []
+
+    def __init__(self, *args):
+        """Populate fields named in "fields" with values in *args."""
+        assert len(self._fields) == len(args)
+        for f, a in zip(self._fields, args):
+            setattr(self, f, a)
+
 
 class CSP(NameScope):
-	_fields = ['variables', 'constraints', 'objective']
-	def __init__(self, parent=None, ast=None):
-		super().__init__(parent, ast)
-		# self.parameters = []
-		self.variables = dict()
-		self.constraints = dict()
-		self.objective = None
-		self._index = str(CSP._index)
+    _fields = ['variables', 'constraints', 'objective']
 
-	@property
-	def unique_name(self):
-		return type(self).__name__ + self._index
+    def __init__(self, parent=None, ast=None):
+        super().__init__(parent, ast)
+        # self.parameters = []
+        self.variables = dict()
+        self.constraints = dict()
+        self.objective = None
+        self._index = str(CSP._index)
+
+    @property
+    def unique_name(self):
+        return type(self).__name__ + self._index
+
 
 # a single constraint statement, contains a constraint set
 class Constraint(DAConstraints):
-	_fields = ['name', 'constraints', 'op']
-	def __init__(self, name, constraints, op='and'):
-		super().__init__(name, constraints, op)
+    _fields = ['name', 'constraints', 'op']
+
+    def __init__(self, name, constraints, op='and'):
+        super().__init__(name, constraints, op)
+
 
 # class ConstraintSet(DAConstraints):
 # 	_fields = ['relation', 'body']
@@ -88,68 +94,70 @@ class Constraint(DAConstraints):
 # 	_fields = ['func_name', 'target', 'domain_spec']
 
 
-
 # varaible declaration
 class Variable(DAConstraints):
-	_fields = ['name', 'domain', 'value']
+    _fields = ['name', 'domain', 'value']
 
 
 # domain when declaring variables
 # the data structure to store domain:
 # DADomain: abstract class
 # DomainBasic: int, float, str, bool
-#	 type:   string
-#	 lowerbound: simple expr
-#	 upperbound: simple expr
-#	 step: simple expr
+# 	 type:   string
+# 	 lowerbound: simple expr
+# 	 upperbound: simple expr
+# 	 step: simple expr
 # DomainTuple:
-#	 elements: a list of domains
+# 	 elements: a list of domains
 # DomainMap or DomainDict:
-#	 key: domain
-#	 val: domain
+# 	 key: domain
+# 	 val: domain
 # DomainSet:
-#	 sub_domain: domain
+# 	 sub_domain: domain
 # DomainMultiSet
-#	 sub_domain: domain
+# 	 sub_domain: domain
 class DADomain(DAConstraints):
-	_attributes = ['parameter', 'opt']
-	def __init__(self, *args):
-		self.parameter = None
-		self.opt = False
-		super().__init__(*args)
+    _attributes = ['parameter', 'opt']
+
+    def __init__(self, *args):
+        self.parameter = None
+        self.opt = False
+        super().__init__(*args)
+
 
 class DomainBasic(DADomain):
-	_fields = ['type', 'lb', 'ub', 'step']
-	def __init__(self, _type, lb= None, ub= None, step= None):
-		super().__init__(_type,lb,ub,step)
-		if _type == 'float' and step:
-			raise ValueError("float type cannot be declared with step")
+    _fields = ['type', 'lb', 'ub', 'step']
+
+    def __init__(self, _type, lb=None, ub=None, step=None):
+        super().__init__(_type, lb, ub, step)
+        if _type == 'float' and step:
+            raise ValueError("float type cannot be declared with step")
+
 
 class DomainTuple(DADomain):
-	_fields = ['elements']
-	
+    _fields = ['elements']
+
 
 class DomainMap(DADomain):
-	_fields = ['key', 'val']
-	
+    _fields = ['key', 'val']
+
 
 class DomainSet(DADomain):
-	_fields = ['domain']
+    _fields = ['domain']
+
 
 class DomainMultiSet(DADomain):
-	_fields = ['domain']
-	
+    _fields = ['domain']
+
+
 class DomainVar(DADomain):
-	_fields = ['var']
+    _fields = ['var']
+
 
 # objective function
 class Objective(DAConstraints):
-	_fields = ['op', 'obj']
+    _fields = ['op', 'obj']
 
 
 class Target(DAConstraints):
-	_fields = ['variables', 'constraints', 'objective', 'allFlag']
-
-
-
-
+    _fields = ['variables', 'constraints', 'objective', 'allFlag']

@@ -22,29 +22,31 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-import sys
 import os.path
+import sys
+from importlib import machinery, util
 
-import _imp
-from importlib import machinery
-from importlib import util
 # XXX: these are Python internal stuff that may very likely break in future
 # releases, but is current as of 3.7:
-from importlib._bootstrap import _call_with_frames_removed
-from importlib._bootstrap import _verbose_message
-from importlib._bootstrap_external import _get_supported_file_loaders
-from importlib._bootstrap_external import _classify_pyc
-from importlib._bootstrap_external import _compile_bytecode
-from importlib._bootstrap_external import _validate_hash_pyc
-from importlib._bootstrap_external import _validate_timestamp_pyc
-from importlib._bootstrap_external import _code_to_hash_pyc
-from importlib._bootstrap_external import _code_to_timestamp_pyc
+from importlib._bootstrap import _call_with_frames_removed, _verbose_message
+from importlib._bootstrap_external import (
+    _classify_pyc,
+    _code_to_hash_pyc,
+    _code_to_timestamp_pyc,
+    _compile_bytecode,
+    _get_supported_file_loaders,
+    _validate_hash_pyc,
+    _validate_timestamp_pyc,
+)
+
+import _imp
 
 # XXX: any use of `get_runtime_option` in this module must always provide a
 # 'default' argument since GlobalOptions may not have been initialized yet:
 from .. import common
 
 DISTALGO_SUFFIXES = ['.da']
+
 
 def da_cache_from_source(source_path, optimization=None):
     """Given the path to a .da file, return the path to its .pyc file.
@@ -73,9 +75,7 @@ class DASourceFileLoader(machinery.SourceFileLoader):
     """
 
     def __init__(self, fullname, path):
-        """This is called from the finder.
-
-        """
+        """This is called from the finder."""
         super().__init__(fullname, path)
 
     def exec_module(self, module):
@@ -86,15 +86,16 @@ class DASourceFileLoader(machinery.SourceFileLoader):
         common.add_da_module(module)
 
     def source_to_code(self, data, path, *, _optimize=-1):
-        """Return the Python code object compiled from DistAlgo source.
-
-        """
+        """Return the Python code object compiled from DistAlgo source."""
         from .. import compiler
-        codeobj = _call_with_frames_removed(compiler.dastr_to_pycode,
-                            data, path, _optimize=_optimize,
-                            args=common.get_runtime_option(
-                                'compiler_args',
-                                default=[]))
+
+        codeobj = _call_with_frames_removed(
+            compiler.dastr_to_pycode,
+            data,
+            path,
+            _optimize=_optimize,
+            args=common.get_runtime_option('compiler_args', default=[]),
+        )
         if codeobj is None:
             raise ImportError("Unable to compile {}.".format(path))
         return codeobj
@@ -146,16 +147,18 @@ class DASourceFileLoader(machinery.SourceFileLoader):
                             hash_based = flags & 0b1 != 0
                             if hash_based:
                                 check_source = flags & 0b10 != 0
-                                if (_imp.check_hash_based_pycs != 'never' and
-                                    (check_source or
-                                     _imp.check_hash_based_pycs == 'always')):
+                                if _imp.check_hash_based_pycs != 'never' and (
+                                    check_source
+                                    or _imp.check_hash_based_pycs == 'always'
+                                ):
                                     source_bytes = self.get_data(source_path)
                                     source_hash = _imp.source_hash(
                                         _RAW_MAGIC_NUMBER,
                                         source_bytes,
                                     )
-                                    _validate_hash_pyc(data, source_hash, fullname,
-                                                       exc_details)
+                                    _validate_hash_pyc(
+                                        data, source_hash, fullname, exc_details
+                                    )
                             else:
                                 _validate_timestamp_pyc(
                                     data,
@@ -167,24 +170,32 @@ class DASourceFileLoader(machinery.SourceFileLoader):
                         except (ImportError, EOFError):
                             pass
                         else:
-                            _verbose_message('{} matches {}', bytecode_path,
-                                                        source_path)
-                            return _compile_bytecode(bytes_data, name=fullname,
-                                                     bytecode_path=bytecode_path,
-                                                     source_path=source_path)
+                            _verbose_message(
+                                '{} matches {}', bytecode_path, source_path
+                            )
+                            return _compile_bytecode(
+                                bytes_data,
+                                name=fullname,
+                                bytecode_path=bytecode_path,
+                                source_path=source_path,
+                            )
         if source_bytes is None:
             source_bytes = self.get_data(source_path)
         code_object = self.source_to_code(source_bytes, source_path)
         _verbose_message('code object from {}', source_path)
-        if (not sys.dont_write_bytecode and bytecode_path is not None and
-                source_mtime is not None):
+        if (
+            not sys.dont_write_bytecode
+            and bytecode_path is not None
+            and source_mtime is not None
+        ):
             if hash_based:
                 if source_hash is None:
                     source_hash = _imp.source_hash(source_bytes)
                 data = _code_to_hash_pyc(code_object, source_hash, check_source)
             else:
-                data = _code_to_timestamp_pyc(code_object, source_mtime,
-                                              len(source_bytes))
+                data = _code_to_timestamp_pyc(
+                    code_object, source_mtime, len(source_bytes)
+                )
             try:
                 self._cache_bytecode(source_path, bytecode_path, data)
                 _verbose_message('wrote {!r}', bytecode_path)
@@ -192,10 +203,9 @@ class DASourceFileLoader(machinery.SourceFileLoader):
                 pass
         return code_object
 
-def _install():
-    """Hooks our loader into the import machinery.
 
-    """
+def _install():
+    """Hooks our loader into the import machinery."""
     da_loader = [(DASourceFileLoader, DISTALGO_SUFFIXES)]
     python_loaders = _get_supported_file_loaders()
     # Append Python's own loaders after ours, so that '.da' files are preferred

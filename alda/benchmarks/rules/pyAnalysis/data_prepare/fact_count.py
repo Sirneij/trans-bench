@@ -5,13 +5,17 @@
 
 count while try to find duplicates
 """
+
 import logging
 import logging.config
+
 logging.config.fileConfig('logging.conf')
 logger = logging.getLogger('fact_count')
 
-import os, sys
+import os
+import sys
 from pprint import pformat
+
 
 class Count:
     def __init__(self, project):
@@ -23,7 +27,7 @@ class Count:
         self.factFileDict = dict()
 
     def count_astFacts(self):
-        """ also find duplicates """
+        """also find duplicates"""
         logger.info('count_astFacts')
         folder = os.path.join(self.project_folder, 'astFacts')
         duplicates = dict()
@@ -31,7 +35,7 @@ class Count:
             if not file.startswith('.'):
                 logger.info(file)
                 input_file = os.path.join(folder, file)
-                lines = open(input_file,'r').readlines()
+                lines = open(input_file, 'r').readlines()
                 for l in lines:
                     t = eval(l)
                     if isinstance(t, tuple):
@@ -52,22 +56,25 @@ class Count:
                     else:
                         logger.error('strange things')
                         logger.info(pformat(t))
-        
+
         if duplicates:
             logger.info('❌ duplicates detected!')
             logger.info(pformat(duplicates))
-
-
 
     def count_textRepr(self):
         logger.info('count_textRepr')
         folder = os.path.join(self.project_folder, 'text-rep')
         for file in os.listdir(folder):
-            if not file.startswith('.') and file not in {'is_Sub', 'ValueIdDict', 'FileDict', 'ValueDict'}:
+            if not file.startswith('.') and file not in {
+                'is_Sub',
+                'ValueIdDict',
+                'FileDict',
+                'ValueDict',
+            }:
                 # logger.info(file)
                 input_file = os.path.join(folder, file)
                 self.txtReprDict[file] = sum(1 for line in open(input_file))
- 
+
     def count(self):
         self.count_astFacts()
         self.count_textRepr()
@@ -76,7 +83,9 @@ class Count:
                 if val == len(self.astFactDict[key]):
                     logger.info(f'✅ number of facts for {key}: {val}')
                 else:
-                    logger.info(f'❌ number of facts for {key}: text-pre - {val}; astFacts - {len(self.astFactDict[key])}')
+                    logger.info(
+                        f'❌ number of facts for {key}: text-pre - {val}; astFacts - {len(self.astFactDict[key])}'
+                    )
             else:
                 logger.error(f'fact {key} not presented in astFactDict')
 

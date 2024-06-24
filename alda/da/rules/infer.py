@@ -1,14 +1,14 @@
-import uuid
-from .rule_io import write_file, read_answer, rule_path
-import sys
+import importlib.util
 import os
 import subprocess
-from pprint import pprint
+import sys
+import uuid
 from ast import literal_eval
 from pathlib import PurePath
-import importlib.util
-from pprint import pformat
+from pprint import pformat, pprint
+
 from .. import common
+from .rule_io import read_answer, rule_path, write_file
 
 UniqueLowerCasePrefix = 'p'
 xsb_path = PurePath.joinpath(PurePath(__file__).parent, 'xsb')
@@ -16,14 +16,19 @@ if os.name == 'nt':
     xsb_path = str(xsb_path).replace('\\', '\\\\')
 
 
-class InferXSB():
+class InferXSB:
     def __init__(self, rules, arity, bindings, queries):
         self.rules = rules
         self.arity = arity
         self.bindings = bindings
         self.queries = queries
-        self.encoded = True      # whether the input is encoded as internal representation
-        for _, val in bindings:  # assume the bindings are either all encoded or not encoded at all
+        self.encoded = True  # whether the input is encoded as internal representation
+        for (
+            _,
+            val,
+        ) in (
+            bindings
+        ):  # assume the bindings are either all encoded or not encoded at all
             if not self.facts_encoded(val):
                 self.encoded = False
                 break
@@ -32,8 +37,7 @@ class InferXSB():
         self.generator = self.gensym()
 
     def facts_encoded(self, val):
-        """ whether facts are encoded as internal presentation
-        """
+        """whether facts are encoded as internal presentation"""
         if isinstance(val, (list, tuple, set)):
             for v in val:
                 if not self.facts_encoded(v):
@@ -49,10 +53,15 @@ class InferXSB():
     def eval_logicVar(self, v):
         if not self.encoded and isinstance(v, int):
             v = self.ValueDict[v]
-        return eval(v) if v.isdigit() else \
-            None if v == "'None'" else \
-            False if v == "'False'" else \
-            True if v == "'True'" else v
+        return (
+            eval(v)
+            if v.isdigit()
+            else (
+                None
+                if v == "'None'"
+                else False if v == "'False'" else True if v == "'True'" else v
+            )
+        )
 
     def flatten(self, x):
         if isinstance(x, list):
@@ -69,7 +78,9 @@ class InferXSB():
     def getid(self, node):
         buf = pformat(node)
         buf = buf.replace('\n', ' ')
-        print('>>> encoding ', buf[:50], end='\r')  # TODO comment out to improve performance
+        print(
+            '>>> encoding ', buf[:50], end='\r'
+        )  # TODO comment out to improve performance
         if node not in self.ValueIdDict:
             genid = next(self.generator)
             self.ValueIdDict[node] = genid
@@ -81,18 +92,33 @@ class InferXSB():
     def LogicVarToXSB(self, v):
         if self.encoded:
             if isinstance(v, (list, tuple)):
-                return ','.join(self.LogicVarToXSB(y) for x in v for y in self.flatten(x))
+                return ','.join(
+                    self.LogicVarToXSB(y) for x in v for y in self.flatten(x)
+                )
             # error if number is too large, yielding missed facts:
             # return str(v) if v == '_' or isinstance(v, int) or (isinstance(v,str) and v.isdigit()) else \
-            return str(v) if v == '_' or (isinstance(v, str) and v.isdigit()) or (not isinstance(v, bool) and isinstance(v, int)) else \
-                "'None'" if (v is None or v == 'None') else \
-                "0" if (v is False or v == 'False') else \
-                "1" if (v is True or v == 'True') else "'%s'" % v
+            return (
+                str(v)
+                if v == '_'
+                or (isinstance(v, str) and v.isdigit())
+                or (not isinstance(v, bool) and isinstance(v, int))
+                else (
+                    "'None'"
+                    if (v is None or v == 'None')
+                    else (
+                        "0"
+                        if (v is False or v == 'False')
+                        else "1" if (v is True or v == 'True') else "'%s'" % v
+                    )
+                )
+            )
         else:
             if isinstance(v, tuple):
                 return str(self.getid(v))
             if isinstance(v, list):
-                return ','.join(self.LogicVarToXSB(y) for x in v for y in self.flatten(x))
+                return ','.join(
+                    self.LogicVarToXSB(y) for x in v for y in self.flatten(x)
+                )
             if v == '_':
                 return v
             # if v is None or v == 'None':
@@ -107,9 +133,13 @@ class InferXSB():
 
     def gen_fact(self, pred, val):
         if isinstance(val, (list, tuple, set)):
-            return UniqueLowerCasePrefix+pred+'(%s)' % ','.join(self.LogicVarToXSB(v) for v in val)
+            return (
+                UniqueLowerCasePrefix
+                + pred
+                + '(%s)' % ','.join(self.LogicVarToXSB(v) for v in val)
+            )
         else:
-            return UniqueLowerCasePrefix+pred+'(%s)' % self.LogicVarToXSB(val)
+            return UniqueLowerCasePrefix + pred + '(%s)' % self.LogicVarToXSB(val)
 
     def time_dur(self, t1, t2, name):  # os.times t1 and t2, string name
         u1, s1, cu1, cs1, elapsed1 = t1
@@ -121,18 +151,20 @@ class InferXSB():
 
         # generate facts
         xsb_facts = ""
-        rule_filename = self.rules+'_'+self.gen_unique_id()
+        rule_filename = self.rules + '_' + self.gen_unique_id()
         for key, val in self.bindings:  # pair of predicate name and tuple values
             if len(val) == 0:  # val is an empty predicate
                 # generate a place holder where all logic vars are -1
-                xsb_facts += self.gen_fact(key, ['-1']*self.arity[key])+'.\n'
-            elif not isinstance(val, list) and not isinstance(val, set):  # val is a single value
-                xsb_facts += self.gen_fact(key, val)+'.\n'
+                xsb_facts += self.gen_fact(key, ['-1'] * self.arity[key]) + '.\n'
+            elif not isinstance(val, list) and not isinstance(
+                val, set
+            ):  # val is a single value
+                xsb_facts += self.gen_fact(key, val) + '.\n'
             else:  # val is a set or list
                 for v in val:
-                    xsb_facts += self.gen_fact(key, v)+'.\n'
+                    xsb_facts += self.gen_fact(key, v) + '.\n'
 
-        write_file(rule_filename+'.facts', xsb_facts)
+        write_file(rule_filename + '.facts', xsb_facts)
         # print('\tnum_fact\tfile_size')
         # print('datasize\t%s\t%s' % (len(xsb_facts.split('\n')),
         #     os.path.getsize(PurePath.joinpath(rule_path,rule_filename+'.facts'))))
@@ -144,14 +176,27 @@ class InferXSB():
         for q in self.queries:
             if q.find('(') < 0:  # if queries are passed with only prediate names
                 # complete the query in form of pred(_,...,_)
-                qstr = q + '(' + ','.join('_'*self.arity[q]) + ')'
-                _queries.append([PurePath.joinpath(rule_path, rule_filename+'.'+q).as_posix(), UniqueLowerCasePrefix+qstr])
+                qstr = q + '(' + ','.join('_' * self.arity[q]) + ')'
+                _queries.append(
+                    [
+                        PurePath.joinpath(
+                            rule_path, rule_filename + '.' + q
+                        ).as_posix(),
+                        UniqueLowerCasePrefix + qstr,
+                    ]
+                )
             else:  # if queries are passed in full
                 # convert each logic variable to valid format for XSB
                 pred = q.split('(')[0]
                 var = q.split('(')[1].split(')')[0]
-                _queries.append([PurePath.joinpath(rule_path, rule_filename+'.'+pred).as_posix(),
-                                self.gen_fact(pred, var.strip().split(','))])
+                _queries.append(
+                    [
+                        PurePath.joinpath(
+                            rule_path, rule_filename + '.' + pred
+                        ).as_posix(),
+                        self.gen_fact(pred, var.strip().split(',')),
+                    ]
+                )
 
         print('', flush=True)  # clear the print(end='\r') after effect
 
@@ -161,8 +206,11 @@ class InferXSB():
             rule_path_rule = str(rule_path_rule).replace('\\', '\\\\')
             rule_path_fact = str(rule_path_fact).replace('\\', '\\\\')
 
-        xsb_query = "extfilequery:external_file_query('{}','{}',{}).".format(rule_path_rule, rule_path_fact, "[%s]" % ",".join(
-            "['%s',%s]" % (qfile, qstr) for qfile, qstr in _queries))
+        xsb_query = "extfilequery:external_file_query('{}','{}',{}).".format(
+            rule_path_rule,
+            rule_path_fact,
+            "[%s]" % ",".join("['%s',%s]" % (qfile, qstr) for qfile, qstr in _queries),
+        )
         # print(xsb_query)
 
         # check if xsb command can be run
@@ -180,10 +228,20 @@ class InferXSB():
         t_pre = os.times()  # before run xsb
 
         # output = subprocess.run(["xsb",
-        output = subprocess.run(['xsb', '--nobanner', '--quietload', '--noprompt',
-                                '-e', "add_lib_dir(a('{}')).".format(xsb_path),
-                                 '-e', xsb_query],
-                                stdout=subprocess.PIPE, text=True)
+        output = subprocess.run(
+            [
+                'xsb',
+                '--nobanner',
+                '--quietload',
+                '--noprompt',
+                '-e',
+                "add_lib_dir(a('{}')).".format(xsb_path),
+                '-e',
+                xsb_query,
+            ],
+            stdout=subprocess.PIPE,
+            text=True,
+        )
 
         t_post = os.times()  # after run xsb
 
@@ -191,10 +249,14 @@ class InferXSB():
         for r, _ in _queries:
             rname = PurePath(r).name
             answers = read_answer(rname)
-            tuples = {tuple(self.eval_logicVar(v) for v in a.split(','))
-                      if len(a.split(',')) > 1
-                      else self.eval_logicVar(a)
-                      for a in answers.split("\n")[:-1]}
+            tuples = {
+                (
+                    tuple(self.eval_logicVar(v) for v in a.split(','))
+                    if len(a.split(',')) > 1
+                    else self.eval_logicVar(a)
+                )
+                for a in answers.split("\n")[:-1]
+            }
             results.append(tuples)
 
         if common.get_runtime_option('timing', default=False):

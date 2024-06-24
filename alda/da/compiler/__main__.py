@@ -24,6 +24,7 @@
 
 # Main module entry point
 import sys
+
 from . import ui
 
 if hasattr(sys, '_real_argv'):

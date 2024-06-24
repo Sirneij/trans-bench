@@ -23,13 +23,13 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import sys
-
 from ast import *
 from collections import OrderedDict
+
 from . import dast
-from .pygen import *
 from .parser import Pattern2Constant
-from .utils import printe, printd, printw, OptionsManager, to_source
+from .pygen import *
+from .utils import OptionsManager, printd, printe, printw, to_source
 
 INC_MODULE_VAR = "IncModule"
 
@@ -48,37 +48,42 @@ JB_STYLE_SET = "Set"
 JB_STYLE_MAP = "Map"
 
 NegatedOperatorMap = {
-    dast.EqOp : NotEq,
-    dast.NotEqOp : Eq,
-    dast.LtOp : Gt,
-    dast.LtEOp : GtE,
-    dast.GtOp : Lt,
-    dast.GtEOp : LtE,
-    dast.IsOp : IsNot,
-    dast.IsNotOp : Is,
-    dast.InOp : NotIn,
-    dast.NotInOp : In
+    dast.EqOp: NotEq,
+    dast.NotEqOp: Eq,
+    dast.LtOp: Gt,
+    dast.LtEOp: GtE,
+    dast.GtOp: Lt,
+    dast.GtEOp: LtE,
+    dast.IsOp: IsNot,
+    dast.IsNotOp: Is,
+    dast.InOp: NotIn,
+    dast.NotInOp: In,
 }
 
 ##################################################
 # Global states:
 
-Options = None                  # Command line options
+Options = None  # Command line options
 ModuleFilename = ""
 
 ##########
 # Auxiliary methods:
 
+
 def iprintd(message):
     printd(message, filename=ModuleFilename)
+
 
 def iprintw(message):
     printw(message, filename=ModuleFilename)
 
+
 def combine_not_comparison(node):
-    if (isinstance(node, dast.LogicalExpr) and
-            node.operator is dast.NotOp and
-            isinstance(node.left, dast.ComparisonExpr)):
+    if (
+        isinstance(node, dast.LogicalExpr)
+        and node.operator is dast.NotOp
+        and isinstance(node.left, dast.ComparisonExpr)
+    ):
         exp = dast.ComparisonExpr(parent=node.parent, ast=node.ast)
         exp.left = node.left.left
         exp.right = node.left.right
@@ -89,22 +94,27 @@ def combine_not_comparison(node):
     else:
         return node
 
+
 def apply_demorgan_rule(node):
-    if (isinstance(node, dast.LogicalExpr) and
-            node.operator is dast.NotOp and
-            isinstance(node.left, dast.LogicalExpr) and
-            node.left.operator in {dast.AndOp, dast.OrOp}):
-        exp = dast.LogicalExpr(parent=node.parent, ast=node.ast,
-                               op=NegatedOperatorMap[node.left.operator])
-        exp.subexprs = [dast.LogicalExpr(parent=exp, ast=None,
-                                         op=dast.NotOp,
-                                         subexprs=[e])
-                        for e in node.left.subexprs]
+    if (
+        isinstance(node, dast.LogicalExpr)
+        and node.operator is dast.NotOp
+        and isinstance(node.left, dast.LogicalExpr)
+        and node.left.operator in {dast.AndOp, dast.OrOp}
+    ):
+        exp = dast.LogicalExpr(
+            parent=node.parent, ast=node.ast, op=NegatedOperatorMap[node.left.operator]
+        )
+        exp.subexprs = [
+            dast.LogicalExpr(parent=exp, ast=None, op=dast.NotOp, subexprs=[e])
+            for e in node.left.subexprs
+        ]
         for e in exp.subexprs:
             e.left._parent = e
         return exp
     else:
         return node
+
 
 def domain_for_condition(domainspec, condition):
     expr = dast.SetCompExpr(domainspec.parent)
@@ -115,19 +125,26 @@ def domain_for_condition(domainspec, condition):
         expr.elem.value = domainspec.pattern.ordered_freevars[0]
         domainspec.pattern = dast.PatternExpr(domainspec)
         domainspec.pattern.pattern = dast.FreePattern(
-            domainspec.pattern, value=expr.elem.value)
+            domainspec.pattern, value=expr.elem.value
+        )
     else:
         expr.elem = dast.TupleExpr(expr)
-        expr.elem.subexprs = [dast.SimpleExpr(expr.elem, value=v)
-                              for v in domainspec.pattern.ordered_freevars]
+        expr.elem.subexprs = [
+            dast.SimpleExpr(expr.elem, value=v)
+            for v in domainspec.pattern.ordered_freevars
+        ]
         domainspec.pattern = dast.PatternExpr(domainspec)
         domainspec.pattern.pattern = dast.TuplePattern(
             domainspec.pattern,
-            value = [dast.FreePattern(domainspec.pattern, value=fv.value)
-                     for fv in expr.elem.subexprs])
+            value=[
+                dast.FreePattern(domainspec.pattern, value=fv.value)
+                for fv in expr.elem.subexprs
+            ],
+        )
     domainspec.domain = expr
     iprintd("domain_for_condition: " + str(expr))
     return expr
+
 
 def optimize_tuple(elt):
     """Expand single element tuples."""
@@ -135,6 +152,7 @@ def optimize_tuple(elt):
     if type(elt) is Tuple and len(elt.elts) == 1:
         elt = elt.elts[0]
     return elt
+
 
 def append_unique(alist, newelts):
     """Append unique new elements from 'newelts' to 'alist'.
@@ -145,10 +163,12 @@ def append_unique(alist, newelts):
         if elt not in alist:
             alist.append(elt)
 
+
 def uniquify(alist):
     res = []
     append_unique(res, alist)
     return res
+
 
 def ast_eq(left, right):
     """Structural equality of AST nodes."""
@@ -164,8 +184,9 @@ def ast_eq(left, right):
         return True
     if not isinstance(left, AST):
         return left == right
-    for (left_fieldname, left_value), (right_fieldname, right_value) in \
-            zip(iter_fields(left), iter_fields(right)):
+    for (left_fieldname, left_value), (right_fieldname, right_value) in zip(
+        iter_fields(left), iter_fields(right)
+    ):
         if not (left_fieldname == right_fieldname):
             break
         if not ast_eq(left_value, right_value):
@@ -174,6 +195,7 @@ def ast_eq(left, right):
         return True
     return False
 
+
 def is_all_wildcards(targets):
     """True if 'targets' contain only wildcards."""
 
@@ -181,6 +203,7 @@ def is_all_wildcards(targets):
         if not (isinstance(elt, Name) and elt.id == '_'):
             return False
     return True
+
 
 def mangle_name(nameobj):
     """Generate a name for 'nameobj' that is unique in the flat namespace of the
@@ -204,6 +227,7 @@ def mangle_name(nameobj):
     namelist.append(nameobj.name)
     return ''.join(namelist)
 
+
 PREAMBLE = """
 import da
 {jbstyle_import}
@@ -223,6 +247,7 @@ JBSTYLE_DIRECTIVES = """""".format(JB_STYLE_MODULE, GLOBAL_WITNESS_VAR)
 GLOBAL_READ = "globals()['{0}']"
 GLOBAL_WRITE = "globals()['{0}'] = {1}"
 
+
 def extract_all_queries(distalgo_ast):
     """Return a list of all queries in given ast node."""
 
@@ -230,16 +255,21 @@ def extract_all_queries(distalgo_ast):
     quex.visit(distalgo_ast)
     return uniquify(quex.queries)
 
+
 def extract_query_parameters(query):
     """Return list of parameters of 'query'."""
 
-    return uniquify(nobj for nobj in query.ordered_nameobjs
-                    if query.is_child_of(nobj.scope)
-                    # NOTE: this assumes a name can not both be a parameter
-                    # and assigned to inside the query, which is not true
-                    # for Python in general, but is true for DistAlgo
-                    # queries that we can handle:
-                    if not nobj.is_assigned_in(query))
+    return uniquify(
+        nobj
+        for nobj in query.ordered_nameobjs
+        if query.is_child_of(nobj.scope)
+        # NOTE: this assumes a name can not both be a parameter
+        # and assigned to inside the query, which is not true
+        # for Python in general, but is true for DistAlgo
+        # queries that we can handle:
+        if not nobj.is_assigned_in(query)
+    )
+
 
 def extract_query_events(query):
     """Return set of events used in 'query'."""
@@ -247,6 +277,7 @@ def extract_query_events(query):
     ev = EventExtractor()
     ev.visit(query)
     return uniquify(ev.events)
+
 
 def process_query(query, state):
     """Generates stub and hook for 'query'."""
@@ -265,52 +296,70 @@ def process_query(query, state):
     if iig.witness_set is None:
         return _process_nonwitness_query(qname, params, events, query, incqu)
     else:
-        return _process_witness_query(qname, params, events,
-                                      query, incqu, iig.witness_set)
+        return _process_witness_query(
+            qname, params, events, query, incqu, iig.witness_set
+        )
+
 
 def _process_nonwitness_query(stub_name, params, events, query, inc_query):
     qrydef = pyFunctionDef(
         name=stub_name,
-        args=([mangle_name(nobj) for nobj in params] +
-              [evt.name for evt in events]),
+        args=([mangle_name(nobj) for nobj in params] + [evt.name for evt in events]),
         decorator_list=[],
         returns=None,
-        body=[Expr(Str(to_source(query.ast))),
-              Return(inc_query)])
+        body=[Expr(Str(to_source(query.ast))), Return(inc_query)],
+    )
     # Replace the query node in the main module with the hook:
     qryhook = pyCall(
         func=pyAttr(INC_MODULE_VAR, stub_name),
         args=[],
-        keywords=([(mangle_name(arg), PythonGenerator().visit(arg))
-                   for arg in params] +
-                  [(evt.name, pyAttr("self", evt.name)) for evt in events]))
+        keywords=(
+            [(mangle_name(arg), PythonGenerator().visit(arg)) for arg in params]
+            + [(evt.name, pyAttr("self", evt.name)) for evt in events]
+        ),
+    )
     query.ast_override = qryhook
     # Replace the query node in the inc module with the hook:
     inchook = pyCall(
         func=stub_name,
         args=[],
-        keywords=([(mangle_name(arg), pyName(mangle_name(arg)))
-                   for arg in params] +
-                  [(evt.name, pyName(evt.name)) for evt in events]))
+        keywords=(
+            [(mangle_name(arg), pyName(mangle_name(arg))) for arg in params]
+            + [(evt.name, pyName(evt.name)) for evt in events]
+        ),
+    )
     query.inc_query_override = inchook
     return qrydef
 
-def _process_witness_query(stub_name, params, events,
-                           query, inc_query, witness_set):
+
+def _process_witness_query(stub_name, params, events, query, inc_query, witness_set):
     # Query stub in inc:
     qrydef = pyFunctionDef(
         name=stub_name,
-        args=([mangle_name(nobj) for nobj in params] +
-              [evt.name for evt in events]),
-        body=[Expr(Str(to_source(query.ast))),
-              Global([GLOBAL_WITNESS_VAR]),
-              Try([Assign([pyName(GLOBAL_WITNESS_VAR)],
-                          pyCall("next", [pyCall("iter", [witness_set])]))],
-                  [ExceptHandler(pyName("StopIteration"), None,
-                                 [Assign([pyName(GLOBAL_WITNESS_VAR)],
-                                         pyNone())])],
-                  [], []),
-              Return(inc_query)])
+        args=([mangle_name(nobj) for nobj in params] + [evt.name for evt in events]),
+        body=[
+            Expr(Str(to_source(query.ast))),
+            Global([GLOBAL_WITNESS_VAR]),
+            Try(
+                [
+                    Assign(
+                        [pyName(GLOBAL_WITNESS_VAR)],
+                        pyCall("next", [pyCall("iter", [witness_set])]),
+                    )
+                ],
+                [
+                    ExceptHandler(
+                        pyName("StopIteration"),
+                        None,
+                        [Assign([pyName(GLOBAL_WITNESS_VAR)], pyNone())],
+                    )
+                ],
+                [],
+                [],
+            ),
+            Return(inc_query),
+        ],
+    )
 
     # Witness propagation function in main:
     qryfunc = pyFunctionDef(
@@ -322,37 +371,65 @@ def _process_witness_query(stub_name, params, events,
             # ordered_local_freevars before assigning witness, so we are
             # guaranteed non-empty here:
             Nonlocal([fv.name for fv in query.ordered_local_freevars]),
-            Assign([pyName(LOCAL_RESULT_VAR)],
-                   pyCall(
-                       func=pyAttr(INC_MODULE_VAR, stub_name),
-                       args=[],
-                       keywords=([(mangle_name(arg),
-                                   PythonGenerator().visit(arg))
-                                  for arg in params] +
-                                 [(evt.name, pyAttr("self", evt.name))
-                                  for evt in events]))),
-            If(pyName(LOCAL_RESULT_VAR),
-               [Assign([optimize_tuple(pyTuple(
-                   [pyName(fv.name) for fv in query.ordered_local_freevars]))],
-                       pyAttr(INC_MODULE_VAR, GLOBAL_WITNESS_VAR)),
-                Return(pyTrue())],
-               [Return(pyFalse())])])
+            Assign(
+                [pyName(LOCAL_RESULT_VAR)],
+                pyCall(
+                    func=pyAttr(INC_MODULE_VAR, stub_name),
+                    args=[],
+                    keywords=(
+                        [
+                            (mangle_name(arg), PythonGenerator().visit(arg))
+                            for arg in params
+                        ]
+                        + [(evt.name, pyAttr("self", evt.name)) for evt in events]
+                    ),
+                ),
+            ),
+            If(
+                pyName(LOCAL_RESULT_VAR),
+                [
+                    Assign(
+                        [
+                            optimize_tuple(
+                                pyTuple(
+                                    [
+                                        pyName(fv.name)
+                                        for fv in query.ordered_local_freevars
+                                    ]
+                                )
+                            )
+                        ],
+                        pyAttr(INC_MODULE_VAR, GLOBAL_WITNESS_VAR),
+                    ),
+                    Return(pyTrue()),
+                ],
+                [Return(pyFalse())],
+            ),
+        ],
+    )
     # Replace query with call to witness propagation function:
     query.ast_override = pyCall(func=query.name)
     if not hasattr(query, 'prebody'):
         query.prebody = []
-    query.prebody.extend([Assign(
-        targets=[pyName(nv.name) for nv in query.ordered_local_freevars],
-        value=pyNone()),
-                          qryfunc])
+    query.prebody.extend(
+        [
+            Assign(
+                targets=[pyName(nv.name) for nv in query.ordered_local_freevars],
+                value=pyNone(),
+            ),
+            qryfunc,
+        ]
+    )
 
     # Replace the query node in the inc module with the hook:
     inchook = pyCall(
         func=stub_name,
         args=[],
-        keywords=([(mangle_name(arg), pyName(mangle_name(arg)))
-                   for arg in params] +
-                  [(evt.name, pyName(evt.name)) for evt in events]))
+        keywords=(
+            [(mangle_name(arg), pyName(mangle_name(arg))) for arg in params]
+            + [(evt.name, pyName(evt.name)) for evt in events]
+        ),
+    )
     query.inc_query_override = inchook
     return qrydef
 
@@ -363,6 +440,7 @@ def process_all_queries(queries, state):
     query_stubs = [process_query(query, state) for query in queries]
     state.module.body.extend(query_stubs)
 
+
 def gen_update_stub_name_for_node(updnode, state):
     """Generates an update stub name for the given update node.
 
@@ -371,19 +449,21 @@ def gen_update_stub_name_for_node(updnode, state):
 
     """
 
-    name_comps = UPDATE_STUB_PREFIX + \
-                 "".join([mangle_name(nameobj)
-                          for nameobj in state.updates[updnode]] +
-                         [str(state.counter)])
+    name_comps = UPDATE_STUB_PREFIX + "".join(
+        [mangle_name(nameobj) for nameobj in state.updates[updnode]]
+        + [str(state.counter)]
+    )
     state.counter += 1
     return name_comps
+
 
 def generate_update_stub(updnode, state):
     """Generate update stub and hook for 'updnode'."""
 
     uname = gen_update_stub_name_for_node(updnode, state)
-    params = uniquify(nobj for nobj in updnode.ordered_nameobjs
-                      if updnode.is_contained_in(nobj.scope))
+    params = uniquify(
+        nobj for nobj in updnode.ordered_nameobjs if updnode.is_contained_in(nobj.scope)
+    )
     astval = IncInterfaceGenerator(params).visit(updnode)
     # the body depends on the syntactic type of update we're handling:
     if isinstance(updnode, dast.Expression):
@@ -398,28 +478,31 @@ def generate_update_stub(updnode, state):
     elif isinstance(updnode, dast.DeleteStmt):
         body = astval
 
-    updfun = FunctionDef(name=uname,
-                         args=arguments(
-                             args=([arg(mangle_name(nobj), None)
-                                    for nobj in params]),
-                             vararg=None,
-                             kwonlyargs=[],
-                             kw_defaults=[],
-                             kwarg=None,
-                             defaults=[]),
-                         decorator_list=[],
-                         returns=None,
-                         body=body)
+    updfun = FunctionDef(
+        name=uname,
+        args=arguments(
+            args=([arg(mangle_name(nobj), None) for nobj in params]),
+            vararg=None,
+            kwonlyargs=[],
+            kw_defaults=[],
+            kwarg=None,
+            defaults=[],
+        ),
+        decorator_list=[],
+        returns=None,
+        body=body,
+    )
     updhook = pyCall(
         func=pyAttr(INC_MODULE_VAR, uname),
         args=[],
-        keywords=[(mangle_name(arg), PythonGenerator().visit(arg))
-                  for arg in params])
+        keywords=[(mangle_name(arg), PythonGenerator().visit(arg)) for arg in params],
+    )
     if isinstance(updnode, dast.Expression):
         updnode.ast_override = updhook
     else:
         updnode.ast_override = [Expr(updhook)]
     return updfun
+
 
 def process_updates(state):
     # Accumulate all updates:
@@ -433,11 +516,11 @@ def process_updates(state):
         for query in state.queries:
             if node.is_child_of(query):
                 # We can not handle queries with side-effects:
-                iprintw("Update %s inside query %s is ignored!" %
-                        (node, query))
+                iprintw("Update %s inside query %s is ignored!" % (node, query))
                 break
         else:
             state.module.body.append(generate_update_stub(node, state))
+
 
 STUB_ASSIGN = """
 def {1}(_{0}):
@@ -471,6 +554,7 @@ def {1}():
     del {0}
 """
 
+
 def generate_assignment_stub_and_hook(nameobj):
     """Generate assignment stub and hook node for 'nameobj'.
 
@@ -494,10 +578,14 @@ def generate_assignment_stub_and_hook(nameobj):
         stub = STUB_ASSIGN
     stubast = parse(stub.format(vname, fname)).body[0]
     vnode = PythonGenerator().visit(nameobj)
-    stubcallast = Assign(targets=[vnode],
-                         value=pyCall(func=pyAttr(INC_MODULE_VAR, fname),
-                                      keywords=[("_" + vname, vnode)]))
+    stubcallast = Assign(
+        targets=[vnode],
+        value=pyCall(
+            func=pyAttr(INC_MODULE_VAR, fname), keywords=[("_" + vname, vnode)]
+        ),
+    )
     return stubast, stubcallast
+
 
 def generate_deletion_stub_and_hook(nameobj):
     """Generate delete stub and hook node for 'nameobj'."""
@@ -507,6 +595,7 @@ def generate_deletion_stub_and_hook(nameobj):
     stub = parse(STUB_DELETE.format(vname, fname)).body[0]
     hook = Expr(value=pyCall(func=pyAttr(INC_MODULE_VAR, fname)))
     return stub, hook
+
 
 def process_assignments_and_deletions(state):
     """Generate stub and hook for assignments and deletions.
@@ -523,9 +612,10 @@ def process_assignments_and_deletions(state):
 
         # Inject call to stub at all assignments to vobj:
         for node, _ in vobj.assignments:
-            if (isinstance(node.parent, dast.Program) or
-                (isinstance(node, dast.Function) and
-                 isinstance(node.parent, dast.Process))):
+            if isinstance(node.parent, dast.Program) or (
+                isinstance(node, dast.Function)
+                and isinstance(node.parent, dast.Process)
+            ):
                 continue
 
             if isinstance(node, dast.Arguments):
@@ -552,8 +642,7 @@ def process_assignments_and_deletions(state):
                     node.prebody = []
                 node.prebody.append(del_hook)
                 has_del = True
-            elif isinstance(node, dast.ForStmt) or \
-                 isinstance(node, dast.WithStmt):
+            elif isinstance(node, dast.ForStmt) or isinstance(node, dast.WithStmt):
                 first = node.body[0]
                 if not hasattr(first, "prebody"):
                     first.prebody = []
@@ -575,6 +664,7 @@ def process_assignments_and_deletions(state):
         if has_del:
             state.module.body.append(del_stub)
 
+
 def generate_event_reset_stub(process, state):
     """Generate the event reset stub for 'process'."""
 
@@ -583,12 +673,19 @@ def generate_event_reset_stub(process, state):
     finder.visit(process)
     if finder.found:
         args = [evt.name for evt in process.events if evt in state.events]
-        body = [Expr(pyCall(func=pyAttr(evt.name, "clear")))
-                for evt in process.events if evt in state.events]
+        body = [
+            Expr(pyCall(func=pyAttr(evt.name, "clear")))
+            for evt in process.events
+            if evt in state.events
+        ]
         if len(body) > 0:
-            return [pyFunctionDef(name=RESET_STUB_FORMAT % process.name,
-                                  args=args, body=body)]
+            return [
+                pyFunctionDef(
+                    name=RESET_STUB_FORMAT % process.name, args=args, body=body
+                )
+            ]
     return []
+
 
 def process_events(state):
     """Generate stubs for events."""
@@ -596,14 +693,17 @@ def process_events(state):
     for event in state.events:
         uname = UPDATE_STUB_PREFIX + event.name
         aname = ASSIGN_STUB_FORMAT % event.name
-        updfun = pyFunctionDef(name=uname,
-                               args=[event.name, "element"],
-                               body=[Expr(pyCall(
-                                   func=pyAttr(event.name, "add"),
-                                   args=[pyName("element")]))])
+        updfun = pyFunctionDef(
+            name=uname,
+            args=[event.name, "element"],
+            body=[
+                Expr(pyCall(func=pyAttr(event.name, "add"), args=[pyName("element")]))
+            ],
+        )
         state.module.body.append(updfun)
     for proc in state.input_ast.processes:
         state.module.body.extend(generate_event_reset_stub(proc, state))
+
 
 STUB_INIT = """
 def {name}():
@@ -612,12 +712,15 @@ def {name}():
     return {var}
 """
 
+
 def generate_initializer_stub(varname, typename):
     """Generate initializer stub for given name."""
 
-    src = STUB_INIT.format(name=(INIT_STUB_PREFIX + varname),
-                           var=varname, type=typename)
+    src = STUB_INIT.format(
+        name=(INIT_STUB_PREFIX + varname), var=varname, type=typename
+    )
     return parse(src).body[0]
+
 
 INIT_FUN = """
 def init(procobj):
@@ -625,13 +728,16 @@ def init(procobj):
     {self_name} = procobj._id
 """
 
+
 def process_initializers(state):
     """Generate initializer stubs for parameters."""
 
     for event in state.events:
-        state.module.body.append(generate_initializer_stub(
-            varname=event.name,
-            typename=JB_STYLE_SET if Options.jb_style else "set"))
+        state.module.body.append(
+            generate_initializer_stub(
+                varname=event.name, typename=JB_STYLE_SET if Options.jb_style else "set"
+            )
+        )
 
     initnames = []
     if Options.jb_style:
@@ -639,12 +745,12 @@ def process_initializers(state):
             stub = None
             if nameobj.is_a("set"):
                 stub = generate_initializer_stub(
-                    varname=mangle_name(nameobj),
-                    typename=JB_STYLE_SET)
+                    varname=mangle_name(nameobj), typename=JB_STYLE_SET
+                )
             elif nameobj.is_a("dict"):
                 stub = generate_initializer_stub(
-                    varname=mangle_name(nameobj),
-                    typename=JB_STYLE_MAP)
+                    varname=mangle_name(nameobj), typename=JB_STYLE_MAP
+                )
             if stub is not None:
                 state.module.body.append(stub)
                 initnames.append(mangle_name(nameobj))
@@ -653,9 +759,9 @@ def process_initializers(state):
     if Options.jb_style:
         # For jb_style: inject calls to initalizers. This sets up the set
         # and map objects in the inc module namespace:
-        init.body.extend([Expr(pyCall(INIT_STUB_PREFIX + name))
-                          for name in initnames])
+        init.body.extend([Expr(pyCall(INIT_STUB_PREFIX + name)) for name in initnames])
     state.module.body.append(init)
+
 
 def process_setups(state):
     """Inject calls to stub initializers from 'setup'."""
@@ -663,15 +769,19 @@ def process_setups(state):
     for proc in state.input_ast.processes:
         setup_body = proc.setup.body
         prebody = [
-            Assign(targets=[pyAttr("self", evt.name)],
-                   value=(pyCall(func=pyAttr(INC_MODULE_VAR,
-                                             INIT_STUB_PREFIX + evt.name))
-                          if evt in state.events else pyList([])))
-            for evt in proc.events if evt.record_history
+            Assign(
+                targets=[pyAttr("self", evt.name)],
+                value=(
+                    pyCall(func=pyAttr(INC_MODULE_VAR, INIT_STUB_PREFIX + evt.name))
+                    if evt in state.events
+                    else pyList([])
+                ),
+            )
+            for evt in proc.events
+            if evt.record_history
         ]
         prebody.append(
-            Expr(pyCall(func=pyAttr(INC_MODULE_VAR, "init"),
-                        args=[pyName("self")]))
+            Expr(pyCall(func=pyAttr(INC_MODULE_VAR, "init"), args=[pyName("self")]))
         )
         if hasattr(setup_body[0], "prebody"):
             prebody.extend(setup_body[0].prebody)
@@ -682,7 +792,7 @@ class CompilerState:
     """States shared by different parts of the compiler."""
 
     def __init__(self, input):
-        self.counter = 0        # For unique names
+        self.counter = 0  # For unique names
         self.input_ast = input
         self.queries = []
         self.parameters = []
@@ -691,22 +801,36 @@ class CompilerState:
         self.updates = OrderedDict()
         self.module = None
 
-class StubfileGenerationException(Exception): pass
+
+class StubfileGenerationException(Exception):
+    pass
+
 
 def flatten_opassignments(state):
     transformer = OpAssignmentTransformer()
     transformer.visit(state.input_ast)
 
+
 def generate_header(state):
     module = parse(
-        PREAMBLE.format(jbstyle_import=("from " + JB_STYLE_MODULE + " import *"
-                                        if Options.jb_style else "")))
+        PREAMBLE.format(
+            jbstyle_import=(
+                "from " + JB_STYLE_MODULE + " import *" if Options.jb_style else ""
+            )
+        )
+    )
     module.body.extend(state.input_ast.directives)
-    module.body.extend(parse(
-        DEFINITIONS.format(self_name=SELF_ID_NAME,
-                           witness_var=GLOBAL_WITNESS_VAR,
-                           is_jbstyle=str(Options.jb_style))).body)
+    module.body.extend(
+        parse(
+            DEFINITIONS.format(
+                self_name=SELF_ID_NAME,
+                witness_var=GLOBAL_WITNESS_VAR,
+                is_jbstyle=str(Options.jb_style),
+            )
+        ).body
+    )
     state.module = module
+
 
 def translate_with_stubs(state):
     sg = StubcallGenerator(state)
@@ -714,6 +838,7 @@ def translate_with_stubs(state):
         return sg.visit(state.input_ast)
     except Exception as ex:
         raise StubfileGenerationException(sg.current_node) from ex
+
 
 def gen_inc_module(daast, cmdline_args, filename=""):
     """Generates the interface file from a DistPy AST."""
@@ -740,8 +865,10 @@ def gen_inc_module(daast, cmdline_args, filename=""):
     pyast = translate_with_stubs(state)
     return state.module, pyast
 
+
 class NodetypeFinder(NodeVisitor):
     """Looks a for specific type of node starting from a given root node."""
+
     def __init__(self, nodetype):
         self.target_type = nodetype
         self.found = False
@@ -751,6 +878,7 @@ class NodetypeFinder(NodeVisitor):
             self.found = True
         else:
             super().visit(node)
+
 
 class OpAssignmentTransformer(NodeTransformer):
     """Transforms operator assignment statements into plain assignments."""
@@ -772,6 +900,7 @@ class OpAssignmentTransformer(NodeTransformer):
             nobj.index_replace_node(node, newstmt)
         return newstmt
 
+
 class StubcallGenerator(PythonGenerator):
     """Transforms DistPy AST into Python AST with calls to incrementalization
     stubs injected.
@@ -790,8 +919,7 @@ class StubcallGenerator(PythonGenerator):
 
     def history_stub(self, node):
         if node.record_history and node in self.compiler_state.events:
-            return pyAttr(INC_MODULE_VAR,
-                          UPDATE_STUB_PREFIX + node.name)
+            return pyAttr(INC_MODULE_VAR, UPDATE_STUB_PREFIX + node.name)
         else:
             return super().history_stub(node)
 
@@ -802,19 +930,30 @@ class StubcallGenerator(PythonGenerator):
             return super().visit_ResetStmt(node)
 
         # Call the inc reset stub for all events used in queries:
-        stmts = [Expr(pyCall(func=pyAttr(INC_MODULE_VAR,
-                                         RESET_STUB_FORMAT % proc.name),
-                             args=[pyAttr("self", evt.name)
-                                   for evt in proc.events
-                                   if evt.record_history
-                                   if evt in self.compiler_state.events]))]
+        stmts = [
+            Expr(
+                pyCall(
+                    func=pyAttr(INC_MODULE_VAR, RESET_STUB_FORMAT % proc.name),
+                    args=[
+                        pyAttr("self", evt.name)
+                        for evt in proc.events
+                        if evt.record_history
+                        if evt in self.compiler_state.events
+                    ],
+                )
+            )
+        ]
         # Clear all remaining events:
-        stmts.extend([Expr(pyCall(func=pyAttr(pyAttr("self", evt.name),
-                                              "clear")))
-                      for evt in proc.events
-                      if evt.record_history
-                      if evt not in self.compiler_state.events])
+        stmts.extend(
+            [
+                Expr(pyCall(func=pyAttr(pyAttr("self", evt.name), "clear")))
+                for evt in proc.events
+                if evt.record_history
+                if evt not in self.compiler_state.events
+            ]
+        )
         return stmts
+
 
 class EventExtractor(NodeVisitor):
     """Extracts event specs from queries.
@@ -828,6 +967,7 @@ class EventExtractor(NodeVisitor):
 
     def visit_Event(self, node):
         self.events.append(node)
+
 
 class QueryExtractor(NodeVisitor):
     """Extracts expensive queries.
@@ -864,8 +1004,7 @@ class QueryExtractor(NodeVisitor):
             return
 
         par = node.parent
-        if (isinstance(par, dast.ComparisonExpr) and
-                par.comparator is dast.InOp):
+        if isinstance(par, dast.ComparisonExpr) and par.comparator is dast.InOp:
             node = par
         if node not in self.queries:
             self.queries.append(node)
@@ -875,9 +1014,7 @@ class QueryExtractor(NodeVisitor):
 
 
 class IncInterfaceGenerator(PatternComprehensionGenerator):
-    """Transforms DistPy patterns to Python comprehension.
-
-    """
+    """Transforms DistPy patterns to Python comprehension."""
 
     def __init__(self, mangle_names=None, last_freevars=None):
         super().__init__()
@@ -940,10 +1077,13 @@ class IncInterfaceGenerator(PatternComprehensionGenerator):
             if len(target.elts) == 1:
                 condition_list = target.conditions
                 if len(condition_list) == 1:
-                    assert isinstance(condition_list[0], Compare) and \
-                        len(condition_list[0].comparators) == 1
+                    assert (
+                        isinstance(condition_list[0], Compare)
+                        and len(condition_list[0].comparators) == 1
+                    )
                     condition_list[0].comparators[0] = pyTuple(
-                        [condition_list[0].comparators[0]])
+                        [condition_list[0].comparators[0]]
+                    )
                 target = target.elts[0]
                 target.conditions = condition_list
         return target
@@ -955,8 +1095,11 @@ class IncInterfaceGenerator(PatternComprehensionGenerator):
             right = self.visit(node.right)
             gen = comprehension(target, right, target.conditions)
             elem = optimize_tuple(pyTuple(node.left.ordered_freevars))
-            ast = pySize(ListComp(elem, [gen])) if not Options.jb_style \
-                  else pySize(SetComp(elem, [gen]))
+            ast = (
+                pySize(ListComp(elem, [gen]))
+                if not Options.jb_style
+                else pySize(SetComp(elem, [gen]))
+            )
             return ast
         else:
             return super().visit_ComparisonExpr(node)
@@ -965,15 +1108,15 @@ class IncInterfaceGenerator(PatternComprehensionGenerator):
         assert node.type is not None
         self.reset_pattern_state()
         typ = pyName("_EventType_")
-        evtconds = [pyCompare(typ, Is,
-                              pyName(node.type.__name__))]
+        evtconds = [pyCompare(typ, Is, pyName(node.type.__name__))]
         msg = self.visit(node.pattern)
         evtconds += msg.conditions
         srcconds = []
         if len(node.sources) > 0:
             if len(node.sources) > 1:
                 raise NotImplementedError(
-                    "Multiple sources in event spec not supported.")
+                    "Multiple sources in event spec not supported."
+                )
             src = self.visit(node.sources[0])
             evtconds += src.conditions
         else:
@@ -981,7 +1124,8 @@ class IncInterfaceGenerator(PatternComprehensionGenerator):
         if len(node.destinations) > 0:
             if len(node.destinations) > 1:
                 raise NotImplementedError(
-                    "Multiple destinations in event spec not supported.")
+                    "Multiple destinations in event spec not supported."
+                )
             dst = self.visit(node.destinations[0])
             evtconds += dst.conditions
         else:
@@ -989,7 +1133,8 @@ class IncInterfaceGenerator(PatternComprehensionGenerator):
         if len(node.timestamps) > 0:
             if len(node.timestamps) > 1:
                 raise NotImplementedError(
-                    "Multiple timestamps in event spec not supported.")
+                    "Multiple timestamps in event spec not supported."
+                )
             clk = self.visit(node.timestamps[0])
             evtconds += clk.conditions
         else:
@@ -1073,8 +1218,9 @@ class IncInterfaceGenerator(PatternComprehensionGenerator):
         primary = None
         cond = self.visit(node.predicate)
         for dom in reversed(node.domains):
-            elt = optimize_tuple(pyTuple([self.visit(name)
-                                          for name in dom.ordered_freevars]))
+            elt = optimize_tuple(
+                pyTuple([self.visit(name) for name in dom.ordered_freevars])
+            )
             domast = self.visit(dom)
             primary = SetComp(elt, [domast])
             left = pySize(primary)
@@ -1088,13 +1234,14 @@ class IncInterfaceGenerator(PatternComprehensionGenerator):
 
         # Extract witness set. Note: for table1, only freevars bound in the
         # first domain can be witnessed:
-        if node is node.top_level_query and \
-           node.operator is dast.ExistentialOp and \
-           len(node.ordered_local_freevars) > 0:
+        if (
+            node is node.top_level_query
+            and node.operator is dast.ExistentialOp
+            and len(node.ordered_local_freevars) > 0
+        ):
             self.witness_set = primary
 
         return cond
-
 
     def do_table2_transformation(self, node):
         """Transformation defined in Table 2 of OOPSLA paper.
@@ -1111,15 +1258,14 @@ class IncInterfaceGenerator(PatternComprehensionGenerator):
         outer_generators = []
         inner_generators = []
         elements = []
-        while (isinstance(node, dast.QuantifiedExpr) and
-               (inner_quantifier is None or
-                node.operator is inner_quantifier)):
+        while isinstance(node, dast.QuantifiedExpr) and (
+            inner_quantifier is None or node.operator is inner_quantifier
+        ):
             if node.operator is not outer_quantifier:
                 inner_quantifier = node.operator
             if inner_quantifier is None:
                 outer_generators += [self.visit(dom) for dom in node.domains]
-                elements += [self.visit(name)
-                             for name in node.ordered_local_freevars]
+                elements += [self.visit(name) for name in node.ordered_local_freevars]
             else:
                 inner_generators += [self.visit(dom) for dom in node.domains]
             node = node.predicate
@@ -1142,8 +1288,10 @@ class IncInterfaceGenerator(PatternComprehensionGenerator):
                 generators[-1].ifs.append(bexp)
                 res = pyCompare(left, Gt, Num(0))
                 # Extract witness set if there are free variables:
-                if query_node is query_node.top_level_query and \
-                   len(query_node.ordered_local_freevars) > 0:
+                if (
+                    query_node is query_node.top_level_query
+                    and len(query_node.ordered_local_freevars) > 0
+                ):
                     self.witness_set = primary
 
         else:
@@ -1161,11 +1309,13 @@ class IncInterfaceGenerator(PatternComprehensionGenerator):
                 generators[-1].ifs.append(pyNot(bexp))
                 res = pyCompare(left, NotEq, right)
                 # Extract witness set if there are free variables:
-                if query_node is query_node.top_level_query and \
-                   len(query_node.ordered_local_freevars) > 0:
-                    self.witness_set = BinOp(SetComp(elements, outer_generators),
-                                             Sub(),
-                                             primary)
+                if (
+                    query_node is query_node.top_level_query
+                    and len(query_node.ordered_local_freevars) > 0
+                ):
+                    self.witness_set = BinOp(
+                        SetComp(elements, outer_generators), Sub(), primary
+                    )
 
         return res
 
@@ -1189,22 +1339,19 @@ class IncInterfaceGenerator(PatternComprehensionGenerator):
         pred = apply_demorgan_rule(node.predicate)
         if isinstance(pred, dast.LogicalExpr):
             # Rule 1:
-            if (pred.operator is dast.AndOp and
-                    node.operator is dast.ExistentialOp):
+            if pred.operator is dast.AndOp and node.operator is dast.ExistentialOp:
                 iprintd("do_table4_transformation: using rule 1")
                 for i, e in enumerate(pred.subexprs):
                     self.freevars = set(current_pattern_state)
                     newnode = node.clone()
                     domain_for_condition(newnode.domains[-1], e)
-                    newnode.subexprs = pred.subexprs[0:i] + \
-                                       pred.subexprs[(i+1):]
+                    newnode.subexprs = pred.subexprs[0:i] + pred.subexprs[(i + 1) :]
                     iprintd("do_table4_transformation: newnode: " + str(newnode))
                     res = self.do_table3_transformation(newnode)
                     if res is not None:
                         return res
             # Rule 2:
-            elif (pred.operator is dast.OrOp and
-                    node.operator is dast.ExistentialOp):
+            elif pred.operator is dast.OrOp and node.operator is dast.ExistentialOp:
                 iprintd("do_table4_transformation: using rule 2")
                 expr = dast.LogicalExpr(node.parent)
                 expr.operator = dast.OrOp
@@ -1213,8 +1360,7 @@ class IncInterfaceGenerator(PatternComprehensionGenerator):
                     expr.subexprs[-1].subexprs = [cond]
                 return self.visit(expr)
             # Rule 4:
-            elif (pred.operator is dast.AndOp and
-                    node.operator is dast.UniversalOp):
+            elif pred.operator is dast.AndOp and node.operator is dast.UniversalOp:
                 iprintd("do_table4_transformation: using rule 4")
                 expr = dast.LogicalExpr(node.parent)
                 expr.operator = dast.AndOp
@@ -1223,18 +1369,14 @@ class IncInterfaceGenerator(PatternComprehensionGenerator):
                     expr.subexprs[-1].subexprs = [cond]
                 return self.visit(expr)
             # Rule 5:
-            elif (pred.operator is dast.OrOp and
-                    node.operator is dast.UniversalOp):
+            elif pred.operator is dast.OrOp and node.operator is dast.UniversalOp:
                 iprintd("do_table4_transformation: using rule 5")
                 for idx, e in enumerate(pred.subexprs):
                     self.freevars = set(current_pattern_state)
-                    e = dast.LogicalExpr(e.parent,
-                                         op=dast.NotOp,
-                                         subexprs=[e])
+                    e = dast.LogicalExpr(e.parent, op=dast.NotOp, subexprs=[e])
                     newnode = node.clone()
                     domain_for_condition(newnode.domains[-1], e)
-                    newnode.subexprs = pred.subexprs[0:idx] + \
-                                       pred.subexprs[(idx+1):]
+                    newnode.subexprs = pred.subexprs[0:idx] + pred.subexprs[(idx + 1) :]
                     res = self.do_table3_transformation(newnode)
                     if res is not None:
                         return res
@@ -1251,9 +1393,10 @@ class IncInterfaceGenerator(PatternComprehensionGenerator):
         """
         # We can only handle comparisons:
         pred = combine_not_comparison(node.predicate)
-        if not (isinstance(pred, dast.ComparisonExpr) and
-                pred.comparator in
-                {dast.LtOp, dast.LtEOp, dast.GtOp, dast.GtEOp}):
+        if not (
+            isinstance(pred, dast.ComparisonExpr)
+            and pred.comparator in {dast.LtOp, dast.LtEOp, dast.GtOp, dast.GtEOp}
+        ):
             iprintd("Table 3 can not be applied to %s: not comparison" % node)
             return None
 
@@ -1261,20 +1404,31 @@ class IncInterfaceGenerator(PatternComprehensionGenerator):
         x = y = None
         left = {name for name in pred.left.nameobjs if name in node.freevars}
         right = {name for name in pred.right.nameobjs if name in node.freevars}
-        if len(left) > 0 and len(right) == 0 and \
-           (isinstance(pred.left, dast.SimpleExpr) or
-            isinstance(pred.left, dast.TupleExpr)):
+        if (
+            len(left) > 0
+            and len(right) == 0
+            and (
+                isinstance(pred.left, dast.SimpleExpr)
+                or isinstance(pred.left, dast.TupleExpr)
+            )
+        ):
             x = pred.left
             y = pred.right
-        elif len(left) == 0 and len(right) > 0 and \
-             (isinstance(pred.right, dast.SimpleExpr) or
-              isinstance(pred.right, dast.TupleExpr)):
+        elif (
+            len(left) == 0
+            and len(right) > 0
+            and (
+                isinstance(pred.right, dast.SimpleExpr)
+                or isinstance(pred.right, dast.TupleExpr)
+            )
+        ):
             x = pred.right
             y = pred.left
         else:
-            iprintd("Table 3 can not be applied to %s: free var distribution."
-                    "left %s : right %s" %
-                   (node, left, right))
+            iprintd(
+                "Table 3 can not be applied to %s: free var distribution."
+                "left %s : right %s" % (node, left, right)
+            )
             return None
 
         generators = [self.visit(dom) for dom in node.domains]
@@ -1282,8 +1436,11 @@ class IncInterfaceGenerator(PatternComprehensionGenerator):
         # Need to normalize tuples here, for comparison:
         pyx = optimize_tuple(self.visit(x))
         pyy = optimize_tuple(self.visit(y))
-        if (len(generators) == 1 and len(generators[0].ifs) == 0 and
-                ast_eq(pyx, optimize_tuple(generators[0].target))):
+        if (
+            len(generators) == 1
+            and len(generators[0].ifs) == 0
+            and ast_eq(pyx, optimize_tuple(generators[0].target))
+        ):
             s = sp = generators[0].iter
         else:
             s = SetComp(pyx, generators)
@@ -1314,18 +1471,21 @@ class IncInterfaceGenerator(PatternComprehensionGenerator):
                 y_comp_right = pyMin(sp)
 
         # Extract witness:
-        if node is node.top_level_query and \
-           node.operator is dast.ExistentialOp and \
-           len(node.ordered_local_freevars) > 0:
+        if (
+            node is node.top_level_query
+            and node.operator is dast.ExistentialOp
+            and len(node.ordered_local_freevars) > 0
+        ):
             self.witness_set = s
 
-        return BoolOp(op=logical_op(),
-                      values=[Compare(left=pySize(s),
-                                      ops=[set_comp_op()],
-                                      comparators=[Num(0)]),
-                              Compare(left=pyy,
-                                      ops=[y_comp_op()],
-                                      comparators=[y_comp_right])])
+        return BoolOp(
+            op=logical_op(),
+            values=[
+                Compare(left=pySize(s), ops=[set_comp_op()], comparators=[Num(0)]),
+                Compare(left=pyy, ops=[y_comp_op()], comparators=[y_comp_right]),
+            ],
+        )
+
 
 if __name__ == "__main__":
     ast1 = parse("[(c2, p2)]")
