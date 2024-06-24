@@ -2,7 +2,7 @@ import ast
 import math
 import re
 from pathlib import Path
-from typing import Any, List
+from typing import Any
 
 import pandas as pd
 
@@ -13,14 +13,14 @@ def load_data(file_path: str) -> Any:
     return data
 
 
-def extract_records(data: Any, sizes_to_analyze: List[int]) -> List[dict]:
+def extract_records(data: Any, sizes_to_analyze: list[int]) -> list[dict]:
     records = []
     for (environment, graph_type, recursion_variant), entries in data.items():
         for entry in entries:
             size, metrics = entry
             if size in sizes_to_analyze:
                 for metric_name, (real_time, cpu_time) in metrics.items():
-                    if 'Query' in metric_name:
+                    if 'Query' in metric_name and graph_type != 'star':
                         records.append(
                             {
                                 'environment': environment,
@@ -35,7 +35,7 @@ def extract_records(data: Any, sizes_to_analyze: List[int]) -> List[dict]:
     return records
 
 
-def process_data(records: List[dict]) -> pd.DataFrame:
+def process_data(records: list[dict]) -> pd.DataFrame:
     df = pd.DataFrame(records)
     unique_df = df.drop_duplicates(
         subset=['environment', 'graph_type', 'recursion_variant', 'metric_name', 'size']
@@ -126,7 +126,7 @@ def get_short_graph_name(graph_type: str, size: int) -> str:
         'path': f'Path_{{n={size}}}',
         'multi_path': f'PathDisj_{{n={size},k=10}}',
         'grid': f'Grid_{{n={size}}}',
-        'star': f'Star_{{n={size}}}',
+        # 'star': f'Star_{{n={size}}}',
         'binary_tree': f'BinTree_{{h={math.log2(size):.0f}}}',
         'reverse_binary_tree': f'BinTreeRev_{{h={math.log2(size):.0f}}}',
         'x': f'X_{{n={size}, k=10}}',
@@ -202,16 +202,16 @@ def create_overall_csvs(unique_result: dict, size: int):
         overall_data[recursion_variant]['real_time'].append((graph_type, row_real_time))
         overall_data[recursion_variant]['cpu_time'].append((graph_type, row_cpu_time))
 
-    columns = ['graph_type'] + [environment_mapping[env] for env in environments]
+    columns = ['graph\_type'] + [environment_mapping[env] for env in environments]
 
     captions = {
         'left_recursion': {
-            'real_time': "Performance comparison of different environments based on real time, in seconds, for various graph types using left recursion. Each row represents the time taken by different environments to process the graph type.",
-            'cpu_time': "CPU time analysis of different environments for various graph types using left recursion. This table highlights the CPU time taken, in seconds, by each environment to execute queries on the graph type.",
+            'real_time': 'Elapsed time (in seconds) of TC queries using left recursion on different graph types.',
+            'cpu_time': 'CPU times (in seconds) of TC queries using left recursion on different graph types.',
         },
         'right_recursion': {
-            'real_time': "Real time, in seconds, performance comparison of different environments for various graph types using right recursion. This table shows the real time taken by each environment to process the graph type.",
-            'cpu_time': "CPU time performance of different environments for various graph types using right recursion. This table displays the CPU time, in seconds, required by each environment to execute queries on the graph type.",
+            'real_time': 'Elapsed time (in seconds) of TC queries using right recursion on different graph types.',
+            'cpu_time': 'CPU times (in seconds) of TC queries using right recursion on different graph types.',
         },
     }
 
@@ -243,15 +243,17 @@ def create_overall_csvs(unique_result: dict, size: int):
             df_real_time,
             overall_dir / 'real_times.tex',
             captions[recursion_variant]['real_time'],
+            f'table:{recursion_variant}_real_time'
         )
         create_latex_table(
             df_cpu_time,
             overall_dir / 'cpu_times.tex',
             captions[recursion_variant]['cpu_time'],
+            f'table:{recursion_variant}_cpu_time'
         )
 
 
-def create_latex_table(df: pd.DataFrame, file_path: Path, caption: str = ''):
+def create_latex_table(df: pd.DataFrame, file_path: Path, caption: str = '', label: str = ''):
     def format_cell(cell):
         # Use regular expression to find sequences before '_'
         formatted_cell = re.sub(r'([^_]+)(?=_)', r'\\text{\1}', cell)
@@ -262,14 +264,14 @@ def create_latex_table(df: pd.DataFrame, file_path: Path, caption: str = ''):
     df[df.columns[0]] = df[df.columns[0]].apply(format_cell)
 
     # Generate the LaTeX table string
-    latex_string = df.to_latex(index=False, caption=caption, label='table:results')
+    latex_string = df.to_latex(index=False, caption=caption, label=label)
 
     # Write the LaTeX string to the file
     with open(file_path, 'w') as f:
         f.write(latex_string)
 
 
-def main(file_path: str, sizes_to_analyze: List[int]):
+def main(file_path: str, sizes_to_analyze: list[int]):
     data = load_data(file_path)
     records = extract_records(data, sizes_to_analyze)
     unique_df = process_data(records)

@@ -1,9 +1,9 @@
 \begin{table}
-\caption{Real time, in seconds, performance comparison of different environments for various graph types using right recursion. This table shows the real time taken by each environment to process the graph type.}
-\label{table:results}
+\caption{Elapsed time (in seconds) of TC queries using right recursion on different graph types.}
+\label{table:right_recursion_real_time}
 \begin{tabular}{lrrrrrr}
 \toprule
-graph_type & XSB & PostgreSQL & MariaDB & DuckDB & Neo4J & CockroachDB \\
+graph\_type & XSB & PostgreSQL & MariaDB & DuckDB & Neo4J & CockroachDB \\
 \midrule
 $\text{Cmpl}_{n=400}$ & 8.737834 & 11.997968 & 34.997078 & 2.441512 & 0.010186 & 16.699492 \\
 $\text{MaxAcyc}_{n=400}$ & 1.305274 & 1.993648 & 3.973931 & 0.373222 & 0.023900 & 3.169490 \\
@@ -12,7 +12,6 @@ $\text{CycExtra}_{n=400,k=10}$ & 0.282855 & 0.538898 & 1.904594 & 0.169428 & 0.0
 $\text{Path}_{n=400}$ & 0.019524 & 0.146101 & 0.472746 & 0.345059 & 0.002338 & 1.045822 \\
 $\text{PathDisj}_{n=400,k=10}$ & 0.200045 & 1.263346 & 9.428203 & 0.652322 & 0.003417 & 6.334917 \\
 $\text{Grid}_{n=400}$ & 0.014851 & 0.066012 & 0.387400 & 0.054496 & 0.001842 & 0.593023 \\
-$\text{Star}_{n=400}$ & 0.000108 & 0.006940 & 0.031831 & 0.009242 & 0.002344 & 0.310990 \\
 $\text{BinTree}_{h=9}$ & 0.000533 & 0.006474 & 0.047579 & 0.012600 & 0.004831 & 0.290453 \\
 $\text{BinTreeRev}_{h=9}$ & 0.000370 & 0.008253 & 0.038840 & 0.013344 & 0.003391 & 0.229372 \\
 $\text{X}_{n=400, k=10}$ & 0.000865 & 0.013335 & 0.077666 & 0.009014 & 0.001557 & 0.373654 \\

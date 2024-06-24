@@ -1,9 +1,9 @@
 \begin{table}
-\caption{CPU time analysis of different environments for various graph types using left recursion. This table highlights the CPU time taken, in seconds, by each environment to execute queries on the graph type.}
-\label{table:results}
+\caption{CPU times (in seconds) of TC queries using left recursion on different graph types.}
+\label{table:left_recursion_cpu_time}
 \begin{tabular}{lrrrrrr}
 \toprule
-graph_type & XSB & PostgreSQL & MariaDB & DuckDB & Neo4J & CockroachDB \\
+graph\_type & XSB & PostgreSQL & MariaDB & DuckDB & Neo4J & CockroachDB \\
 \midrule
 $\text{Cmpl}_{n=400}$ & 4.477480 & 0.000166 & 0.000135 & 4.443275 & 0.001255 & 0.000180 \\
 $\text{MaxAcyc}_{n=400}$ & 0.692389 & 0.000160 & 0.000130 & 1.006171 & 0.001052 & 0.000161 \\
@@ -12,7 +12,6 @@ $\text{CycExtra}_{n=400,k=10}$ & 0.167494 & 0.000211 & 0.000128 & 0.313082 & 0.0
 $\text{Path}_{n=400}$ & 0.020442 & 0.000150 & 0.000121 & 0.761487 & 0.000708 & 0.000168 \\
 $\text{PathDisj}_{n=400,k=10}$ & 0.247953 & 0.000162 & 0.000128 & 0.801669 & 0.001007 & 0.000178 \\
 $\text{Grid}_{n=400}$ & 0.007138 & 0.000144 & 0.000145 & 0.098830 & 0.000628 & 0.000183 \\
-$\text{Star}_{n=400}$ & 0.000099 & 0.000125 & 0.000168 & 0.004172 & 0.000788 & 0.000204 \\
 $\text{BinTree}_{h=9}$ & 0.000377 & 0.000148 & 0.000110 & 0.016364 & 0.000965 & 0.000211 \\
 $\text{BinTreeRev}_{h=9}$ & 0.000298 & 0.000124 & 0.000140 & 0.014136 & 0.000893 & 0.000206 \\
 $\text{X}_{n=400, k=10}$ & 0.000000 & 0.000184 & 0.000128 & 0.011451 & 0.000794 & 0.000265 \\
