@@ -1,0 +1,31 @@
+
+\documentclass{standalone}
+\usepackage[svgnames]{xcolor}
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest}
+\usepackage[sfdefault]{FiraSans}
+\usepackage{FiraMono}
+\renewcommand*\familydefault{\sfdefault}
+\begin{document}
+\begin{tikzpicture}
+    \begin{axis}[
+        title={Graph: Cycle With Shortcuts, Recursion: Left Recursion},
+        xlabel={Number of nodes},
+        ylabel={Elapsed time (s)},
+        legend pos={north west},
+        ymax=34.99707835499987
+    ]
+    \addplot+[DarkSlateGray, mark options={color=DarkSlateGray}] coordinates {(50,0.0035775899887084952) (100,0.01133835315704345) (150,0.03068792819976805) (200,0.046848416328430204) (250,0.07217299938201904) (300,0.08359146118164065) (350,0.13178503513336148) (400,0.1679924726486205)};
+\addlegendentry{XSB}
+\addplot+[RoyalBlue, mark options={color=RoyalBlue}] coordinates {(50,0.01787420850007493) (100,0.038742427999977735) (150,0.07389074150000852) (200,0.157082442500041) (250,0.2140075934999004) (300,0.3035733804999836) (350,0.41185291049987427) (400,0.5317346330000419)};
+\addlegendentry{PostgreSQL}
+\addplot+[MediumSeaGreen, mark options={color=MediumSeaGreen}] coordinates {(50,0.07460940100031621) (100,0.21344836499997655) (150,0.4144864309998866) (200,0.4998024989999976) (250,0.6703942609999558) (300,0.8077882074999252) (400,1.108132084500312) (350,1.3471494184998392)};
+\addlegendentry{MariaDB}
+\addplot+[Gold, mark options={color=Gold}] coordinates {(50,0.013351340500094011) (100,0.016451706499992724) (150,0.027471979999972973) (200,0.035742166499858286) (250,0.05609692550001455) (300,0.07334211099987442) (350,0.09918877549989702) (400,0.13041817749967777)};
+\addlegendentry{DuckDB}
+\addplot+[MediumPurple, mark options={color=MediumPurple}] coordinates {(50,0.39788076449985965) (100,0.43492407850021664) (150,0.5922475304998898) (200,0.6254296464999243) (250,0.8897604914998283) (300,1.2907452799997827) (400,1.3669317815001705) (350,1.424372893500049)};
+\addlegendentry{CockroachDB}
+
+    \end{axis}
+\end{tikzpicture}
+\end{document}

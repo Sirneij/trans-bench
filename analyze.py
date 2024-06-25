@@ -6,6 +6,16 @@ from typing import Any
 
 import pandas as pd
 
+ENVIRONMENT_MAPPINGS = {
+    'xsb': ('XSB', 'DarkSlateGray'),
+    'postgres': ('PostgreSQL', 'RoyalBlue'),
+    'mariadb': ('MariaDB', 'MediumSeaGreen'),
+    'duckdb': ('DuckDB', 'Gold'),
+    # 'neo4j': ('Neo4J', 'DeepSkyBlue'),
+    'cockroachdb': ('CockroachDB', 'MediumPurple'),
+    # 'mongodb': ('MongoDB', 'ForestGreen'),
+}
+
 
 def load_data(file_path: str) -> Any:
     with open(file_path, 'r') as file:
@@ -158,16 +168,6 @@ def create_overall_csvs(unique_result: dict, size: int):
         'w',
     ]
 
-    environment_mapping = {
-        'xsb': 'XSB',
-        'postgres': 'PostgreSQL',
-        'mariadb': 'MariaDB',
-        'duckdb': 'DuckDB',
-        # 'mongodb': 'MongoDB',
-        'neo4j': 'Neo4J',
-        'cockroachdb': 'CockroachDB',
-    }
-
     environments = sorted(
         {
             env
@@ -176,7 +176,7 @@ def create_overall_csvs(unique_result: dict, size: int):
             for env in table['environment'].unique()
         }
     )
-    environments = list(environment_mapping.keys())
+    environments = list(ENVIRONMENT_MAPPINGS.keys())
 
     for (graph_type, recursion_variant), results in unique_result.items():
         short_name = get_short_graph_name(graph_type, size)
@@ -202,7 +202,7 @@ def create_overall_csvs(unique_result: dict, size: int):
         overall_data[recursion_variant]['real_time'].append((graph_type, row_real_time))
         overall_data[recursion_variant]['cpu_time'].append((graph_type, row_cpu_time))
 
-    columns = ['graph\_type'] + [environment_mapping[env] for env in environments]
+    columns = ['Graph type'] + [ENVIRONMENT_MAPPINGS[env][0] for env in environments]
 
     captions = {
         'left_recursion': {
@@ -273,6 +273,81 @@ def create_latex_table(
         f.write(latex_string)
 
 
+def transform_text(text: str) -> str:
+    if text.startswith('cpu'):
+        return 'CPU ' + text[4:]
+    elif text == 'real_time':
+        return 'Elapsed time'
+    else:
+        return ' '.join(word.capitalize() for word in text.split('_'))
+
+
+def generate_pgfplots(
+    data: pd.DataFrame,
+    graph_type: str,
+    recursion_variant: str,
+    time_type: str,
+    max_y_value: float,
+) -> str:
+    plot_lines = ""
+    for env_key, (env_name, color) in ENVIRONMENT_MAPPINGS.items():
+        if env_key in data['environment'].unique():
+            env_data = data[data['environment'] == env_key]
+            coordinates = " ".join(
+                f"({size},{y})"
+                for size, y in zip(env_data['size'], env_data[time_type])
+            )
+            plot_lines += f"\\addplot+[{color}, mark options={{color={color}}}] coordinates {{{coordinates}}};\n"
+            plot_lines += f"\\addlegendentry{{{env_name}}}\n"
+
+    tex_code = f"""
+\\documentclass{{standalone}}
+\\usepackage[svgnames]{{xcolor}}
+\\usepackage{{pgfplots}}
+\\pgfplotsset{{compat=newest}}
+\\usepackage[sfdefault]{{FiraSans}}
+\\usepackage{{FiraMono}}
+\\renewcommand*\\familydefault{{\\sfdefault}}
+\\begin{{document}}
+\\begin{{tikzpicture}}
+    \\begin{{axis}}[
+        title={{Graph: {transform_text(graph_type)}, Recursion: {transform_text(recursion_variant)}}},
+        xlabel={{Number of nodes}},
+        ylabel={{{transform_text(time_type)} (s)}},
+        legend pos={{north west}},
+        ymax={max_y_value}
+    ]
+    {plot_lines}
+    \\end{{axis}}
+\\end{{tikzpicture}}
+\\end{{document}}
+"""
+    return tex_code
+
+
+def create_overall_latex_plots(unique_result: dict, sizes_to_analyze: list[int]):
+    for _ in sizes_to_analyze:
+        for (graph_type, recursion_variant), results in unique_result.items():
+            for time_type in ['real_time', 'cpu_time']:
+                all_data = pd.concat(
+                    results[f'sorted_by_{time_type}']
+                    for results in unique_result.values()
+                )
+                max_y_value = all_data[time_type].max()
+                data = results[f'sorted_by_{time_type}']
+                tex_code = generate_pgfplots(
+                    data, graph_type, recursion_variant, time_type, max_y_value
+                )
+
+                output_dir = Path(
+                    f'analysis/overall/charts/{graph_type}/{recursion_variant}'
+                )
+                output_dir.mkdir(parents=True, exist_ok=True)
+
+                with open(output_dir / f'{time_type}_times.tex', 'w') as f:
+                    f.write(tex_code)
+
+
 def main(file_path: str, sizes_to_analyze: list[int]):
     data = load_data(file_path)
     records = extract_records(data, sizes_to_analyze)
@@ -283,10 +358,12 @@ def main(file_path: str, sizes_to_analyze: list[int]):
     for size in sizes_to_analyze:
         create_overall_csvs(unique_result, size)
 
+    create_overall_latex_plots(unique_result, sizes_to_analyze)
+
 
 def run_main():
     file_path = 'data.txt'
-    sizes_to_analyze = [400]
+    sizes_to_analyze = [50, 100, 150, 200, 250, 300, 350, 400]
     main(file_path, sizes_to_analyze)
 
 

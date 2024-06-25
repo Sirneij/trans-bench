@@ -1,0 +1,31 @@
+
+\documentclass{standalone}
+\usepackage[svgnames]{xcolor}
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest}
+\usepackage[sfdefault]{FiraSans}
+\usepackage{FiraMono}
+\renewcommand*\familydefault{\sfdefault}
+\begin{document}
+\begin{tikzpicture}
+    \begin{axis}[
+        title={Graph: Y, Recursion: Right Recursion},
+        xlabel={Number of nodes},
+        ylabel={CPU time (s)},
+        legend pos={north west},
+        ymax=8.712522
+    ]
+    \addplot+[DarkSlateGray, mark options={color=DarkSlateGray}] coordinates {(50,5.5000000000003e-05) (350,9.1000000000001e-05) (100,0.0001990000000000015) (150,0.0002484999999999955) (250,0.000346499999999998) (200,0.000418999999999999) (300,0.0005194999999999975) (400,0.000761999999999999)};
+\addlegendentry{XSB}
+\addplot+[RoyalBlue, mark options={color=RoyalBlue}] coordinates {(300,0.00010619999999997298) (350,0.00013379999999998948) (200,0.00013380000000001724) (100,0.00013470000000001536) (150,0.00013704999999999967) (250,0.0001593000000000011) (400,0.00017780000000000573) (50,0.0002081499999999903)};
+\addlegendentry{PostgreSQL}
+\addplot+[MediumSeaGreen, mark options={color=MediumSeaGreen}] coordinates {(150,0.00011359999999999149) (200,0.00011629999999998586) (50,0.00012129999999999086) (250,0.0001250999999999891) (300,0.00012704999999998967) (350,0.00012890000000001511) (400,0.0001300999999999941) (100,0.00013249999999997986)};
+\addlegendentry{MariaDB}
+\addplot+[Gold, mark options={color=Gold}] coordinates {(250,0.016502249999999996) (200,0.019499749999999982) (50,0.020142849999999962) (150,0.02107265) (400,0.021240849999999978) (300,0.021380349999999992) (350,0.02193819999999999) (100,0.021990800000000005)};
+\addlegendentry{DuckDB}
+\addplot+[MediumPurple, mark options={color=MediumPurple}] coordinates {(350,0.00018094999999995753) (50,0.0001830999999999916) (150,0.00018455000000000554) (250,0.00019145000000003742) (400,0.00019145000000003742) (100,0.0001919000000000226) (200,0.0001931500000000308) (300,0.0002322499999999894)};
+\addlegendentry{CockroachDB}
+
+    \end{axis}
+\end{tikzpicture}
+\end{document}

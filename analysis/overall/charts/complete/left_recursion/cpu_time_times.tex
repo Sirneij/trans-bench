@@ -1,0 +1,31 @@
+
+\documentclass{standalone}
+\usepackage[svgnames]{xcolor}
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest}
+\usepackage[sfdefault]{FiraSans}
+\usepackage{FiraMono}
+\renewcommand*\familydefault{\sfdefault}
+\begin{document}
+\begin{tikzpicture}
+    \begin{axis}[
+        title={Graph: Complete, Recursion: Left Recursion},
+        xlabel={Number of nodes},
+        ylabel={CPU time (s)},
+        legend pos={north west},
+        ymax=8.712522
+    ]
+    \addplot+[DarkSlateGray, mark options={color=DarkSlateGray}] coordinates {(50,0.010009500000000005) (100,0.07740849999999999) (150,0.2630425) (200,0.47873299999999996) (250,1.429151) (300,1.8906175) (350,3.755724) (400,4.47748)};
+\addlegendentry{XSB}
+\addplot+[RoyalBlue, mark options={color=RoyalBlue}] coordinates {(50,0.00013699999999999823) (200,0.0001528999999999836) (100,0.000154200000000021) (300,0.00015640000000000098) (250,0.00016190000000002036) (400,0.00016559999999998798) (350,0.0001674999999999871) (150,0.0001699500000000298)};
+\addlegendentry{PostgreSQL}
+\addplot+[MediumSeaGreen, mark options={color=MediumSeaGreen}] coordinates {(300,0.00010904999999999943) (50,0.0001121500000000053) (350,0.0001220999999999861) (250,0.00012265000000000192) (100,0.00012314999999998855) (150,0.00012439999999999674) (400,0.00013474999999998905) (200,0.00013755000000001405)};
+\addlegendentry{MariaDB}
+\addplot+[Gold, mark options={color=Gold}] coordinates {(50,0.0172755) (100,0.07610160000000002) (150,0.24468810000000002) (200,0.6843286500000001) (250,1.5692035500000001) (300,1.5766806500000001) (350,2.6676462999999995) (400,4.4432751999999995)};
+\addlegendentry{DuckDB}
+\addplot+[MediumPurple, mark options={color=MediumPurple}] coordinates {(50,0.00015039999999999498) (350,0.00015465000000000617) (250,0.00015490000000001336) (200,0.0001577000000000106) (100,0.0001673000000000091) (400,0.00018029999999999435) (150,0.00019320000000003223) (300,0.00022060000000001523)};
+\addlegendentry{CockroachDB}
+
+    \end{axis}
+\end{tikzpicture}
+\end{document}

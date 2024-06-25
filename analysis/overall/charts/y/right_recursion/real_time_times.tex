@@ -1,0 +1,31 @@
+
+\documentclass{standalone}
+\usepackage[svgnames]{xcolor}
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest}
+\usepackage[sfdefault]{FiraSans}
+\usepackage{FiraMono}
+\renewcommand*\familydefault{\sfdefault}
+\begin{document}
+\begin{tikzpicture}
+    \begin{axis}[
+        title={Graph: Y, Recursion: Right Recursion},
+        xlabel={Number of nodes},
+        ylabel={Elapsed time (s)},
+        legend pos={north west},
+        ymax=34.99707835499987
+    ]
+    \addplot+[DarkSlateGray, mark options={color=DarkSlateGray}] coordinates {(50,0.00011444091796875) (100,0.000200033187866211) (150,0.0002759695053100585) (200,0.000419020652770996) (250,0.000430464744567871) (300,0.0005205869674682619) (400,0.000762462615966797) (350,0.0007849931716918945)};
+\addlegendentry{XSB}
+\addplot+[RoyalBlue, mark options={color=RoyalBlue}] coordinates {(50,0.005116079499885018) (100,0.005627847000027941) (150,0.0068708024999750705) (200,0.007221336000043266) (300,0.007631011000057697) (250,0.009595000000103937) (350,0.011019074500154602) (400,0.015917462999937015)};
+\addlegendentry{PostgreSQL}
+\addplot+[MediumSeaGreen, mark options={color=MediumSeaGreen}] coordinates {(50,0.026373877999958495) (100,0.03628707249981744) (150,0.044511680000141496) (200,0.04937216350003837) (250,0.05855677200020182) (300,0.061584380999875066) (350,0.07219522399987) (400,0.07467849849990671)};
+\addlegendentry{MariaDB}
+\addplot+[Gold, mark options={color=Gold}] coordinates {(250,0.014464853000163203) (50,0.015014029499752723) (350,0.015529980499877638) (100,0.015817127499985872) (200,0.016618285500044294) (400,0.01732893200005492) (300,0.017411220499980118) (150,0.022360971999887624)};
+\addlegendentry{DuckDB}
+\addplot+[MediumPurple, mark options={color=MediumPurple}] coordinates {(200,0.27848380549994545) (150,0.28699188199971104) (100,0.31789546949994474) (50,0.3351473714997155) (250,0.34958259199993336) (350,0.35083123549975426) (300,0.40000098550035545) (400,0.4212435785002526)};
+\addlegendentry{CockroachDB}
+
+    \end{axis}
+\end{tikzpicture}
+\end{document}

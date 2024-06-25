@@ -1,0 +1,31 @@
+
+\documentclass{standalone}
+\usepackage[svgnames]{xcolor}
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest}
+\usepackage[sfdefault]{FiraSans}
+\usepackage{FiraMono}
+\renewcommand*\familydefault{\sfdefault}
+\begin{document}
+\begin{tikzpicture}
+    \begin{axis}[
+        title={Graph: Path, Recursion: Left Recursion},
+        xlabel={Number of nodes},
+        ylabel={Elapsed time (s)},
+        legend pos={north west},
+        ymax=34.99707835499987
+    ]
+    \addplot+[DarkSlateGray, mark options={color=DarkSlateGray}] coordinates {(50,0.00034797191619873047) (100,0.00127756595611572) (150,0.00292348861694336) (200,0.00527751445770264) (300,0.01391386985778809) (350,0.0163246393203735) (400,0.0204675197601318) (250,0.026497483253479)};
+\addlegendentry{XSB}
+\addplot+[RoyalBlue, mark options={color=RoyalBlue}] coordinates {(50,0.006244481999942764) (100,0.011865122500012149) (150,0.019993509000073573) (200,0.02795484350008337) (250,0.05462569699989217) (300,0.06957481550000466) (350,0.0844523329999447) (400,0.1275047205000419)};
+\addlegendentry{PostgreSQL}
+\addplot+[MediumSeaGreen, mark options={color=MediumSeaGreen}] coordinates {(50,0.03847663600004125) (100,0.08905445549999058) (150,0.1801434879998851) (250,0.3075253215001794) (300,0.35817619699992065) (200,0.5828823345000274) (400,0.8472263169999223) (350,1.0916905555000085)};
+\addlegendentry{MariaDB}
+\addplot+[Gold, mark options={color=Gold}] coordinates {(50,0.04470116249990497) (100,0.07649958000024526) (150,0.11617343699981575) (200,0.16773684700001468) (250,0.24209084749986687) (300,0.2665855999998712) (350,0.33824125849992015) (400,0.3758854005000103)};
+\addlegendentry{DuckDB}
+\addplot+[MediumPurple, mark options={color=MediumPurple}] coordinates {(100,0.287910238500217) (50,0.3047426850002921) (200,0.4507239590000154) (350,0.6754748189998736) (150,0.7461997210000391) (400,0.7542818804997751) (300,0.7883913184998619) (250,0.8128205044997685)};
+\addlegendentry{CockroachDB}
+
+    \end{axis}
+\end{tikzpicture}
+\end{document}

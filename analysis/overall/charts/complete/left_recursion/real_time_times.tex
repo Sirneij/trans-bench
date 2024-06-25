@@ -1,0 +1,31 @@
+
+\documentclass{standalone}
+\usepackage[svgnames]{xcolor}
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest}
+\usepackage[sfdefault]{FiraSans}
+\usepackage{FiraMono}
+\renewcommand*\familydefault{\sfdefault}
+\begin{document}
+\begin{tikzpicture}
+    \begin{axis}[
+        title={Graph: Complete, Recursion: Left Recursion},
+        xlabel={Number of nodes},
+        ylabel={Elapsed time (s)},
+        legend pos={north west},
+        ymax=34.99707835499987
+    ]
+    \addplot+[DarkSlateGray, mark options={color=DarkSlateGray}] coordinates {(50,0.01342296600341795) (100,0.09028506278991685) (150,0.266649007797241) (200,0.478895902633667) (250,1.4643205404281598) (300,1.90191650390625) (350,3.7609924077987653) (400,4.47763752937317)};
+\addlegendentry{XSB}
+\addplot+[RoyalBlue, mark options={color=RoyalBlue}] coordinates {(50,0.17643937950003874) (100,0.3342951450000555) (150,0.5484988889999158) (200,1.059394384500024) (250,1.9276540639999666) (300,3.208526263499948) (350,5.246321212499993) (400,7.938341659499997)};
+\addlegendentry{PostgreSQL}
+\addplot+[MediumSeaGreen, mark options={color=MediumSeaGreen}] coordinates {(50,0.098061854999969) (100,0.41925801750005576) (150,1.3603611579999324) (200,2.846757058499975) (250,4.940439570500075) (300,8.576979257000062) (350,13.33229444150004) (400,20.143294081000022)};
+\addlegendentry{MariaDB}
+\addplot+[Gold, mark options={color=Gold}] coordinates {(50,0.01292390250000608) (100,0.03279243949987176) (150,0.10560348700028044) (200,0.2390482555001654) (250,0.5457841330000974) (300,0.7628937894999126) (350,1.2646473635002167) (400,2.3976392469999155)};
+\addlegendentry{DuckDB}
+\addplot+[MediumPurple, mark options={color=MediumPurple}] coordinates {(50,0.25439365900001576) (100,0.4970502655000928) (150,1.1949619519998578) (200,2.604031543500014) (250,4.205211682500021) (300,9.249356246000161) (350,12.333021247500028) (400,17.195428608499924)};
+\addlegendentry{CockroachDB}
+
+    \end{axis}
+\end{tikzpicture}
+\end{document}

@@ -1,0 +1,31 @@
+
+\documentclass{standalone}
+\usepackage[svgnames]{xcolor}
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest}
+\usepackage[sfdefault]{FiraSans}
+\usepackage{FiraMono}
+\renewcommand*\familydefault{\sfdefault}
+\begin{document}
+\begin{tikzpicture}
+    \begin{axis}[
+        title={Graph: Binary Tree, Recursion: Right Recursion},
+        xlabel={Number of nodes},
+        ylabel={Elapsed time (s)},
+        legend pos={north west},
+        ymax=34.99707835499987
+    ]
+    \addplot+[DarkSlateGray, mark options={color=DarkSlateGray}] coordinates {(50,5.948543548583985e-05) (100,0.0001039505004882815) (250,0.0002410411834716795) (150,0.0002651214599609375) (200,0.00029098987579345703) (350,0.0005030632019042971) (400,0.000532984733581543) (300,0.0005420446395874026)};
+\addlegendentry{XSB}
+\addplot+[RoyalBlue, mark options={color=RoyalBlue}] coordinates {(50,0.003986693499996363) (100,0.004583750000051623) (200,0.005019237999931647) (250,0.005294438500072829) (150,0.005484213000045202) (300,0.006182120999937979) (400,0.006474315999867031) (350,0.0066138120000687195)};
+\addlegendentry{PostgreSQL}
+\addplot+[MediumSeaGreen, mark options={color=MediumSeaGreen}] coordinates {(50,0.01976379300026565) (100,0.020136158500008605) (250,0.025796606000085376) (200,0.026396388999728515) (150,0.026529698000103963) (350,0.03898317350012803) (300,0.04005659049994392) (400,0.04757868349997807)};
+\addlegendentry{MariaDB}
+\addplot+[Gold, mark options={color=Gold}] coordinates {(200,0.009698809999918012) (50,0.010993554000151562) (250,0.01164709849990686) (300,0.011807438999994702) (400,0.012599734500099657) (150,0.01273642999990443) (350,0.013215952500104322) (100,0.015372746500133871)};
+\addlegendentry{DuckDB}
+\addplot+[MediumPurple, mark options={color=MediumPurple}] coordinates {(250,0.21648678100018515) (300,0.2575609654998061) (50,0.26158054899997296) (200,0.2720136855000419) (350,0.2730316324998512) (100,0.28192247550009597) (400,0.29045313999995415) (150,0.36821572600001673)};
+\addlegendentry{CockroachDB}
+
+    \end{axis}
+\end{tikzpicture}
+\end{document}
