@@ -1,10 +1,16 @@
 import ast
+import logging
 import math
 import re
+import subprocess
 from pathlib import Path
-from typing import Any
+from typing import Any, Union
 
 import pandas as pd
+
+logging.basicConfig(
+    level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s'
+)
 
 ENVIRONMENT_MAPPINGS = {
     'xsb': ('XSB', 'DarkSlateGray'),
@@ -123,7 +129,7 @@ def export_to_csv(final_tables: dict) -> None:
             variant_dir = Path(f"analysis/{graph_type}/{recursion_variant}")
             variant_dir.mkdir(parents=True, exist_ok=True)
 
-            file_path = variant_dir / f"{time_type}_times.csv"
+            file_path = variant_dir / f"{recursion_variant}_{graph_type}_{time_type}_times.csv"
             table.to_csv(file_path, index=False, mode='w', header=True)
 
 
@@ -253,6 +259,73 @@ def create_overall_csvs(unique_result: dict, size: int):
         )
 
 
+def is_latexindent_installed() -> bool:
+    try:
+        subprocess.run(
+            ['latexindent', '--version'],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        return True
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return False
+
+
+def format_latex_file(file_path: Path) -> None:
+    if is_latexindent_installed():
+        try:
+            subprocess.run(['latexindent', '-w', str(file_path)], check=True)
+            logging.info(f'Formatted {file_path} using latexindent.')
+        except subprocess.CalledProcessError as e:
+            logging.error(f'Error formatting {file_path} using latexindent: {e}')
+    else:
+        logging.warning('latexindent is not installed. Skipping formatting.')
+
+
+def compile_latex_to_pdf(directory: Path) -> None:
+    latex_distribution = find_latex_distribution()
+    if latex_distribution is None:
+        logging.error('No LaTeX distribution found on the system.')
+        return
+
+    for f in directory.iterdir():
+        logging.info(f'Compiling {f} to PDF.')
+        if f.suffix == '.tex':
+            compile_file(f, latex_distribution, directory)
+
+    for f in directory.iterdir():
+        if f.is_file() and f.suffix not in ['.tex', '.pdf']:
+            f.unlink()
+
+
+def find_latex_distribution() -> Union[str, None]:
+    latex_distributions = ['xelatex', 'pdflatex', 'lualatex']
+    for distribution in latex_distributions:
+        try:
+            subprocess.run(
+                ['which', distribution], check=True, stdout=subprocess.DEVNULL
+            )
+            return distribution
+        except subprocess.CalledProcessError:
+            continue
+    return None
+
+
+def compile_file(file: Path, latex_distribution: str, directory: Path) -> None:
+    try:
+        if latex_distribution == 'xelatex':
+            subprocess.run(
+                [latex_distribution, '--shell-escape', file.name],
+                cwd=directory,
+                check=True,
+            )
+        else:
+            subprocess.run([latex_distribution, file.name], cwd=directory, check=True)
+    except subprocess.CalledProcessError as e:
+        logging.error(f'Error compiling {file}: {e}')
+
+
 def create_latex_table(
     df: pd.DataFrame, file_path: Path, caption: str = '', label: str = ''
 ):
@@ -326,26 +399,30 @@ def generate_pgfplots(
 
 
 def create_overall_latex_plots(unique_result: dict, sizes_to_analyze: list[int]):
+    logging.info(f'Creating overall LaTeX plots. Unique result keys: {unique_result.keys()}')
+    base_dir = Path('analysis/overall/charts')
+    base_dir.mkdir(parents=True, exist_ok=True)
     for _ in sizes_to_analyze:
         for (graph_type, recursion_variant), results in unique_result.items():
             for time_type in ['real_time', 'cpu_time']:
                 all_data = pd.concat(
-                    results[f'sorted_by_{time_type}']
-                    for results in unique_result.values()
-                )
+                result[f'sorted_by_{time_type}']
+                for key, result in unique_result.items()
+                if key[0] == graph_type
+            )
                 max_y_value = all_data[time_type].max()
                 data = results[f'sorted_by_{time_type}']
                 tex_code = generate_pgfplots(
                     data, graph_type, recursion_variant, time_type, max_y_value
                 )
 
-                output_dir = Path(
-                    f'analysis/overall/charts/{graph_type}/{recursion_variant}'
-                )
+                output_dir = base_dir / graph_type / recursion_variant  
                 output_dir.mkdir(parents=True, exist_ok=True)
 
-                with open(output_dir / f'{time_type}_times.tex', 'w') as f:
+                with open(output_dir / f'{recursion_variant}_{graph_type}_{time_type}_times.tex', 'w') as f:
                     f.write(tex_code)
+
+                compile_latex_to_pdf(output_dir)
 
 
 def main(file_path: str, sizes_to_analyze: list[int]):

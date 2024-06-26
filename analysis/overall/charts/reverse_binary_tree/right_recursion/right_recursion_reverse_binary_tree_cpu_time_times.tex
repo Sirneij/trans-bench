@@ -1,0 +1,31 @@
+
+\documentclass{standalone}
+\usepackage[svgnames]{xcolor}
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest}
+\usepackage[sfdefault]{FiraSans}
+\usepackage{FiraMono}
+\renewcommand*\familydefault{\sfdefault}
+\begin{document}
+\begin{tikzpicture}
+    \begin{axis}[
+        title={Graph: Reverse Binary Tree, Recursion: Right Recursion},
+        xlabel={Number of nodes},
+        ylabel={CPU time (s)},
+        legend pos={north west},
+        ymax=0.017736949999999974
+    ]
+    \addplot+[DarkSlateGray, mark options={color=DarkSlateGray}] coordinates {(50,4.85000000000069e-05) (150,7.8999999999999e-05) (100,7.899999999999921e-05) (250,0.00013549999999999695) (200,0.00017900000000000202) (350,0.0002785000000000045) (300,0.0003390000000000025) (400,0.000369999999999999)};
+\addlegendentry{XSB}
+\addplot+[RoyalBlue, mark options={color=RoyalBlue}] coordinates {(100,0.0001115500000000158) (250,0.00011269999999999336) (200,0.0001300999999999941) (150,0.00013399999999999523) (50,0.0001345000000000096) (300,0.00013665000000001593) (350,0.0001429500000000028) (400,0.00015545000000000142)};
+\addlegendentry{PostgreSQL}
+\addplot+[MediumSeaGreen, mark options={color=MediumSeaGreen}] coordinates {(150,0.0001077499999999898) (100,0.00010999999999999899) (300,0.00011134999999995454) (250,0.00011699999999997823) (400,0.00012039999999999274) (350,0.00012605000000001643) (200,0.00014440000000001674) (50,0.0001613500000000323)};
+\addlegendentry{MariaDB}
+\addplot+[Gold, mark options={color=Gold}] coordinates {(50,0.009218249999999983) (100,0.011992350000000013) (200,0.013043899999999997) (150,0.013895999999999992) (350,0.015268600000000021) (250,0.015829199999999988) (400,0.017491499999999993) (300,0.017539099999999974)};
+\addlegendentry{DuckDB}
+\addplot+[MediumPurple, mark options={color=MediumPurple}] coordinates {(400,0.00014905000000001167) (50,0.00016365000000007068) (200,0.00016865000000004793) (300,0.0001763000000000181) (350,0.0001878999999999631) (250,0.0001966999999999941) (150,0.00022214999999997653) (100,0.00024254999999995253)};
+\addlegendentry{CockroachDB}
+
+    \end{axis}
+\end{tikzpicture}
+\end{document}
