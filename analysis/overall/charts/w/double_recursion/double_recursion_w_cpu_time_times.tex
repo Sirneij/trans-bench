@@ -1,0 +1,25 @@
+
+\documentclass{standalone}
+\usepackage[svgnames]{xcolor}
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest}
+\usepackage[sfdefault]{FiraSans}
+\usepackage{FiraMono}
+\renewcommand*\familydefault{\sfdefault}
+\begin{document}
+\begin{tikzpicture}
+    \begin{axis}[
+        title={Graph: W, Recursion: Double Recursion},
+        xlabel={Number of nodes},
+        ylabel={CPU time (s)},
+        legend pos={north west},
+        ymax=0.001396199999999992
+    ]
+    \addplot+[DarkSlateGray, mark options={color=DarkSlateGray}] coordinates {(100,0.0001252000000000004) (200,0.0002442000000000004) (300,0.0003711999999999998) (400,0.0005020000000000004)};
+\addlegendentry{XSB}
+\addplot+[Gold, mark options={color=Gold}] coordinates {(100,0.0010685999999999972) (200,0.0010882000000000057) (300,0.0013849999999999917) (400,0.0013196000000000097)};
+\addlegendentry{DuckDB}
+
+    \end{axis}
+\end{tikzpicture}
+\end{document}

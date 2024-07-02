@@ -1,0 +1,22 @@
+\begin{table}
+\caption{Elapsed time (in seconds) of TC queries using double recursion on different graph types.}
+\label{table:double_recursion_real_time}
+\begin{tabular}{lrllrl}
+\toprule
+Graph type & XSB & PostgreSQL & MariaDB & DuckDB & CockroachDB \\
+\midrule
+$\text{Cmpl}_{n=400}$ & 0.049129 & NaN & NaN & 0.011901 & NaN \\
+$\text{MaxAcyc}_{n=400}$ & 0.008130 & NaN & NaN & 0.002832 & NaN \\
+$\text{Cyc}_{n=400}$ & 0.053141 & NaN & NaN & 0.004355 & NaN \\
+$\text{CycExtra}_{n=400,k=10}$ & 0.058846 & NaN & NaN & 0.005443 & NaN \\
+$\text{Path}_{n=400}$ & 0.008055 & NaN & NaN & 0.001809 & NaN \\
+$\text{PathDisj}_{n=400,k=10}$ & 0.098627 & NaN & NaN & 0.002535 & NaN \\
+$\text{Grid}_{n=400}$ & 0.002684 & NaN & NaN & 0.001449 & NaN \\
+$\text{BinTree}_{h=9}$ & 0.000073 & NaN & NaN & 0.001012 & NaN \\
+$\text{BinTreeRev}_{h=9}$ & 0.000058 & NaN & NaN & 0.000904 & NaN \\
+$\text{X}_{n=400, k=10}$ & 0.000124 & NaN & NaN & 0.000909 & NaN \\
+$\text{Y}_{n=400,k=10}$ & 0.000218 & NaN & NaN & 0.001342 & NaN \\
+$\text{W}_{n=400,k=10}$ & 0.000131 & NaN & NaN & 0.000745 & NaN \\
+\bottomrule
+\end{tabular}
+\end{table}

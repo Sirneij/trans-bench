@@ -156,6 +156,7 @@ def create_overall_csvs(unique_result: dict, size: int):
     overall_data = {
         'left_recursion': {'real_time': [], 'cpu_time': []},
         'right_recursion': {'real_time': [], 'cpu_time': []},
+        'double_recursion': {'real_time': [], 'cpu_time': []},
     }
 
     graph_names_order = [
@@ -218,6 +219,10 @@ def create_overall_csvs(unique_result: dict, size: int):
         'right_recursion': {
             'real_time': 'Elapsed time (in seconds) of TC queries using right recursion on different graph types.',
             'cpu_time': 'CPU times (in seconds) of TC queries using right recursion on different graph types.',
+        },
+        'double_recursion': {
+            'real_time': 'Elapsed time (in seconds) of TC queries using double recursion on different graph types.',
+            'cpu_time': 'CPU times (in seconds) of TC queries using double recursion on different graph types.',
         },
     }
 
@@ -365,7 +370,7 @@ def generate_pgfplots(
     plot_lines = ""
     for env_key, (env_name, color) in ENVIRONMENT_MAPPINGS.items():
         if env_key in data['environment'].unique():
-            env_data = data[data['environment'] == env_key]
+            env_data = data[data['environment'] == env_key].sort_values(by='size')
             coordinates = " ".join(
                 f"({size},{y})"
                 for size, y in zip(env_data['size'], env_data[time_type])
