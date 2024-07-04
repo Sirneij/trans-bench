@@ -169,6 +169,9 @@ class AnalyzeDBs(AnalyzeSystems):
         self.copy_file('/tmp/mariadb_results.csv', results_path)
         machine_user_password = self.config['machineUserPassword']
         remove = f'sudo rm -rf /tmp/mariadb_results.csv'
+        if os.name == 'posix':
+            if 'darwin' in os.uname().sysname.lower():
+                remove = f'rm -rf /tmp/mariadb_results.csv'
         self.run_pexpect_command(remove, machine_user_password)
 
     def solve_with_duckdb(self) -> None:
@@ -414,9 +417,7 @@ class AnalyzeDBs(AnalyzeSystems):
             subprocess.run(
                 cp_cmd, shell=True, text=True, capture_output=True, check=True
             )
-            subprocess.run(
-                rm_cmd, shell=True, text=True, capture_output=True, check=True
-            )
+            self.run_pexpect_command(rm_cmd, '')
         except Exception as e:
             logging.error(f'CockroachDB error: {e}')
         finally:
@@ -433,11 +434,11 @@ class AnalyzeDBs(AnalyzeSystems):
             # Spawn the command
             child = pexpect.spawn(command)
 
-            # Wait for the sudo password prompt
-            child.expect(r'\[sudo\] password for .*:', timeout=10)
-
-            # Send the password
-            child.sendline(password)
+            if os.name == 'posix':
+                if 'linux' in os.uname().sysname.lower():
+                    child.expect(r'\[sudo\] password for .*:', timeout=120)
+                    # Send the password
+                    child.sendline(password)
 
             # Wait for the command to complete
             child.expect(pexpect.EOF)

@@ -129,7 +129,9 @@ def export_to_csv(final_tables: dict) -> None:
             variant_dir = Path(f"analysis/{graph_type}/{recursion_variant}")
             variant_dir.mkdir(parents=True, exist_ok=True)
 
-            file_path = variant_dir / f"{recursion_variant}_{graph_type}_{time_type}_times.csv"
+            file_path = (
+                variant_dir / f"{recursion_variant}_{graph_type}_{time_type}_times.csv"
+            )
             table.to_csv(file_path, index=False, mode='w', header=True)
 
 
@@ -404,27 +406,33 @@ def generate_pgfplots(
 
 
 def create_overall_latex_plots(unique_result: dict, sizes_to_analyze: list[int]):
-    logging.info(f'Creating overall LaTeX plots. Unique result keys: {unique_result.keys()}')
+    logging.info(
+        f'Creating overall LaTeX plots. Unique result keys: {unique_result.keys()}'
+    )
     base_dir = Path('analysis/overall/charts')
     base_dir.mkdir(parents=True, exist_ok=True)
     for _ in sizes_to_analyze:
         for (graph_type, recursion_variant), results in unique_result.items():
             for time_type in ['real_time', 'cpu_time']:
                 all_data = pd.concat(
-                result[f'sorted_by_{time_type}']
-                for key, result in unique_result.items()
-                if key[0] == graph_type
-            )
+                    result[f'sorted_by_{time_type}']
+                    for key, result in unique_result.items()
+                    if key[0] == graph_type
+                )
                 max_y_value = all_data[time_type].max()
                 data = results[f'sorted_by_{time_type}']
                 tex_code = generate_pgfplots(
                     data, graph_type, recursion_variant, time_type, max_y_value
                 )
 
-                output_dir = base_dir / graph_type / recursion_variant  
+                output_dir = base_dir / graph_type / recursion_variant
                 output_dir.mkdir(parents=True, exist_ok=True)
 
-                with open(output_dir / f'{recursion_variant}_{graph_type}_{time_type}_times.tex', 'w') as f:
+                with open(
+                    output_dir
+                    / f'{recursion_variant}_{graph_type}_{time_type}_times.tex',
+                    'w',
+                ) as f:
                     f.write(tex_code)
 
                 compile_latex_to_pdf(output_dir)
