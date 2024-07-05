@@ -453,7 +453,7 @@ def main(file_path: str, sizes_to_analyze: list[int]):
 
 def run_main():
     file_path = 'data.txt'
-    sizes_to_analyze = [50, 100, 150, 200, 250, 300, 350, 400]
+    sizes_to_analyze = [i for i in range(100, 1001, 100)]
     main(file_path, sizes_to_analyze)
 
 
