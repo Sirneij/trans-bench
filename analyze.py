@@ -64,7 +64,6 @@ def analyze_data(unique_df: pd.DataFrame) -> dict:
     grouped_unique = unique_df.groupby(['graph_type', 'recursion_variant'])
 
     for name, group in grouped_unique:
-        graph_type, recursion_variant = name
         group_sorted_by_real_time = group.sort_values(by='real_time')
         group_sorted_by_cpu_time = group.sort_values(by='cpu_time')
         unique_result[name] = {
@@ -158,7 +157,7 @@ def create_overall_csvs(unique_result: dict, size: int):
     overall_data = {
         'left_recursion': {'real_time': [], 'cpu_time': []},
         'right_recursion': {'real_time': [], 'cpu_time': []},
-        'double_recursion': {'real_time': [], 'cpu_time': []},
+        # 'double_recursion': {'real_time': [], 'cpu_time': []},
     }
 
     graph_names_order = [
@@ -222,10 +221,10 @@ def create_overall_csvs(unique_result: dict, size: int):
             'real_time': 'Elapsed time (in seconds) of TC queries using right recursion on different graph types.',
             'cpu_time': 'CPU times (in seconds) of TC queries using right recursion on different graph types.',
         },
-        'double_recursion': {
-            'real_time': 'Elapsed time (in seconds) of TC queries using double recursion on different graph types.',
-            'cpu_time': 'CPU times (in seconds) of TC queries using double recursion on different graph types.',
-        },
+        # 'double_recursion': {
+        #     'real_time': 'Elapsed time (in seconds) of TC queries using double recursion on different graph types.',
+        #     'cpu_time': 'CPU times (in seconds) of TC queries using double recursion on different graph types.',
+        # },
     }
 
     for recursion_variant in overall_data:
@@ -369,8 +368,20 @@ def generate_pgfplots(
     time_type: str,
     max_y_value: float,
 ) -> str:
-    plot_lines = ""
+    plot_lines = ''
     for env_key, (env_name, color) in ENVIRONMENT_MAPPINGS.items():
+        # Exclude mariadb for complete graph type and real_time
+        if (
+            graph_type in ['complete', 'max_acyclic']
+            and time_type == 'real_time'
+            and env_key == 'mariadb'
+        ):
+            continue
+
+        # Check if time_type is 'cpu_time' and filter environments accordingly
+        if time_type == 'cpu_time' and env_key not in ['xsb', 'duckdb']:
+            continue  # Skip environments not xsb or duckdb for cpu_time
+
         if env_key in data['environment'].unique():
             env_data = data[data['environment'] == env_key].sort_values(by='size')
             coordinates = " ".join(
@@ -414,11 +425,18 @@ def create_overall_latex_plots(unique_result: dict, sizes_to_analyze: list[int])
     for _ in sizes_to_analyze:
         for (graph_type, recursion_variant), results in unique_result.items():
             for time_type in ['real_time', 'cpu_time']:
-                all_data = pd.concat(
-                    result[f'sorted_by_{time_type}']
-                    for key, result in unique_result.items()
-                    if key[0] == graph_type
-                )
+                if graph_type in ['complete', 'max_acyclic']:
+                    all_data = pd.concat(
+                        result[f'sorted_by_{time_type}']
+                        for key, result in unique_result.items()
+                        if key[0] == graph_type and 'mariadb' not in key
+                    )
+                else:
+                    all_data = pd.concat(
+                        result[f'sorted_by_{time_type}']
+                        for key, result in unique_result.items()
+                        if key[0] == graph_type
+                    )
                 max_y_value = all_data[time_type].max()
                 data = results[f'sorted_by_{time_type}']
                 tex_code = generate_pgfplots(
@@ -448,12 +466,13 @@ def main(file_path: str, sizes_to_analyze: list[int]):
     for size in sizes_to_analyze:
         create_overall_csvs(unique_result, size)
 
-    create_overall_latex_plots(unique_result, sizes_to_analyze)
+    # create_overall_latex_plots(unique_result, sizes_to_analyze)
 
 
 def run_main():
     file_path = 'data.txt'
-    sizes_to_analyze = [i for i in range(100, 1001, 100)]
+    # sizes_to_analyze = [i for i in range(100, 1001, 100)]
+    sizes_to_analyze = [1000]
     main(file_path, sizes_to_analyze)
 
 
