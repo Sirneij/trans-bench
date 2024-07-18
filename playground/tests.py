@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 
 import duckdb
+
 # import pymysql
 from neo4j import GraphDatabase
 
@@ -139,9 +140,7 @@ def measure_mariadb_performance():
     password = 'sirneij'
     command = ['sudo', '-S', 'mv', '/tmp/test_mariadb.csv', output_file]
     # Run the command and pass the password
-    subprocess.run(
-        command, input=f'{password}\n', text=True, capture_output=True
-    )
+    subprocess.run(command, input=f'{password}\n', text=True, capture_output=True)
 
 
 def measure_postresql_performance():
@@ -205,6 +204,7 @@ def parse_timings(output):
 
     return timings
 
+
 def measure_with_neo4j():
     driver = GraphDatabase.driver(
         'neo4j://localhost:7687',
@@ -228,13 +228,67 @@ def measure_with_neo4j():
                 print(record)
         except Exception as e:
             print(f'Error: {e}')
-    
+
     session.close()
     driver.close()
+
+
+def measure_with_duckdb(sql_script_filename: str):
+    # Get the prefix of the input file
+    prefix = sql_script_filename.split('.')[0]
+
+    conn = duckdb.connect(database=f'{prefix}.db')
+
+    with open(sql_script_filename, 'r') as f:
+        sql_script = f.read()
+
+    results_path = f'{prefix}.csv'
+    sql_script = sql_script.replace('{data_file}', 'edge.facts')
+    sql_script = sql_script.replace('{output_file}', f'{results_path}')
+
+    commands = [
+        f'{command.strip()};' for command in sql_script.split(';') if command.strip()
+    ]
+
+    for cmd in commands:
+        try:
+            # print(f"Executing command: {cmd}")
+            conn.sql(cmd)
+        except Exception as e:
+            print(f'Error: {e}')
+    conn.close()
+
+    # Delete the database file
+    os.remove(f'{prefix}.db')
+
+
+def csv_files_are_equal(file1, file2):
+    with open(file1, 'r') as f1, open(file2, 'r') as f2:
+        reader1 = csv.reader(f1)
+        reader2 = csv.reader(f2)
+
+        for row1, row2 in zip(reader1, reader2):
+            if row1 != row2:
+                return False
+
+        # Check if any file still has data left
+        try:
+            if next(reader1) or next(reader2):
+                return False
+        except StopIteration:
+            pass
+
+    return True
 
 
 if __name__ == '__main__':
     # measure_postresql_performance()
     # measure_mariadb_performance()
     # measure_duckdb_performance()
-    measure_with_neo4j()
+    # measure_with_neo4j()
+    s_filenames = ['test_duckdb_d.sql', 'test_duckdb_l.sql']
+    for s_filename in s_filenames:
+        measure_with_duckdb(s_filename)
+
+    # Check if the results are the same
+    print(csv_files_are_equal('test_duckdb_d.csv', 'test_duckdb_l.csv'))

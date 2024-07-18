@@ -92,7 +92,9 @@ class Base:
         if rule_path is not None:
             self.db_path = Path(rule_path).parent / env_name / 'duckdb_file.db'
             self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        return duckdb.connect(database=str(self.db_path))
+        return duckdb.connect(
+            database=str(self.db_path) if self.db_path else ':memory:'
+        )
 
     def _connect_neo4j(
         self, env_name: str, rule_path: Optional[str] = None

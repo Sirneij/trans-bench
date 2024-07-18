@@ -3,6 +3,7 @@ import gc
 import json
 import logging
 import math
+import os
 import pickle
 from pathlib import Path
 from typing import Any, Generator
@@ -222,7 +223,7 @@ class GraphGenerator:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--config', type=str, required=True, help='JSON string of the config'
+        '--config', type=str, required=False, help='JSON string of the config'
     )
     # Specify the start, stop, and step sizes for graph generation
     parser.add_argument(
@@ -256,7 +257,12 @@ def main():
     )
     args = parser.parse_args()
 
-    config = json.loads(args.config)
+    if args.config and os.path.isfile(args.config):
+        with open(args.config, 'r') as file:
+            config_content = file.read()
+        config = json.loads(config_content)
+    else:
+        config = json.loads(args.config if args.config else '{}')
 
     logging.info(
         f'Generating graphs for sizes {args.sizes} and types {args.graph_types}.'

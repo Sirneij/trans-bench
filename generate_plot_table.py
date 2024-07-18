@@ -3,6 +3,7 @@ import csv
 import json
 import logging
 import math
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -1019,7 +1020,12 @@ def main():
     )
     args = parser.parse_args()
 
-    config = json.loads(args.config if args.config else '{}')
+    if args.config and os.path.isfile(args.config):
+        with open(args.config, 'r') as file:
+            config_content = file.read()
+        config = json.loads(config_content)
+    else:
+        config = json.loads(args.config if args.config else '{}')
 
     timing_base_dir = Path('timing')
     pattern = r'^timing_(.*?)_graph_(\d+)\.csv$'
