@@ -172,15 +172,16 @@ class AnalyzeLogicSystems(AnalyzeSystems):
 
             t_query_begin = os.times()
             ctl.configuration.solve.models = '0'
-            ctl.solve()
+            with ctl.solve(yield_=True) as handle:
+                # Collect results first
+                results = [model.symbols(shown=True) for model in handle]
             t_query_end = os.times()
 
+            # Now write the results to a file
             output_file = self.output_folder / 'clingo_results.txt'
             t_query_w_begin = os.times()
-            with ctl.solve(yield_=True) as handle, open(output_file, 'w') as f:
-                for model in handle:
-                    for atom in model.symbols(shown=True):
-                        f.write(f'{atom}\n')
+            with open(output_file, 'w') as f:
+                f.writelines([f'{atom}\n' for result in results for atom in result])
             t_query_w_end = os.times()
 
             logging.info(f'(Clingo) Results written to: {output_file}')

@@ -375,8 +375,8 @@ def main() -> None:
     parser.add_argument(
         '--souffle-include-dir',
         type=str,
-        default='/opt/homebrew/Cellar/souffle/HEAD-c7ce229/include',
-        help='The include directory for souffle. Default is /opt/homebrew/Cellar/souffle/HEAD-c7ce229/include.',
+        default='$HOME/systems/souffle/include',
+        help='The include directory for souffle. Default is $HOME/systems/souffle/include.',
     )
     args = parser.parse_args()
 

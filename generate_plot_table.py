@@ -405,17 +405,40 @@ class BaseTableAndPlotGenerator:
         match = re.search(r'\\begin{axis}.*?\\end{axis}', latex_content, re.DOTALL)
         if match:
             axis_content = match.group(0)
-            if tool == environments[0]:
+            if tool == 'xsb':
                 axis_content = re.sub(
                     r'\\begin{axis}\[',
                     r'\\begin{axis}[bar shift=-25pt, ',
                     axis_content,
                     1,
                 )
-            elif tool in environments[1:]:
-                axis_content = self.__adjust_axis_content(
-                    axis_content, tool, environments
+            elif tool in ['clingo', 'souffle']:
+                if tool == 'clingo':
+                    axis_content = re.sub(
+                        r'\\begin{axis}\[',
+                        r'\\begin{axis}[bar shift=-3.7pt, ',
+                        axis_content,
+                        1,
+                    )
+                elif tool == 'souffle':
+                    axis_content = re.sub(
+                        r'\\begin{axis}\[',
+                        r'\\begin{axis}[bar shift=18pt, ',
+                        axis_content,
+                        1,
+                    )
+
+                axis_content = re.sub(r'(axis x line\*=)[^,]*', r'\1none', axis_content)
+                axis_content = re.sub(r'(axis y line\*=)[^,]*', r'\1none', axis_content)
+                axis_content = re.sub(
+                    r'major grid style={draw=gray!20},',
+                    'major grid style={draw=none},',
+                    axis_content,
                 )
+                axis_content = re.sub(r'xlabel={.*?},', '', axis_content)
+                axis_content = re.sub(r'ylabel={.*?},', '', axis_content)
+                axis_content = re.sub(r'(?m)^\s*\n', '', axis_content)
+
             return axis_content
         return ''
 
@@ -633,7 +656,7 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
                 # Find the maximum real-time value for double_recursion
                 max_real_time = self._BaseTableAndPlotGenerator__adjust_ymax(
                     self._BaseTableAndPlotGenerator__find_max_real_time,
-                    (env_name, key[1], 'left_recursion'),
+                    (env_name, key[1], 'double_recursion'),
                 )
 
                 with open(full_file_name, 'w') as f:
@@ -766,8 +789,8 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
             )
             for graph_type in sorted(graph_types):
                 ymax = self._BaseTableAndPlotGenerator__adjust_ymax(
-                    self._BaseTableAndPlotGenerator__find_max_real_time_across_envs,
-                    (graph_type, 'left_recursion'),
+                    self._BaseTableAndPlotGenerator__find_max_cpu_time_across_envs,
+                    (graph_type, 'double_recursion'),
                 )
                 file_folder = file_dir / mode
                 file_folder.mkdir(exist_ok=True, parents=True)
@@ -778,22 +801,22 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
                     f.write('\\begin{tikzpicture}\n')
                     f.write('\\begin{axis}[\n')
                     f.write('   ybar stacked,\n')
-                    f.write('   width=2\\textwidth,\n')
-                    f.write('   bar width=0.35cm,\n')
+                    f.write('   width=1.7\\textwidth,\n')
+                    f.write('   bar width=0.7cm,\n')
                     f.write('   ymajorgrids, tick align=inside,\n')
                     f.write('   major grid style={draw=gray!20},\n')
                     f.write('   xtick=data,\n')
                     f.write(f'   ymin=0, ymax={ymax},\n')
                     f.write('   axis x line*=bottom,\n')
                     f.write('   axis y line*=left,\n')
-                    f.write('   enlarge x limits=0.01,\n')
+                    f.write('   enlarge x limits=0.05,\n')
                     f.write('   legend style={\n')
-                    if env_name == self.environments[0]:
+                    if env_name == 'xsb':
                         f.write('       at={(0.23, 0.97)},\n')
-                    else:
-                        f.write(
-                            f'       at={{({0.224 * (self.environments.index(env_name))+1}, 0.97)}},\n'
-                        )
+                    elif env_name == 'clingo':
+                        f.write('       at={(0.454, 0.97)},\n')
+                    elif env_name == 'souffle':
+                        f.write('       at={(0.69, 0.97)},\n')
                     f.write('       anchor=north east,\n')
                     f.write('       legend columns=1,\n')
                     f.write('       font=\\Huge,\n')
@@ -875,9 +898,7 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
 
         The function iterates over the tools and reads the LaTeX content from the corresponding files. It then extracts the axis content using the extract_axis_content function and appends it to a list. If the axis content is not empty, it is added to the list. Finally, the function returns the combined axis content as a string.
         """
-        tools = (
-            self.config['environmentsToCombine'] if self.config else self.environments
-        )
+        tools = ['xsb', 'clingo', 'souffle']
         axis_contents = []
         for tool in tools:
             file_path = directory_path / tool / mode / f'{file_name}.tex'
@@ -887,7 +908,7 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
                     file_path
                 )
                 axis_content = self._BaseTableAndPlotGenerator__extract_axis_content(
-                    latex_content, tool, tools
+                    latex_content, tool
                 )
                 axis_contents.append(axis_content)
             else:
@@ -951,7 +972,7 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
 \\begin{{document}}
 \\begin{{tikzpicture}}
                         {combined_content}
-\\node[anchor=south, draw, fill=white] at (rel axis cs:0.42,1) {{\\Huge L-R: {', '.join(map(str, self.environments))}}};
+\\node[anchor=south, draw, fill=white] at (rel axis cs:0.42,1) {{\\Huge Left: XSB, Middle: Clingo, Right: Soufflé}};
 \\end{{tikzpicture}}
 \\end{{document}}
                     """
@@ -976,21 +997,21 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
         The function first collects the timing data using the collect_data function. It then iterates over the environments and generates LaTeX files for each environment using the generate_latex_for_environment function. If the environment is not 'alda', it generates LaTeX comparison charts using the generate_latex_comparison_charts function. Finally, it generates LaTeX comparison tables using the generate_latex_comparison_tables function and combines the files for comparison using the combine_files_for_comparison function.
         """
         self.collect_data()
-        with open('data.txt', 'w') as f:
-            f.write(f'{self.data}')
-        # environments = set(key[0] for key in self.data)
-        # for env_name in environments:
-        #     self.__generate_latex_for_environment(
-        #         self.latex_file_dir, env_name, compile_file_alone
-        #     )
-        #     if env_name != 'alda':
-        #         self.__generate_latex_comparison_charts(
-        #             self.latex_file_dir, env_name, compile_file_alone
-        #         )
+        # with open('data.txt', 'w') as f:
+        #     f.write(f'{self.data}')
+        environments = ['xsb', 'clingo', 'souffle']
+        for env_name in environments:
+            # self.__generate_latex_for_environment(
+            #     self.latex_file_dir, env_name, compile_file_alone
+            # )
+            if env_name != 'alda':
+                self.__generate_latex_comparison_charts(
+                    self.latex_file_dir, env_name, compile_file_alone
+                )
         # self.__generate_latex_comparison_tables(self.latex_file_dir)
-        # self.__combine_files_for_comparison(
-        #     self.latex_file_dir / 'comparison' / 'charts', compile_file_alone
-        # )
+        self.__combine_files_for_comparison(
+            self.latex_file_dir / 'comparison' / 'charts', compile_file_alone
+        )
 
 
 def main():
@@ -1003,6 +1024,8 @@ def main():
         nargs='+',
         default=[
             'xsb',
+            'clingo',
+            'souffle',
             'postgres',
             'mariadb',
             'duckdb',

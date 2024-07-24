@@ -177,7 +177,7 @@ class AnalyzeSystems(Base):
             timing_data = self.__parse_souffle_timing_data(result.stdout)
             logging.info(f"Parsed timing data: {timing_data}")
         except subprocess.CalledProcessError as e:
-            logging.info(f"Command failed: {e}")
+            logging.error(f"Command failed: {e}")
             return 'Command failed', {}
         except Exception as e:
             logging.error(f"Error: {e}")
