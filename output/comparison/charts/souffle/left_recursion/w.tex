@@ -11,14 +11,14 @@
 \begin{axis}[
    ybar stacked,
    width=1.7\textwidth,
-   bar width=0.7cm,
+   bar width=0.6cm,
    ymajorgrids, tick align=inside,
    major grid style={draw=gray!20},
    xtick=data,
    ymin=0, ymax=9.478,
    axis x line*=bottom,
    axis y line*=left,
-   enlarge x limits=0.05,
+   enlarge x limits=0.04,
    legend style={
        at={(0.69, 0.97)},
        anchor=north east,
@@ -26,7 +26,7 @@
        font=\Huge,
    },
    ylabel={CPU Time (seconds)},
-   xlabel={Number of nodes $\times 10$},
+   xlabel={Number of nodes $\times k=10$},
    label style={font=\Huge},
    tick label style={font=\Huge},
 ]
@@ -42,7 +42,7 @@
 \addlegendentry{C++ToExec}
 \addlegendimage{fill=LightGoldenrod, draw=black, line width=0.2pt}
 \addlegendentry{RulesToC++}
-\addplot +[fill=LightGoldenrod, draw=black, line width=0.2pt] coordinates {
+\addplot +[fill=LightGoldenrod, draw=black, line width=0.55pt] coordinates {
 (1000, 0.0020000000000000005)
 (2000, 0.0020000000000000005)
 (3000, 0.0020000000000000005)
@@ -54,7 +54,7 @@
 (9000, 0.008000000000000002)
 (10000, 0.010000000000000002)
 };
-\addplot +[fill=DarkOrange, draw=black, line width=0.2pt] coordinates {
+\addplot +[fill=DarkOrange, draw=black, line width=0.55pt] coordinates {
 (1000, 1.4700000000000002)
 (2000, 1.4679999999999997)
 (3000, 1.47)
@@ -66,7 +66,7 @@
 (9000, 1.476)
 (10000, 1.4740000000000002)
 };
-\addplot +[fill=LightPink, draw=black, line width=0.2pt] coordinates {
+\addplot +[fill=LightPink, draw=black, line width=0.55pt] coordinates {
 (1000, 0.000162)
 (2000, 0.0001806)
 (3000, 0.0001718)
@@ -78,7 +78,7 @@
 (9000, 0.00016079999999999998)
 (10000, 0.000172)
 };
-\addplot +[fill=LimeGreen, draw=black, line width=0.2pt] coordinates {
+\addplot +[fill=LimeGreen, draw=black, line width=0.55pt] coordinates {
 (1000, 0.0037700000000000003)
 (2000, 0.0067308)
 (3000, 0.009420000000000001)
@@ -90,7 +90,7 @@
 (9000, 0.021140399999999997)
 (10000, 0.025245200000000002)
 };
-\addplot +[fill=Crimson, draw=black, line width=0.2pt] coordinates {
+\addplot +[fill=Crimson, draw=black, line width=0.55pt] coordinates {
 (1000, 0.001434)
 (2000, 0.0025512)
 (3000, 0.0040978)
@@ -102,7 +102,7 @@
 (9000, 0.0089306)
 (10000, 0.010400200000000002)
 };
-\addplot +[fill=DodgerBlue, draw=black, line width=0.2pt] coordinates {
+\addplot +[fill=DodgerBlue, draw=black, line width=0.55pt] coordinates {
 (1000, 0.0008460000000000001)
 (2000, 0.0013428)
 (3000, 0.0017036)

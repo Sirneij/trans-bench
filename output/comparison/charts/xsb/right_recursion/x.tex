@@ -11,14 +11,14 @@
 \begin{axis}[
    ybar stacked,
    width=1.7\textwidth,
-   bar width=0.7cm,
+   bar width=0.6cm,
    ymajorgrids, tick align=inside,
    major grid style={draw=gray!20},
    xtick=data,
    ymin=0, ymax=9.474,
    axis x line*=bottom,
    axis y line*=left,
-   enlarge x limits=0.05,
+   enlarge x limits=0.04,
    legend style={
        at={(0.23, 0.97)},
        anchor=north east,
@@ -26,7 +26,7 @@
        font=\Huge,
    },
    ylabel={CPU Time (seconds)},
-   xlabel={Number of nodes $\times 10$},
+   xlabel={Number of nodes $\times k=10$},
    label style={font=\Huge},
    tick label style={font=\Huge},
 ]
@@ -38,7 +38,7 @@
 \addlegendentry{ReadData}
 \addlegendimage{fill=LightPink, draw=black, line width=0.2pt}
 \addlegendentry{LoadRules}
-\addplot +[fill=LightPink, draw=black, line width=0.2pt] coordinates {
+\addplot +[fill=LightPink, draw=black, line width=0.55pt] coordinates {
 (1000, 0.0005523999999999998)
 (2000, 0.0005496000000000005)
 (3000, 0.0005572000000000004)
@@ -50,7 +50,7 @@
 (9000, 0.0005491999999999999)
 (10000, 0.0005476000000000002)
 };
-\addplot +[fill=LimeGreen, draw=black, line width=0.2pt] coordinates {
+\addplot +[fill=LimeGreen, draw=black, line width=0.55pt] coordinates {
 (1000, 0.00020560000000000017)
 (2000, 0.0002833999999999994)
 (3000, 0.0003595999999999994)
@@ -62,7 +62,7 @@
 (9000, 0.0008261999999999995)
 (10000, 0.0009289999999999999)
 };
-\addplot +[fill=Crimson, draw=black, line width=0.2pt] coordinates {
+\addplot +[fill=Crimson, draw=black, line width=0.55pt] coordinates {
 (1000, 7.379999999999954e-05)
 (2000, 0.0001426000000000004)
 (3000, 0.0001980000000000006)
@@ -74,7 +74,7 @@
 (9000, 0.0005774000000000005)
 (10000, 0.0006397999999999996)
 };
-\addplot +[fill=DodgerBlue, draw=black, line width=0.2pt] coordinates {
+\addplot +[fill=DodgerBlue, draw=black, line width=0.55pt] coordinates {
 (1000, 0.0009906000000000003)
 (2000, 0.0019105999999999997)
 (3000, 0.0028217999999999993)

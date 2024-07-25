@@ -408,7 +408,7 @@ class BaseTableAndPlotGenerator:
             if tool == 'xsb':
                 axis_content = re.sub(
                     r'\\begin{axis}\[',
-                    r'\\begin{axis}[bar shift=-25pt, ',
+                    r'\\begin{axis}[bar shift=-24.3pt, ',
                     axis_content,
                     1,
                 )
@@ -416,14 +416,14 @@ class BaseTableAndPlotGenerator:
                 if tool == 'clingo':
                     axis_content = re.sub(
                         r'\\begin{axis}\[',
-                        r'\\begin{axis}[bar shift=-3.7pt, ',
+                        r'\\begin{axis}[bar shift=-6.5pt, ',
                         axis_content,
                         1,
                     )
                 elif tool == 'souffle':
                     axis_content = re.sub(
                         r'\\begin{axis}\[',
-                        r'\\begin{axis}[bar shift=18pt, ',
+                        r'\\begin{axis}[bar shift=11.3pt, ',
                         axis_content,
                         1,
                     )
@@ -802,14 +802,14 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
                     f.write('\\begin{axis}[\n')
                     f.write('   ybar stacked,\n')
                     f.write('   width=1.7\\textwidth,\n')
-                    f.write('   bar width=0.7cm,\n')
+                    f.write('   bar width=0.6cm,\n')
                     f.write('   ymajorgrids, tick align=inside,\n')
                     f.write('   major grid style={draw=gray!20},\n')
                     f.write('   xtick=data,\n')
                     f.write(f'   ymin=0, ymax={ymax},\n')
                     f.write('   axis x line*=bottom,\n')
                     f.write('   axis y line*=left,\n')
-                    f.write('   enlarge x limits=0.05,\n')
+                    f.write('   enlarge x limits=0.04,\n')
                     f.write('   legend style={\n')
                     if env_name == 'xsb':
                         f.write('       at={(0.23, 0.97)},\n')
@@ -838,7 +838,7 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
                         'x',
                         'multi_path',
                     ]:
-                        f.write('   xlabel={Number of nodes $\\times 10$},\n')
+                        f.write('   xlabel={Number of nodes $\\times k=10$},\n')
                     elif graph_type in ['binary_tree', 'reverse_binary_tree']:
                         f.write('   xlabel={Height of the tree},\n')
                     f.write('   label style={font=\\Huge},\n')
@@ -856,7 +856,7 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
                     for component in self.components[env_name]:
                         color = self.component_colors[env_name][component]
                         f.write(
-                            f'\\addplot +[fill={color}, draw=black, line width=0.2pt] coordinates {{\n'
+                            f'\\addplot +[fill={color}, draw=black, line width=0.55pt] coordinates {{\n'
                         )
                         for size in sizes:
                             key = (env_name, graph_type, mode)

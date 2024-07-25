@@ -11,14 +11,14 @@
 \begin{axis}[
    ybar stacked,
    width=1.7\textwidth,
-   bar width=0.7cm,
+   bar width=0.6cm,
    ymajorgrids, tick align=inside,
    major grid style={draw=gray!20},
    xtick=data,
    ymin=0, ymax=699.059,
    axis x line*=bottom,
    axis y line*=left,
-   enlarge x limits=0.05,
+   enlarge x limits=0.04,
    legend style={
        at={(0.454, 0.97)},
        anchor=north east,
@@ -26,7 +26,7 @@
        font=\Huge,
    },
    ylabel={CPU Time (seconds)},
-   xlabel={Number of nodes $\times 10$},
+   xlabel={Number of nodes $\times k=10$},
    label style={font=\Huge},
    tick label style={font=\Huge},
 ]
@@ -40,7 +40,7 @@
 \addlegendentry{ReadData}
 \addlegendimage{fill=LightPink, draw=black, line width=0.2pt}
 \addlegendentry{LoadRules}
-\addplot +[fill=LightPink, draw=black, line width=0.2pt] coordinates {
+\addplot +[fill=LightPink, draw=black, line width=0.55pt] coordinates {
 (1000, 0.0)
 (2000, 0.0)
 (3000, 0.0)
@@ -52,7 +52,7 @@
 (9000, 0.0)
 (10000, 0.0)
 };
-\addplot +[fill=LimeGreen, draw=black, line width=0.2pt] coordinates {
+\addplot +[fill=LimeGreen, draw=black, line width=0.55pt] coordinates {
 (1000, 0.0)
 (2000, 0.0)
 (3000, 0.0)
@@ -64,7 +64,7 @@
 (9000, 0.020000000000000018)
 (10000, 0.020000000000000018)
 };
-\addplot +[fill=OrangeRed, draw=black, line width=0.2pt] coordinates {
+\addplot +[fill=OrangeRed, draw=black, line width=0.55pt] coordinates {
 (1000, 0.030000000000000027)
 (2000, 0.11599999999999999)
 (3000, 0.266)
@@ -76,7 +76,7 @@
 (9000, 2.8080000000000003)
 (10000, 3.418)
 };
-\addplot +[fill=FireBrick, draw=black, line width=0.2pt] coordinates {
+\addplot +[fill=FireBrick, draw=black, line width=0.55pt] coordinates {
 (1000, 0.0)
 (2000, 0.014000000000000009)
 (3000, 0.02200000000000002)
@@ -88,7 +88,7 @@
 (9000, 0.26)
 (10000, 0.3580000000000002)
 };
-\addplot +[fill=DodgerBlue, draw=black, line width=0.2pt] coordinates {
+\addplot +[fill=DodgerBlue, draw=black, line width=0.55pt] coordinates {
 (1000, 0.06)
 (2000, 0.22599999999999992)
 (3000, 0.5360000000000001)

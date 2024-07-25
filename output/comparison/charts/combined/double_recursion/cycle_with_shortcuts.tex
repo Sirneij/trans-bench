@@ -9,17 +9,17 @@
 \renewcommand*\familydefault{\sfdefault}
 \begin{document}
 \begin{tikzpicture}
-                        \begin{axis}[bar shift=-25pt, 
+                        \begin{axis}[bar shift=-24.3pt, 
    ybar stacked,
    width=1.7\textwidth,
-   bar width=0.7cm,
+   bar width=0.6cm,
    ymajorgrids, tick align=inside,
    major grid style={draw=gray!20},
    xtick=data,
    ymin=0, ymax=361.9108,
    axis x line*=bottom,
    axis y line*=left,
-   enlarge x limits=0.05,
+   enlarge x limits=0.04,
    legend style={
        at={(0.23, 0.97)},
        anchor=north east,
@@ -27,7 +27,7 @@
        font=\Huge,
    },
    ylabel={CPU Time (seconds)},
-   xlabel={Number of nodes $\times 10$},
+   xlabel={Number of nodes $\times k=10$},
    label style={font=\Huge},
    tick label style={font=\Huge},
 ]
@@ -39,7 +39,7 @@
 \addlegendentry{ReadData}
 \addlegendimage{fill=LightPink, draw=black, line width=0.2pt}
 \addlegendentry{LoadRules}
-\addplot +[fill=LightPink, draw=black, line width=0.2pt] coordinates {
+\addplot +[fill=LightPink, draw=black, line width=0.55pt] coordinates {
 (1000, 0.0005509999999999996)
 (2000, 0.000548599999999999)
 (3000, 0.000548)
@@ -51,7 +51,7 @@
 (9000, 0.000547)
 (10000, 0.0005514000000000002)
 };
-\addplot +[fill=LimeGreen, draw=black, line width=0.2pt] coordinates {
+\addplot +[fill=LimeGreen, draw=black, line width=0.55pt] coordinates {
 (1000, 0.0009644000000000005)
 (2000, 0.0018169999999999998)
 (3000, 0.0026898)
@@ -63,7 +63,7 @@
 (9000, 0.0078992)
 (10000, 0.008759600000000001)
 };
-\addplot +[fill=Crimson, draw=black, line width=0.2pt] coordinates {
+\addplot +[fill=Crimson, draw=black, line width=0.55pt] coordinates {
 (1000, 0.05774939999999999)
 (2000, 0.49940200000000007)
 (3000, 1.6208356)
@@ -75,7 +75,7 @@
 (9000, 49.420525)
 (10000, 67.4024254)
 };
-\addplot +[fill=DodgerBlue, draw=black, line width=0.2pt] coordinates {
+\addplot +[fill=DodgerBlue, draw=black, line width=0.55pt] coordinates {
 (1000, 0.008504399999999999)
 (2000, 0.030568800000000007)
 (3000, 0.06045479999999999)
@@ -89,17 +89,17 @@
 };
 \end{axis}
 
-\begin{axis}[bar shift=-3.7pt, 
+\begin{axis}[bar shift=-6.5pt, 
    ybar stacked,
    width=1.7\textwidth,
-   bar width=0.7cm,
+   bar width=0.6cm,
    ymajorgrids, tick align=inside,
    major grid style={draw=none},
    xtick=data,
    ymin=0, ymax=361.9108,
    axis x line*=none,
    axis y line*=none,
-   enlarge x limits=0.05,
+   enlarge x limits=0.04,
    legend style={
        at={(0.454, 0.97)},
        anchor=north east,
@@ -119,7 +119,7 @@
 \addlegendentry{ReadData}
 \addlegendimage{fill=LightPink, draw=black, line width=0.2pt}
 \addlegendentry{LoadRules}
-\addplot +[fill=LightPink, draw=black, line width=0.2pt] coordinates {
+\addplot +[fill=LightPink, draw=black, line width=0.55pt] coordinates {
 (1000, 0.0)
 (2000, 0.0)
 (3000, 0.0)
@@ -131,7 +131,7 @@
 (9000, 0.0)
 (10000, 0.0)
 };
-\addplot +[fill=LimeGreen, draw=black, line width=0.2pt] coordinates {
+\addplot +[fill=LimeGreen, draw=black, line width=0.55pt] coordinates {
 (1000, 0.0)
 (2000, 0.0)
 (3000, 0.0)
@@ -143,7 +143,7 @@
 (9000, 0.020000000000000018)
 (10000, 0.020000000000000018)
 };
-\addplot +[fill=OrangeRed, draw=black, line width=0.2pt] coordinates {
+\addplot +[fill=OrangeRed, draw=black, line width=0.55pt] coordinates {
 (1000, 0.10000000000000005)
 (2000, 0.78)
 (3000, 2.694)
@@ -155,7 +155,7 @@
 (9000, 99.78399999999999)
 (10000, 135.46200000000002)
 };
-\addplot +[fill=FireBrick, draw=black, line width=0.2pt] coordinates {
+\addplot +[fill=FireBrick, draw=black, line width=0.55pt] coordinates {
 (1000, 0.0019999999999999905)
 (2000, 0.0)
 (3000, 0.009999999999999962)
@@ -167,7 +167,7 @@
 (9000, 0.0460000000000008)
 (10000, 0.061999999999998404)
 };
-\addplot +[fill=DodgerBlue, draw=black, line width=0.2pt] coordinates {
+\addplot +[fill=DodgerBlue, draw=black, line width=0.55pt] coordinates {
 (1000, 0.007999999999999974)
 (2000, 0.050000000000000044)
 (3000, 0.10599999999999991)
@@ -181,17 +181,17 @@
 };
 \end{axis}
 
-\begin{axis}[bar shift=18pt, 
+\begin{axis}[bar shift=11.3pt, 
    ybar stacked,
    width=1.7\textwidth,
-   bar width=0.7cm,
+   bar width=0.6cm,
    ymajorgrids, tick align=inside,
    major grid style={draw=none},
    xtick=data,
    ymin=0, ymax=361.9108,
    axis x line*=none,
    axis y line*=none,
-   enlarge x limits=0.05,
+   enlarge x limits=0.04,
    legend style={
        at={(0.69, 0.97)},
        anchor=north east,
@@ -213,7 +213,7 @@
 \addlegendentry{C++ToExec}
 \addlegendimage{fill=LightGoldenrod, draw=black, line width=0.2pt}
 \addlegendentry{RulesToC++}
-\addplot +[fill=LightGoldenrod, draw=black, line width=0.2pt] coordinates {
+\addplot +[fill=LightGoldenrod, draw=black, line width=0.55pt] coordinates {
 (1000, 0.008000000000000002)
 (2000, 0.004000000000000001)
 (3000, 0.008000000000000002)
@@ -225,7 +225,7 @@
 (9000, 0.0020000000000000005)
 (10000, 0.003999999999999997)
 };
-\addplot +[fill=DarkOrange, draw=black, line width=0.2pt] coordinates {
+\addplot +[fill=DarkOrange, draw=black, line width=0.55pt] coordinates {
 (1000, 1.482)
 (2000, 1.486)
 (3000, 1.4540000000000002)
@@ -237,7 +237,7 @@
 (9000, 1.474)
 (10000, 1.484)
 };
-\addplot +[fill=LightPink, draw=black, line width=0.2pt] coordinates {
+\addplot +[fill=LightPink, draw=black, line width=0.55pt] coordinates {
 (1000, 0.0001734)
 (2000, 0.00018779999999999998)
 (3000, 0.00019160000000000002)
@@ -249,7 +249,7 @@
 (9000, 0.0002134)
 (10000, 0.00018839999999999997)
 };
-\addplot +[fill=LimeGreen, draw=black, line width=0.2pt] coordinates {
+\addplot +[fill=LimeGreen, draw=black, line width=0.55pt] coordinates {
 (1000, 0.0042642)
 (2000, 0.005886)
 (3000, 0.0087968)
@@ -261,7 +261,7 @@
 (9000, 0.025695000000000003)
 (10000, 0.029549799999999998)
 };
-\addplot +[fill=Crimson, draw=black, line width=0.2pt] coordinates {
+\addplot +[fill=Crimson, draw=black, line width=0.55pt] coordinates {
 (1000, 0.31416180000000005)
 (2000, 2.208696)
 (3000, 8.112143999999999)
@@ -273,7 +273,7 @@
 (9000, 224.9568)
 (10000, 311.9108)
 };
-\addplot +[fill=DodgerBlue, draw=black, line width=0.2pt] coordinates {
+\addplot +[fill=DodgerBlue, draw=black, line width=0.55pt] coordinates {
 (1000, 0.002498)
 (2000, 0.008849200000000002)
 (3000, 0.019813000000000004)
