@@ -11,15 +11,15 @@
 \begin{tikzpicture}
                         \begin{axis}[bar shift=-25pt, 
    ybar stacked,
-   width=2\textwidth,
-   bar width=0.35cm,
+   width=1.7\textwidth,
+   bar width=0.7cm,
    ymajorgrids, tick align=inside,
    major grid style={draw=gray!20},
    xtick=data,
-   ymin=0, ymax=9.263333335518837,
+   ymin=0, ymax=9.474,
    axis x line*=bottom,
    axis y line*=left,
-   enlarge x limits=0.01,
+   enlarge x limits=0.05,
    legend style={
        at={(0.23, 0.97)},
        anchor=north east,
@@ -40,60 +40,160 @@
 \addlegendimage{fill=LightPink, draw=black, line width=0.2pt}
 \addlegendentry{LoadRules}
 \addplot +[fill=LightPink, draw=black, line width=0.2pt] coordinates {
-(5, 0.0024403333333333334)
-(6, 0.0033583333333333334)
-(7, 0.0028820000000000004)
-(7, 0.003137000000000003)
-(7, 0.002713)
-(8, 0.0029806666666666666)
-(8, 0.003885000000000003)
-(8, 0.00115)
+(6, 0.0005501999999999998)
+(7, 0.0005497999999999998)
+(8, 0.0005487999999999996)
+(8, 0.0005522000000000003)
+(8, 0.0005491999999999996)
+(9, 0.0005498000000000008)
+(9, 0.0005568000000000002)
+(9, 0.0005519999999999998)
+(9, 0.0005482000000000004)
+(9, 0.0005526000000000001)
 };
 \addplot +[fill=LimeGreen, draw=black, line width=0.2pt] coordinates {
-(5, 0.0008856666666666657)
-(6, 0.0013579999999999998)
-(7, 0.0018166666666666635)
-(7, 0.002130333333333333)
-(7, 0.0020650000000000004)
-(8, 0.0037476666666666665)
-(8, 0.003941)
-(8, 0.0010783333333333333)
+(6, 0.0001718)
+(7, 0.0002175999999999996)
+(8, 0.00031600000000000063)
+(8, 0.0003181999999999996)
+(8, 0.00031560000000000003)
+(9, 0.0005167999999999998)
+(9, 0.0005247999999999999)
+(9, 0.0005340000000000002)
+(9, 0.0005198000000000002)
+(9, 0.0005172000000000001)
 };
 \addplot +[fill=Crimson, draw=black, line width=0.2pt] coordinates {
-(5, 3.5333333333333966e-05)
-(6, 7.133333333333067e-05)
-(7, 0.00013533333333333103)
-(7, 0.00015733333333333536)
-(7, 0.00017466666666666433)
-(8, 0.000392666666666666)
-(8, 0.0004003333333333313)
-(8, 0.00010599999999999966)
+(6, 3.200000000000008e-05)
+(7, 6.180000000000005e-05)
+(8, 0.0001307999999999996)
+(8, 0.00013240000000000018)
+(8, 0.0001301999999999998)
+(9, 0.00029060000000000056)
+(9, 0.00029160000000000026)
+(9, 0.0002869999999999994)
+(9, 0.0002923999999999994)
+(9, 0.0002858000000000002)
 };
 \addplot +[fill=DodgerBlue, draw=black, line width=0.2pt] coordinates {
-(5, 0.003999333333333333)
-(6, 0.009337333333333336)
-(7, 0.02185266666666667)
-(7, 0.02105)
-(7, 0.020775000000000002)
-(8, 0.05402766666666667)
-(8, 0.05292933333333333)
-(8, 0.054073)
+(6, 0.0002784000000000003)
+(7, 0.0005976000000000004)
+(8, 0.0013676000000000005)
+(8, 0.0013715999999999997)
+(8, 0.001373)
+(9, 0.0030743999999999993)
+(9, 0.0031005999999999994)
+(9, 0.0031008000000000008)
+(9, 0.0031228000000000007)
+(9, 0.0030828)
 };
 \end{axis}
 
-\begin{axis}[bar shift=-21.3pt, 
+\begin{axis}[bar shift=-3.7pt, 
    ybar stacked,
-   width=2\textwidth,
-   bar width=0.35cm,
+   width=1.7\textwidth,
+   bar width=0.7cm,
    ymajorgrids, tick align=inside,
    major grid style={draw=none},
    xtick=data,
-   ymin=0, ymax=9.263333335518837,
+   ymin=0, ymax=9.474,
    axis x line*=none,
    axis y line*=none,
-   enlarge x limits=0.01,
+   enlarge x limits=0.05,
    legend style={
-       at={(1.224, 0.97)},
+       at={(0.454, 0.97)},
+       anchor=north east,
+       legend columns=1,
+       font=\Huge,
+   },
+   label style={font=\Huge},
+   tick label style={font=\Huge},
+]
+\addlegendimage{fill=DodgerBlue, draw=black, line width=0.2pt}
+\addlegendentry{WriteRes}
+\addlegendimage{fill=FireBrick, draw=black, line width=0.2pt}
+\addlegendentry{Solve}
+\addlegendimage{fill=OrangeRed, draw=black, line width=0.2pt}
+\addlegendentry{Ground}
+\addlegendimage{fill=LimeGreen, draw=black, line width=0.2pt}
+\addlegendentry{ReadData}
+\addlegendimage{fill=LightPink, draw=black, line width=0.2pt}
+\addlegendentry{LoadRules}
+\addplot +[fill=LightPink, draw=black, line width=0.2pt] coordinates {
+(6, 0.0)
+(7, 0.0)
+(8, 0.0)
+(8, 0.0)
+(8, 0.0)
+(9, 0.0)
+(9, 0.0)
+(9, 0.0)
+(9, 0.0)
+(9, 0.0)
+};
+\addplot +[fill=LimeGreen, draw=black, line width=0.2pt] coordinates {
+(6, 0.0)
+(7, 0.0)
+(8, 0.0)
+(8, 0.0)
+(8, 0.0)
+(9, 0.0)
+(9, 0.0)
+(9, 0.0)
+(9, 0.0)
+(9, 0.0)
+};
+\addplot +[fill=OrangeRed, draw=black, line width=0.2pt] coordinates {
+(6, 0.0)
+(7, 0.0)
+(8, 0.0)
+(8, 0.0)
+(8, 0.0)
+(9, 0.0)
+(9, 0.0020000000000000018)
+(9, 0.0)
+(9, 0.0)
+(9, 0.0)
+};
+\addplot +[fill=FireBrick, draw=black, line width=0.2pt] coordinates {
+(6, 0.0)
+(7, 0.0)
+(8, 0.0)
+(8, 0.0)
+(8, 0.0)
+(9, 0.0)
+(9, 0.0)
+(9, 0.0)
+(9, 0.0)
+(9, 0.0)
+};
+\addplot +[fill=DodgerBlue, draw=black, line width=0.2pt] coordinates {
+(6, 0.0)
+(7, 0.0)
+(8, 0.0020000000000000018)
+(8, 0.0)
+(8, 0.0020000000000000018)
+(9, 0.008000000000000007)
+(9, 0.006000000000000005)
+(9, 0.010000000000000009)
+(9, 0.006000000000000005)
+(9, 0.0020000000000000018)
+};
+\end{axis}
+
+\begin{axis}[bar shift=18pt, 
+   ybar stacked,
+   width=1.7\textwidth,
+   bar width=0.7cm,
+   ymajorgrids, tick align=inside,
+   major grid style={draw=none},
+   xtick=data,
+   ymin=0, ymax=9.474,
+   axis x line*=none,
+   axis y line*=none,
+   enlarge x limits=0.05,
+   legend style={
+       at={(0.69, 0.97)},
        anchor=north east,
        legend columns=1,
        font=\Huge,
@@ -106,441 +206,89 @@
 \addlegendimage{fill=Crimson, draw=black, line width=0.2pt}
 \addlegendentry{Query}
 \addlegendimage{fill=LimeGreen, draw=black, line width=0.2pt}
-\addlegendentry{Analyze}
+\addlegendentry{ReadData}
 \addlegendimage{fill=LightPink, draw=black, line width=0.2pt}
-\addlegendentry{CreateIndex}
+\addlegendentry{LoadRules}
 \addlegendimage{fill=DarkOrange, draw=black, line width=0.2pt}
-\addlegendentry{LoadData}
+\addlegendentry{C++ToExec}
 \addlegendimage{fill=LightGoldenrod, draw=black, line width=0.2pt}
-\addlegendentry{CreateTable}
+\addlegendentry{RulesToC++}
 \addplot +[fill=LightGoldenrod, draw=black, line width=0.2pt] coordinates {
-(5, 0.0)
-(6, 0.0)
-(7, 0.0066666666666666706)
+(6, 0.0020000000000000005)
 (7, 0.0)
-(7, 0.0)
-(8, 0.0)
-(8, 0.0)
-(8, 0.0)
+(8, 0.0020000000000000005)
+(8, 0.0020000000000000005)
+(8, 0.0020000000000000005)
+(9, 0.0)
+(9, 0.0)
+(9, 0.0)
+(9, 0.0)
+(9, 0.004000000000000001)
 };
 \addplot +[fill=DarkOrange, draw=black, line width=0.2pt] coordinates {
-(5, 0.0)
-(6, 0.0)
-(7, 0.0)
-(7, 0.0)
-(7, 0.0)
-(8, 0.0066666666666666515)
-(8, 0.0)
-(8, 0.0)
+(6, 1.4659999999999997)
+(7, 1.464)
+(8, 1.462)
+(8, 1.464)
+(8, 1.464)
+(9, 1.466)
+(9, 1.462)
+(9, 1.4659999999999997)
+(9, 1.4679999999999997)
+(9, 1.462)
 };
 \addplot +[fill=LightPink, draw=black, line width=0.2pt] coordinates {
-(5, 0.003333333333333337)
-(6, 0.0)
-(7, 0.0)
-(7, 0.0)
-(7, 0.0)
-(8, 0.0)
-(8, 0.0)
-(8, 0.0)
+(6, 0.0001524)
+(7, 0.00015580000000000002)
+(8, 9.600000000000002e-05)
+(8, 0.00015299999999999998)
+(8, 0.0001732)
+(9, 0.0001496)
+(9, 0.000148)
+(9, 0.0001472)
+(9, 0.0001712)
+(9, 0.000151)
 };
 \addplot +[fill=LimeGreen, draw=black, line width=0.2pt] coordinates {
-(5, 0.0)
-(6, 0.0066666666666666706)
-(7, 0.0)
-(7, 0.006666666666666669)
-(7, 0.006666666666666669)
-(8, 0.0)
-(8, 0.0)
-(8, 0.003333333333333318)
+(6, 0.0007302000000000001)
+(7, 0.0009858)
+(8, 0.001132)
+(8, 0.0014435999999999997)
+(8, 0.001414)
+(9, 0.0024926)
+(9, 0.002358)
+(9, 0.0024056)
+(9, 0.002499)
+(9, 0.0024506)
 };
 \addplot +[fill=Crimson, draw=black, line width=0.2pt] coordinates {
-(5, 0.0)
-(6, 0.0)
-(7, 0.0)
-(7, 0.0)
-(7, 0.0)
-(8, 0.0)
-(8, 0.0)
-(8, 0.0)
+(6, 0.0006138000000000001)
+(7, 0.0014373999999999997)
+(8, 0.0027300000000000002)
+(8, 0.0033352)
+(8, 0.0031442000000000006)
+(9, 0.006537800000000001)
+(9, 0.0071958)
+(9, 0.0065065999999999995)
+(9, 0.0072896)
+(9, 0.0071182)
 };
 \addplot +[fill=DodgerBlue, draw=black, line width=0.2pt] coordinates {
-(5, 0.0)
-(6, 0.0)
-(7, 0.0)
-(7, 0.0)
-(7, 0.0)
-(8, 0.0)
-(8, 0.0)
-(8, 0.003333333333333336)
-};
-\end{axis}
-
-\begin{axis}[bar shift=-17.6pt, 
-   ybar stacked,
-   width=2\textwidth,
-   bar width=0.35cm,
-   ymajorgrids, tick align=inside,
-   major grid style={draw=none},
-   xtick=data,
-   ymin=0, ymax=9.263333335518837,
-   axis x line*=none,
-   axis y line*=none,
-   enlarge x limits=0.01,
-   legend style={
-       at={(1.448, 0.97)},
-       anchor=north east,
-       legend columns=1,
-       font=\Huge,
-   },
-   label style={font=\Huge},
-   tick label style={font=\Huge},
-]
-\addlegendimage{fill=DodgerBlue, draw=black, line width=0.2pt}
-\addlegendentry{WriteRes}
-\addlegendimage{fill=Crimson, draw=black, line width=0.2pt}
-\addlegendentry{Query}
-\addlegendimage{fill=LimeGreen, draw=black, line width=0.2pt}
-\addlegendentry{Analyze}
-\addlegendimage{fill=LightPink, draw=black, line width=0.2pt}
-\addlegendentry{CreateIndex}
-\addlegendimage{fill=DarkOrange, draw=black, line width=0.2pt}
-\addlegendentry{LoadData}
-\addlegendimage{fill=LightGoldenrod, draw=black, line width=0.2pt}
-\addlegendentry{CreateTable}
-\addplot +[fill=LightGoldenrod, draw=black, line width=0.2pt] coordinates {
-(5, 0.006666666666666668)
-(6, 0.0)
-(7, 0.0)
-(7, 0.0)
-(7, 0.0066666666666666706)
-(8, 0.0)
-(8, 0.0)
-(8, 0.006666666666666669)
-};
-\addplot +[fill=DarkOrange, draw=black, line width=0.2pt] coordinates {
-(5, 0.0)
-(6, 0.00666666666666665)
-(7, 0.0)
-(7, 0.0)
-(7, 0.0)
-(8, 0.0)
-(8, 0.0)
-(8, 0.0)
-};
-\addplot +[fill=LightPink, draw=black, line width=0.2pt] coordinates {
-(5, 0.0)
-(6, 0.0)
-(7, 0.0)
-(7, 0.0)
-(7, 0.0)
-(8, 0.0)
-(8, 0.0)
-(8, 0.0)
-};
-\addplot +[fill=LimeGreen, draw=black, line width=0.2pt] coordinates {
-(5, 0.0)
-(6, 0.0)
-(7, 0.0)
-(7, 0.0)
-(7, 0.0)
-(8, 0.0)
-(8, 0.0)
-(8, 0.0)
-};
-\addplot +[fill=Crimson, draw=black, line width=0.2pt] coordinates {
-(5, 0.0)
-(6, 0.0)
-(7, 0.0)
-(7, 0.0066666666666666706)
-(7, 0.0)
-(8, 0.0)
-(8, 0.0)
-(8, 0.0)
-};
-\addplot +[fill=DodgerBlue, draw=black, line width=0.2pt] coordinates {
-(5, 0.0)
-(6, 0.0)
-(7, 0.0)
-(7, 0.0)
-(7, 0.0)
-(8, 0.0)
-(8, 0.0)
-(8, 0.0)
-};
-\end{axis}
-
-\begin{axis}[bar shift=-13.899999999999999pt, 
-   ybar stacked,
-   width=2\textwidth,
-   bar width=0.35cm,
-   ymajorgrids, tick align=inside,
-   major grid style={draw=none},
-   xtick=data,
-   ymin=0, ymax=9.263333335518837,
-   axis x line*=none,
-   axis y line*=none,
-   enlarge x limits=0.01,
-   legend style={
-       at={(1.6720000000000002, 0.97)},
-       anchor=north east,
-       legend columns=1,
-       font=\Huge,
-   },
-   label style={font=\Huge},
-   tick label style={font=\Huge},
-]
-\addlegendimage{fill=DodgerBlue, draw=black, line width=0.2pt}
-\addlegendentry{WriteRes}
-\addlegendimage{fill=Crimson, draw=black, line width=0.2pt}
-\addlegendentry{Query}
-\addlegendimage{fill=LimeGreen, draw=black, line width=0.2pt}
-\addlegendentry{Analyze}
-\addlegendimage{fill=LightPink, draw=black, line width=0.2pt}
-\addlegendentry{CreateIndex}
-\addlegendimage{fill=DarkOrange, draw=black, line width=0.2pt}
-\addlegendentry{LoadData}
-\addlegendimage{fill=LightGoldenrod, draw=black, line width=0.2pt}
-\addlegendentry{CreateTable}
-\addplot +[fill=LightGoldenrod, draw=black, line width=0.2pt] coordinates {
-(5, 0.003333333333333337)
-(6, 0.0)
-(7, 0.0)
-(7, 0.006666666666666672)
-(7, 0.0)
-(8, 0.006666666666666667)
-(8, 0.003333333333333318)
-(8, 0.0033333333333333327)
-};
-\addplot +[fill=DarkOrange, draw=black, line width=0.2pt] coordinates {
-(5, 0.0)
-(6, 0.0)
-(7, 0.003333333333333336)
-(7, 0.0)
-(7, 0.010000000000000007)
-(8, 0.0)
-(8, 0.0033333333333333335)
-(8, 0.006666666666666669)
-};
-\addplot +[fill=LightPink, draw=black, line width=0.2pt] coordinates {
-(5, 0.006666666666666654)
-(6, 0.006666666666666672)
-(7, 0.003333333333333334)
-(7, 0.003333333333333336)
-(7, 0.0)
-(8, 0.0)
-(8, 0.0)
-(8, 0.0)
-};
-\addplot +[fill=LimeGreen, draw=black, line width=0.2pt] coordinates {
-(5, 0.0)
-(6, 0.0)
-(7, 0.0)
-(7, 0.0)
-(7, 0.0)
-(8, 0.0)
-(8, 0.0)
-(8, 0.0)
-};
-\addplot +[fill=Crimson, draw=black, line width=0.2pt] coordinates {
-(5, 0.0)
-(6, 0.009999999999999983)
-(7, 0.013333333333333334)
-(7, 0.010000000000000009)
-(7, 0.013333333333333341)
-(8, 0.016666666666666673)
-(8, 0.019999999999999993)
-(8, 0.013333333333333343)
-};
-\addplot +[fill=DodgerBlue, draw=black, line width=0.2pt] coordinates {
-(5, 0.003333333333333336)
-(6, 0.0)
-(7, 0.003333333333333336)
-(7, 0.003333333333333336)
-(7, 0.0)
-(8, 0.003333333333333336)
-(8, 0.0)
-(8, 0.0)
-};
-\end{axis}
-
-\begin{axis}[bar shift=-6.5pt, 
-   ybar stacked,
-   width=2\textwidth,
-   bar width=0.35cm,
-   ymajorgrids, tick align=inside,
-   major grid style={draw=none},
-   xtick=data,
-   ymin=0, ymax=9.263333335518837,
-   axis x line*=none,
-   axis y line*=none,
-   enlarge x limits=0.01,
-   legend style={
-       at={(1.896, 0.97)},
-       anchor=north east,
-       legend columns=1,
-       font=\Huge,
-   },
-   label style={font=\Huge},
-   tick label style={font=\Huge},
-]
-\addlegendimage{fill=DodgerBlue, draw=black, line width=0.2pt}
-\addlegendentry{WriteRes}
-\addlegendimage{fill=Crimson, draw=black, line width=0.2pt}
-\addlegendentry{Query}
-\addlegendimage{fill=LightPink, draw=black, line width=0.2pt}
-\addlegendentry{CreateIndex}
-\addlegendimage{fill=DarkOrange, draw=black, line width=0.2pt}
-\addlegendentry{LoadData}
-\addlegendimage{fill=LightGoldenrod, draw=black, line width=0.2pt}
-\addlegendentry{CreateTable}
-\addplot +[fill=LightGoldenrod, draw=black, line width=0.2pt] coordinates {
-(5, 0.0033333333333333375)
-(6, 0.010000000000000007)
-(7, 0.003333333333333336)
-(7, 0.003333333333333319)
-(7, 0.006666666666666672)
-(8, 0.013333333333333341)
-(8, 0.009999999999999986)
-(8, 0.013333333333333341)
-};
-\addplot +[fill=DarkOrange, draw=black, line width=0.2pt] coordinates {
-(5, 0.0)
-(6, 0.006666666666666669)
-(7, 0.003333333333333336)
-(7, 0.003333333333333336)
-(7, 0.0)
-(8, 0.0)
-(8, 0.0033333333333333184)
-(8, 0.0)
-};
-\addplot +[fill=LightPink, draw=black, line width=0.2pt] coordinates {
-(5, 0.006666666666666668)
-(6, 0.0)
-(7, 0.003333333333333337)
-(7, 0.003333333333333318)
-(7, 0.003333333333333336)
-(8, 0.0)
-(8, 0.0)
-(8, 0.0)
-};
-\addplot +[fill=Crimson, draw=black, line width=0.2pt] coordinates {
-(5, 0.003333333333333336)
-(6, 0.0)
-(7, 0.0)
-(7, 0.0)
-(7, 0.0)
-(8, 0.0)
-(8, 0.0)
-(8, 0.0)
-};
-\addplot +[fill=DodgerBlue, draw=black, line width=0.2pt] coordinates {
-(5, 0.0)
-(6, 0.009999999999999988)
-(7, 0.003333333333333318)
-(7, 0.0)
-(7, 0.010000000000000007)
-(8, 0.013333333333333341)
-(8, 0.010000000000000009)
-(8, 0.009999999999999993)
-};
-\end{axis}
-
-\begin{axis}[bar shift=-2.799999999999997pt, 
-   ybar stacked,
-   width=2\textwidth,
-   bar width=0.35cm,
-   ymajorgrids, tick align=inside,
-   major grid style={draw=none},
-   xtick=data,
-   ymin=0, ymax=9.263333335518837,
-   axis x line*=none,
-   axis y line*=none,
-   enlarge x limits=0.01,
-   legend style={
-       at={(2.12, 0.97)},
-       anchor=north east,
-       legend columns=1,
-       font=\Huge,
-   },
-   label style={font=\Huge},
-   tick label style={font=\Huge},
-]
-\addlegendimage{fill=DodgerBlue, draw=black, line width=0.2pt}
-\addlegendentry{WriteRes}
-\addlegendimage{fill=Crimson, draw=black, line width=0.2pt}
-\addlegendentry{Query}
-\addlegendimage{fill=LimeGreen, draw=black, line width=0.2pt}
-\addlegendentry{Analyze}
-\addlegendimage{fill=LightPink, draw=black, line width=0.2pt}
-\addlegendentry{CreateIndex}
-\addlegendimage{fill=DarkOrange, draw=black, line width=0.2pt}
-\addlegendentry{LoadData}
-\addlegendimage{fill=LightGoldenrod, draw=black, line width=0.2pt}
-\addlegendentry{CreateTable}
-\addplot +[fill=LightGoldenrod, draw=black, line width=0.2pt] coordinates {
-(5, 0.0)
-(6, 0.0)
-(7, 0.0)
-(7, 0.0)
-(7, 0.0)
-(8, 0.0)
-(8, 0.0)
-(8, 0.0)
-};
-\addplot +[fill=DarkOrange, draw=black, line width=0.2pt] coordinates {
-(5, 0.0)
-(6, 0.0)
-(7, 0.0)
-(7, 0.0)
-(7, 0.0)
-(8, 0.0)
-(8, 0.0)
-(8, 0.0)
-};
-\addplot +[fill=LightPink, draw=black, line width=0.2pt] coordinates {
-(5, 0.0)
-(6, 0.0)
-(7, 0.0)
-(7, 0.0)
-(7, 0.0)
-(8, 0.0)
-(8, 0.0)
-(8, 0.0)
-};
-\addplot +[fill=LimeGreen, draw=black, line width=0.2pt] coordinates {
-(5, 0.0)
-(6, 0.003333333333333336)
-(7, 0.0)
-(7, 0.0)
-(7, 0.0)
-(8, 0.0)
-(8, 0.0)
-(8, 0.0)
-};
-\addplot +[fill=Crimson, draw=black, line width=0.2pt] coordinates {
-(5, 0.0)
-(6, 0.0)
-(7, 0.0)
-(7, 0.0)
-(7, 0.0)
-(8, 0.0)
-(8, 0.0)
-(8, 0.0)
-};
-\addplot +[fill=DodgerBlue, draw=black, line width=0.2pt] coordinates {
-(5, 0.0)
-(6, 0.0)
-(7, 0.0)
-(7, 0.0)
-(7, 0.0)
-(8, 0.0)
-(8, 0.0)
-(8, 0.0)
+(6, 0.0006732)
+(7, 0.0009508000000000001)
+(8, 0.0012392)
+(8, 0.0014426)
+(8, 0.0015065999999999999)
+(9, 0.0019682000000000002)
+(9, 0.0022220000000000005)
+(9, 0.0021804)
+(9, 0.0022823999999999995)
+(9, 0.0022734)
 };
 \end{axis}
 
 
-\node[anchor=south, draw, fill=white] at (rel axis cs:0.42,1) {\Huge L-R: xsb, postgres, mariadb, duckdb, mongodb, neo4j, cockroachdb};
+\node[anchor=south, draw, fill=white] at (rel axis cs:0.42,1) {\Huge Left: XSB, Middle: Clingo, Right: Soufflé};
 \end{tikzpicture}
 \end{document}
                     

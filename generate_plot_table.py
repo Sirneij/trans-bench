@@ -400,7 +400,7 @@ class BaseTableAndPlotGenerator:
             return file.read()
 
     def __extract_axis_content(
-        self, latex_content: str, tool: str, environments: list[str]
+        self, latex_content: str, tool: str, environments: list[str] | None = None
     ) -> str:
         match = re.search(r'\\begin{axis}.*?\\end{axis}', latex_content, re.DOTALL)
         if match:
