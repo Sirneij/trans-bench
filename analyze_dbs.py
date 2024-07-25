@@ -518,7 +518,9 @@ def main() -> None:
     config = json.loads(args.config)
 
     analyze_dbs = AnalyzeDBs(config, args.environment)
-    analyze_dbs.set_file_paths(args.mode, args.graph_type, args.size)
+    analyze_dbs.set_file_paths(
+        args.mode, args.graph_type, args.size, config.get('timing_dir', 'timing')
+    )
     analyze_dbs.set_output_folder()
     analyze_dbs.analyze()
 

@@ -36,7 +36,7 @@ class Experiment(Base):
         self.modes = modes
         self.environments = environments
         self.souffle_include_dir = souffle_include_dir
-        self.timing_dir = Path('timing')
+        self.timing_dir = Path(config.get('timing_dir', 'timing'))
 
     def __str__(self):
         return f'Experiment(graph_types={self.graph_types}, size_range={self.size_range}, num_runs={self.num_runs}, modes={self.modes}, environments={self.environments}, souffle_include_dir={self.souffle_include_dir})'

@@ -190,37 +190,49 @@ class AnalyzeSystems(Base):
         else:
             return '0,0', {}
 
-    def replace_rule_file_content(self, rule_file: Path, environment: str) -> str:
+    def replace_rule_file_content(
+        self, rule_file: Path, environment: str, queries: str
+    ) -> str:
         """Replaces the content of a rule file for clingo and souffle environments and return a temporary file path."""
         with open(rule_file, 'r') as f:
             content = f.read()
 
         suffix = ''
 
-        if environment == 'clingo':
-            # Replace '#show path/2.' with 'ppath(X) :- path(X, 1).\n\n#show ppath/1.'
-            suffix = '.lp'
-            content = re.sub(
-                r'#show path/\d+\.',
-                'ppath(X) :- path(X, 1).\n\n#show ppath/1.',
-                content,
-            )
-        elif environment == 'souffle':
-            # Replace '.output path' with '.decl ppath(x:number)\nppath(x) :- path(x, 1).\n\n.output ppath'
-            suffix = '.dl'
-            content = re.sub(
-                r'\.output path',
-                '.decl ppath(x:number)\nppath(x) :- path(x, 1).\n\n.output ppath',
-                content,
-            )
+        # Convert the queries to a list of list of strings of this form: [[Identifier, Query]]. Get the first Query.
+        queries_pattern = re.compile(r'path\(\d+, \w+\)')
 
-        with tempfile.NamedTemporaryFile(
-            delete=False, mode='w', suffix=suffix
-        ) as temp_rule_file:
-            temp_rule_file.write(content)
-            temp_rule_file_path = temp_rule_file.name
+        match = queries_pattern.search(queries)
 
-        return temp_rule_file_path
+        if match:
+            result = match.group()
+
+            if environment == 'clingo':
+                # Replace '#show path/2.' with 'ppath(X) :- path(X, 1).\n\n#show ppath/1.'
+                suffix = '.lp'
+                content = re.sub(
+                    r'#show path/\d+\.',
+                    f'ppath(X) :- {result}.\n\n#show ppath/1.',
+                    content,
+                )
+            elif environment == 'souffle':
+                # Replace '.output path' with '.decl ppath(x:number)\nppath(x) :- path(x, 1).\n\n.output ppath'
+                suffix = '.dl'
+                content = re.sub(
+                    r'\.output path',
+                    f'.decl ppath(x:number)\nppath(x) :- {result.lower()}.\n\n.output ppath',
+                    content,
+                )
+
+            with tempfile.NamedTemporaryFile(
+                delete=False, mode='w', suffix=suffix
+            ) as temp_rule_file:
+                temp_rule_file.write(content)
+                temp_rule_file_path = temp_rule_file.name
+
+            return temp_rule_file_path
+
+        return ''
 
     def __parse_souffle_timing_data(self, output: str) -> dict[str, float]:
         """Parses the timing data from the output of a Souffle command."""
@@ -243,7 +255,9 @@ class AnalyzeSystems(Base):
         self.output_folder = output_folder
         logging.info(f'Output folder: {self.output_folder}')
 
-    def set_file_paths(self, mode: str, graph_type: str, size: int) -> None:
+    def set_file_paths(
+        self, mode: str, graph_type: str, size: int, timing_dir: str
+    ) -> None:
         """Sets the paths for rule file, input file, and timing file."""
         config = self.config['defaults']['systems']
         project_root = Path(__file__).parent
@@ -268,7 +282,7 @@ class AnalyzeSystems(Base):
             input_path = input_dir / 'clingo_xsb' / graph_type / inputfile
         rule_path = rule_files[mode]
 
-        timing_dir = Path('timing') / self.environment / graph_type
+        timing_dir = Path(timing_dir) / self.environment / graph_type
         timing_dir.mkdir(parents=True, exist_ok=True)
         output_file_name = (
             f'timing_{mode}_{input_path.stem}.csv'

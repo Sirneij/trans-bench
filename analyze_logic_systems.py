@@ -159,9 +159,12 @@ class AnalyzeLogicSystems(AnalyzeSystems):
         """Executes a query using Clingo and logs the time taken for loading and querying."""
         try:
             ctl = clingo.Control()
+            temp_rule_file_path = self.replace_rule_file_content(
+                self.rule_path, self.environment, self.queries
+            )
             # Load facts and rules
             t_load_rule_begin = os.times()
-            ctl.load(str(self.rule_path))
+            ctl.load(temp_rule_file_path)
             t_load_rule_end = os.times()
 
             t_load_facts_begin = os.times()
@@ -237,68 +240,81 @@ class AnalyzeLogicSystems(AnalyzeSystems):
         except Exception as e:
             logging.error(f'Error: {e}')
         finally:
+            if temp_rule_file_path:
+                os.remove(temp_rule_file_path)
             gc.collect()
 
     def solve_with_souffle(self) -> None:
         """Executes a Souffle program, compiles the generated C++ code, and runs the compiled program."""
-        souffle_export_path = Path('souffle_rules') / 'souffle_export'
-        souffle_export_file = souffle_export_path / 'main'
-        generated_cpp_filename = souffle_export_path / 'souffle_generated.cpp'
 
-        # Generate C++ code from Datalog
-        datalog_to_cpp_cmd = f'souffle {self.rule_path} -F {self.input_path} -w -g {generated_cpp_filename} -D {self.output_folder}'
-        datalog_to_cpp_result = self.run_souffle_command(datalog_to_cpp_cmd)
+        try:
+            souffle_export_path = Path('souffle_rules') / 'souffle_export'
+            souffle_export_file = souffle_export_path / 'main'
+            generated_cpp_filename = souffle_export_path / 'souffle_generated.cpp'
 
-        # Compile the generated C++ code
-        compile_cmd = f'g++ {souffle_export_file}.cpp {generated_cpp_filename} -std=c++17 -I {self.souffle_include_dir} -o {souffle_export_file} -D__EMBEDDED_SOUFFLE__'
-        compile_result = self.run_souffle_command(compile_cmd)
+            # Generate C++ code from Datalog
+            temp_rule_file_path = self.replace_rule_file_content(
+                self.rule_path, self.environment, self.queries
+            )
+            datalog_to_cpp_cmd = f'souffle {temp_rule_file_path} -F {self.input_path} -w -g {generated_cpp_filename} -D {self.output_folder}'
+            datalog_to_cpp_result = self.run_souffle_command(datalog_to_cpp_cmd)
 
-        # Run the compiled program
-        run_cmd = f'./{souffle_export_file} {self.input_path}'
-        run_result = self.run_souffle_command(run_cmd)
-        logging.info(
-            f'Results: DTC: {datalog_to_cpp_result}, CR: {compile_result}, RR: {run_result}'
-        )
+            # Compile the generated C++ code
+            compile_cmd = f'g++ {souffle_export_file}.cpp {generated_cpp_filename} -std=c++17 -I {self.souffle_include_dir} -o {souffle_export_file} -D__EMBEDDED_SOUFFLE__'
+            compile_result = self.run_souffle_command(compile_cmd)
 
-        # Write the timing data to the output CSV file
-        self.write_to_csv(
-            [
-                'DatalogToCPPRealTime',
-                'DatalogToCPPCPUTime',
-                'CompileRealTime',
-                'CompileCPUTime',
-                'InstanceLoadingRealTime',
-                'InstanceLoadingCPUTime',
-                'LoadingFactRealTime',
-                'LoadingFactCPUTime',
-                'QueryRealTime',
-                'QueryCPUTime',
-                'WritingResultRealTime',
-                'WritingResultCPUTime',
-            ],
-            [
-                *datalog_to_cpp_result[0].split(','),
-                *compile_result[0].split(','),
-                float(run_result[1].get('Instance time', 0.0)),
-                float(run_result[1].get('InstanceCPU time', 0.0)),
-                float(run_result[1].get('LoadingFacts time', 0.0)),
-                float(run_result[1].get('LoadingFactsCPU time', 0.0)),
-                float(run_result[1].get('Query time', 0.0)),
-                float(run_result[1].get('QueryCPU time', 0.0)),
-                float(run_result[1].get('Writing time', 0.0)),
-                float(run_result[1].get('WritingCPU time', 0.0)),
-            ],
-            self.timing_path,
-        )
+            # Run the compiled program
+            run_cmd = f'./{souffle_export_file} {self.input_path}'
+            run_result = self.run_souffle_command(run_cmd)
+            logging.info(
+                f'Results: DTC: {datalog_to_cpp_result}, CR: {compile_result}, RR: {run_result}'
+            )
 
-        logging.info(
-            f'(Souffle) Experiment timing results saved to: {self.timing_path}'
-        )
+            # Write the timing data to the output CSV file
+            self.write_to_csv(
+                [
+                    'DatalogToCPPRealTime',
+                    'DatalogToCPPCPUTime',
+                    'CompileRealTime',
+                    'CompileCPUTime',
+                    'InstanceLoadingRealTime',
+                    'InstanceLoadingCPUTime',
+                    'LoadingFactRealTime',
+                    'LoadingFactCPUTime',
+                    'QueryRealTime',
+                    'QueryCPUTime',
+                    'WritingResultRealTime',
+                    'WritingResultCPUTime',
+                ],
+                [
+                    *datalog_to_cpp_result[0].split(','),
+                    *compile_result[0].split(','),
+                    float(run_result[1].get('Instance time', 0.0)),
+                    float(run_result[1].get('InstanceCPU time', 0.0)),
+                    float(run_result[1].get('LoadingFacts time', 0.0)),
+                    float(run_result[1].get('LoadingFactsCPU time', 0.0)),
+                    float(run_result[1].get('Query time', 0.0)),
+                    float(run_result[1].get('QueryCPU time', 0.0)),
+                    float(run_result[1].get('Writing time', 0.0)),
+                    float(run_result[1].get('WritingCPU time', 0.0)),
+                ],
+                self.timing_path,
+            )
 
-        # Clean up generated files
-        souffle_export_file.unlink(missing_ok=True)
-        generated_cpp_filename.unlink(missing_ok=True)
-        gc.collect()
+            logging.info(
+                f'(Souffle) Experiment timing results saved to: {self.timing_path}'
+            )
+
+        except Exception as e:
+            logging.error(f'Error (Souffle): {e}')
+        finally:
+            # Clean up generated files
+            souffle_export_file.unlink(missing_ok=True)
+            generated_cpp_filename.unlink(missing_ok=True)
+            if temp_rule_file_path:
+                logging.info(f'Removing temporary rule file: {temp_rule_file_path}')
+                os.remove(temp_rule_file_path)
+            gc.collect()
 
 
 def main() -> None:
@@ -340,7 +356,9 @@ def main() -> None:
     analyze_logic_systems = AnalyzeLogicSystems(
         config, args.environment, args.souffle_include_dir, config.get('queries', '[]')
     )
-    analyze_logic_systems.set_file_paths(args.mode, args.graph_type, args.size)
+    analyze_logic_systems.set_file_paths(
+        args.mode, args.graph_type, args.size, config.get('timing_dir', 'timing')
+    )
     analyze_logic_systems.set_output_folder()
     analyze_logic_systems.analyze()
 
