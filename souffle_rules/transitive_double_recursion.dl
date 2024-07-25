@@ -2,6 +2,7 @@
 .input edge
 
 .decl path(x:number, y:number)
-.output path
 path(x,y) :- edge(x,y).
 path(x,y) :- path(x,z), path(z,y).
+
+.output path

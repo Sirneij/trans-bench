@@ -21,13 +21,15 @@ logging.basicConfig(
 
 class AnalyzeLogicSystems(AnalyzeSystems):
     def __init__(
-        self, config: dict[str, Any], environment: str, souffle_include_dir: str
+        self,
+        config: dict[str, Any],
+        environment: str,
+        souffle_include_dir: str,
+        queries: str,
     ):
         super().__init__(config, environment)
         self.souffle_include_dir = souffle_include_dir
-        self.queries = (
-            "[[query1, path(X, Y)]]"  # Each query is a list: [Identifier, Query]
-        )
+        self.queries = queries  # Each query is a list: [Identifier, Query]
 
     def analyze(self) -> None:
         """Executes the appropriate solve method based on the environment."""
@@ -336,7 +338,7 @@ def main() -> None:
     config = json.loads(args.config)
 
     analyze_logic_systems = AnalyzeLogicSystems(
-        config, args.environment, args.souffle_include_dir
+        config, args.environment, args.souffle_include_dir, config.get('queries', '[]')
     )
     analyze_logic_systems.set_file_paths(args.mode, args.graph_type, args.size)
     analyze_logic_systems.set_output_folder()

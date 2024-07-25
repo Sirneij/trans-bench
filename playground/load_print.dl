@@ -1,7 +1,10 @@
-.type Node <: symbol
-.decl edge (node1:Node, node2:Node)
-.input edge ()
-.decl path   (node1:Node, node2:Node)
-.output path   ()
-path(X,Y) :- path(X,Z), edge(Z,Y).
-path(X,Y) :- edge(X,Y).
+.decl edge(x:number, y:number)
+.input edge
+
+.decl path(x:number, y:number)
+path(x,y) :- edge(x,y).
+path(x,y) :- edge(x,z), path(z,y).
+
+.decl ppath(x:number)
+ppath(x) :- path(x, 1).
+.output ppath

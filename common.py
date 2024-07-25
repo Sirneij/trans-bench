@@ -2,6 +2,7 @@ import logging
 import os
 import re
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Any, Optional, Union
 
@@ -189,26 +190,43 @@ class AnalyzeSystems(Base):
         else:
             return '0,0', {}
 
+    def replace_rule_file_content(self, rule_file: Path, environment: str) -> str:
+        """Replaces the content of a rule file for clingo and souffle environments and return a temporary file path."""
+        with open(rule_file, 'r') as f:
+            content = f.read()
+
+        suffix = ''
+
+        if environment == 'clingo':
+            # Replace '#show path/2.' with 'ppath(X) :- path(X, 1).\n\n#show ppath/1.'
+            suffix = '.lp'
+            content = re.sub(
+                r'#show path/\d+\.',
+                'ppath(X) :- path(X, 1).\n\n#show ppath/1.',
+                content,
+            )
+        elif environment == 'souffle':
+            # Replace '.output path' with '.decl ppath(x:number)\nppath(x) :- path(x, 1).\n\n.output ppath'
+            suffix = '.dl'
+            content = re.sub(
+                r'\.output path',
+                '.decl ppath(x:number)\nppath(x) :- path(x, 1).\n\n.output ppath',
+                content,
+            )
+
+        with tempfile.NamedTemporaryFile(
+            delete=False, mode='w', suffix=suffix
+        ) as temp_rule_file:
+            temp_rule_file.write(content)
+            temp_rule_file_path = temp_rule_file.name
+
+        return temp_rule_file_path
+
     def __parse_souffle_timing_data(self, output: str) -> dict[str, float]:
         """Parses the timing data from the output of a Souffle command."""
         pattern = r'(\w+ time): (\d+\.\d+) seconds'
         timings = re.findall(pattern, output)
         return {metric: float(time) for metric, time in timings}
-
-    def parse_postgresql_timings(self, output: str) -> dict[str, float]:
-        """Parses timing data from PostgreSQL output."""
-        timing_regex = re.compile(r'Time:\s+([\d.]+)\s+ms')
-        steps = [
-            'CreateTable',
-            'LoadData',
-            'CreateIndex',
-            'Analyze',
-            'ExecuteQuery',
-            'WriteResult',
-        ]
-        times = timing_regex.findall(output)
-        times_in_seconds = [float(time) / 1000 for time in times]
-        return dict(zip(steps, times_in_seconds))
 
     def set_output_folder(self) -> None:
         """Sets the output folder based on the timing path."""

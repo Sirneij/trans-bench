@@ -102,7 +102,7 @@ call_iter([E|L], OutputFile) :-
 % Write each answer of a query on a new line in the file
 write_list([]) :- nl.
 write_list([E|L]) :-
-    writeq(E),
+    write(E),
     % write_canonical(E),
     (L == []
      -> nl

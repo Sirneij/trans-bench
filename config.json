@@ -63,5 +63,6 @@
         "mongodb",
         "neo4j",
         "cockroachdb"
-    ]
+    ],
+    "queries": "[[query1, path(X, Y)]]"
 }
