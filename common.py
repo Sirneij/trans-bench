@@ -192,47 +192,56 @@ class AnalyzeSystems(Base):
 
     def replace_rule_file_content(
         self, rule_file: Path, environment: str, queries: str
-    ) -> str:
-        """Replaces the content of a rule file for clingo and souffle environments and return a temporary file path."""
-        with open(rule_file, 'r') as f:
-            content = f.read()
+    ) -> str | None:
+        """Replaces the content of a rule file for Clingo and Souffle environments and returns a temporary file path."""
+
+        def extract_query(queries: str) -> str:
+            """Extracts the first 'path' query from the provided queries string."""
+            queries_pattern = re.compile(r'path\(\s*\w+\s*,\s*\w+\s*\)')
+            match = queries_pattern.search(queries)
+            return match.group() if match else ''
+
+        try:
+            with open(rule_file, 'r') as f:
+                content = f.read()
+        except Exception as e:
+            raise IOError(f"Error reading file {rule_file}: {e}")
+
+        query = extract_query(queries)
+        if not query:
+            raise ValueError("No valid 'path' query found in queries string.")
+
+        if query.lower() == 'path(x, y)' or query.lower() == 'path(x,y)':
+            return None
 
         suffix = ''
+        if environment == 'clingo':
+            suffix = '.lp'
+            content = re.sub(
+                r'#show path/\d+\.',
+                f'ppath(X) :- {query}.\n\n#show ppath/1.',
+                content,
+            )
+        elif environment == 'souffle':
+            suffix = '.dl'
+            content = re.sub(
+                r'\.output path',
+                f'.decl ppath(x:number)\nppath(x) :- {query.lower()}.\n\n.output ppath',
+                content,
+            )
+        else:
+            raise ValueError(f"Unsupported environment: {environment}")
 
-        # Convert the queries to a list of list of strings of this form: [[Identifier, Query]]. Get the first Query.
-        queries_pattern = re.compile(r'path\(\d+, \w+\)')
-
-        match = queries_pattern.search(queries)
-
-        if match:
-            result = match.group()
-
-            if environment == 'clingo':
-                # Replace '#show path/2.' with 'ppath(X) :- path(X, 1).\n\n#show ppath/1.'
-                suffix = '.lp'
-                content = re.sub(
-                    r'#show path/\d+\.',
-                    f'ppath(X) :- {result}.\n\n#show ppath/1.',
-                    content,
-                )
-            elif environment == 'souffle':
-                # Replace '.output path' with '.decl ppath(x:number)\nppath(x) :- path(x, 1).\n\n.output ppath'
-                suffix = '.dl'
-                content = re.sub(
-                    r'\.output path',
-                    f'.decl ppath(x:number)\nppath(x) :- {result.lower()}.\n\n.output ppath',
-                    content,
-                )
-
+        try:
             with tempfile.NamedTemporaryFile(
                 delete=False, mode='w', suffix=suffix
             ) as temp_rule_file:
                 temp_rule_file.write(content)
                 temp_rule_file_path = temp_rule_file.name
+        except Exception as e:
+            raise IOError(f"Error writing temporary file: {e}")
 
-            return temp_rule_file_path
-
-        return ''
+        return temp_rule_file_path
 
     def __parse_souffle_timing_data(self, output: str) -> dict[str, float]:
         """Parses the timing data from the output of a Souffle command."""

@@ -162,9 +162,12 @@ class AnalyzeLogicSystems(AnalyzeSystems):
             temp_rule_file_path = self.replace_rule_file_content(
                 self.rule_path, self.environment, self.queries
             )
+            rule_file = (
+                temp_rule_file_path if temp_rule_file_path else str(self.rule_path)
+            )
             # Load facts and rules
             t_load_rule_begin = os.times()
-            ctl.load(temp_rule_file_path)
+            ctl.load(rule_file)
             t_load_rule_end = os.times()
 
             t_load_facts_begin = os.times()
@@ -256,7 +259,8 @@ class AnalyzeLogicSystems(AnalyzeSystems):
             temp_rule_file_path = self.replace_rule_file_content(
                 self.rule_path, self.environment, self.queries
             )
-            datalog_to_cpp_cmd = f'souffle {temp_rule_file_path} -F {self.input_path} -w -g {generated_cpp_filename} -D {self.output_folder}'
+            rule_file = temp_rule_file_path if temp_rule_file_path else self.rule_path
+            datalog_to_cpp_cmd = f'souffle {rule_file} -F {self.input_path} -w -g {generated_cpp_filename} -D {self.output_folder}'
             datalog_to_cpp_result = self.run_souffle_command(datalog_to_cpp_cmd)
 
             # Compile the generated C++ code
