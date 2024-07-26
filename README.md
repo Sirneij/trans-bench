@@ -227,7 +227,26 @@ Some tests were written to verify the functionalities of the benchmark suite. Yo
 (virtualenv) ➜  trans-bench git:(main) ✗ python -m unittest discover -s tests
 ```
 
-## Extension
+## Modification & Extension
+
+### Modification
+
+For logic systems like XSB, Clingo, and Souffle, you can modify the query you want to execute via the `config.json` file:
+
+```json
+{
+    ...
+    "queries": "[[query1, path(X, Y)]]",
+    "timing_dir": "timing_q"
+    ...
+}
+```
+
+The `queries` field is a two-dimensional array (list of lists). Each inner array should contain an identifier (e.g., `query1`) and the query to execute (e.g., `path(X, Y)`).
+
+**NOTE:** If you intend to run XSB alone, you can have multiple inner arrays. Otherwise, stick to a single inner array. Additionally, for demand-driven queries such as `path(1, X)`, ensure `X` is always the variable if you plan to run all three systems. If running only XSB, this requirement is not necessary.
+
+The `timing_dir` field should be updated to point to the directory where timing results are stored.
 
 [1]: https://www.cockroachlabs.com/docs/v24.1/install-cockroachdb "Install CockroachDB"
 [2]: https://www.cockroachlabs.com/docs/stable/build-a-python-app-with-cockroachdb?filters=local "Step 1. Start CockroachDB"

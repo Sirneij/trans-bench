@@ -1041,6 +1041,12 @@ def main():
         action='store_true',
         help='Compile the LaTeX files to PDFs alone',
     )
+    parser.add_argument(
+        '--timing-base-dir',
+        type=str,
+        help='Base directory for timing',
+        default='timing',
+    )
     args = parser.parse_args()
 
     if args.config and os.path.isfile(args.config):
@@ -1050,9 +1056,10 @@ def main():
     else:
         config = json.loads(args.config if args.config else '{}')
 
-    timing_base_dir = Path('timing')
+    timing_dir = config.get('timing_dir', args.timing_base_dir)
+    timing_base_dir = Path(timing_dir)
     pattern = r'^timing_(.*?)_graph_(\d+)\.csv$'
-    latex_file_dir = Path('output')
+    latex_file_dir = Path(f'output{timing_dir.split("_")[1]}')
     latex_file_dir.mkdir(exist_ok=True)
 
     table_plot_generator = TableAndPlotGenerator(
