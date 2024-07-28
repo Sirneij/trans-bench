@@ -1,0 +1,92 @@
+\documentclass[border=10pt]{standalone}
+\usepackage[svgnames]{xcolor}
+\usepackage{amsmath}
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest}
+\usepackage[sfdefault]{FiraSans}
+\usepackage{FiraMono}
+\renewcommand*\familydefault{\sfdefault}
+\begin{document}
+\begin{tikzpicture}
+\begin{axis}[
+   ybar stacked,
+   width=1.7\textwidth,
+   bar width=0.6cm,
+   ymajorgrids, tick align=inside,
+   major grid style={draw=gray!20},
+   xtick=data,
+   ymin=0, ymax=361.7732,
+   axis x line*=bottom,
+   axis y line*=left,
+   enlarge x limits=0.04,
+   legend style={
+       at={(0.23, 0.97)},
+       anchor=north east,
+       legend columns=1,
+       font=\Huge,
+   },
+   ylabel={CPU Time (seconds)},
+   xlabel={Number of nodes $\times k=10$},
+   label style={font=\Huge},
+   tick label style={font=\Huge},
+]
+\addlegendimage{fill=DodgerBlue, draw=black, line width=0.2pt}
+\addlegendentry{WriteRes}
+\addlegendimage{fill=Crimson, draw=black, line width=0.2pt}
+\addlegendentry{Query}
+\addlegendimage{fill=LimeGreen, draw=black, line width=0.2pt}
+\addlegendentry{ReadData}
+\addlegendimage{fill=LightPink, draw=black, line width=0.2pt}
+\addlegendentry{LoadRules}
+\addplot +[fill=LightPink, draw=black, line width=0.55pt] coordinates {
+(1000, 0.0005570000000000003)
+(2000, 0.0005554000000000004)
+(3000, 0.0005528000000000001)
+(4000, 0.0005496000000000005)
+(5000, 0.0005556000000000006)
+(6000, 0.0005545999999999998)
+(7000, 0.0005590000000000005)
+(8000, 0.0005634)
+(9000, 0.000567)
+(10000, 0.0005674000000000003)
+};
+\addplot +[fill=LimeGreen, draw=black, line width=0.55pt] coordinates {
+(1000, 0.000939)
+(2000, 0.0018292)
+(3000, 0.0032162)
+(4000, 0.0035597999999999997)
+(5000, 0.0044507999999999995)
+(6000, 0.0053192000000000005)
+(7000, 0.006198199999999999)
+(8000, 0.007059800000000001)
+(9000, 0.007935800000000002)
+(10000, 0.008816399999999999)
+};
+\addplot +[fill=Crimson, draw=black, line width=0.55pt] coordinates {
+(1000, 0.0035042000000000003)
+(2000, 0.0149468)
+(3000, 0.035996600000000004)
+(4000, 0.05701080000000001)
+(5000, 0.0888434)
+(6000, 0.12846719999999998)
+(7000, 0.17827900000000002)
+(8000, 0.22310219999999997)
+(9000, 0.301883)
+(10000, 0.3535202)
+};
+\addplot +[fill=DodgerBlue, draw=black, line width=0.55pt] coordinates {
+(1000, 0.00010460000000000001)
+(2000, 6.960000000000021e-05)
+(3000, -0.0032138)
+(4000, 0.00031280000000000056)
+(5000, -0.0003098000000000073)
+(6000, -0.0010399999999999964)
+(7000, 0.0010417999999999983)
+(8000, 0.0008273999999999948)
+(9000, 0.00011520000000000418)
+(10000, 0.0005794000000000187)
+};
+\end{axis}
+\end{tikzpicture}
+
+\end{document}

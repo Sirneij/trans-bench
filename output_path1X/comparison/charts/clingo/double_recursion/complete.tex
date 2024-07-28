@@ -1,0 +1,106 @@
+\documentclass[border=10pt]{standalone}
+\usepackage[svgnames]{xcolor}
+\usepackage{amsmath}
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest}
+\usepackage[sfdefault]{FiraSans}
+\usepackage{FiraMono}
+\renewcommand*\familydefault{\sfdefault}
+\begin{document}
+\begin{tikzpicture}
+\begin{axis}[
+   ybar stacked,
+   width=1.7\textwidth,
+   bar width=0.6cm,
+   ymajorgrids, tick align=inside,
+   major grid style={draw=gray!20},
+   xtick=data,
+   ymin=0, ymax=372.4108,
+   axis x line*=bottom,
+   axis y line*=left,
+   enlarge x limits=0.04,
+   legend style={
+       at={(0.454, 0.97)},
+       anchor=north east,
+       legend columns=1,
+       font=\Huge,
+   },
+   ylabel={CPU Time (seconds)},
+   xlabel={Number of nodes},
+   label style={font=\Huge},
+   tick label style={font=\Huge},
+]
+\addlegendimage{fill=DodgerBlue, draw=black, line width=0.2pt}
+\addlegendentry{WriteRes}
+\addlegendimage{fill=FireBrick, draw=black, line width=0.2pt}
+\addlegendentry{Solve}
+\addlegendimage{fill=OrangeRed, draw=black, line width=0.2pt}
+\addlegendentry{Ground}
+\addlegendimage{fill=LimeGreen, draw=black, line width=0.2pt}
+\addlegendentry{ReadData}
+\addlegendimage{fill=LightPink, draw=black, line width=0.2pt}
+\addlegendentry{LoadRules}
+\addplot +[fill=LightPink, draw=black, line width=0.55pt] coordinates {
+(100, 0.0)
+(200, 0.0)
+(300, 0.0)
+(400, 0.0)
+(500, 0.0)
+(600, 0.0)
+(700, 0.0)
+(800, 0.0)
+(900, 0.0)
+(1000, 0.0)
+};
+\addplot +[fill=LimeGreen, draw=black, line width=0.55pt] coordinates {
+(100, 0.020000000000000018)
+(200, 0.08400000000000002)
+(300, 0.196)
+(400, 0.364)
+(500, 0.5680000000000001)
+(600, 0.8039999999999999)
+(700, 1.1280000000000001)
+(800, 1.4739999999999998)
+(900, 1.8239999999999998)
+(1000, 2.372)
+};
+\addplot +[fill=OrangeRed, draw=black, line width=0.55pt] coordinates {
+(100, 0.11599999999999999)
+(200, 0.9279999999999999)
+(300, 3.252)
+(400, 9.734)
+(500, 23.35)
+(600, 48.983999999999995)
+(700, 81.06400000000001)
+(800, 138.602)
+(900, 225.18199999999996)
+(1000, 283.394)
+};
+\addplot +[fill=FireBrick, draw=black, line width=0.55pt] coordinates {
+(100, 0.0)
+(200, 0.0)
+(300, 0.0)
+(400, 0.003999999999999915)
+(500, 0.005999999999999517)
+(600, 0.0040000000000006255)
+(700, 0.005999999999997385)
+(800, 0.010000000000002274)
+(900, 0.010000000000007957)
+(1000, 0.009999999999990905)
+};
+\addplot +[fill=DodgerBlue, draw=black, line width=0.55pt] coordinates {
+(100, 0.0)
+(200, 0.0)
+(300, 0.002000000000000046)
+(400, -0.001999999999999914)
+(500, -0.005999999999999517)
+(600, -0.002000000000001023)
+(700, -0.005999999999997385)
+(800, -0.010000000000002274)
+(900, -0.010000000000007957)
+(1000, -0.009999999999990905)
+};
+\end{axis}
+\end{tikzpicture}
+
+\end{document}

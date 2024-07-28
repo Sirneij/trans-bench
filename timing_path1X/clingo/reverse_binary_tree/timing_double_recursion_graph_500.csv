@@ -1,0 +1,7 @@
+LoadRulesRealTime,LoadRulesCPUTime,LoadFactsRealTime,LoadFactsCPUTime,GroundRealTime,GroundCPUTime,QueryRealTime,QueryCPUTime,WriteRealTime,WriteCPUTime
+0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0
+0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0
+0.009999990463256836,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0
+0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0
+0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0
+Average,0.0019999980926513673,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0

@@ -1,0 +1,92 @@
+\documentclass[border=10pt]{standalone}
+\usepackage[svgnames]{xcolor}
+\usepackage{amsmath}
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest}
+\usepackage[sfdefault]{FiraSans}
+\usepackage{FiraMono}
+\renewcommand*\familydefault{\sfdefault}
+\begin{document}
+\begin{tikzpicture}
+\begin{axis}[
+   ybar stacked,
+   width=1.7\textwidth,
+   bar width=0.6cm,
+   ymajorgrids, tick align=inside,
+   major grid style={draw=gray!20},
+   xtick=data,
+   ymin=0, ymax=9.54,
+   axis x line*=bottom,
+   axis y line*=left,
+   enlarge x limits=0.04,
+   legend style={
+       at={(0.23, 0.97)},
+       anchor=north east,
+       legend columns=1,
+       font=\Huge,
+   },
+   ylabel={CPU Time (seconds)},
+   xlabel={Height of the tree},
+   label style={font=\Huge},
+   tick label style={font=\Huge},
+]
+\addlegendimage{fill=DodgerBlue, draw=black, line width=0.2pt}
+\addlegendentry{WriteRes}
+\addlegendimage{fill=Crimson, draw=black, line width=0.2pt}
+\addlegendentry{Query}
+\addlegendimage{fill=LimeGreen, draw=black, line width=0.2pt}
+\addlegendentry{ReadData}
+\addlegendimage{fill=LightPink, draw=black, line width=0.2pt}
+\addlegendentry{LoadRules}
+\addplot +[fill=LightPink, draw=black, line width=0.55pt] coordinates {
+(6, 0.0005511999999999997)
+(7, 0.0005520000000000005)
+(8, 0.0005536)
+(8, 0.0005560000000000004)
+(8, 0.0005605999999999994)
+(9, 0.0005541999999999995)
+(9, 0.0005518000000000005)
+(9, 0.000553)
+(9, 0.0005608)
+(9, 0.0005506000000000003)
+};
+\addplot +[fill=LimeGreen, draw=black, line width=0.55pt] coordinates {
+(6, 0.000172)
+(7, 0.00022179999999999943)
+(8, 0.0003166000000000002)
+(8, 0.00031499999999999974)
+(8, 0.00031899999999999995)
+(9, 0.0005188000000000005)
+(9, 0.000517)
+(9, 0.0005190000000000001)
+(9, 0.0005168)
+(9, 0.0005199999999999998)
+};
+\addplot +[fill=Crimson, draw=black, line width=0.55pt] coordinates {
+(6, 1.340000000000058e-05)
+(7, 2.040000000000028e-05)
+(8, 3.299999999999968e-05)
+(8, 3.200000000000009e-05)
+(8, 3.220000000000028e-05)
+(9, 5.860000000000032e-05)
+(9, 5.7999999999999716e-05)
+(9, 5.8599999999999615e-05)
+(9, 5.860000000000032e-05)
+(9, 6.059999999999988e-05)
+};
+\addplot +[fill=DodgerBlue, draw=black, line width=0.55pt] coordinates {
+(6, 8.239999999999988e-05)
+(7, 9.920000000000013e-05)
+(8, 0.00014219999999999993)
+(8, 0.00013979999999999952)
+(8, 0.00014099999999999971)
+(9, 0.0002217999999999997)
+(9, 0.00022020000000000047)
+(9, 0.00021940000000000037)
+(9, 0.0002212000000000003)
+(9, 0.00021980000000000033)
+};
+\end{axis}
+\end{tikzpicture}
+
+\end{document}

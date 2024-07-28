@@ -64,6 +64,6 @@
         "neo4j",
         "cockroachdb"
     ],
-    "queries": "[[query1, path(X, Y)]]",
-    "timing_dir": "timing_q"
+    "queries": "[[query1, path(1, X)]]",
+    "timing_dir": "timing_path1X"
 }
