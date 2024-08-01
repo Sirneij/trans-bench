@@ -1059,7 +1059,11 @@ def main():
     timing_dir = config.get('timing_dir', args.timing_base_dir)
     timing_base_dir = Path(timing_dir)
     pattern = r'^timing_(.*?)_graph_(\d+)\.csv$'
-    latex_file_dir = Path(f'output_{timing_dir.split("_")[1]}' if len(timing_dir.split("_")) > 1 else 'output')
+    latex_file_dir = Path(
+        f'output_{timing_dir.split("_")[1]}'
+        if len(timing_dir.split("_")) > 1
+        else 'output'
+    )
     latex_file_dir.mkdir(exist_ok=True)
 
     table_plot_generator = TableAndPlotGenerator(

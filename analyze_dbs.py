@@ -128,6 +128,7 @@ class AnalyzeDBs(AnalyzeSystems):
 
         try:
             mariadb_operations.drop_tc_path_tc_result_tables()
+            mariadb_operations.set_standard_cte_to_zero()
             (
                 timing_results['CreateTableRealTime'],
                 timing_results['CreateTableCPUTime'],

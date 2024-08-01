@@ -56,3 +56,10 @@ class MariaDBOperations(Base):
         Drop the created tables so that next iteration will start on a clean slate
         """
         self.execute_query('DROP TABLE IF EXISTS edge, tc_result;')
+
+    def set_standard_cte_to_zero(self) -> None:
+        self.execute_query(
+            """
+        SET @@standard_compliant_cte=0;
+        """
+        )
