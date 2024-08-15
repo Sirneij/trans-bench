@@ -294,33 +294,44 @@ class BaseTableAndPlotGenerator:
                     return entry[1][query_type][1]
         return None
 
-    def __find_max_cpu_time_across_envs(self, graph_type: str, mode: str) -> float:
+    def __find_max_cpu_time_across_envs(
+        self, graph_type: str, mode: str, max_x: int
+    ) -> float:
         max_cpu_time = 0
-        for key, entries in self.data.items():
-            env_name, g_type, m = key
+        for (_, g_type, m), entries in self.data.items():
             if g_type == graph_type and m == mode:
                 for entry in entries:
-                    cpu_times = [value[1] for value in entry[1].values()]
-                    max_cpu_time = max(max_cpu_time, max(cpu_times))
+                    if max_x > 0 and entry[0] <= max_x:
+                        cpu_times = [value[1] for value in entry[1].values()]
+                        max_cpu_time = max(max_cpu_time, max(cpu_times))
         return max_cpu_time
 
-    def __find_max_real_time(self, env_name: str, graph_type: str, mode: str) -> float:
+    def __find_max_real_time(
+        self, env_name: str, graph_type: str, mode: str, max_x: int
+    ) -> float:
         max_real_time = 0
+        num_of_allowed_entries = max_x // 100
         key = (env_name, graph_type, mode)
         if key in self.data:
             for entry in self.data[key]:
                 real_times = [value[0] for value in entry[1].values()]
-                max_real_time = max(max_real_time, max(real_times))
+                max_real_time = max(
+                    max_real_time, max(real_times[:num_of_allowed_entries])
+                )
         return max_real_time
 
-    def __find_max_real_time_across_envs(self, graph_type: str, mode: str) -> float:
+    def __find_max_real_time_across_envs(
+        self, graph_type: str, mode: str, max_x: int
+    ) -> float:
         max_real_time = 0
-        for key, entries in self.data.items():
-            env_name, g_type, m = key
+        num_of_allowed_entries = max_x // 100
+        for (_, g_type, m), entries in self.data.items():
             if g_type == graph_type and m == mode:
                 for entry in entries:
                     real_times = [value[0] for value in entry[1].values()]
-                    max_real_time = max(max_real_time, max(real_times))
+                    max_real_time = max(
+                        max_real_time, max(real_times[:num_of_allowed_entries])
+                    )
         return max_real_time
 
     @staticmethod
@@ -508,10 +519,12 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
         latex_file_dir: Path,
         config: dict[str, Any] | None = None,
         envs: list[str] | None = None,
+        max_x: int = 0,
     ):
         super().__init__(timing_base_dir, pattern, latex_file_dir)
         self.config = config
         self.environments = config['environmentsToCombine'] if config else envs
+        self.max_x = max_x
 
     def __write_latex_body_for_environment(
         self,
@@ -766,13 +779,18 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
     def __generate_latex_comparison_charts(
         self, latex_file_dir: Path, env_name: str, compile_file_alone: bool
     ) -> None:
-        file_dir = latex_file_dir / 'comparison' / 'charts' / env_name
+        file_dir = latex_file_dir / 'comparison' / 'charts' / env_name / f'{self.max_x}'
         file_dir.mkdir(exist_ok=True, parents=True)
 
         mds = [key[2] for key in self.data if key[0] == env_name]
         modes = sorted(list(self._BaseTableAndPlotGenerator__list_to_ordered_set(mds)))
         sizes = sorted(
-            {entry[0] for entries in self.data.values() for entry in entries}
+            {
+                entry[0]
+                for entries in self.data.values()
+                for entry in entries
+                if self.max_x > 0 and entry[0] <= self.max_x
+            }
         )
 
         component_legend_colors = [
@@ -790,7 +808,7 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
             for graph_type in sorted(graph_types):
                 ymax = self._BaseTableAndPlotGenerator__adjust_ymax(
                     self._BaseTableAndPlotGenerator__find_max_cpu_time_across_envs,
-                    (graph_type, 'double_recursion'),
+                    (graph_type, 'double_recursion', self.max_x),
                 )
                 file_folder = file_dir / mode
                 file_folder.mkdir(exist_ok=True, parents=True)
@@ -901,7 +919,9 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
         tools = ['xsb', 'clingo', 'souffle']
         axis_contents = []
         for tool in tools:
-            file_path = directory_path / tool / mode / f'{file_name}.tex'
+            file_path = (
+                directory_path / tool / f'{self.max_x}' / mode / f'{file_name}.tex'
+            )
             if file_path.exists():
                 logging.info(f"Processing file: {file_path}")
                 latex_content = self._BaseTableAndPlotGenerator__read_latex_content(
@@ -948,7 +968,7 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
         modes = ['left_recursion', 'right_recursion', 'double_recursion']
 
         for mode in modes:
-            mode_dir = directory_path / 'combined' / mode
+            mode_dir = directory_path / 'combined' / f'{self.max_x}' / mode
             mode_dir.mkdir(parents=True, exist_ok=True)
 
             if compile_file_alone:
@@ -1035,6 +1055,13 @@ def main():
         ],
         help='Specify the list of environments to combine',
     )
+    # Maximum x-axis value for the plots
+    parser.add_argument(
+        '--max-x-axis',
+        type=int,
+        default=1000,
+        help='Maximum x-axis value for the plots',
+    )
     # Compile the LaTeX files to PDFs alone
     parser.add_argument(
         '--compile-latex',
@@ -1067,7 +1094,12 @@ def main():
     latex_file_dir.mkdir(exist_ok=True)
 
     table_plot_generator = TableAndPlotGenerator(
-        timing_base_dir, pattern, latex_file_dir, config, args.environments
+        timing_base_dir,
+        pattern,
+        latex_file_dir,
+        config,
+        args.environments,
+        args.max_x_axis,
     )
     table_plot_generator.generate_plot_table(args.compile_latex)
 

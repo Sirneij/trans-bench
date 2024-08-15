@@ -1,0 +1,68 @@
+\documentclass[border=10pt]{standalone}
+\usepackage[svgnames]{xcolor}
+\usepackage{amsmath}
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest}
+\usepackage[sfdefault]{FiraSans}
+\usepackage{FiraMono}
+\renewcommand*\familydefault{\sfdefault}
+\begin{document}
+\begin{tikzpicture}
+\begin{axis}[
+   ybar stacked,
+   width=1.7\textwidth,
+   bar width=0.6cm,
+   ymajorgrids, tick align=inside,
+   major grid style={draw=gray!20},
+   xtick=data,
+   ymin=0, ymax=3.4819999999999998,
+   axis x line*=bottom,
+   axis y line*=left,
+   enlarge x limits=0.04,
+   legend style={
+       at={(0.23, 0.97)},
+       anchor=north east,
+       legend columns=1,
+       font=\Huge,
+   },
+   ylabel={CPU Time (seconds)},
+   xlabel={Height of the tree},
+   label style={font=\Huge},
+   tick label style={font=\Huge},
+]
+\addlegendimage{fill=DodgerBlue, draw=black, line width=0.2pt}
+\addlegendentry{WriteRes}
+\addlegendimage{fill=Crimson, draw=black, line width=0.2pt}
+\addlegendentry{Query}
+\addlegendimage{fill=LimeGreen, draw=black, line width=0.2pt}
+\addlegendentry{ReadData}
+\addlegendimage{fill=LightPink, draw=black, line width=0.2pt}
+\addlegendentry{LoadRules}
+\addplot +[fill=LightPink, draw=black, line width=0.55pt] coordinates {
+(6, 0.0005636000000000003)
+(7, 0.0005508000000000002)
+(8, 0.0005510000000000004)
+(8, 0.0005533999999999997)
+};
+\addplot +[fill=LimeGreen, draw=black, line width=0.55pt] coordinates {
+(6, 0.0001677999999999998)
+(7, 0.00022439999999999998)
+(8, 0.0003178000000000004)
+(8, 0.00032339999999999984)
+};
+\addplot +[fill=Crimson, draw=black, line width=0.55pt] coordinates {
+(6, 4.520000000000044e-05)
+(7, 9.099999999999979e-05)
+(8, 0.00019459999999999958)
+(8, 0.0001958000000000008)
+};
+\addplot +[fill=DodgerBlue, draw=black, line width=0.55pt] coordinates {
+(6, 0.00026779999999999935)
+(7, 0.0005926000000000001)
+(8, 0.0013090000000000005)
+(8, 0.0013141999999999993)
+};
+\end{axis}
+\end{tikzpicture}
+
+\end{document}

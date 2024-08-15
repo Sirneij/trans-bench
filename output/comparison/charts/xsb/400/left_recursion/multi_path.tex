@@ -1,0 +1,68 @@
+\documentclass[border=10pt]{standalone}
+\usepackage[svgnames]{xcolor}
+\usepackage{amsmath}
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest}
+\usepackage[sfdefault]{FiraSans}
+\usepackage{FiraMono}
+\renewcommand*\familydefault{\sfdefault}
+\begin{document}
+\begin{tikzpicture}
+\begin{axis}[
+   ybar stacked,
+   width=1.7\textwidth,
+   bar width=0.6cm,
+   ymajorgrids, tick align=inside,
+   major grid style={draw=gray!20},
+   xtick=data,
+   ymin=0, ymax=44.852419999999995,
+   axis x line*=bottom,
+   axis y line*=left,
+   enlarge x limits=0.04,
+   legend style={
+       at={(0.23, 0.97)},
+       anchor=north east,
+       legend columns=1,
+       font=\Huge,
+   },
+   ylabel={CPU Time (seconds)},
+   xlabel={Number of nodes $\times k=10$},
+   label style={font=\Huge},
+   tick label style={font=\Huge},
+]
+\addlegendimage{fill=DodgerBlue, draw=black, line width=0.2pt}
+\addlegendentry{WriteRes}
+\addlegendimage{fill=Crimson, draw=black, line width=0.2pt}
+\addlegendentry{Query}
+\addlegendimage{fill=LimeGreen, draw=black, line width=0.2pt}
+\addlegendentry{ReadData}
+\addlegendimage{fill=LightPink, draw=black, line width=0.2pt}
+\addlegendentry{LoadRules}
+\addplot +[fill=LightPink, draw=black, line width=0.55pt] coordinates {
+(1000, 0.0005575999999999996)
+(2000, 0.0005545999999999998)
+(3000, 0.0005532)
+(4000, 0.0005619999999999998)
+};
+\addplot +[fill=LimeGreen, draw=black, line width=0.55pt] coordinates {
+(1000, 0.0009016)
+(2000, 0.0017250000000000002)
+(3000, 0.0025486000000000003)
+(4000, 0.0033782)
+};
+\addplot +[fill=Crimson, draw=black, line width=0.55pt] coordinates {
+(1000, 0.0047684)
+(2000, 0.0194916)
+(3000, 0.044468)
+(4000, 0.0817916)
+};
+\addplot +[fill=DodgerBlue, draw=black, line width=0.55pt] coordinates {
+(1000, 0.040165)
+(2000, 0.16055420000000004)
+(3000, 0.3607022)
+(4000, 0.6439862000000001)
+};
+\end{axis}
+\end{tikzpicture}
+
+\end{document}

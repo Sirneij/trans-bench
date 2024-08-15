@@ -1,0 +1,84 @@
+\documentclass[border=10pt]{standalone}
+\usepackage[svgnames]{xcolor}
+\usepackage{amsmath}
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest}
+\usepackage[sfdefault]{FiraSans}
+\usepackage{FiraMono}
+\renewcommand*\familydefault{\sfdefault}
+\begin{document}
+\begin{tikzpicture}
+\begin{axis}[
+   ybar stacked,
+   width=1.7\textwidth,
+   bar width=0.6cm,
+   ymajorgrids, tick align=inside,
+   major grid style={draw=gray!20},
+   xtick=data,
+   ymin=0, ymax=3.472,
+   axis x line*=bottom,
+   axis y line*=left,
+   enlarge x limits=0.04,
+   legend style={
+       at={(0.69, 0.97)},
+       anchor=north east,
+       legend columns=1,
+       font=\Huge,
+   },
+   ylabel={CPU Time (seconds)},
+   xlabel={Height of the tree},
+   label style={font=\Huge},
+   tick label style={font=\Huge},
+]
+\addlegendimage{fill=DodgerBlue, draw=black, line width=0.2pt}
+\addlegendentry{WriteRes}
+\addlegendimage{fill=Crimson, draw=black, line width=0.2pt}
+\addlegendentry{Query}
+\addlegendimage{fill=LimeGreen, draw=black, line width=0.2pt}
+\addlegendentry{ReadData}
+\addlegendimage{fill=LightPink, draw=black, line width=0.2pt}
+\addlegendentry{LoadRules}
+\addlegendimage{fill=DarkOrange, draw=black, line width=0.2pt}
+\addlegendentry{C++ToExec}
+\addlegendimage{fill=LightGoldenrod, draw=black, line width=0.2pt}
+\addlegendentry{RulesToC++}
+\addplot +[fill=LightGoldenrod, draw=black, line width=0.55pt] coordinates {
+(6, 0.0020000000000000005)
+(7, 0.0)
+(8, 0.0020000000000000005)
+(8, 0.0020000000000000005)
+};
+\addplot +[fill=DarkOrange, draw=black, line width=0.55pt] coordinates {
+(6, 1.4659999999999997)
+(7, 1.464)
+(8, 1.462)
+(8, 1.464)
+};
+\addplot +[fill=LightPink, draw=black, line width=0.55pt] coordinates {
+(6, 0.0001524)
+(7, 0.00015580000000000002)
+(8, 9.600000000000002e-05)
+(8, 0.00015299999999999998)
+};
+\addplot +[fill=LimeGreen, draw=black, line width=0.55pt] coordinates {
+(6, 0.0007302000000000001)
+(7, 0.0009858)
+(8, 0.001132)
+(8, 0.0014435999999999997)
+};
+\addplot +[fill=Crimson, draw=black, line width=0.55pt] coordinates {
+(6, 0.0006138000000000001)
+(7, 0.0014373999999999997)
+(8, 0.0027300000000000002)
+(8, 0.0033352)
+};
+\addplot +[fill=DodgerBlue, draw=black, line width=0.55pt] coordinates {
+(6, 0.0006732)
+(7, 0.0009508000000000001)
+(8, 0.0012392)
+(8, 0.0014426)
+};
+\end{axis}
+\end{tikzpicture}
+
+\end{document}
