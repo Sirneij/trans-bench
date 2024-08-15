@@ -411,7 +411,7 @@ class BaseTableAndPlotGenerator:
             return file.read()
 
     def __extract_axis_content(
-        self, latex_content: str, tool: str, environments: list[str] | None = None
+        self, latex_content: str, tool: str, chart_metrics: dict[str, dict[str, Any]]
     ) -> str:
         match = re.search(r'\\begin{axis}.*?\\end{axis}', latex_content, re.DOTALL)
         if match:
@@ -419,7 +419,7 @@ class BaseTableAndPlotGenerator:
             if tool == 'xsb':
                 axis_content = re.sub(
                     r'\\begin{axis}\[',
-                    r'\\begin{axis}[bar shift=-24.3pt, ',
+                    rf'\\begin{{axis}}[bar shift={chart_metrics["barShift"][tool]}pt, ',
                     axis_content,
                     1,
                 )
@@ -427,14 +427,14 @@ class BaseTableAndPlotGenerator:
                 if tool == 'clingo':
                     axis_content = re.sub(
                         r'\\begin{axis}\[',
-                        r'\\begin{axis}[bar shift=-6.5pt, ',
+                        rf'\\begin{{axis}}[bar shift={chart_metrics["barShift"][tool]}pt, ',
                         axis_content,
                         1,
                     )
                 elif tool == 'souffle':
                     axis_content = re.sub(
                         r'\\begin{axis}\[',
-                        r'\\begin{axis}[bar shift=11.3pt, ',
+                        rf'\\begin{{axis}}[bar shift={chart_metrics["barShift"][tool]}pt, ',
                         axis_content,
                         1,
                     )
@@ -525,6 +525,32 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
         self.config = config
         self.environments = config['environmentsToCombine'] if config else envs
         self.max_x = max_x
+        self.charts_metrics = {
+            '400': {
+                'xLimits': 0.15,
+                'barShift': {
+                    'xsb': -50,
+                    'clingo': -5.5,
+                    'souffle': 39,
+                },
+                'anchor': {
+                    'x': 0.49,
+                    'y': 1,
+                },
+            },
+            '1000': {
+                'xLimits': 0.04,
+                'barShift': {
+                    'xsb': -24.3,
+                    'clingo': -6.5,
+                    'souffle': 11.3,
+                },
+                'anchor': {
+                    'x': 0.42,
+                    'y': 1,
+                },
+            },
+        }
 
     def __write_latex_body_for_environment(
         self,
@@ -798,6 +824,8 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
             for component in reversed(self.components[env_name])
         ]
 
+        bar_width = (600 / self.max_x) if self.max_x > 0 else 0.6
+
         for mode in modes:
             if compile_file_alone:
                 self._BaseTableAndPlotGenerator__compile_latex_to_pdf(file_dir / mode)
@@ -820,14 +848,16 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
                     f.write('\\begin{axis}[\n')
                     f.write('   ybar stacked,\n')
                     f.write('   width=1.7\\textwidth,\n')
-                    f.write('   bar width=0.6cm,\n')
+                    f.write(f'   bar width={bar_width}cm,\n')
                     f.write('   ymajorgrids, tick align=inside,\n')
                     f.write('   major grid style={draw=gray!20},\n')
                     f.write('   xtick=data,\n')
                     f.write(f'   ymin=0, ymax={ymax},\n')
                     f.write('   axis x line*=bottom,\n')
                     f.write('   axis y line*=left,\n')
-                    f.write('   enlarge x limits=0.04,\n')
+                    f.write(
+                        f'   enlarge x limits={self.charts_metrics[str(self.max_x)]["xLimits"]},\n'
+                    )
                     f.write('   legend style={\n')
                     if env_name == 'xsb':
                         f.write('       at={(0.23, 0.97)},\n')
@@ -928,7 +958,7 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
                     file_path
                 )
                 axis_content = self._BaseTableAndPlotGenerator__extract_axis_content(
-                    latex_content, tool
+                    latex_content, tool, self.charts_metrics[str(self.max_x)]
                 )
                 axis_contents.append(axis_content)
             else:
@@ -966,6 +996,8 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
             'y',
         ]
         modes = ['left_recursion', 'right_recursion', 'double_recursion']
+        anchor_x = self.charts_metrics[str(self.max_x)]['anchor']['x']
+        anchor_y = self.charts_metrics[str(self.max_x)]['anchor']['y']
 
         for mode in modes:
             mode_dir = directory_path / 'combined' / f'{self.max_x}' / mode
@@ -992,7 +1024,7 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
 \\begin{{document}}
 \\begin{{tikzpicture}}
                         {combined_content}
-\\node[anchor=south, draw, fill=white] at (rel axis cs:0.42,1) {{\\Huge Left: XSB, Middle: Clingo, Right: Soufflé}};
+\\node[anchor=south, draw, fill=white] at (rel axis cs:{anchor_x}, {anchor_y}) {{\\Huge Left: XSB, Middle: Clingo, Right: Soufflé}};
 \\end{{tikzpicture}}
 \\end{{document}}
                     """
