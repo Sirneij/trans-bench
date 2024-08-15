@@ -487,13 +487,13 @@ class BaseTableAndPlotGenerator:
         if max_value < 1:
             return max_value + 0.02
         elif 1 <= max_value < 5:
-            return max_value + 8
+            return max_value + 2
         elif 5 <= max_value < 10:
-            return max_value + 20
+            return max_value + 3
         elif 10 <= max_value < 100:
-            return max_value + 40
+            return max_value + 5
         elif 100 <= max_value < 1000:
-            return max_value + 50
+            return max_value + 15
         elif 1000 <= max_value < 10000:
             return max_value + 500
         elif 10000 <= max_value < 100000:
