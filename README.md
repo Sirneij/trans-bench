@@ -210,14 +210,26 @@ Though `transitive.py` automates data generation, manual execution is available:
 For custom graph sizes, use the `--sizes` flag as demonstrated:
 
 ```shell
-(virtualenv) ➜  trans-bench git:(main) ✗ python generate_db.py --sizes 100 601 100 --py
+(virtualenv) ➜  trans-bench git:(main) ✗ python generate_db.py --sizes 100 1001 100 --py
 ```
 
 ### Step 4: Run command
 
+#### Logic systems
+
+To run the experiment for only logic systems (XSB, Clingo and Souffle), issue the following command:
+
 ```sh
-(virtualenv) ➜  trans-bench git:(main) ✗ python transitive.py --size-range 50 401 50 --modes left_recursion right_recursion --environments xsb postgres mariadb duckdb cockroachdb neo4j mongodb --num-runs 2
+(virtualenv) ➜  trans-bench git:(main) ✗ python transitive.py --size-range 100 1001 100 --modes left_recursion right_recursion double_recursion --environments xsb clingo souffle --num-runs 5
 ```
+
+#### Database systems
+
+```sh
+(virtualenv) ➜  trans-bench git:(main) ✗ python transitive.py --size-range 100 1001 100 --modes left_recursion right_recursion --environments postgres mariadb duckdb cockroachdb neo4j mongodb --num-runs 5
+```
+
+modes should be restricted to only left and right recursions because many of the DB systems only support linear recursion.
 
 ### Step 5 (Optional): Run automated tests
 
@@ -226,6 +238,8 @@ Some tests were written to verify the functionalities of the benchmark suite. Yo
 ```sh
 (virtualenv) ➜  trans-bench git:(main) ✗ python -m unittest discover -s tests
 ```
+
+These tests are still being developed.
 
 ## Modification & Extension
 
@@ -242,7 +256,7 @@ For logic systems like XSB, Clingo, and Souffle, you can modify the query you wa
 }
 ```
 
-The `queries` field is a two-dimensional array (list of lists). Each inner array should contain an identifier (e.g., `query1`) and the query to execute (e.g., `path(X, Y)`).
+The `queries` field is a two-dimensional array (list of lists). Each inner array should contain an identifier (e.g., `query1`) and the query to execute (e.g., `path(X, Y)`). For now, only a 2-dimentional array with a single inner array is supported by this suite.
 
 **NOTE:** If you intend to run XSB alone, you can have multiple inner arrays. Otherwise, stick to a single inner array. Additionally, for demand-driven queries such as `path(1, X)`, ensure `X` is always the variable if you plan to run all three systems. If running only XSB, this requirement is not necessary.
 
