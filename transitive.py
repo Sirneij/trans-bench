@@ -152,7 +152,7 @@ class Experiment(Base):
 
         config_str = json.dumps(self.config)
 
-        if env_name in self.config['defaults']['systems']['alda']:
+        if env_name in self.config.get('defaults', {}).get('systems', {}).get('alda', []):
             command = [
                 'python',
                 '-m',
@@ -168,7 +168,7 @@ class Experiment(Base):
                 '--graph-type',
                 graph_type,
             ]
-        elif env_name in self.config['defaults']['systems']['otherLogicSystems']:
+        elif env_name in self.config.get('defaults', {}).get('systems', {}).get('otherLogicSystems', []):
             logging.info(f'Analyzing {env_name} among the logic systems')
             command = [
                 'python',
@@ -186,7 +186,7 @@ class Experiment(Base):
                 '--souffle-include-dir',
                 souffle_include_dir,
             ]
-        elif env_name in self.config['defaults']['systems']['dbSystems']:
+        elif env_name in self.config.get('defaults', {}).get('systems', {}).get('dbSystems', []):
             logging.info(f'Analyzing {env_name} among the DBs')
             command = [
                 'python',
@@ -383,9 +383,9 @@ def main() -> None:
     config = load_config(args.config_file)
 
     environments = set(args.environments)
-    defaults = config['defaults']['systems']
+    defaults = config.get('defaults', {}).get('systems', {})
     all_environments = set(
-        defaults['alda'] + defaults['otherLogicSystems'] + defaults['dbSystems']
+        defaults.get('alda', []) + defaults.get('otherLogicSystems', []) + defaults.get('dbSystems', [])
     )
 
     invalid_environments = environments - all_environments

@@ -101,31 +101,31 @@ class Base:
         self, env_name: str, rule_path: Optional[str] = None
     ) -> GraphDatabase.driver:
         return GraphDatabase.driver(
-            self.config[env_name]['uri'],
-            auth=(self.config[env_name]['user'], self.config[env_name]['password']),
+            self.config.get(env_name, {}).get('uri', ''),
+            auth=(self.config.get(env_name, {}).get('user', ''), self.config.get(env_name, {}).get('password', '')),
         )
 
     def _connect_mongodb(
         self, env_name: str, rule_path: Optional[str] = None
     ) -> MongoClient:
-        self.driver = MongoClient(self.config[env_name]['uri'])
-        return self.driver[self.config[env_name]['database']]
+        self.driver = MongoClient(self.config.get(env_name, {}).get('uri', ''))
+        return self.driver[self.config.get(env_name, {}).get('database', '')]
 
     def _connect_psycopg2(
         self, env_name: str, rule_path: Optional[str] = None
     ) -> psycopg2.extensions.connection:
         logging.info(f"Env: {env_name}")
-        return psycopg2.connect(self.config[env_name]['dbURL'])
+        return psycopg2.connect(self.config.get(env_name, {}).get('dbURL', ''))
 
     def _connect_mariadb(
         self, env_name: str, rule_path: Optional[str] = None
     ) -> MySQLdb.Connection:
         return MySQLdb.connect(
-            db=self.config[env_name]['database'],
-            user=self.config[env_name]['user'],
-            passwd=self.config[env_name]['password'],
-            host=self.config[env_name]['host'],
-            port=self.config[env_name]['port'],
+            db=self.config.get(env_name, {}).get('database', ''),
+            user=self.config.get(env_name, {}).get('user', ''),
+            passwd=self.config.get(env_name, {}).get('password', ''),
+            host=self.config.get(env_name, {}).get('host', ''),
+            port=self.config.get(env_name, {}).get('port', ''),
             local_infile=1,  # Enable LOAD DATA LOCAL INFILE
         )
 
@@ -268,11 +268,11 @@ class AnalyzeSystems(Base):
         self, mode: str, graph_type: str, size: int, timing_dir: str
     ) -> None:
         """Sets the paths for rule file, input file, and timing file."""
-        config = self.config['defaults']['systems']
+        config = self.config.get('defaults', {}).get('systems', {})
         project_root = Path(__file__).parent
         rules_dir = project_root / f'{self.environment}_rules'
         rule_files = self.discover_rules(
-            rules_dir, config['environmentExtensions'][self.environment]
+            rules_dir, config.get('environmentExtensions', {}).get(self.environment, [])
         )
 
         if mode not in rule_files:
@@ -280,7 +280,7 @@ class AnalyzeSystems(Base):
             return
 
         input_dir = Path('input')
-        if self.environment in config['dbSystems'] + ['souffle']:
+        if self.environment in config.get('dbSystems', []) + ['souffle']:
             input_path = (
                 input_dir / 'souffle' / graph_type / str(size) / 'edge.facts'
                 if self.environment != 'souffle'
@@ -295,7 +295,7 @@ class AnalyzeSystems(Base):
         timing_dir.mkdir(parents=True, exist_ok=True)
         output_file_name = (
             f'timing_{mode}_{input_path.stem}.csv'
-            if self.environment not in config['dbSystems'] + ['souffle']
+            if self.environment not in config.get('dbSystems', []) + ['souffle']
             else f'timing_{mode}_graph_{size}.csv'
         )
         timing_path = timing_dir / output_file_name

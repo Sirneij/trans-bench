@@ -168,7 +168,7 @@ class AnalyzeDBs(AnalyzeSystems):
         self.write_timing_results(timing_results, self.headers_rdbms)
 
         self.copy_file('/tmp/mariadb_results.csv', results_path)
-        machine_user_password = self.config['machineUserPassword']
+        machine_user_password = self.config.get('machineUserPassword', '')
         remove = f'sudo rm -rf /tmp/mariadb_results.csv'
         if os.name == 'posix':
             if 'darwin' in os.uname().sysname.lower():
@@ -213,8 +213,8 @@ class AnalyzeDBs(AnalyzeSystems):
         self.driver = self.connect_db(self.environment)
         results_path = self.output_folder / 'neo4j_results.csv'
 
-        machine_user_password = self.config['machineUserPassword']
-        neo4j_import_dir = self.config['neo4j']['import_directory']
+        machine_user_password = self.config.get('machineUserPassword', '')
+        neo4j_import_dir = self.config.get('neo4j', {}).get('import_directory', '')
         fact_file_name = os.path.basename(self.input_path)
 
         self.run_pexpect_command(
@@ -366,7 +366,7 @@ class AnalyzeDBs(AnalyzeSystems):
 
         try:
             cockroachdb_operations.drop_tc_path_tc_result_tables()
-            external_directory = self.config[self.environment]["externalDirectory"]
+            external_directory = self.config.get(self.environment, {}).get("externalDirectory", '')
 
             (
                 timing_results['CreateTableRealTime'],

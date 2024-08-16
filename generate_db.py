@@ -176,14 +176,14 @@ class GraphGenerator:
 
         config = self.config['defaults']['systems']
 
-        for env, ext in config['environmentExtensions'].items():
+        for env, ext in config.get('environmentExtensions', {}).items():
             # Use a combined folder for 'clingo' and 'xsb'
             if env in ['clingo', 'xsb']:
                 combined_env = 'clingo_xsb'
                 filename = (
                     self.base_dir / combined_env / graph_type / f'graph_{size}.lp'
                 )
-            elif env not in config['dbSystems'] + ['souffle']:
+            elif env not in config.get('dbSystems', []) + ['souffle']:
                 filename = self.base_dir / env / graph_type / f'graph_{size}{ext}'
 
             # Ensure the directory exists

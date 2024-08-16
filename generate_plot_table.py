@@ -523,7 +523,7 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
     ):
         super().__init__(timing_base_dir, pattern, latex_file_dir)
         self.config = config
-        self.environments = config['environmentsToCombine'] if config else envs
+        self.environments = config,get('environmentsToCombine', []) if config else envs
         self.max_x = max_x
         self.charts_metrics = {
             '400': {
