@@ -12,7 +12,7 @@
 
 5. **`cockroachdb_rules`:** Houses the Python files containing the classes that interact with CockroachDB using the `psycopg2` driver.
 
-6. **`duckdb_rules`:** All the SQL files which contain queries for DuckDB driver to execute are here.
+6. **`duckdb_rules`:** All the SQL files which contain queries for the DuckDB driver to execute are here.
 
 7. **`input`:** This directory contains synthetic graph data used as input for the experiments. It is organized by logic programming environment (`clingo`, `souffle`, `xsb`), and within each environment directory, further subdivided by graph type (e.g., `complete`, `cycle`). Each graph type directory contains `.lp`, `.P`, or `.dl` files corresponding to different graph sizes.
 
@@ -28,20 +28,17 @@
 
 13. **`postgres_rules`:** Same with `cockroachdb_rules` but for PostgreSQL.
 
-14. **`souffle_rules`:** Contains rule files for the Souffle environment. The `.dl` (Datalog) files within this directory define transitive closure rules for double recursion, left recursion, and right recursion, adhering to Souffle's syntax. It also contains a C++ file, `souffle_export/main.cpp`, that uses [souffle interface][1] to time facts loading, program run, and result writing.
+14. **`souffle_rules`:** Contains rule files for the Souffle environment. The `.dl` (Datalog) files within this directory define transitive closure rules for double recursion, left recursion, and right recursion, adhering to Souffle's syntax. It also contains a C++ file, `souffle_export/main.cpp`, that uses the souffle C++ interface to time facts loading, program run, and result writing.
 
 15. **`tests`:** Some automated test files are located here.
 
 16. **`timing`:** Stores the output CSV files from running the experiments. Like the `input` directory, it is organized by logic programming environment and graph type. Each graph type directory contains CSV files for each recursion mode and graph size, detailing the timing results of the experiments. The output of the query is also in this directory. They are in the `timing/<rule_system>/<graph_type>/<tc_variant>/<size>/` directory.
 
-17. **uml:** This directory holds the programs that generated system architectures.
+17. **uml:** This directory holds the programs that generate system architectures.
 
 18. **`xsb_rules`:** Houses rule files for the XSB Prolog environment. The `.P` files define transitive closure rules in XSB syntax for double recursion, left recursion, and right recursion. It also contains a file, `xsb_export/extfilequery.P`, which exports `external_file_query` predicate for XSB timing and other processes.
 
-19. **`analyze_alda.da`, `analyze_dbs.py` and `analyze_logic_systems.py`:** Analysis Scripts
-
-- **Role:** Executes the transitive closure rules within specific systems (e.g., Clingo, XSB, Souffle, PostgreSQL, MariaDB, DuckDB, Neo4J, CockroachDB and Alda), collecting execution metrics.
-- **Designation:** Specialized tools for environment-specific execution and performance measurement, tailored to either work with logic systems (`analyze_logic_systems.py`), database systems (`analyze_dbs.py`) or leverage built-in mechanisms of a Python extension for logic programming (`analyze_alda.da`).
+19. **`analyze_alda.da`, `analyze_dbs.py` and `analyze_logic_systems.py`:** Executes the transitive closure rules within specific systems (e.g., Clingo, XSB, Souffle, PostgreSQL, MariaDB, DuckDB, Neo4J, CockroachDB and Alda), collecting execution metrics.
 
 20. **analyze.ipynb and `analyze.py`:** Some scripts that utilize data analysis libraries to analyze the experiment results.
 
@@ -49,32 +46,23 @@
 
 22. **`config.json`:** The system's configurations including setting database credentials and specifying the systems to cover can be found here.
 
-23. **`generate_db.py`:** Graph Database Generator
+23. **`generate_db.py`:** It generates synthetic graph databases of specified sizes and types, which serve as input for the experiments.
 
-- **Role:** It generates synthetic graph databases of specified sizes and types, which serve as input for the experiments.
-- **Designation:** Provides the necessary input data for evaluating the performance of transitive closure rules across different graph structures.
+24. **`generate_plot_table.py`:** Generates LaTeX files for creating plots and tables that visually represent the performance data collected from rule systems.
 
-24. **`generate_plot_table.py`:** Plot Generation Script
+25. **`requirements.txt`:** Contains all the Python packages which should be installed to run the entire system smoothly. Some development dependencies are not required.
 
-- **Role:** Generates LaTeX files for creating plots and tables that visually represent the performance data collected from rule systems.
-- **Designation:** Facilitates the visualization of experiment outcomes, allowing for a graphical and tabular comparison of execution times across different rule systems, graph types, and rule modes.
-
-25. **`requirements.txt`:** Contains all the Python packages which should be installed to run the entire system smoothly. There are some development dependencies that are not required.
-
-26. **`transitive.py`:** Central Experiment Orchestrator
-
-- **Role:** Manages the entire lifecycle of transitive closure rule evaluation experiments across various logic programming environments.
-- **Designation:** Acts as the main entry point for initiating experiments, orchestrating the data generation, execution of analysis scripts, and the aggregation and visualization of results.
+26. **`transitive.py`:** Manages the entire lifecycle of transitive closure rule evaluation experiments across various logic programming environments.
 
 ## Running locally
 
-Clone this repository into any directory of choice (it is assumed you have `git` installed) and change directory into `trans-bench`, the repository's name:
+Clone this repository into any directory of choice (it is assumed you have `git` installed) and change the directory into `trans-bench`, the repository's name:
 
 ```sh
 git clone https://github.com/Sirneij/trans-bench.git && cd trans-bench
 ```
 
-To run locally, you need to ensure the concerned systems are properly installed and set up.
+To run locally, you need to ensure the concerned systems are properly installed and set up. XSB and Souffle must be added to your system's PATH with `xsb` and `souffle` aliases. To have the PDF versions of the generated LaTeX charts, ensure you have LaTeX distributions (supports `xelatex`, `pdflatex`, or `lualatex`) installed. Else, you have to manually run the generated files to see the charts.
 
 ### Step 1: Set up systems
 
@@ -90,7 +78,7 @@ Replace `/path/to/project/` with the actual path to the Alda directory within th
 
 #### Souffle
 
-The version of souffle used require C++ compiler (preferably `g++`) that supports `C++17`. Without this, this program won't run for Souffle. You are required to provide the `PATH` where souffle's `include` folder is located.
+The version of souffle used requires a C++ compiler (preferably `g++`) that supports `C++17`. Without this, this program won't run for Souffle. You are required to provide the `PATH` where souffle's `include` folder is located via the `--souffle-include-dir` flag.
 
 ##### MacOS
 
@@ -121,7 +109,15 @@ install-on-request: 10 (30 days), 49 (90 days), 199 (365 days)
 build-error: 0 (30 days)
 ```
 
-which means it was installed in `/opt/homebrew/Cellar/souffle/HEAD-c7ce229`. As a result, the `include` folder would be `/opt/homebrew/Cellar/souffle/HEAD-c7ce229/include`.
+which means it was installed in `/opt/homebrew/Cellar/souffle/HEAD-c7ce229`. As a result, the `include` folder is `/opt/homebrew/Cellar/souffle/HEAD-c7ce229/include`. Then, you can supply it to `transitive.py`:
+
+```sh
+(virtualenv) ➜  trans-bench git:(main) ✗ python transitive.py --souffle-include-dir /opt/homebrew/Cellar/souffle/HEAD-c7ce229/include ...
+```
+
+##### Other systems
+
+Just as stated for MacOS, one needs to find where souffle's include directory is located. This experiment should run fine on unix-based systems as long as the requirements are met.
 
 #### PostgreSQL
 
@@ -136,7 +132,7 @@ First, install PostgreSQL based on your operating system. Then set up a database
 }
 ```
 
-Substitute `<db_username>:<db_user_password>@<host>:<port>/<db_name>` with their real values based on your set up.
+Substitute `<db_username>:<db_user_password>@<host>:<port>/<db_name>` with their real values based on your set-up.
 
 #### MariaDB
 
@@ -156,7 +152,7 @@ Just like PostgreSQL, fill in MariaDB's database's credentials in `config.json`:
 }
 ```
 
-_NOTE:_ There is an issue with mariadb that prevents programs from writing into any directory of choice even after `secure_file_priv = ""` was set in `~/.my.cnf` or `/etc/mysql/my.cnf` in Ubuntu (`~/.my.ini` works for Windows) but could write into `/tmp/` so the results were temporarily written in `/tmp/mariadb_results.csv` and thereafter move it into the desired directory using `sudo` priviledges. As a result, some lines were added to `analyze_dbs.py::AnalyzeDBs::solve_with_mariadb` method for safe-keeping. You may still be required to insert your user password while the analysis is going on as a result.
+_NOTE:_ There is an issue with MariaDB that prevents programs from writing into any directory of choice even after `secure_file_priv = ""` was set in `~/.my.cnf` or `/etc/mysql/my.cnf` in Ubuntu (`~/.my.ini` works for Windows) but could write into `/tmp/` so the results were temporarily written in `/tmp/mariadb_results.csv` and thereafter move it into the desired directory using `sudo` privileges. As a result, some lines were added to `analyze_dbs.py::AnalyzeDBs::solve_with_mariadb` method for safe-keeping. You may still be required to insert your user password while the analysis is going on as a result.
 
 #### Neo4J
 
@@ -175,7 +171,7 @@ As with other systems, first [install Neo4J][3] on your machine, set it up and f
 }
 ```
 
-This project uses [`apoc`][4], a Neo4J plugin which "provides access to user-defined procedures and functions which extend the use of the Cypher query language into areas such as data integration, graph algorithms, and data conversion", to export query results to CSV. Kindly set it up too.
+This project uses [`apoc`][4], a Neo4J plugin that "provides access to user-defined procedures and functions which extend the use of the Cypher query language into areas such as data integration, graph algorithms, and data conversion", to export query results to CSV. Kindly set it up too.
 
 #### MongoDB
 
@@ -201,16 +197,18 @@ The project uses each system's recommended database connectors to avoid the over
 
 ### Step 3 (Optional): Data Generation
 
-Though `transitive.py` automates data generation, manual execution is available:
+This step is optional because `transitive.py` checks whether the required data has already been generated, and if so uses the existing generated data, otherwise it generates data in the `input` folder.
+
+For manual generation, issue the following command:
 
 ```shell
-(virtualenv) ➜  trans-bench git:(main) ✗ python generate_db.py --py
+(virtualenv) ➜  trans-bench git:(main) ✗ python generate_db.py
 ```
 
-For custom graph sizes, use the `--sizes` flag as demonstrated:
+For custom graph sizes, use the `--sizes` (has <minsize> <maxsize> <step> schema) flag as demonstrated:
 
 ```shell
-(virtualenv) ➜  trans-bench git:(main) ✗ python generate_db.py --sizes 100 1001 100 --py
+(virtualenv) ➜  trans-bench git:(main) ✗ python generate_db.py --sizes 100 1001 100
 ```
 
 ### Step 4: Run command
@@ -220,18 +218,28 @@ For custom graph sizes, use the `--sizes` flag as demonstrated:
 To run the experiment for only logic systems (XSB, Clingo and Souffle), issue the following command:
 
 ```sh
-(virtualenv) ➜  trans-bench git:(main) ✗ python transitive.py --size-range 100 1001 100 --modes left_recursion right_recursion double_recursion --environments xsb clingo souffle --num-runs 5
+(virtualenv) ➜  trans-bench git:(main) ✗ python transitive.py --sizes 100 1001 100 --modes left_recursion right_recursion double_recursion --environments xsb clingo souffle --num-runs 5
 ```
 
 #### Database systems
 
 ```sh
-(virtualenv) ➜  trans-bench git:(main) ✗ python transitive.py --size-range 100 1001 100 --modes left_recursion right_recursion --environments postgres mariadb duckdb cockroachdb neo4j mongodb --num-runs 5
+(virtualenv) ➜  trans-bench git:(main) ✗ python transitive.py --sizes 100 1001 100 --modes left_recursion right_recursion --environments postgres mariadb duckdb cockroachdb neo4j mongodb --num-runs 5
 ```
 
 modes should be restricted to only left and right recursions because many of the DB systems only support linear recursion.
 
-### Step 5 (Optional): Run automated tests
+After the runs, `output/comparison/charts/combined/<highest_size>` has the comparison plots of all the 3 logic systems. `<highest_size>` is the value of `maxXAxis` in `config.json`, in this case 1000. It defaults to 1000. Only 1000 and 400 are currently supported.
+
+### Step 5 (Optional): Generate charts and PDFs
+
+Although the command above invokes `generate_plot_table.py` to generate charts in LaTeX and subsequently converts them to PDFs (if LaTeX is installed), one can manually run this script too:
+
+```sh
+(virtualenv) ➜  trans-bench git:(main) ✗ python generate_plot_table.py --config config.json
+```
+
+### Step 6 (Optional): Run automated tests
 
 Some tests were written to verify the functionalities of the benchmark suite. You can run them via:
 
@@ -256,7 +264,7 @@ For logic systems like XSB, Clingo, and Souffle, you can modify the query you wa
 }
 ```
 
-The `queries` field is a two-dimensional array (list of lists). Each inner array should contain an identifier (e.g., `query1`) and the query to execute (e.g., `path(X, Y)`). For now, only a 2-dimentional array with a single inner array is supported by this suite.
+The `queries` field is a two-dimensional array. Each inner array should contain an identifier (e.g., `query1`) and the query to execute (e.g., `path(X, Y)`). For now, only a 2-dimentional array with a single inner array is supported by this suite.
 
 **NOTE:** If you intend to run XSB alone, you can have multiple inner arrays. Otherwise, stick to a single inner array. Additionally, for demand-driven queries such as `path(1, X)`, ensure `X` is always the variable if you plan to run all three systems. If running only XSB, this requirement is not necessary.
 
