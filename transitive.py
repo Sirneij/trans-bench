@@ -336,7 +336,7 @@ def main() -> None:
         '--config-file', type=str, default='config.json', help='Path to the config file'
     )
     parser.add_argument(
-        '--size-range',
+        '--sizes',
         type=int,
         nargs=3,
         metavar=('START', 'STOP', 'STEP'),
@@ -399,7 +399,7 @@ def main() -> None:
     experiment = Experiment(
         config,
         args.graph_types,
-        args.size_range,
+        args.sizes,
         args.num_runs,
         args.modes,
         args.environments,
