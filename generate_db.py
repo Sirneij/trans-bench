@@ -8,9 +8,7 @@ import pickle
 from pathlib import Path
 from typing import Any, Generator
 
-logging.basicConfig(
-    level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s')
 
 
 class DataGenerator:
@@ -43,9 +41,7 @@ class DataGenerator:
             yield (i, i + 1)
         yield (n, 1)
 
-    def generate_cycle_with_shortcuts_graph(
-        self, n
-    ) -> Generator[tuple[int, int], None, None]:
+    def generate_cycle_with_shortcuts_graph(self, n) -> Generator[tuple[int, int], None, None]:
         logging.info(f'Generating cycle with shortcuts graph for n={n}')
 
         skip = n // (self.k + 1)  # Number of vertices to skip for shortcuts
@@ -74,9 +70,7 @@ class DataGenerator:
             yield (i, 2 * i)
             yield (i, 2 * i + 1)
 
-    def generate_reverse_binary_tree_graph(
-        self, n
-    ) -> Generator[tuple[int, int], None, None]:
+    def generate_reverse_binary_tree_graph(self, n) -> Generator[tuple[int, int], None, None]:
         h = math.floor(math.log2(n))
         logging.info(f'Generating reverse binary tree graph for n={n} and h={h}')
         parent_count = 2 ** (h - 1) - 1
@@ -147,18 +141,14 @@ class GraphGenerator:
         with open(filename, 'wb') as f:
             pickle.dump(data_set_of_tuples, f)
 
-    def save_for_souffle(
-        self, graph_generator_func, size, filename: Path, fact_name: str = 'edge'
-    ):
+    def save_for_souffle(self, graph_generator_func, size, filename: Path, fact_name: str = 'edge'):
         graph_generator = graph_generator_func(size)
         with open(filename, 'w') as file:
             for value in graph_generator:
                 first, second = value
                 file.write(f'{first}\t{second}\n')
 
-    def save_for_clingo_xsb(
-        self, graph_generator_func, size: int, filename: Path, fact_name: str = 'edge'
-    ):
+    def save_for_clingo_xsb(self, graph_generator_func, size: int, filename: Path, fact_name: str = 'edge'):
         graph_generator = graph_generator_func(size)
         with open(filename, 'w') as file:
             for value in graph_generator:
@@ -169,9 +159,7 @@ class GraphGenerator:
         generate_graph_method = getattr(data_gen, f'generate_{graph_type}_graph', None)
 
         if generate_graph_method is None:
-            logging.error(
-                f"Graph type '{graph_type}' is not supported or method is missing."
-            )
+            logging.error(f"Graph type '{graph_type}' is not supported or method is missing.")
             return
 
         config = self.config['defaults']['systems']
@@ -180,9 +168,7 @@ class GraphGenerator:
             # Use a combined folder for 'clingo' and 'xsb'
             if env in ['clingo', 'xsb']:
                 combined_env = 'clingo_xsb'
-                filename = (
-                    self.base_dir / combined_env / graph_type / f'graph_{size}.lp'
-                )
+                filename = self.base_dir / combined_env / graph_type / f'graph_{size}.lp'
             elif env not in config.get('dbSystems', []) + ['souffle']:
                 filename = self.base_dir / env / graph_type / f'graph_{size}{ext}'
 
@@ -194,16 +180,12 @@ class GraphGenerator:
                 self.save_for_alda(generate_graph_method, size, filename)
             elif env in ['souffle']:
                 fact_name = 'edge'
-                filename = (
-                    self.base_dir / env / graph_type / f'{size}' / f'{fact_name}.facts'
-                )
+                filename = self.base_dir / env / graph_type / f'{size}' / f'{fact_name}.facts'
                 filename.parent.mkdir(parents=True, exist_ok=True)
                 self.save_for_souffle(generate_graph_method, size, filename, fact_name)
             elif env in ['clingo', 'xsb']:
                 # For combined 'clingo' and 'xsb', we use the filename calculated with the combined_env
-                self.save_for_clingo_xsb(
-                    generate_graph_method, size, filename, fact_name='edge'
-                )
+                self.save_for_clingo_xsb(generate_graph_method, size, filename, fact_name='edge')
 
     def generate_graphs(self, size_ranges: list[int], graph_types: list[str]) -> None:
         """
@@ -222,9 +204,7 @@ class GraphGenerator:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--config', type=str, required=False, help='JSON string of the config'
-    )
+    parser.add_argument('--config', type=str, required=False, help='JSON string of the config')
     # Specify the start, stop, and step sizes for graph generation
     parser.add_argument(
         '--sizes',
@@ -264,9 +244,7 @@ def main():
     else:
         config = json.loads(args.config if args.config else '{}')
 
-    logging.info(
-        f'Generating graphs for sizes {args.sizes} and types {args.graph_types}.'
-    )
+    logging.info(f'Generating graphs for sizes {args.sizes} and types {args.graph_types}.')
     generator = GraphGenerator('input', config)
     generator.generate_graphs(list(range(*args.sizes)), args.graph_types)
 

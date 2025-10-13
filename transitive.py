@@ -13,9 +13,7 @@ from common import Base
 # TODO: Add support for specifying the base file name
 
 # Set up logging with a specific format and include the file name and line number
-logging.basicConfig(
-    level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s')
 
 
 class Experiment(Base):
@@ -58,9 +56,7 @@ class Experiment(Base):
                         logging.info(f'Removing existing directory: {subdir}...')
                         shutil.rmtree(subdir)
 
-    def __generate_input_data(
-        self, env_name: str, size_range: list[int], graph_types: list[str]
-    ) -> None:
+    def __generate_input_data(self, env_name: str, size_range: list[int], graph_types: list[str]) -> None:
         """
         Generates input data for a given environment, size range, and set of graph types.
 
@@ -91,9 +87,7 @@ class Experiment(Base):
                 missing_graph_types.append(graph_type)
             else:
                 # Check for missing size files in the existing graph type directory
-                existing_sizes = {
-                    int(f.stem.split('_')[-1]) for f in graph_type_dir.glob('*.*')
-                }
+                existing_sizes = {int(f.stem.split('_')[-1]) for f in graph_type_dir.glob('*.*')}
                 required_sizes = set(range(size_range[0], size_range[1], size_range[2]))
                 missing_sizes = required_sizes - existing_sizes
                 if missing_sizes:
@@ -101,9 +95,7 @@ class Experiment(Base):
 
         # Generate data only if there are missing graph types or sizes
         if missing_graph_types:
-            logging.info(
-                f'Missing data for {missing_graph_types}. Generating data with size range: {size_range}...'
-            )
+            logging.info(f'Missing data for {missing_graph_types}. Generating data with size range: {size_range}...')
             config_str = json.dumps(self.config)
             command = [
                 'python',
@@ -119,9 +111,7 @@ class Experiment(Base):
             ]
             subprocess.run(command)
         else:
-            logging.info(
-                f'All data up to date for {env_name}. Skipping data generation...'
-            )
+            logging.info(f'All data up to date for {env_name}. Skipping data generation...')
 
     def __start_analysis(
         self,
@@ -238,9 +228,7 @@ class Experiment(Base):
                                 sums[i] += float(value)
                                 counts[i] += 1
                             except ValueError:
-                                logging.warning(
-                                    f"Non-numeric data '{value}' in column {i} skipped"
-                                )
+                                logging.warning(f"Non-numeric data '{value}' in column {i} skipped")
                         else:
                             logging.warning(f"Row has more columns than headers: {row}")
 
@@ -275,12 +263,7 @@ class Experiment(Base):
                     # Check if experiment data already exists for this size and skip if it does
                     skip_experiment = False
                     for mode in self.modes:
-                        csv_path = (
-                            self.timing_dir
-                            / env
-                            / graph_type
-                            / f'timing_{mode}_graph_{size}.csv'
-                        )
+                        csv_path = self.timing_dir / env / graph_type / f'timing_{mode}_graph_{size}.csv'
                         if csv_path.exists():
                             logging.info(f'Skipping existing experiment: {csv_path}')
                             skip_experiment = True
@@ -332,9 +315,7 @@ def main() -> None:
     ]
 
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--config-file', type=str, default='config.json', help='Path to the config file'
-    )
+    parser.add_argument('--config-file', type=str, default='config.json', help='Path to the config file')
     parser.add_argument(
         '--sizes',
         type=int,

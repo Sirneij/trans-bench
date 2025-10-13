@@ -148,12 +148,8 @@ class AnalyzeLogicSystems(AnalyzeSystems):
         """Executes a query using Clingo and logs the time taken for loading and querying."""
         try:
             ctl = clingo.Control()
-            temp_rule_file_path = self.replace_rule_file_content(
-                self.rule_path, self.environment, self.queries
-            )
-            rule_file = (
-                temp_rule_file_path if temp_rule_file_path else str(self.rule_path)
-            )
+            temp_rule_file_path = self.replace_rule_file_content(self.rule_path, self.environment, self.queries)
+            rule_file = temp_rule_file_path if temp_rule_file_path else str(self.rule_path)
             # Load facts and rules
             t_load_rule_begin = os.times()
             ctl.load(rule_file)
@@ -184,17 +180,11 @@ class AnalyzeLogicSystems(AnalyzeSystems):
             logging.info(f'(Clingo) Results written to: {output_file}')
 
             timings = {
-                'LoadRules': self.estimate_time_duration(
-                    t_load_rule_begin, t_load_rule_end
-                ),
-                'LoadFacts': self.estimate_time_duration(
-                    t_load_facts_begin, t_load_facts_end
-                ),
+                'LoadRules': self.estimate_time_duration(t_load_rule_begin, t_load_rule_end),
+                'LoadFacts': self.estimate_time_duration(t_load_facts_begin, t_load_facts_end),
                 'Ground': self.estimate_time_duration(t_ground_begin, t_ground_end),
                 'Query': self.estimate_time_duration(t_query_begin, t_query_end),
-                'QueryWrite': self.estimate_time_duration(
-                    t_query_w_begin, t_query_w_end
-                ),
+                'QueryWrite': self.estimate_time_duration(t_query_w_begin, t_query_w_end),
             }
 
             write_time = float(timings['QueryWrite'][0] - timings['Query'][0])
@@ -245,11 +235,11 @@ class AnalyzeLogicSystems(AnalyzeSystems):
             generated_cpp_filename = souffle_export_path / 'souffle_generated.cpp'
 
             # Generate C++ code from Datalog
-            temp_rule_file_path = self.replace_rule_file_content(
-                self.rule_path, self.environment, self.queries
-            )
+            temp_rule_file_path = self.replace_rule_file_content(self.rule_path, self.environment, self.queries)
             rule_file = temp_rule_file_path if temp_rule_file_path else self.rule_path
-            datalog_to_cpp_cmd = f'souffle {rule_file} -F {self.input_path} -w -g {generated_cpp_filename} -D {self.output_folder}'
+            datalog_to_cpp_cmd = (
+                f'souffle {rule_file} -F {self.input_path} -w -g {generated_cpp_filename} -D {self.output_folder}'
+            )
             datalog_to_cpp_result = self.run_souffle_command(datalog_to_cpp_cmd)
 
             # Compile the generated C++ code
@@ -259,9 +249,7 @@ class AnalyzeLogicSystems(AnalyzeSystems):
             # Run the compiled program
             run_cmd = f'./{souffle_export_file} {self.input_path}'
             run_result = self.run_souffle_command(run_cmd)
-            logging.info(
-                f'Results: DTC: {datalog_to_cpp_result}, CR: {compile_result}, RR: {run_result}'
-            )
+            logging.info(f'Results: DTC: {datalog_to_cpp_result}, CR: {compile_result}, RR: {run_result}')
 
             # Write the timing data to the output CSV file
             self.write_to_csv(
@@ -294,9 +282,7 @@ class AnalyzeLogicSystems(AnalyzeSystems):
                 self.timing_path,
             )
 
-            logging.info(
-                f'(Souffle) Experiment timing results saved to: {self.timing_path}'
-            )
+            logging.info(f'(Souffle) Experiment timing results saved to: {self.timing_path}')
 
         except Exception as e:
             logging.error(f'Error (Souffle): {e}')
@@ -313,21 +299,15 @@ class AnalyzeLogicSystems(AnalyzeSystems):
 def main() -> None:
     """Parses command-line arguments and runs an experiment."""
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--config', type=str, required=True, help='JSON string of the config'
-    )
-    parser.add_argument(
-        '--size', type=int, default=100, help='Size of the input graph. Default is 100.'
-    )
+    parser.add_argument('--config', type=str, required=True, help='JSON string of the config')
+    parser.add_argument('--size', type=int, default=100, help='Size of the input graph. Default is 100.')
     parser.add_argument(
         '--mode',
         type=str,
         default='right_recursion',
         help='Mode of the rule file to use. Default is right_recursion.',
     )
-    parser.add_argument(
-        '--graph-type', type=str, required=True, help='Type of graph to analyze'
-    )
+    parser.add_argument('--graph-type', type=str, required=True, help='Type of graph to analyze')
     parser.add_argument(
         '--environment',
         required=True,
@@ -340,18 +320,14 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    logging.info(
-        f'Running experiment for {args.environment} environment with mode: {args.mode} and size: {args.size}'
-    )
+    logging.info(f'Running experiment for {args.environment} environment with mode: {args.mode} and size: {args.size}')
 
     config = json.loads(args.config)
 
     analyze_logic_systems = AnalyzeLogicSystems(
         config, args.environment, args.souffle_include_dir, config.get('queries', '[]')
     )
-    analyze_logic_systems.set_file_paths(
-        args.mode, args.graph_type, args.size, config.get('timing_dir', 'timing')
-    )
+    analyze_logic_systems.set_file_paths(args.mode, args.graph_type, args.size, config.get('timing_dir', 'timing'))
     analyze_logic_systems.set_output_folder()
     analyze_logic_systems.analyze()
 

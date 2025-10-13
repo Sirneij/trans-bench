@@ -1,5 +1,4 @@
 import argparse
-import csv
 import json
 import logging
 import math
@@ -9,9 +8,7 @@ import subprocess
 from pathlib import Path
 from typing import Any, Callable, Union
 
-logging.basicConfig(
-    level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s')
 
 
 class BaseTableAndPlotGenerator:
@@ -67,9 +64,7 @@ class BaseTableAndPlotGenerator:
             'ExecuteQuery': 'Crimson',
             'WriteRes': 'DodgerBlue',
         }
-        mongodb_colors = {
-            key: value for key, value in common_colors.items() if key != 'Analyze'
-        }
+        mongodb_colors = {key: value for key, value in common_colors.items() if key != 'Analyze'}
         neo4j_colors = mongodb_colors.copy()
         neo4j_colors['DeleteData'] = neo4j_colors.pop('CreateTable')
         return {
@@ -113,9 +108,7 @@ class BaseTableAndPlotGenerator:
             'ExecuteQuery': 'Query',
             'WriteRes': 'WriteRes',
         }
-        mongodb_legends = {
-            key: value for key, value in common_legends.items() if key != 'Analyze'
-        }
+        mongodb_legends = {key: value for key, value in common_legends.items() if key != 'Analyze'}
         neo4j_legends = mongodb_legends.copy()
         neo4j_legends['DeleteData'] = neo4j_legends.pop('CreateTable')
         return {
@@ -177,38 +170,24 @@ class BaseTableAndPlotGenerator:
                     last_line = lines[-1].strip().split(',')
 
                     if env_name == 'clingo':
-                        data[key].append(
-                            (graph_size, self.__process_clingo_data(last_line))
-                        )
+                        data[key].append((graph_size, self.__process_clingo_data(last_line)))
                     elif env_name == 'xsb':
-                        data[key].append(
-                            (graph_size, self.__process_xsb_data(last_line))
-                        )
+                        data[key].append((graph_size, self.__process_xsb_data(last_line)))
                     elif env_name == 'souffle':
-                        data[key].append(
-                            (graph_size, self.__process_souffle_data(last_line))
-                        )
+                        data[key].append((graph_size, self.__process_souffle_data(last_line)))
                     elif env_name in [
                         'postgres',
                         'mariadb',
                         'duckdb',
                         'cockroachdb',
                     ]:
-                        data[key].append(
-                            (graph_size, self.__process_sql_data(last_line))
-                        )
+                        data[key].append((graph_size, self.__process_sql_data(last_line)))
                     elif env_name == 'mongodb':
-                        data[key].append(
-                            (graph_size, self.__process_mongo_data(last_line))
-                        )
+                        data[key].append((graph_size, self.__process_mongo_data(last_line)))
                     elif env_name == 'neo4j':
-                        data[key].append(
-                            (graph_size, self.__process_neo4j_data(last_line))
-                        )
+                        data[key].append((graph_size, self.__process_neo4j_data(last_line)))
                     elif env_name == 'alda':
-                        data[key].append(
-                            (graph_size, self.__process_alda_data(last_line))
-                        )
+                        data[key].append((graph_size, self.__process_alda_data(last_line)))
             except Exception as e:
                 logging.error(f"Error processing file {csv_file}: {e}")
         self.data = data
@@ -285,18 +264,14 @@ class BaseTableAndPlotGenerator:
             elapsed_time = (float(last_line[0]), float(last_line[1]))
         return {'Overall': elapsed_time}
 
-    def __find_cpu_time(
-        self, key: tuple[str, str, str], size: int, query_type: str
-    ) -> Union[float, None]:
+    def __find_cpu_time(self, key: tuple[str, str, str], size: int, query_type: str) -> Union[float, None]:
         if key in self.data:
             for entry in self.data[key]:
                 if entry[0] == size:
                     return entry[1][query_type][1]
         return None
 
-    def __find_max_cpu_time_across_envs(
-        self, graph_type: str, mode: str, max_x: int
-    ) -> float:
+    def __find_max_cpu_time_across_envs(self, graph_type: str, mode: str, max_x: int) -> float:
         max_cpu_time = 0
         for (_, g_type, m), entries in self.data.items():
             if g_type == graph_type and m == mode:
@@ -306,32 +281,24 @@ class BaseTableAndPlotGenerator:
                         max_cpu_time = max(max_cpu_time, max(cpu_times))
         return max_cpu_time
 
-    def __find_max_real_time(
-        self, env_name: str, graph_type: str, mode: str, max_x: int
-    ) -> float:
+    def __find_max_real_time(self, env_name: str, graph_type: str, mode: str, max_x: int) -> float:
         max_real_time = 0
         num_of_allowed_entries = max_x // 100
         key = (env_name, graph_type, mode)
         if key in self.data:
             for entry in self.data[key]:
                 real_times = [value[0] for value in entry[1].values()]
-                max_real_time = max(
-                    max_real_time, max(real_times[:num_of_allowed_entries])
-                )
+                max_real_time = max(max_real_time, max(real_times[:num_of_allowed_entries]))
         return max_real_time
 
-    def __find_max_real_time_across_envs(
-        self, graph_type: str, mode: str, max_x: int
-    ) -> float:
+    def __find_max_real_time_across_envs(self, graph_type: str, mode: str, max_x: int) -> float:
         max_real_time = 0
         num_of_allowed_entries = max_x // 100
         for (_, g_type, m), entries in self.data.items():
             if g_type == graph_type and m == mode:
                 for entry in entries:
                     real_times = [value[0] for value in entry[1].values()]
-                    max_real_time = max(
-                        max_real_time, max(real_times[:num_of_allowed_entries])
-                    )
+                    max_real_time = max(max_real_time, max(real_times[:num_of_allowed_entries]))
         return max_real_time
 
     @staticmethod
@@ -381,9 +348,7 @@ class BaseTableAndPlotGenerator:
         latex_distributions = ['xelatex', 'pdflatex', 'lualatex']
         for distribution in latex_distributions:
             try:
-                subprocess.run(
-                    ['which', distribution], check=True, stdout=subprocess.DEVNULL
-                )
+                subprocess.run(['which', distribution], check=True, stdout=subprocess.DEVNULL)
                 return distribution
             except subprocess.CalledProcessError:
                 continue
@@ -399,9 +364,7 @@ class BaseTableAndPlotGenerator:
                     check=True,
                 )
             else:
-                subprocess.run(
-                    [latex_distribution, file.name], cwd=directory, check=True
-                )
+                subprocess.run([latex_distribution, file.name], cwd=directory, check=True)
         except subprocess.CalledProcessError as e:
             logging.error(f'Error compiling {file}: {e}')
 
@@ -410,9 +373,7 @@ class BaseTableAndPlotGenerator:
         with open(file_path, 'r', encoding='utf-8') as file:
             return file.read()
 
-    def __extract_axis_content(
-        self, latex_content: str, tool: str, chart_metrics: dict[str, dict[str, Any]]
-    ) -> str:
+    def __extract_axis_content(self, latex_content: str, tool: str, chart_metrics: dict[str, dict[str, Any]]) -> str:
         match = re.search(r'\\begin{axis}.*?\\end{axis}', latex_content, re.DOTALL)
         if match:
             axis_content = match.group(0)
@@ -454,9 +415,7 @@ class BaseTableAndPlotGenerator:
         return ''
 
     @staticmethod
-    def __adjust_axis_content(
-        axis_content: str, tool: str, environments: list[str]
-    ) -> str:
+    def __adjust_axis_content(axis_content: str, tool: str, environments: list[str]) -> str:
 
         axis_content = re.sub(
             r'\\begin{axis}\[',
@@ -523,7 +482,7 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
     ):
         super().__init__(timing_base_dir, pattern, latex_file_dir)
         self.config = config
-        self.environments = config,get('environmentsToCombine', []) if config else envs
+        self.environments = config.get('environmentsToCombine', []) if config else envs
         self.max_x = max_x
         self.charts_metrics = {
             '400': {
@@ -586,16 +545,10 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
             f.write('   width=1.5\\textwidth,\n')
             f.write('   bar width=0.7cm,\n')
             f.write('   ymajorgrids, tick align=inside,\n')
-            f.write(
-                '   major grid style={draw=gray!20},\n'
-                if i == 0
-                else '   major grid style={draw=none},\n'
-            )
+            f.write('   major grid style={draw=gray!20},\n' if i == 0 else '   major grid style={draw=none},\n')
             f.write('   xtick=data,\n')
             f.write(f'   ymin=0, ymax={max_real_time},\n')
-            f.write(
-                '   axis x line*=bottom,\n' if i == 0 else '   axis x line*=none,\n'
-            )
+            f.write('   axis x line*=bottom,\n' if i == 0 else '   axis x line*=none,\n')
             f.write('   axis y line*=left,\n' if i == 0 else '   axis y line*=none,\n')
             f.write('   enlarge x limits=0.1,\n')
             if i == 0:
@@ -625,18 +578,12 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
 
             if i == 0:
                 for entry, color in component_legend_colors:
-                    f.write(
-                        f'\\addlegendimage{{fill={color}, draw=black, line width=0.2pt}}\n'
-                    )
-                    f.write(
-                        f'\\addlegendentry{{{self.component_legend[env_name][entry]}}}\n'
-                    )
+                    f.write(f'\\addlegendimage{{fill={color}, draw=black, line width=0.2pt}}\n')
+                    f.write(f'\\addlegendentry{{{self.component_legend[env_name][entry]}}}\n')
 
             for component in self.components[env_name]:
                 color = self.component_colors[env_name][component]
-                f.write(
-                    f'\\addplot +[fill={color}, draw=black, line width=0.5pt] coordinates {{\n'
-                )
+                f.write(f'\\addplot +[fill={color}, draw=black, line width=0.5pt] coordinates {{\n')
                 for value in values:
                     size_to_plot = value[0]
                     if key[1] in ['cycle_with_shortcuts', 'w', 'y', 'multi_path', 'x']:
@@ -650,9 +597,7 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
 
         f.write('\\end{tikzpicture}\n\n')
 
-    def __generate_latex_for_environment(
-        self, output_dir: Path, env_name: str, compile_alone: bool
-    ) -> None:
+    def __generate_latex_for_environment(self, output_dir: Path, env_name: str, compile_alone: bool) -> None:
         """
         This function generates LaTeX files for a given environment.
 
@@ -678,8 +623,7 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
             return
 
         component_legend_colors = [
-            (component, self.component_colors[env_name][component])
-            for component in reversed(self.components[env_name])
+            (component, self.component_colors[env_name][component]) for component in reversed(self.components[env_name])
         ]
 
         for key, values in self.data.items():
@@ -722,16 +666,12 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
 
         mds = [key[2] for key in self.data if key[0] in environments]
         modes = sorted(list(self._BaseTableAndPlotGenerator__list_to_ordered_set(mds)))
-        sizes = sorted(
-            {entry[0] for entries in self.data.values() for entry in entries}
-        )
+        sizes = sorted({entry[0] for entries in self.data.values() for entry in entries})
 
         for mode in modes:
             with open(file_dir / f'{mode}_tables.tex', 'w') as latex_file:
                 latex_file.write('\\documentclass{article}\n')
-                latex_file.write(
-                    '\\usepackage{booktabs, siunitx, tabularx, adjustbox}\n'
-                )
+                latex_file.write('\\usepackage{booktabs, siunitx, tabularx, adjustbox}\n')
                 latex_file.write('\\usepackage[table]{xcolor}\n')
                 latex_file.write('\\usepackage{geometry}\n')
                 latex_file.write('\\usepackage{caption}\n')
@@ -745,35 +685,23 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
                 latex_file.write('\\rowcolors{4}{gray!15}{white}\n')
                 latex_file.write('\\tiny\n')
                 latex_file.write('\\begin{adjustbox}{max width=\\textwidth}\n')
-                latex_file.write(
-                    '\\begin{tabularx}{1.27\\textwidth}{X'
-                    + ' S' * len(sizes) * 3
-                    + '}\n'
-                )
+                latex_file.write('\\begin{tabularx}{1.27\\textwidth}{X' + ' S' * len(sizes) * 3 + '}\n')
                 latex_file.write('\\toprule\n')
                 latex_file.write('\\rowcolor{gray!20}\n')
                 latex_file.write('\\textbf{Graph Type} ')
                 for size in sizes:
-                    latex_file.write(
-                        f'& \\multicolumn{{3}}{{c}}{{\\textbf{{{size}}}}} '
-                    )
+                    latex_file.write(f'& \\multicolumn{{3}}{{c}}{{\\textbf{{{size}}}}} ')
                 latex_file.write('\\\\\n')
                 latex_file.write('\\cmidrule(lr){2-4} ')
                 for i in range(1, len(sizes)):
                     latex_file.write(f'\\cmidrule(lr){{{3*i+2}-{3*i+4}}} ')
                 latex_file.write('\n')
                 for _ in sizes:
-                    latex_file.write(
-                        '& \\textbf{XSB} & \\textbf{Clingo} & \\textbf{Souffle} '
-                    )
+                    latex_file.write('& \\textbf{XSB} & \\textbf{Clingo} & \\textbf{Souffle} ')
                 latex_file.write('\\\\\n')
                 latex_file.write('\\midrule\n')
 
-                graph_types = set(
-                    key[1]
-                    for key in self.data
-                    if key[2] == mode and key[0] in environments
-                )
+                graph_types = set(key[1] for key in self.data if key[2] == mode and key[0] in environments)
                 for graph_type in sorted(graph_types):
                     latex_file.write(f'{graph_type.replace("_", " ").title()} ')
                     for size in sizes:
@@ -802,9 +730,7 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
 
         self._BaseTableAndPlotGenerator__compile_latex_to_pdf(file_dir)
 
-    def __generate_latex_comparison_charts(
-        self, latex_file_dir: Path, env_name: str, compile_file_alone: bool
-    ) -> None:
+    def __generate_latex_comparison_charts(self, latex_file_dir: Path, env_name: str, compile_file_alone: bool) -> None:
         file_dir = latex_file_dir / 'comparison' / 'charts' / env_name / f'{self.max_x}'
         file_dir.mkdir(exist_ok=True, parents=True)
 
@@ -820,8 +746,7 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
         )
 
         component_legend_colors = [
-            (component, self.component_colors[env_name][component])
-            for component in reversed(self.components[env_name])
+            (component, self.component_colors[env_name][component]) for component in reversed(self.components[env_name])
         ]
 
         bar_width = (600 / self.max_x) if self.max_x > 0 else 0.6
@@ -830,9 +755,7 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
             if compile_file_alone:
                 self._BaseTableAndPlotGenerator__compile_latex_to_pdf(file_dir / mode)
                 return
-            graph_types = set(
-                key[1] for key in self.data if key[2] == mode and key[0] == env_name
-            )
+            graph_types = set(key[1] for key in self.data if key[2] == mode and key[0] == env_name)
             for graph_type in sorted(graph_types):
                 ymax = self._BaseTableAndPlotGenerator__adjust_ymax(
                     self._BaseTableAndPlotGenerator__find_max_cpu_time_across_envs,
@@ -855,9 +778,7 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
                     f.write(f'   ymin=0, ymax={ymax},\n')
                     f.write('   axis x line*=bottom,\n')
                     f.write('   axis y line*=left,\n')
-                    f.write(
-                        f'   enlarge x limits={self.charts_metrics[str(self.max_x)]["xLimits"]},\n'
-                    )
+                    f.write(f'   enlarge x limits={self.charts_metrics[str(self.max_x)]["xLimits"]},\n')
                     f.write('   legend style={\n')
                     if env_name == 'xsb':
                         f.write('       at={(0.23, 0.97)},\n')
@@ -894,23 +815,15 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
                     f.write(']\n')
 
                     for entry, color in component_legend_colors:
-                        f.write(
-                            f'\\addlegendimage{{fill={color}, draw=black, line width=0.2pt}}\n'
-                        )
-                        f.write(
-                            f'\\addlegendentry{{{self.component_legend[env_name][entry]}}}\n'
-                        )
+                        f.write(f'\\addlegendimage{{fill={color}, draw=black, line width=0.2pt}}\n')
+                        f.write(f'\\addlegendentry{{{self.component_legend[env_name][entry]}}}\n')
 
                     for component in self.components[env_name]:
                         color = self.component_colors[env_name][component]
-                        f.write(
-                            f'\\addplot +[fill={color}, draw=black, line width=0.55pt] coordinates {{\n'
-                        )
+                        f.write(f'\\addplot +[fill={color}, draw=black, line width=0.55pt] coordinates {{\n')
                         for size in sizes:
                             key = (env_name, graph_type, mode)
-                            cpu_time = self._BaseTableAndPlotGenerator__find_cpu_time(
-                                key, size, component
-                            )
+                            cpu_time = self._BaseTableAndPlotGenerator__find_cpu_time(key, size, component)
                             size_to_plot = size
                             if graph_type in [
                                 'cycle_with_shortcuts',
@@ -949,14 +862,10 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
         tools = ['xsb', 'clingo', 'souffle']
         axis_contents = []
         for tool in tools:
-            file_path = (
-                directory_path / tool / f'{self.max_x}' / mode / f'{file_name}.tex'
-            )
+            file_path = directory_path / tool / f'{self.max_x}' / mode / f'{file_name}.tex'
             if file_path.exists():
                 logging.info(f"Processing file: {file_path}")
-                latex_content = self._BaseTableAndPlotGenerator__read_latex_content(
-                    file_path
-                )
+                latex_content = self._BaseTableAndPlotGenerator__read_latex_content(file_path)
                 axis_content = self._BaseTableAndPlotGenerator__extract_axis_content(
                     latex_content, tool, self.charts_metrics[str(self.max_x)]
                 )
@@ -968,9 +877,7 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
             return '\n\n'.join(axis_contents) + '\n\n'
         return ''
 
-    def __combine_files_for_comparison(
-        self, directory_path: Path, compile_file_alone: bool
-    ) -> None:
+    def __combine_files_for_comparison(self, directory_path: Path, compile_file_alone: bool) -> None:
         """
         This function combines the axis content from different LaTeX files for comparison.
 
@@ -1009,9 +916,7 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
             else:
 
                 for graph_type in graph_types:
-                    combined_content = self.__combine_files(
-                        directory_path, graph_type, mode
-                    )
+                    combined_content = self.__combine_files(directory_path, graph_type, mode)
                     final_content = f"""
 \\documentclass[border=10pt, 12pt]{{standalone}}
 \\usepackage[svgnames]{{xcolor}}
@@ -1033,9 +938,7 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
 
                     self._BaseTableAndPlotGenerator__format_latex_file(output_file_path)
 
-                    logging.info(
-                        f"Combined LaTeX for {graph_type} in {mode} saved to {output_file_path}"
-                    )
+                    logging.info(f"Combined LaTeX for {graph_type} in {mode} saved to {output_file_path}")
 
                 self._BaseTableAndPlotGenerator__compile_latex_to_pdf(mode_dir)
 
@@ -1057,20 +960,14 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
             #     self.latex_file_dir, env_name, compile_file_alone
             # )
             if env_name != 'alda':
-                self.__generate_latex_comparison_charts(
-                    self.latex_file_dir, env_name, compile_file_alone
-                )
+                self.__generate_latex_comparison_charts(self.latex_file_dir, env_name, compile_file_alone)
         # self.__generate_latex_comparison_tables(self.latex_file_dir)
-        self.__combine_files_for_comparison(
-            self.latex_file_dir / 'comparison' / 'charts', compile_file_alone
-        )
+        self.__combine_files_for_comparison(self.latex_file_dir / 'comparison' / 'charts', compile_file_alone)
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--config', type=str, required=False, help='JSON string of the config'
-    )
+    parser.add_argument('--config', type=str, required=False, help='JSON string of the config')
     parser.add_argument(
         '--environments',
         nargs='+',
@@ -1118,11 +1015,7 @@ def main():
     timing_dir = config.get('timing_dir', args.timing_base_dir)
     timing_base_dir = Path(timing_dir)
     pattern = r'^timing_(.*?)_graph_(\d+)\.csv$'
-    latex_file_dir = Path(
-        f'output_{timing_dir.split("_")[1]}'
-        if len(timing_dir.split("_")) > 1
-        else 'output'
-    )
+    latex_file_dir = Path(f'output_{timing_dir.split("_")[1]}' if len(timing_dir.split("_")) > 1 else 'output')
     latex_file_dir.mkdir(exist_ok=True)
 
     table_plot_generator = TableAndPlotGenerator(

@@ -8,7 +8,7 @@ class MongoDBLeftRecursion(MongoDBOperations):
                 {
                     '$graphLookup': {
                         'from': input_collection,
-                        'startWith': '$y',
+                        'startWith': '$x',
                         'connectFromField': 'y',
                         'connectToField': 'x',
                         'as': 'paths',
@@ -17,10 +17,17 @@ class MongoDBLeftRecursion(MongoDBOperations):
                 },
                 {'$unwind': '$paths'},
                 {
+                    '$project': {
+                        '_id': 0,
+                        'x': '$x',
+                        'y': '$paths.y',
+                    }
+                },
+                {
                     '$group': {
-                        '_id': {'x': '$paths.x', 'y': '$paths.y'},
-                        'x': {'$first': '$paths.x'},
-                        'y': {'$first': '$paths.y'},
+                        '_id': {'x': '$x', 'y': '$y'},
+                        'x': {'$first': '$x'},
+                        'y': {'$first': '$y'},
                     }
                 },
                 {'$project': {'_id': 0, 'x': 1, 'y': 1}},

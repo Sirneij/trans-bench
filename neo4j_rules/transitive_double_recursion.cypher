@@ -1,18 +1,17 @@
 MATCH (n) DETACH DELETE n;
 
 LOAD CSV FROM "file:///{data_file}" AS line FIELDTERMINATOR '\t'
-MERGE (a:Node {x: toInteger(line[0])})
-MERGE (b:Node {y: toInteger(trim(line[1]))})
-CREATE (a)-[:CONNECTED_TO]->(b);
+MERGE (a:Node {id: toInteger(line[0])})
+MERGE (b:Node {id: toInteger(trim(line[1]))})
+CREATE (a)-[:EDGE]->(b);
 
-CREATE INDEX IF NOT EXISTS FOR (n:Node) ON (n.x);
-CREATE INDEX IF NOT EXISTS FOR (n:Node) ON (n.y);
+CREATE INDEX IF NOT EXISTS FOR (n:Node) ON (n.id);
 
-MATCH path = (start:Node)-[:CONNECTED_TO*]->(mid:Node)-[:CONNECTED_TO*]->(end:Node)
-RETURN start.x AS startX, end.y AS endY;
+MATCH (start:Node)-[:EDGE*1..]->(end:Node) 
+RETURN DISTINCT start.id AS x, end.id AS y;
 
 CALL apoc.export.csv.query(
-    "MATCH (start:Node)-[:CONNECTED_TO*]->(mid:Node)-[:CONNECTED_TO*]->(end:Node) RETURN start.x AS startX, end.y AS endY",
+    "MATCH (start:Node)-[:EDGE*1..]->(end:Node) RETURN DISTINCT start.id AS x, end.id AS y",
     "{output_file}",
     {}
 )

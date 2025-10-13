@@ -14,9 +14,7 @@ from neo4j import GraphDatabase
 from pymongo import MongoClient
 
 # Set up logging with a specific format
-logging.basicConfig(
-    level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s')
 
 
 class Base:
@@ -87,39 +85,27 @@ class Base:
 
         return connection_methods[env_name](env_name, rule_path)
 
-    def _connect_duckdb(
-        self, env_name: str, rule_path: Optional[str] = None
-    ) -> duckdb.DuckDBPyConnection:
+    def _connect_duckdb(self, env_name: str, rule_path: Optional[str] = None) -> duckdb.DuckDBPyConnection:
         if rule_path is not None:
             self.db_path = Path(rule_path).parent / env_name / 'duckdb_file.db'
             self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        return duckdb.connect(
-            database=str(self.db_path) if self.db_path else ':memory:'
-        )
+        return duckdb.connect(database=str(self.db_path) if self.db_path else ':memory:')
 
-    def _connect_neo4j(
-        self, env_name: str, rule_path: Optional[str] = None
-    ) -> GraphDatabase.driver:
+    def _connect_neo4j(self, env_name: str, rule_path: Optional[str] = None) -> GraphDatabase.driver:
         return GraphDatabase.driver(
             self.config.get(env_name, {}).get('uri', ''),
             auth=(self.config.get(env_name, {}).get('user', ''), self.config.get(env_name, {}).get('password', '')),
         )
 
-    def _connect_mongodb(
-        self, env_name: str, rule_path: Optional[str] = None
-    ) -> MongoClient:
+    def _connect_mongodb(self, env_name: str, rule_path: Optional[str] = None) -> MongoClient:
         self.driver = MongoClient(self.config.get(env_name, {}).get('uri', ''))
         return self.driver[self.config.get(env_name, {}).get('database', '')]
 
-    def _connect_psycopg2(
-        self, env_name: str, rule_path: Optional[str] = None
-    ) -> psycopg2.extensions.connection:
+    def _connect_psycopg2(self, env_name: str, rule_path: Optional[str] = None) -> psycopg2.extensions.connection:
         logging.info(f"Env: {env_name}")
         return psycopg2.connect(self.config.get(env_name, {}).get('dbURL', ''))
 
-    def _connect_mariadb(
-        self, env_name: str, rule_path: Optional[str] = None
-    ) -> MySQLdb.Connection:
+    def _connect_mariadb(self, env_name: str, rule_path: Optional[str] = None) -> MySQLdb.Connection:
         return MySQLdb.connect(
             db=self.config.get(env_name, {}).get('database', ''),
             user=self.config.get(env_name, {}).get('user', ''),
@@ -148,10 +134,7 @@ class AnalyzeSystems(Base):
 
     def discover_rules(self, rules_dir: Path, extension: str) -> dict[str, Path]:
         """Discovers rule files in a directory and maps rule names to file paths."""
-        return {
-            rule_file.stem.split('_', 1)[-1]: rule_file
-            for rule_file in rules_dir.glob(f'*{extension}')
-        }
+        return {rule_file.stem.split('_', 1)[-1]: rule_file for rule_file in rules_dir.glob(f'*{extension}')}
 
     def estimate_time_duration(self, t1: tuple, t2: tuple) -> tuple[float, float]:
         """Estimates the time duration between two time points."""
@@ -190,9 +173,7 @@ class AnalyzeSystems(Base):
         else:
             return '0,0', {}
 
-    def replace_rule_file_content(
-        self, rule_file: Path, environment: str, queries: str
-    ) -> str | None:
+    def replace_rule_file_content(self, rule_file: Path, environment: str, queries: str) -> str | None:
         """Replaces the content of a rule file for Clingo and Souffle environments and returns a temporary file path."""
 
         def extract_query(queries: str) -> str:
@@ -233,9 +214,7 @@ class AnalyzeSystems(Base):
             raise ValueError(f"Unsupported environment: {environment}")
 
         try:
-            with tempfile.NamedTemporaryFile(
-                delete=False, mode='w', suffix=suffix
-            ) as temp_rule_file:
+            with tempfile.NamedTemporaryFile(delete=False, mode='w', suffix=suffix) as temp_rule_file:
                 temp_rule_file.write(content)
                 temp_rule_file_path = temp_rule_file.name
         except Exception as e:
@@ -264,16 +243,12 @@ class AnalyzeSystems(Base):
         self.output_folder = output_folder
         logging.info(f'Output folder: {self.output_folder}')
 
-    def set_file_paths(
-        self, mode: str, graph_type: str, size: int, timing_dir: str
-    ) -> None:
+    def set_file_paths(self, mode: str, graph_type: str, size: int, timing_dir: str) -> None:
         """Sets the paths for rule file, input file, and timing file."""
         config = self.config.get('defaults', {}).get('systems', {})
         project_root = Path(__file__).parent
         rules_dir = project_root / f'{self.environment}_rules'
-        rule_files = self.discover_rules(
-            rules_dir, config.get('environmentExtensions', {}).get(self.environment, [])
-        )
+        rule_files = self.discover_rules(rules_dir, config.get('environmentExtensions', {}).get(self.environment, []))
 
         if mode not in rule_files:
             logging.error(f'Rule file not found for mode: {mode}')
