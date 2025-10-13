@@ -14,9 +14,7 @@ import clingo
 from common import AnalyzeSystems
 
 # Set up logging with a specific format
-logging.basicConfig(
-    level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s')
 
 
 class AnalyzeLogicSystems(AnalyzeSystems):
@@ -35,27 +33,21 @@ class AnalyzeLogicSystems(AnalyzeSystems):
         """Executes the appropriate solve method based on the environment."""
         solve_method = getattr(self, f'solve_with_{self.environment}', None)
         if solve_method is None:
-            logging.error(
-                f"'{self.environment}' is not supported or method is missing."
-            )
+            logging.error(f"'{self.environment}' is not supported or method is missing.")
             return
         solve_method()
 
     def run_subprocess(self, command: List[str]) -> subprocess.CompletedProcess:
         """Run a subprocess command and return the completed process."""
         logging.info(f'Executing command: {" ".join(command)}')
-        return subprocess.run(
-            command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-        )
+        return subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
     def extract_timing(self, pattern: str, text: str) -> Optional[float]:
         """Extract timing information from text using a regex pattern."""
         match = re.search(pattern, text)
         return float(match.group(1)) if match else None
 
-    def write_to_csv(
-        self, headers: List[str], data: List[Any], file_path: Path
-    ) -> None:
+    def write_to_csv(self, headers: List[str], data: List[Any], file_path: Path) -> None:
         """Write data to a CSV file."""
         is_new_file = not file_path.exists()
         with open(file_path, 'a', newline='') as csvfile:
@@ -114,10 +106,7 @@ class AnalyzeLogicSystems(AnalyzeSystems):
             ('CPUTimeQueryAndWriteTime', outputs[1].stdout),
         ]
 
-        timing_results = [
-            self.extract_timing(rf'{name}:\s+(-?\d+\.\d+(?:e[+-]?\d+)?)', text)
-            for name, text in timings
-        ]
+        timing_results = [self.extract_timing(rf'{name}:\s+(-?\d+\.\d+(?:e[+-]?\d+)?)', text) for name, text in timings]
         write_time = float(timing_results[6]) - float(timing_results[4])
         cpu_write_time = float(timing_results[7]) - float(timing_results[5])
 

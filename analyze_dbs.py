@@ -14,9 +14,7 @@ import pexpect
 from common import AnalyzeSystems
 
 # Set up logging with a specific format
-logging.basicConfig(
-    level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s')
 
 
 class AnalyzeDBs(AnalyzeSystems):
@@ -40,9 +38,7 @@ class AnalyzeDBs(AnalyzeSystems):
         module = importlib.import_module(module_name)
         return getattr(module, class_name)
 
-    def write_timing_results(
-        self, timing_results: Dict[str, float], headers: list[str]
-    ) -> None:
+    def write_timing_results(self, timing_results: Dict[str, float], headers: list[str]) -> None:
         """Write timing results to CSV."""
         is_new_file = not self.timing_path.exists()
         with open(self.timing_path, 'a', newline='') as csvfile:
@@ -56,13 +52,9 @@ class AnalyzeDBs(AnalyzeSystems):
         conn = self.connect_db(self.environment)
         module_name = self.rule_path.stem
         class_name = f'PostgreSQL{module_name.split("_")[1].capitalize()}Recursion'
-        logging.info(
-            f'Executing for PostgreSQL. Module: {module_name}, class: {class_name}'
-        )
+        logging.info(f'Executing for PostgreSQL. Module: {module_name}, class: {class_name}')
 
-        PostgreSQLRecursionClass = self.dynamic_import(
-            f'postgres_rules.{module_name}', class_name
-        )
+        PostgreSQLRecursionClass = self.dynamic_import(f'postgres_rules.{module_name}', class_name)
         postgres_operations = PostgreSQLRecursionClass(self.config, conn)
 
         results_path = self.output_folder / 'postgres_results.csv'
@@ -75,20 +67,18 @@ class AnalyzeDBs(AnalyzeSystems):
                 timing_results['CreateTableCPUTime'],
                 _,
             ) = self.execute_with_timing(postgres_operations.create_tc_path_table)
-            timing_results['LoadDataRealTime'], timing_results['LoadDataCPUTime'], _ = (
-                self.execute_with_timing(
-                    postgres_operations.import_data_from_tsv,
-                    'edge',
-                    f'{self.input_path}',
-                )
+            timing_results['LoadDataRealTime'], timing_results['LoadDataCPUTime'], _ = self.execute_with_timing(
+                postgres_operations.import_data_from_tsv,
+                'edge',
+                f'{self.input_path}',
             )
             (
                 timing_results['CreateIndexRealTime'],
                 timing_results['CreateIndexCPUTime'],
                 _,
             ) = self.execute_with_timing(postgres_operations.create_tc_path_index)
-            timing_results['AnalyzeRealTime'], timing_results['AnalyzeCPUTime'], _ = (
-                self.execute_with_timing(postgres_operations.analyze_tc_path_table)
+            timing_results['AnalyzeRealTime'], timing_results['AnalyzeCPUTime'], _ = self.execute_with_timing(
+                postgres_operations.analyze_tc_path_table
             )
             (
                 timing_results['ExecuteQueryRealTime'],
@@ -99,9 +89,7 @@ class AnalyzeDBs(AnalyzeSystems):
                 timing_results['WriteResultRealTime'],
                 timing_results['WriteResultCPUTime'],
                 _,
-            ) = self.execute_with_timing(
-                postgres_operations.export_transitive_closure_results, results_path
-            )
+            ) = self.execute_with_timing(postgres_operations.export_transitive_closure_results, results_path)
             postgres_operations.drop_tc_path_tc_result_tables()
         except Exception as e:
             logging.error(f'PostgreSQL error: {e}')
@@ -114,13 +102,9 @@ class AnalyzeDBs(AnalyzeSystems):
         conn = self.connect_db(self.environment)
         module_name = self.rule_path.stem
         class_name = f'MariaDB{module_name.split("_")[1].capitalize()}Recursion'
-        logging.info(
-            f'Executing for MariaDB. Module: {module_name}, class: {class_name}'
-        )
+        logging.info(f'Executing for MariaDB. Module: {module_name}, class: {class_name}')
 
-        MariaDBRecursionClass = self.dynamic_import(
-            f'mariadb_rules.{module_name}', class_name
-        )
+        MariaDBRecursionClass = self.dynamic_import(f'mariadb_rules.{module_name}', class_name)
         mariadb_operations = MariaDBRecursionClass(self.config, conn)
 
         results_path = self.output_folder / 'mariadb_results.csv'
@@ -134,20 +118,18 @@ class AnalyzeDBs(AnalyzeSystems):
                 timing_results['CreateTableCPUTime'],
                 _,
             ) = self.execute_with_timing(mariadb_operations.create_tc_path_table)
-            timing_results['LoadDataRealTime'], timing_results['LoadDataCPUTime'], _ = (
-                self.execute_with_timing(
-                    mariadb_operations.import_data_from_file,
-                    'edge',
-                    f'{self.input_path}',
-                )
+            timing_results['LoadDataRealTime'], timing_results['LoadDataCPUTime'], _ = self.execute_with_timing(
+                mariadb_operations.import_data_from_file,
+                'edge',
+                f'{self.input_path}',
             )
             (
                 timing_results['CreateIndexRealTime'],
                 timing_results['CreateIndexCPUTime'],
                 _,
             ) = self.execute_with_timing(mariadb_operations.create_tc_path_index)
-            timing_results['AnalyzeRealTime'], timing_results['AnalyzeCPUTime'], _ = (
-                self.execute_with_timing(mariadb_operations.analyze_tc_path_table)
+            timing_results['AnalyzeRealTime'], timing_results['AnalyzeCPUTime'], _ = self.execute_with_timing(
+                mariadb_operations.analyze_tc_path_table
             )
             (
                 timing_results['ExecuteQueryRealTime'],
@@ -184,11 +166,7 @@ class AnalyzeDBs(AnalyzeSystems):
         sql_script = sql_script.replace('{data_file}', f'{self.input_path}')
         sql_script = sql_script.replace('{output_file}', f'{results_path}')
 
-        sql_commands = [
-            f'{command.strip()};'
-            for command in sql_script.split(';')
-            if command.strip()
-        ]
+        sql_commands = [f'{command.strip()};' for command in sql_script.split(';') if command.strip()]
         timing_results = {header: 0 for header in self.headers_rdbms}
 
         try:
@@ -217,28 +195,28 @@ class AnalyzeDBs(AnalyzeSystems):
         neo4j_import_dir = self.config.get('neo4j', {}).get('import_directory', '')
         fact_file_name = os.path.basename(self.input_path)
 
-        self.run_pexpect_command(
-            f'sudo cp {self.input_path.resolve()} {neo4j_import_dir}/',
-            machine_user_password,
-        )
+        # Use just the filename for Neo4j export (it will write to import directory)
+        export_filename = f'neo4j_export_{os.getpid()}.csv'
+
+        copy_cmd = f'cp {self.input_path.resolve()} {neo4j_import_dir}/'
+        if os.name == 'posix' and 'darwin' in os.uname().sysname.lower():
+            subprocess.run(copy_cmd, shell=True, text=True, capture_output=True, check=True)
+        else:
+            self.run_pexpect_command(f'sudo {copy_cmd}', machine_user_password)
 
         with open(self.rule_path, 'r') as f:
             cypher_script = f.read()
 
         cypher_script = cypher_script.replace('{data_file}', str(fact_file_name))
-        cypher_script = cypher_script.replace(
-            '{output_file}', str(results_path.resolve())
-        )
-        commands = [
-            f'{command.strip()};'
-            for command in cypher_script.split(';')
-            if command.strip()
-        ]
+        # Use just the filename - Neo4j will write to import directory
+        cypher_script = cypher_script.replace('{output_file}', export_filename)
+
+        commands = [f'{command.strip()};' for command in cypher_script.split(';') if command.strip()]
         timing_results = {header: 0 for header in self.headers_neo4j}
 
         session = self.driver.session()
         try:
-
+            # Execute setup commands (DELETE, LOAD CSV, CREATE INDEX)
             for i, command in enumerate(commands[:-2]):
                 (
                     timing_results[self.headers_neo4j[2 * i]],
@@ -246,10 +224,9 @@ class AnalyzeDBs(AnalyzeSystems):
                     _,
                 ) = self.execute_with_timing(session.run, command)
 
-                logging.info(
-                    f'Command: {command}. Time: {self.headers_neo4j[2 * i]}, {self.headers_neo4j[2 * i + 1]}'
-                )
+                logging.info(f'Command: {command}. Time: {self.headers_neo4j[2 * i]}, {self.headers_neo4j[2 * i + 1]}')
 
+            # Execute the transitive closure query (penultimate command)
             query = commands[-2]
             try:
                 (
@@ -257,27 +234,24 @@ class AnalyzeDBs(AnalyzeSystems):
                     timing_results[self.headers_neo4j[-3]],
                     _,
                 ) = self.execute_with_timing(session.run, query)
+                logging.info(f'Query executed: {query}')
             except Exception as e:
                 logging.error(f'Penultimate Neo4J query error: {e}, Query: {query}')
 
-            query = commands[-1]
+            # Execute the export command (last command)
+            export_command = commands[-1]
             try:
                 (
-                    real_total_query_write,
-                    cpu_total_query_write,
+                    timing_results[self.headers_neo4j[-2]],
+                    timing_results[self.headers_neo4j[-1]],
                     result,
-                ) = self.execute_with_timing(session.run, query)
-                timing_results[self.headers_neo4j[-2]] = (
-                    real_total_query_write - timing_results[self.headers_neo4j[-4]]
-                )
-                timing_results[self.headers_neo4j[-1]] = (
-                    cpu_total_query_write - timing_results[self.headers_neo4j[-3]]
-                )
-                logging.info(f'Command and Result Neo4J: {result} from query: {query}')
+                ) = self.execute_with_timing(session.run, export_command)
+
+                logging.info(f'Command and Result Neo4J: {result} from query: {export_command}')
                 for rec in result:
                     logging.info(f'Record: {rec}')
             except Exception as e:
-                logging.error(f'Last Neo4J query error: {e}, Query: {query}')
+                logging.error(f'Last Neo4J export error: {e}, Query: {export_command}')
 
         except Exception as e:
             logging.error(f'Neo4J error: {e}')
@@ -288,21 +262,29 @@ class AnalyzeDBs(AnalyzeSystems):
 
         self.write_timing_results(timing_results, self.headers_neo4j)
 
-        self.run_pexpect_command(
-            f'sudo rm {neo4j_import_dir}/{fact_file_name}', machine_user_password
-        )
+        # Copy the exported file from Neo4j import directory to the desired location
+        export_source = f'{neo4j_import_dir}/{export_filename}'
+        copy_result_cmd = f'cp {export_source} {results_path}'
+        try:
+            subprocess.run(copy_result_cmd, shell=True, text=True, capture_output=True, check=True)
+            logging.info(f'Copied results from {export_source} to {results_path}')
+        except Exception as e:
+            logging.error(f'Error copying Neo4j results: {e}')
+
+        # Clean up files from Neo4j import directory
+        rm_cmd = f'rm {neo4j_import_dir}/{fact_file_name} {export_source}'
+        if os.name == 'posix' and 'darwin' in os.uname().sysname.lower():
+            subprocess.run(rm_cmd, shell=True, text=True, capture_output=True, check=True)
+        else:
+            self.run_pexpect_command(f'sudo {rm_cmd}', machine_user_password)
 
     def solve_with_mongodb(self) -> None:
         db = self.connect_db(self.environment)
         module_name = self.rule_path.stem
         class_name = f'MongoDB{module_name.split("_")[1].capitalize()}Recursion'
-        logging.info(
-            f'Executing for MongoDB. Module: {module_name}, class: {class_name}'
-        )
+        logging.info(f'Executing for MongoDB. Module: {module_name}, class: {class_name}')
 
-        MongoDBRecursionClass = self.dynamic_import(
-            f'mongodb_rules.{module_name}', class_name
-        )
+        MongoDBRecursionClass = self.dynamic_import(f'mongodb_rules.{module_name}', class_name)
         mongo_operations = MongoDBRecursionClass(self.config, db)
 
         results_path = self.output_folder / 'mongodb_results.csv'
@@ -313,13 +295,9 @@ class AnalyzeDBs(AnalyzeSystems):
                 timing_results['CreateTableRealTime'],
                 timing_results['CreateTableCPUTime'],
                 _,
-            ) = self.execute_with_timing(
-                mongo_operations.create_collection, 'edge', 'tc_result'
-            )
-            timing_results['LoadDataRealTime'], timing_results['LoadDataCPUTime'], _ = (
-                self.execute_with_timing(
-                    mongo_operations.insert_data, 'edge', self.input_path
-                )
+            ) = self.execute_with_timing(mongo_operations.create_collection, 'edge', 'tc_result')
+            timing_results['LoadDataRealTime'], timing_results['LoadDataCPUTime'], _ = self.execute_with_timing(
+                mongo_operations.insert_data, 'edge', self.input_path
             )
             (
                 timing_results['CreateIndexRealTime'],
@@ -330,35 +308,25 @@ class AnalyzeDBs(AnalyzeSystems):
                 timing_results['ExecuteQueryRealTime'],
                 timing_results['ExecuteQueryCPUTime'],
                 _,
-            ) = self.execute_with_timing(
-                mongo_operations.recursive_query, 'edge', 'tc_result'
-            )
+            ) = self.execute_with_timing(mongo_operations.recursive_query, 'edge', 'tc_result')
             (
                 timing_results['WriteResultRealTime'],
                 timing_results['WriteResultCPUTime'],
                 _,
-            ) = self.execute_with_timing(
-                mongo_operations.export_to_csv, 'tc_result', results_path
-            )
+            ) = self.execute_with_timing(mongo_operations.export_to_csv, 'tc_result', results_path)
         except Exception as e:
             logging.error(f'MongoDB error: {e}')
 
         self.write_timing_results(timing_results, self.headers_mongodb)
-        logging.info(
-            f'(MongoDB) Experiment timing results saved to: {self.timing_path}'
-        )
+        logging.info(f'(MongoDB) Experiment timing results saved to: {self.timing_path}')
 
     def solve_with_cockroachdb(self) -> None:
         conn = self.connect_db(self.environment)
         module_name = self.rule_path.stem
         class_name = f'CockroachDB{module_name.split("_")[1].capitalize()}Recursion'
-        logging.info(
-            f'Executing for CockroachDB. Module: {module_name}, class: {class_name}'
-        )
+        logging.info(f'Executing for CockroachDB. Module: {module_name}, class: {class_name}')
 
-        CockroachDBRecursionClass = self.dynamic_import(
-            f'cockroachdb_rules.{module_name}', class_name
-        )
+        CockroachDBRecursionClass = self.dynamic_import(f'cockroachdb_rules.{module_name}', class_name)
         cockroachdb_operations = CockroachDBRecursionClass(self.config, conn)
 
         results_path = self.output_folder / 'cockroachdb_results.csv'
@@ -378,10 +346,8 @@ class AnalyzeDBs(AnalyzeSystems):
             subprocess.run(cmd, shell=True, text=True, capture_output=True, check=True)
 
             filename = f'{self.input_path.stem + self.input_path.suffix}'
-            timing_results['LoadDataRealTime'], timing_results['LoadDataCPUTime'], _ = (
-                self.execute_with_timing(
-                    cockroachdb_operations.import_data_from_tsv, 'edge', filename
-                )
+            timing_results['LoadDataRealTime'], timing_results['LoadDataCPUTime'], _ = self.execute_with_timing(
+                cockroachdb_operations.import_data_from_tsv, 'edge', filename
             )
 
             cmd = f'rm -r {external_directory}{filename}'
@@ -392,8 +358,8 @@ class AnalyzeDBs(AnalyzeSystems):
                 timing_results['CreateIndexCPUTime'],
                 _,
             ) = self.execute_with_timing(cockroachdb_operations.create_tc_path_index)
-            timing_results['AnalyzeRealTime'], timing_results['AnalyzeCPUTime'], _ = (
-                self.execute_with_timing(cockroachdb_operations.analyze_tc_path_table)
+            timing_results['AnalyzeRealTime'], timing_results['AnalyzeCPUTime'], _ = self.execute_with_timing(
+                cockroachdb_operations.analyze_tc_path_table
             )
             (
                 timing_results['ExecuteQueryRealTime'],
@@ -404,9 +370,7 @@ class AnalyzeDBs(AnalyzeSystems):
                 timing_results['WriteResultRealTime'],
                 timing_results['WriteResultCPUTime'],
                 _,
-            ) = self.execute_with_timing(
-                cockroachdb_operations.export_transitive_closure_results, results_path
-            )
+            ) = self.execute_with_timing(cockroachdb_operations.export_transitive_closure_results, results_path)
 
             cockroachdb_operations.drop_tc_path_tc_result_tables()
 
@@ -415,9 +379,7 @@ class AnalyzeDBs(AnalyzeSystems):
             logging.info(f'External directory: {external_dir}')
             cp_cmd = f'cp {external_dir} {results_path}'
             rm_cmd = f'rm -rf {external_directory}tmp'
-            subprocess.run(
-                cp_cmd, shell=True, text=True, capture_output=True, check=True
-            )
+            subprocess.run(cp_cmd, shell=True, text=True, capture_output=True, check=True)
             self.run_pexpect_command(rm_cmd, '')
         except Exception as e:
             logging.error(f'CockroachDB error: {e}')
@@ -425,9 +387,7 @@ class AnalyzeDBs(AnalyzeSystems):
             conn.close()
 
         self.write_timing_results(timing_results, self.headers_rdbms)
-        logging.info(
-            f'(CockroachDB) Experiment timing results saved to: {self.timing_path}'
-        )
+        logging.info(f'(CockroachDB) Experiment timing results saved to: {self.timing_path}')
 
     def run_pexpect_command(self, command: str, password: str) -> None:
         """Run a shell command using pexpect with password input."""
@@ -484,9 +444,7 @@ class AnalyzeDBs(AnalyzeSystems):
     def analyze(self) -> None:
         solve_method = getattr(self, f'solve_with_{self.environment}', None)
         if solve_method is None:
-            logging.error(
-                f"'{self.environment}' is not supported or method is missing."
-            )
+            logging.error(f"'{self.environment}' is not supported or method is missing.")
             return
         solve_method()
         self.close()
@@ -494,21 +452,15 @@ class AnalyzeDBs(AnalyzeSystems):
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--config', type=str, required=True, help='JSON string of the config'
-    )
-    parser.add_argument(
-        '--size', type=int, default=100, help='Size of the input graph. Default is 100.'
-    )
+    parser.add_argument('--config', type=str, required=True, help='JSON string of the config')
+    parser.add_argument('--size', type=int, default=100, help='Size of the input graph. Default is 100.')
     parser.add_argument(
         '--mode',
         type=str,
         required=True,
         help='Mode of the rule file to use. Default is right_recursion.',
     )
-    parser.add_argument(
-        '--graph-type', type=str, required=True, help='Type of graph to analyze'
-    )
+    parser.add_argument('--graph-type', type=str, required=True, help='Type of graph to analyze')
     parser.add_argument(
         '--environment',
         required=True,
@@ -519,9 +471,7 @@ def main() -> None:
     config = json.loads(args.config)
 
     analyze_dbs = AnalyzeDBs(config, args.environment)
-    analyze_dbs.set_file_paths(
-        args.mode, args.graph_type, args.size, config.get('timing_dir', 'timing')
-    )
+    analyze_dbs.set_file_paths(args.mode, args.graph_type, args.size, config.get('timing_dir', 'timing'))
     analyze_dbs.set_output_folder()
     analyze_dbs.analyze()
 

@@ -8,9 +8,7 @@ from typing import Any, Union
 
 import pandas as pd
 
-logging.basicConfig(
-    level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s')
 
 ENVIRONMENT_MAPPINGS = {
     'xsb': ('XSB', 'DarkSlateGray'),
@@ -53,9 +51,7 @@ def extract_records(data: Any, sizes_to_analyze: list[int]) -> list[dict]:
 
 def process_data(records: list[dict]) -> pd.DataFrame:
     df = pd.DataFrame(records)
-    unique_df = df.drop_duplicates(
-        subset=['environment', 'graph_type', 'recursion_variant', 'metric_name', 'size']
-    )
+    unique_df = df.drop_duplicates(subset=['environment', 'graph_type', 'recursion_variant', 'metric_name', 'size'])
     return unique_df
 
 
@@ -67,12 +63,10 @@ def analyze_data(unique_df: pd.DataFrame) -> dict:
         group_sorted_by_real_time = group.sort_values(by='real_time')
         group_sorted_by_cpu_time = group.sort_values(by='cpu_time')
         unique_result[name] = {
-            'sorted_by_real_time': group_sorted_by_real_time[
-                ['environment', 'real_time', 'size']
-            ].reset_index(drop=True),
-            'sorted_by_cpu_time': group_sorted_by_cpu_time[
-                ['environment', 'cpu_time', 'size']
-            ].reset_index(drop=True),
+            'sorted_by_real_time': group_sorted_by_real_time[['environment', 'real_time', 'size']].reset_index(
+                drop=True
+            ),
+            'sorted_by_cpu_time': group_sorted_by_cpu_time[['environment', 'cpu_time', 'size']].reset_index(drop=True),
         }
 
     return unique_result
@@ -87,18 +81,10 @@ def calculate_factors(unique_result: dict) -> dict:
         sorted_by_cpu_time = unique_result[key]['sorted_by_cpu_time']
 
         factors_real_time = [None] + (
-            (
-                sorted_by_real_time['real_time'].iloc[1:].values
-                / sorted_by_real_time['real_time'].iloc[:-1].values
-            )
-            * 100
+            (sorted_by_real_time['real_time'].iloc[1:].values / sorted_by_real_time['real_time'].iloc[:-1].values) * 100
         ).tolist()
         factors_cpu_time = [None] + (
-            (
-                sorted_by_cpu_time['cpu_time'].iloc[1:].values
-                / sorted_by_cpu_time['cpu_time'].iloc[:-1].values
-            )
-            * 100
+            (sorted_by_cpu_time['cpu_time'].iloc[1:].values / sorted_by_cpu_time['cpu_time'].iloc[:-1].values) * 100
         ).tolist()
 
         real_time_table = sorted_by_real_time.copy()
@@ -128,9 +114,7 @@ def export_to_csv(final_tables: dict) -> None:
             variant_dir = Path(f"analysis/{graph_type}/{recursion_variant}")
             variant_dir.mkdir(parents=True, exist_ok=True)
 
-            file_path = (
-                variant_dir / f"{recursion_variant}_{graph_type}_{time_type}_times.csv"
-            )
+            file_path = variant_dir / f"{recursion_variant}_{graph_type}_{time_type}_times.csv"
             table.to_csv(file_path, index=False, mode='w', header=True)
 
 
@@ -196,12 +180,8 @@ def create_overall_csvs(unique_result: dict, size: int):
         row_cpu_time = [short_name] + [None] * len(environments)
 
         for i, env in enumerate(environments):
-            real_time_value = sorted_by_real_time.loc[
-                sorted_by_real_time['environment'] == env, 'real_time'
-            ]
-            cpu_time_value = sorted_by_cpu_time.loc[
-                sorted_by_cpu_time['environment'] == env, 'cpu_time'
-            ]
+            real_time_value = sorted_by_real_time.loc[sorted_by_real_time['environment'] == env, 'real_time']
+            cpu_time_value = sorted_by_cpu_time.loc[sorted_by_cpu_time['environment'] == env, 'cpu_time']
             if not real_time_value.empty:
                 row_real_time[i + 1] = real_time_value.values[0]
             if not cpu_time_value.empty:
@@ -237,9 +217,7 @@ def create_overall_csvs(unique_result: dict, size: int):
             key=lambda x: graph_names_order.index(x[0]),
         )
 
-        df_real_time = pd.DataFrame(
-            [row for _, row in real_time_sorted], columns=columns
-        )
+        df_real_time = pd.DataFrame([row for _, row in real_time_sorted], columns=columns)
         df_cpu_time = pd.DataFrame([row for _, row in cpu_time_sorted], columns=columns)
 
         overall_dir = Path(f'analysis/overall/{recursion_variant}')
@@ -309,9 +287,7 @@ def find_latex_distribution() -> Union[str, None]:
     latex_distributions = ['xelatex', 'pdflatex', 'lualatex']
     for distribution in latex_distributions:
         try:
-            subprocess.run(
-                ['which', distribution], check=True, stdout=subprocess.DEVNULL
-            )
+            subprocess.run(['which', distribution], check=True, stdout=subprocess.DEVNULL)
             return distribution
         except subprocess.CalledProcessError:
             continue
@@ -332,9 +308,7 @@ def compile_file(file: Path, latex_distribution: str, directory: Path) -> None:
         logging.error(f'Error compiling {file}: {e}')
 
 
-def create_latex_table(
-    df: pd.DataFrame, file_path: Path, caption: str = '', label: str = ''
-):
+def create_latex_table(df: pd.DataFrame, file_path: Path, caption: str = '', label: str = ''):
     def format_cell(cell):
         # Use regular expression to find sequences before '_'
         formatted_cell = re.sub(r'([^_]+)(?=_)', r'\\text{\1}', cell)
@@ -371,11 +345,7 @@ def generate_pgfplots(
     plot_lines = ''
     for env_key, (env_name, color) in ENVIRONMENT_MAPPINGS.items():
         # Exclude mariadb for complete graph type and real_time
-        if (
-            graph_type in ['complete', 'max_acyclic']
-            and time_type == 'real_time'
-            and env_key == 'mariadb'
-        ):
+        if graph_type in ['complete', 'max_acyclic'] and time_type == 'real_time' and env_key == 'mariadb':
             continue
 
         # Check if time_type is 'cpu_time' and filter environments accordingly
@@ -384,10 +354,7 @@ def generate_pgfplots(
 
         if env_key in data['environment'].unique():
             env_data = data[data['environment'] == env_key].sort_values(by='size')
-            coordinates = " ".join(
-                f"({size},{y})"
-                for size, y in zip(env_data['size'], env_data[time_type])
-            )
+            coordinates = " ".join(f"({size},{y})" for size, y in zip(env_data['size'], env_data[time_type]))
             plot_lines += f"\\addplot+[{color}, mark options={{color={color}}}] coordinates {{{coordinates}}};\n"
             plot_lines += f"\\addlegendentry{{{env_name}}}\n"
 
@@ -417,9 +384,7 @@ def generate_pgfplots(
 
 
 def create_overall_latex_plots(unique_result: dict, sizes_to_analyze: list[int]):
-    logging.info(
-        f'Creating overall LaTeX plots. Unique result keys: {unique_result.keys()}'
-    )
+    logging.info(f'Creating overall LaTeX plots. Unique result keys: {unique_result.keys()}')
     base_dir = Path('analysis/overall/charts')
     base_dir.mkdir(parents=True, exist_ok=True)
     for _ in sizes_to_analyze:
@@ -439,16 +404,13 @@ def create_overall_latex_plots(unique_result: dict, sizes_to_analyze: list[int])
                     )
                 max_y_value = all_data[time_type].max()
                 data = results[f'sorted_by_{time_type}']
-                tex_code = generate_pgfplots(
-                    data, graph_type, recursion_variant, time_type, max_y_value
-                )
+                tex_code = generate_pgfplots(data, graph_type, recursion_variant, time_type, max_y_value)
 
                 output_dir = base_dir / graph_type / recursion_variant
                 output_dir.mkdir(parents=True, exist_ok=True)
 
                 with open(
-                    output_dir
-                    / f'{recursion_variant}_{graph_type}_{time_type}_times.tex',
+                    output_dir / f'{recursion_variant}_{graph_type}_{time_type}_times.tex',
                     'w',
                 ) as f:
                     f.write(tex_code)
