@@ -9,13 +9,13 @@
 \begin{document}
 \begin{tikzpicture}
     \begin{axis}[
-        title={Graph: Cycle With Shortcuts, Recursion: Right Recursion},
+        title={Graph: Cycle With Shortcuts},
         xlabel={Number of nodes},
         ylabel={CPU time (s)},
         legend pos={north west},
-        ymax=0.7113491999999999
+        ymax=0.7310082
     ]
-    \addplot+[DarkSlateGray, mark options={color=DarkSlateGray}] coordinates {(100,0.0066012) (200,0.0283024) (300,0.06294380000000001) (400,0.112256) (500,0.17993739999999997) (600,0.24971359999999998) (700,0.3420944) (800,0.4420364) (900,0.6031726000000001) (1000,0.7113491999999999)};
+    \addplot+[DarkSlateGray, mark options={color=DarkSlateGray}] coordinates {(100,0.006647600000000001) (200,0.028298200000000003) (300,0.06300460000000001) (400,0.1113696) (500,0.1786858) (600,0.2549788) (700,0.34303999999999996) (800,0.4442016) (900,0.6097274) (1000,0.7310082)};
 \addlegendentry{XSB}
 \addplot+[Gold, mark options={color=Gold}] coordinates {(100,0.007993400000000006) (200,0.023313800000000006) (300,0.045193800000000006) (400,0.0814576) (500,0.0947856) (600,0.16655539999999996) (700,0.2222962) (800,0.21060820000000002) (900,0.3854028) (1000,0.38932700000000003)};
 \addlegendentry{DuckDB}

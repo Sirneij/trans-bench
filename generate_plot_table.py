@@ -159,6 +159,8 @@ class BaseTableAndPlotGenerator:
                 parts = csv_file.parts
                 env_name, graph_type = parts[-3], parts[-2]
                 mode, graph_size = re.match(self.pattern, csv_file.name).groups()
+                if mode in getattr(self, 'exclude_modes', ['double_recursion']):
+                    continue
                 graph_size = int(graph_size)
 
                 key = (env_name, graph_type, mode)
@@ -952,17 +954,17 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
         The function first collects the timing data using the collect_data function. It then iterates over the environments and generates LaTeX files for each environment using the generate_latex_for_environment function. If the environment is not 'alda', it generates LaTeX comparison charts using the generate_latex_comparison_charts function. Finally, it generates LaTeX comparison tables using the generate_latex_comparison_tables function and combines the files for comparison using the combine_files_for_comparison function.
         """
         self.collect_data()
-        # with open('data.txt', 'w') as f:
-        #     f.write(f'{self.data}')
-        environments = ['xsb', 'clingo', 'souffle']
-        for env_name in environments:
-            # self.__generate_latex_for_environment(
-            #     self.latex_file_dir, env_name, compile_file_alone
-            # )
-            if env_name != 'alda':
-                self.__generate_latex_comparison_charts(self.latex_file_dir, env_name, compile_file_alone)
-        # self.__generate_latex_comparison_tables(self.latex_file_dir)
-        self.__combine_files_for_comparison(self.latex_file_dir / 'comparison' / 'charts', compile_file_alone)
+        with open('data.txt', 'w') as f:
+            f.write(f'{self.data}')
+        # environments = ['xsb', 'clingo', 'souffle']
+        # for env_name in environments:
+        #     # self.__generate_latex_for_environment(
+        #     #     self.latex_file_dir, env_name, compile_file_alone
+        #     # )
+        #     if env_name != 'alda':
+        #         self.__generate_latex_comparison_charts(self.latex_file_dir, env_name, compile_file_alone)
+        # # self.__generate_latex_comparison_tables(self.latex_file_dir)
+        # self.__combine_files_for_comparison(self.latex_file_dir / 'comparison' / 'charts', compile_file_alone)
 
 
 def main():
@@ -1003,6 +1005,12 @@ def main():
         help='Base directory for timing',
         default='timing',
     )
+    parser.add_argument(
+        '--exclude-modes',
+        nargs='+',
+        default=['double_recursion'],
+        help='Modes to exclude from processing',
+    )
     args = parser.parse_args()
 
     if args.config and os.path.isfile(args.config):
@@ -1026,6 +1034,7 @@ def main():
         args.environments,
         args.max_x_axis,
     )
+    table_plot_generator.exclude_modes = args.exclude_modes  # Add this attribute
     table_plot_generator.generate_plot_table(args.compile_latex)
 
 

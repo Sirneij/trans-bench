@@ -9,16 +9,16 @@
 \begin{document}
 \begin{tikzpicture}
     \begin{axis}[
-        title={Graph: Cycle, Recursion: Right Recursion},
+        title={Graph: Cycle},
         xlabel={Number of nodes},
         ylabel={CPU time (s)},
         legend pos={north west},
         ymax=0.5138366
     ]
-    \addplot+[DarkSlateGray, mark options={color=DarkSlateGray}] coordinates {(100,0.0008591999999999999) (200,0.0033155999999999997) (300,0.0076678) (400,0.013547399999999998) (500,0.021073799999999997) (600,0.0310408) (700,0.0421762) (800,0.054642800000000005) (900,0.0684424) (1000,0.0841756)};
-\addlegendentry{XSB}
-\addplot+[Gold, mark options={color=Gold}] coordinates {(100,0.022723400000000005) (200,0.05644439999999999) (300,0.0800872) (400,0.10373999999999999) (500,0.13933559999999998) (600,0.16890080000000002) (700,0.1998508) (800,0.37185100000000004) (900,0.32963739999999997) (1000,0.5138366)};
+    \addplot+[Gold, mark options={color=Gold}] coordinates {(100,0.022723400000000005) (200,0.05644439999999999) (300,0.0800872) (400,0.10373999999999999) (500,0.13933559999999998) (600,0.16890080000000002) (700,0.1998508) (800,0.37185100000000004) (900,0.32963739999999997) (1000,0.5138366)};
 \addlegendentry{DuckDB}
+\addplot+[DarkSlateGray, mark options={color=DarkSlateGray}] coordinates {(100,0.000858) (200,0.0033363999999999998) (300,0.007694000000000001) (400,0.0134796) (500,0.020850399999999998) (600,0.030853399999999996) (700,0.0417688) (800,0.0539686) (900,0.0676534) (1000,0.0839126)};
+\addlegendentry{XSB}
 
     \end{axis}
 \end{tikzpicture}

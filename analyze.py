@@ -176,6 +176,14 @@ def create_overall_csvs(unique_result: dict, size: int):
         sorted_by_real_time = results['sorted_by_real_time']
         sorted_by_cpu_time = results['sorted_by_cpu_time']
 
+        # Filter by the specific size
+        sorted_by_real_time = sorted_by_real_time[sorted_by_real_time['size'] == size]
+        sorted_by_cpu_time = sorted_by_cpu_time[sorted_by_cpu_time['size'] == size]
+
+        # Skip if no data for this size
+        if sorted_by_real_time.empty or sorted_by_cpu_time.empty:
+            continue
+
         row_real_time = [short_name] + [None] * len(environments)
         row_cpu_time = [short_name] + [None] * len(environments)
 
@@ -189,6 +197,7 @@ def create_overall_csvs(unique_result: dict, size: int):
 
         overall_data[recursion_variant]['real_time'].append((graph_type, row_real_time))
         overall_data[recursion_variant]['cpu_time'].append((graph_type, row_cpu_time))
+
 
     columns = ['Graph type'] + [ENVIRONMENT_MAPPINGS[env][0] for env in environments]
 
@@ -342,7 +351,9 @@ def generate_pgfplots(
     time_type: str,
     max_y_value: float,
 ) -> str:
-    plot_lines = ''
+    # Collect environment data and performance metrics
+    env_performance = []
+    
     for env_key, (env_name, color) in ENVIRONMENT_MAPPINGS.items():
         # Exclude mariadb for complete graph type and real_time
         if graph_type in ['complete', 'max_acyclic'] and time_type == 'real_time' and env_key == 'mariadb':
@@ -354,9 +365,19 @@ def generate_pgfplots(
 
         if env_key in data['environment'].unique():
             env_data = data[data['environment'] == env_key].sort_values(by='size')
-            coordinates = " ".join(f"({size},{y})" for size, y in zip(env_data['size'], env_data[time_type]))
-            plot_lines += f"\\addplot+[{color}, mark options={{color={color}}}] coordinates {{{coordinates}}};\n"
-            plot_lines += f"\\addlegendentry{{{env_name}}}\n"
+            # Calculate average performance for sorting (you can also use max, min, or final value)
+            avg_performance = env_data[time_type].mean()
+            env_performance.append((env_key, env_name, color, env_data, avg_performance))
+    
+    # Sort by performance (fastest first - lower times are better)
+    env_performance.sort(key=lambda x: x[4], reverse=True)
+    
+    # Generate plot lines in performance order
+    plot_lines = ''
+    for env_key, env_name, color, env_data, _ in env_performance:
+        coordinates = " ".join(f"({size},{y})" for size, y in zip(env_data['size'], env_data[time_type]))
+        plot_lines += f"\\addplot+[{color}, mark options={{color={color}}}] coordinates {{{coordinates}}};\n"
+        plot_lines += f"\\addlegendentry{{{env_name}}}\n"
 
     tex_code = f"""
 \\documentclass{{standalone}}
@@ -369,7 +390,7 @@ def generate_pgfplots(
 \\begin{{document}}
 \\begin{{tikzpicture}}
     \\begin{{axis}}[
-        title={{Graph: {transform_text(graph_type)}, Recursion: {transform_text(recursion_variant)}}},
+        title={{Graph: {transform_text(graph_type)}}},
         xlabel={{Number of nodes}},
         ylabel={{{transform_text(time_type)} (s)}},
         legend pos={{north west}},
@@ -380,6 +401,7 @@ def generate_pgfplots(
 \\end{{tikzpicture}}
 \\end{{document}}
 """
+    # title={{Graph: {transform_text(graph_type)}, Recursion: {transform_text(recursion_variant)}}}
     return tex_code
 
 
@@ -390,19 +412,29 @@ def create_overall_latex_plots(unique_result: dict, sizes_to_analyze: list[int])
     for _ in sizes_to_analyze:
         for (graph_type, recursion_variant), results in unique_result.items():
             for time_type in ['real_time', 'cpu_time']:
-                if graph_type in ['complete', 'max_acyclic']:
-                    all_data = pd.concat(
-                        result[f'sorted_by_{time_type}']
-                        for key, result in unique_result.items()
-                        if key[0] == graph_type and 'mariadb' not in key
-                    )
+                # Get all data for this graph type to calculate max_y_value
+                all_data_list = []
+                for key, result in unique_result.items():
+                    if key[0] == graph_type:
+                        df = result[f'sorted_by_{time_type}']
+                        # Filter to only include environments that are in ENVIRONMENT_MAPPINGS
+                        df_filtered = df[df['environment'].isin(ENVIRONMENT_MAPPINGS.keys())]
+                        
+                        # Additional filtering for specific graph types and time types
+                        if graph_type in ['complete', 'max_acyclic'] and time_type == 'real_time':
+                            df_filtered = df_filtered[df_filtered['environment'] != 'mariadb']
+                        
+                        if time_type == 'cpu_time':
+                            df_filtered = df_filtered[df_filtered['environment'].isin(['xsb', 'duckdb'])]
+                        
+                        all_data_list.append(df_filtered)
+                
+                if all_data_list:
+                    all_data = pd.concat(all_data_list)
+                    max_y_value = all_data[time_type].max()
                 else:
-                    all_data = pd.concat(
-                        result[f'sorted_by_{time_type}']
-                        for key, result in unique_result.items()
-                        if key[0] == graph_type
-                    )
-                max_y_value = all_data[time_type].max()
+                    max_y_value = 1.0  # Default fallback
+                
                 data = results[f'sorted_by_{time_type}']
                 tex_code = generate_pgfplots(data, graph_type, recursion_variant, time_type, max_y_value)
 
@@ -418,6 +450,7 @@ def create_overall_latex_plots(unique_result: dict, sizes_to_analyze: list[int])
                 compile_latex_to_pdf(output_dir)
 
 
+
 def main(file_path: str, sizes_to_analyze: list[int]):
     data = load_data(file_path)
     records = extract_records(data, sizes_to_analyze)
@@ -428,13 +461,13 @@ def main(file_path: str, sizes_to_analyze: list[int]):
     for size in sizes_to_analyze:
         create_overall_csvs(unique_result, size)
 
-    # create_overall_latex_plots(unique_result, sizes_to_analyze)
+    create_overall_latex_plots(unique_result, sizes_to_analyze)
 
 
 def run_main():
     file_path = 'data.txt'
-    # sizes_to_analyze = [i for i in range(100, 1001, 100)]
-    sizes_to_analyze = [1000]
+    sizes_to_analyze = [i for i in range(100, 1001, 100)]
+    # sizes_to_analyze = [1000]
     main(file_path, sizes_to_analyze)
 
 

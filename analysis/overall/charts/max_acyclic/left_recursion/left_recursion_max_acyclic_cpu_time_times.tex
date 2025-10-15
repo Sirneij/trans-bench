@@ -9,13 +9,13 @@
 \begin{document}
 \begin{tikzpicture}
     \begin{axis}[
-        title={Graph: Max Acyclic, Recursion: Left Recursion},
+        title={Graph: Max Acyclic},
         xlabel={Number of nodes},
         ylabel={CPU time (s)},
         legend pos={north west},
-        ymax=7.8192784
+        ymax=7.883575800000001
     ]
-    \addplot+[DarkSlateGray, mark options={color=DarkSlateGray}] coordinates {(100,0.0052846) (200,0.041338599999999996) (300,0.1381908) (400,0.3210702) (500,0.627409) (600,1.0679424) (700,1.7021162) (800,2.5503464) (900,3.6513890000000004) (1000,5.0211950000000005)};
+    \addplot+[DarkSlateGray, mark options={color=DarkSlateGray}] coordinates {(100,0.00546) (200,0.041587799999999994) (300,0.1367956) (400,0.32369259999999994) (500,0.6321004) (600,1.0775756) (700,1.725069) (800,2.5780466) (900,3.6796127999999997) (1000,5.046770199999999)};
 \addlegendentry{XSB}
 \addplot+[Gold, mark options={color=Gold}] coordinates {(100,0.00514199999999998) (200,0.018270999999999992) (300,0.08007339999999999) (400,0.18168) (500,0.2448524) (600,0.5141444) (700,1.1049226) (800,1.5963192000000002) (900,2.5676408000000004) (1000,2.8992233999999995)};
 \addlegendentry{DuckDB}

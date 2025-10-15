@@ -54,12 +54,22 @@ class MongoDBOperations(Base):
 
     def export_to_csv(self, collection_name, output_file):
         collection = self.db[collection_name]
-        cursor = collection.find({}, {'_id': 0})
+        cursor = collection.find({}, {'_id': 0}).batch_size(1000)
+        
         try:
             with open(output_file, 'w', newline='') as f:
                 writer = csv.writer(f)
                 writer.writerow(['x', 'y'])
-                writer.writerow([[document['x'], document['y']] for document in cursor])
-
+                
+                batch = []
+                for document in cursor:
+                    batch.append([document['x'], document['y']])
+                    if len(batch) >= 1000:
+                        writer.writerows(batch)
+                        batch = []
+                
+                if batch:
+                    writer.writerows(batch)
+                    
         except Exception as e:
             logging.error(f"An error occurred while writing to CSV: {e}")

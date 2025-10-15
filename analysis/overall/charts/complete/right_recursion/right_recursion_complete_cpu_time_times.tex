@@ -9,13 +9,13 @@
 \begin{document}
 \begin{tikzpicture}
     \begin{axis}[
-        title={Graph: Complete, Recursion: Right Recursion},
+        title={Graph: Complete},
         xlabel={Number of nodes},
         ylabel={CPU time (s)},
         legend pos={north west},
-        ymax=50.7736944
+        ymax=50.868073599999995
     ]
-    \addplot+[DarkSlateGray, mark options={color=DarkSlateGray}] coordinates {(100,0.0515066) (200,0.4160838) (300,1.3963066000000002) (400,3.2791498000000003) (500,6.4285584) (600,10.8877858) (700,17.2328824) (800,25.8802188) (900,36.9547786) (1000,50.7736944)};
+    \addplot+[DarkSlateGray, mark options={color=DarkSlateGray}] coordinates {(100,0.049724399999999995) (200,0.4057604) (300,1.3973334) (400,3.2832036) (500,6.443149) (600,10.820947799999999) (700,17.2542082) (800,25.908335) (900,36.966672599999995) (1000,50.868073599999995)};
 \addlegendentry{XSB}
 \addplot+[Gold, mark options={color=Gold}] coordinates {(100,0.018668000000000008) (200,0.15802120000000003) (300,0.31717880000000004) (400,1.04523) (500,2.6549368) (600,3.5925121999999994) (700,7.0471037999999995) (800,10.917373399999999) (900,12.5320352) (1000,17.6749464)};
 \addlegendentry{DuckDB}
