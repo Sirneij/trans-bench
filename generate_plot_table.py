@@ -533,6 +533,26 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
             `component_legend_colors (list[tuple[str, str]])`: A list of tuples containing the component name and color.
             `max_real_time (float)`: The maximum real-time value.
         """
+        # Determine scale factor based on max_real_time
+        scale_factor = 1
+        ylabel = 'Time (seconds)'
+        if max_real_time > 10000:
+            scale_factor = 1000
+            ylabel = 'Time (seconds) $\\times 10^3$'
+            max_real_time = max_real_time / scale_factor
+        elif max_real_time > 1000:
+            scale_factor = 100
+            ylabel = 'Time (centiseconds)'
+            max_real_time = max_real_time / scale_factor
+
+        # Determine xlabel based on graph type
+        if key[1] in ['binary_tree', 'reverse_binary_tree']:
+            xlabel = 'Number of nodes ($h=\\log_2 n$)'
+        elif key[1] in ['cycle_with_shortcuts', 'w', 'y', 'x', 'multi_path']:
+            xlabel = 'Number of nodes ($n \\times k$, $k=10$)'
+        else:
+            xlabel = 'Number of nodes'
+
         f.write('\\begin{tikzpicture}\n')
         for i in range(2):
             f.write('\\begin{axis}[\n')
@@ -560,20 +580,8 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
                 f.write('       legend columns=1,\n')
                 f.write('       font=\\Huge,\n')
                 f.write('   },\n')
-                f.write('   ylabel={Time (seconds)},\n')
-                if key[1] in [
-                    'complete',
-                    'cycle',
-                    'max_acyclic',
-                    'grid',
-                    'path',
-                    'star',
-                ]:
-                    f.write('   xlabel={Number of nodes},\n')
-                elif key[1] in ['cycle_with_shortcuts', 'w', 'y', 'multi_path']:
-                    f.write('   xlabel={Number of nodes $\\times 10$},\n')
-                elif key[1] in ['binary_tree', 'reverse_binary_tree']:
-                    f.write('   xlabel={Height of the tree},\n')
+                f.write(f'   ylabel={{{ylabel}}},\n')
+                f.write(f'   xlabel={{{xlabel}}},\n')
             f.write('   label style={font=\\Huge},\n')
             f.write('   tick label style={font=\\Huge},\n')
             f.write(']\n')
@@ -587,12 +595,11 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
                 color = self.component_colors[env_name][component]
                 f.write(f'\\addplot +[fill={color}, draw=black, line width=0.5pt] coordinates {{\n')
                 for value in values:
+                    # Use actual size for x-axis regardless of graph type
                     size_to_plot = value[0]
-                    if key[1] in ['cycle_with_shortcuts', 'w', 'y', 'multi_path', 'x']:
-                        size_to_plot *= 10
-                    elif key[1] in ['binary_tree', 'reverse_binary_tree']:
-                        size_to_plot = math.floor(math.log2(value[0]))
-                    f.write(f'    ({size_to_plot}, {value[1][component][i]})\n')
+                    # Apply scale factor to time values
+                    time_value = value[1][component][i] / scale_factor
+                    f.write(f'    ({size_to_plot}, {time_value})\n')
                 f.write('};\n')
 
             f.write('\\end{axis}\n')
@@ -763,6 +770,27 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
                     self._BaseTableAndPlotGenerator__find_max_cpu_time_across_envs,
                     (graph_type, 'double_recursion', self.max_x),
                 )
+
+                # Determine scale factor based on ymax
+                scale_factor = 1
+                ylabel = 'CPU Time (seconds)'
+                if ymax > 10000:
+                    scale_factor = 1000
+                    ylabel = 'CPU Time (seconds) $\\times 10^3$'
+                    ymax = ymax / scale_factor
+                elif ymax > 1000:
+                    scale_factor = 100
+                    ylabel = 'CPU Time (centiseconds)'
+                    ymax = ymax / scale_factor
+
+                # Determine xlabel based on graph type
+                if graph_type in ['binary_tree', 'reverse_binary_tree']:
+                    xlabel = 'Number of nodes ($h=\\log_2 n$)'
+                elif graph_type in ['cycle_with_shortcuts', 'w', 'y', 'x', 'multi_path']:
+                    xlabel = 'Number of nodes ($n \\times k$, $k=10$)'
+                else:
+                    xlabel = 'Number of nodes'
+
                 file_folder = file_dir / mode
                 file_folder.mkdir(exist_ok=True, parents=True)
                 file_path = file_folder / f'{graph_type}.tex'
@@ -792,26 +820,8 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
                     f.write('       legend columns=1,\n')
                     f.write('       font=\\Huge,\n')
                     f.write('   },\n')
-                    f.write('   ylabel={CPU Time (seconds)},\n')
-                    if graph_type in [
-                        'complete',
-                        'cycle',
-                        'max_acyclic',
-                        'grid',
-                        'path',
-                        'star',
-                    ]:
-                        f.write('   xlabel={Number of nodes},\n')
-                    elif graph_type in [
-                        'cycle_with_shortcuts',
-                        'w',
-                        'y',
-                        'x',
-                        'multi_path',
-                    ]:
-                        f.write('   xlabel={Number of nodes $\\times k=10$},\n')
-                    elif graph_type in ['binary_tree', 'reverse_binary_tree']:
-                        f.write('   xlabel={Height of the tree},\n')
+                    f.write(f'   ylabel={{{ylabel}}},\n')
+                    f.write(f'   xlabel={{{xlabel}}},\n')
                     f.write('   label style={font=\\Huge},\n')
                     f.write('   tick label style={font=\\Huge},\n')
                     f.write(']\n')
@@ -826,18 +836,12 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
                         for size in sizes:
                             key = (env_name, graph_type, mode)
                             cpu_time = self._BaseTableAndPlotGenerator__find_cpu_time(key, size, component)
-                            size_to_plot = size
-                            if graph_type in [
-                                'cycle_with_shortcuts',
-                                'w',
-                                'y',
-                                'multi_path',
-                                'x',
-                            ]:
-                                size_to_plot = size * 10
-                            elif graph_type in ['binary_tree', 'reverse_binary_tree']:
-                                size_to_plot = math.floor(math.log2(size))
-                            f.write(f'({size_to_plot}, {cpu_time})\n')
+                            if cpu_time is not None:
+                                cpu_time = cpu_time / scale_factor
+                            else:
+                                cpu_time = 0
+                            # Use actual size for x-axis regardless of graph type
+                            f.write(f'({size}, {cpu_time})\n')
                         f.write('};\n')
                     f.write('\\end{axis}\n')
                     f.write('\\end{tikzpicture}\n\n')
@@ -956,15 +960,15 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
         self.collect_data()
         with open('data.txt', 'w') as f:
             f.write(f'{self.data}')
-        # environments = ['xsb', 'clingo', 'souffle']
-        # for env_name in environments:
-        #     # self.__generate_latex_for_environment(
-        #     #     self.latex_file_dir, env_name, compile_file_alone
-        #     # )
-        #     if env_name != 'alda':
-        #         self.__generate_latex_comparison_charts(self.latex_file_dir, env_name, compile_file_alone)
-        # # self.__generate_latex_comparison_tables(self.latex_file_dir)
-        # self.__combine_files_for_comparison(self.latex_file_dir / 'comparison' / 'charts', compile_file_alone)
+        environments = ['xsb', 'clingo', 'souffle']
+        for env_name in environments:
+            # self.__generate_latex_for_environment(
+            #     self.latex_file_dir, env_name, compile_file_alone
+            # )
+            if env_name != 'alda':
+                self.__generate_latex_comparison_charts(self.latex_file_dir, env_name, compile_file_alone)
+        # self.__generate_latex_comparison_tables(self.latex_file_dir)
+        self.__combine_files_for_comparison(self.latex_file_dir / 'comparison' / 'charts', compile_file_alone)
 
 
 def main():
@@ -1007,7 +1011,7 @@ def main():
     )
     parser.add_argument(
         '--exclude-modes',
-        nargs='+',
+        nargs='*',  # Changed from '+' to '*' to allow zero arguments
         default=['double_recursion'],
         help='Modes to exclude from processing',
     )

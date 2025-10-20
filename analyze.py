@@ -198,7 +198,6 @@ def create_overall_csvs(unique_result: dict, size: int):
         overall_data[recursion_variant]['real_time'].append((graph_type, row_real_time))
         overall_data[recursion_variant]['cpu_time'].append((graph_type, row_cpu_time))
 
-
     columns = ['Graph type'] + [ENVIRONMENT_MAPPINGS[env][0] for env in environments]
 
     captions = {
@@ -353,7 +352,7 @@ def generate_pgfplots(
 ) -> str:
     # Collect environment data and performance metrics
     env_performance = []
-    
+
     for env_key, (env_name, color) in ENVIRONMENT_MAPPINGS.items():
         # Exclude mariadb for complete graph type and real_time
         if graph_type in ['complete', 'max_acyclic'] and time_type == 'real_time' and env_key == 'mariadb':
@@ -368,10 +367,10 @@ def generate_pgfplots(
             # Calculate average performance for sorting (you can also use max, min, or final value)
             avg_performance = env_data[time_type].mean()
             env_performance.append((env_key, env_name, color, env_data, avg_performance))
-    
+
     # Sort by performance (fastest first - lower times are better)
     env_performance.sort(key=lambda x: x[4], reverse=True)
-    
+
     # Generate plot lines in performance order
     plot_lines = ''
     for env_key, env_name, color, env_data, _ in env_performance:
@@ -419,22 +418,22 @@ def create_overall_latex_plots(unique_result: dict, sizes_to_analyze: list[int])
                         df = result[f'sorted_by_{time_type}']
                         # Filter to only include environments that are in ENVIRONMENT_MAPPINGS
                         df_filtered = df[df['environment'].isin(ENVIRONMENT_MAPPINGS.keys())]
-                        
+
                         # Additional filtering for specific graph types and time types
                         if graph_type in ['complete', 'max_acyclic'] and time_type == 'real_time':
                             df_filtered = df_filtered[df_filtered['environment'] != 'mariadb']
-                        
+
                         if time_type == 'cpu_time':
                             df_filtered = df_filtered[df_filtered['environment'].isin(['xsb', 'duckdb'])]
-                        
+
                         all_data_list.append(df_filtered)
-                
+
                 if all_data_list:
                     all_data = pd.concat(all_data_list)
                     max_y_value = all_data[time_type].max()
                 else:
                     max_y_value = 1.0  # Default fallback
-                
+
                 data = results[f'sorted_by_{time_type}']
                 tex_code = generate_pgfplots(data, graph_type, recursion_variant, time_type, max_y_value)
 
@@ -448,7 +447,6 @@ def create_overall_latex_plots(unique_result: dict, sizes_to_analyze: list[int])
                     f.write(tex_code)
 
                 compile_latex_to_pdf(output_dir)
-
 
 
 def main(file_path: str, sizes_to_analyze: list[int]):
