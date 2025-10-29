@@ -1,0 +1,23 @@
+
+\documentclass{standalone}
+\usepackage[svgnames]{xcolor}
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest}
+\usepackage[sfdefault]{FiraSans}
+\usepackage{FiraMono}
+\renewcommand*\familydefault{\sfdefault}
+\begin{document}
+\begin{tikzpicture}
+    \begin{axis}[
+        title={Graph: Complete},
+        xlabel={Number of nodes},
+        ylabel={Elapsed time (s)},
+        legend pos={north west},
+        ymax=162.7351721247891
+    ]
+    \addplot+[DarkSlateGray, mark options={color=DarkSlateGray}] coordinates {(100,0.05172519683837891) (200,0.422682523727417) (300,1.389961004257204) (400,3.293330383300782) (500,6.456117010116576) (600,10.83244161605836) (700,17.221537590026838) (800,25.92955055236816) (900,37.02119297981263) (1000,50.9385236740112)};
+\addlegendentry{XSB}
+
+    \end{axis}
+\end{tikzpicture}
+\end{document}

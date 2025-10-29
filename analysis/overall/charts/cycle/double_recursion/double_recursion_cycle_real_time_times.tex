@@ -1,0 +1,23 @@
+
+\documentclass{standalone}
+\usepackage[svgnames]{xcolor}
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest}
+\usepackage[sfdefault]{FiraSans}
+\usepackage{FiraMono}
+\renewcommand*\familydefault{\sfdefault}
+\begin{document}
+\begin{tikzpicture}
+    \begin{axis}[
+        title={Graph: Cycle},
+        xlabel={Number of nodes},
+        ylabel={Elapsed time (s)},
+        legend pos={north west},
+        ymax=51.345472335815444
+    ]
+    \addplot+[DarkSlateGray, mark options={color=DarkSlateGray}] coordinates {(100,0.05318059921264652) (200,0.4272964477539064) (300,1.396392440795898) (400,3.333239364624022) (500,6.512192440032957) (600,10.902641248703) (700,17.38296117782592) (800,26.236000967025763) (900,37.48281712532042) (1000,51.345472335815444)};
+\addlegendentry{XSB}
+
+    \end{axis}
+\end{tikzpicture}
+\end{document}

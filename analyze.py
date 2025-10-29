@@ -15,7 +15,7 @@ ENVIRONMENT_MAPPINGS = {
     'postgres': ('PostgreSQL', 'RoyalBlue'),
     'mariadb': ('MariaDB', 'MediumSeaGreen'),
     'duckdb': ('DuckDB', 'Gold'),
-    # 'neo4j': ('Neo4J', 'DeepSkyBlue'),
+    'neo4j': ('Neo4J', 'DeepSkyBlue'),
     'cockroachdb': ('CockroachDB', 'MediumPurple'),
     # 'mongodb': ('MongoDB', 'ForestGreen'),
 }
@@ -30,22 +30,41 @@ def load_data(file_path: str) -> Any:
 def extract_records(data: Any, sizes_to_analyze: list[int]) -> list[dict]:
     records = []
     for (environment, graph_type, recursion_variant), entries in data.items():
+        # Only process left_recursion for neo4j
+        if environment == 'neo4j' and recursion_variant != 'left_recursion':
+            continue
+
         for entry in entries:
             size, metrics = entry
             if size in sizes_to_analyze:
                 for metric_name, (real_time, cpu_time) in metrics.items():
-                    if 'Query' in metric_name and graph_type != 'star':
-                        records.append(
-                            {
-                                'environment': environment,
-                                'graph_type': graph_type,
-                                'recursion_variant': recursion_variant,
-                                'size': size,
-                                'metric_name': metric_name,
-                                'real_time': real_time,
-                                'cpu_time': cpu_time,
-                            }
-                        )
+                    # For neo4j, use WriteRes; for others, use Query-related metrics
+                    if environment == 'neo4j':
+                        if metric_name == 'WriteRes' and graph_type != 'star':
+                            records.append(
+                                {
+                                    'environment': environment,
+                                    'graph_type': graph_type,
+                                    'recursion_variant': recursion_variant,
+                                    'size': size,
+                                    'metric_name': metric_name,
+                                    'real_time': real_time,
+                                    'cpu_time': cpu_time,
+                                }
+                            )
+                    else:
+                        if 'Query' in metric_name and graph_type != 'star':
+                            records.append(
+                                {
+                                    'environment': environment,
+                                    'graph_type': graph_type,
+                                    'recursion_variant': recursion_variant,
+                                    'size': size,
+                                    'metric_name': metric_name,
+                                    'real_time': real_time,
+                                    'cpu_time': cpu_time,
+                                }
+                            )
     return records
 
 
@@ -171,6 +190,10 @@ def create_overall_csvs(unique_result: dict, size: int):
     environments = list(ENVIRONMENT_MAPPINGS.keys())
 
     for (graph_type, recursion_variant), results in unique_result.items():
+        # Skip recursion variants that are not in overall_data
+        if recursion_variant not in overall_data:
+            continue
+            
         short_name = get_short_graph_name(graph_type, size)
 
         sorted_by_real_time = results['sorted_by_real_time']
