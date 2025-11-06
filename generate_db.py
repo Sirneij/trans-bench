@@ -20,6 +20,9 @@ class DataGenerator:
         self.k = 10
 
     def generate_complete_graph(self, n) -> Generator[tuple[int, int], None, None]:
+        """
+        Generate a complete graph with n nodes.
+        """
         # self.E = {(i, j) for i in range(1, n + 1) for j in range(1, n + 1)}
         logging.info(f'Generating complete graph for n={n}')
         for i in range(1, n + 1):
@@ -27,6 +30,9 @@ class DataGenerator:
                 yield (i, j)
 
     def generate_max_acyclic_graph(self, n) -> Generator[tuple[int, int], None, None]:
+        """
+        Generate a max acyclic graph with n nodes.
+        """
         # self.E = {(a, b) for a in range(1, n + 1) for b in range(1, a) if a > b}
         logging.info(f'Generating max acyclic graph for n={n}')
         for a in range(1, n + 1):
@@ -35,6 +41,9 @@ class DataGenerator:
                     yield (a, b)
 
     def generate_cycle_graph(self, n) -> Generator[tuple[int, int], None, None]:
+        """
+        Generate a cycle graph with n nodes.
+        """
         # E = {(i, i + 1) for i in range(1, n)} | {(n, 1)}
         logging.info(f'Generating cycle graph for n={n}')
         for i in range(1, n):
@@ -42,6 +51,9 @@ class DataGenerator:
         yield (n, 1)
 
     def generate_cycle_with_shortcuts_graph(self, n) -> Generator[tuple[int, int], None, None]:
+        """
+        Generate a cycle with shortcuts graph with n nodes.
+        """
         logging.info(f'Generating cycle with shortcuts graph for n={n}')
 
         skip = n // (self.k + 1)  # Number of vertices to skip for shortcuts
@@ -53,16 +65,25 @@ class DataGenerator:
                 yield (i, 1 + (i - 1 + skip * t) % n)
 
     def generate_path_graph(self, n) -> Generator[tuple[int, int], None, None]:
+        """
+        Generate a path graph with n nodes.
+        """
         logging.info(f'Generating path graph for n={n}')
         for i in range(1, n):
             yield (i, i + 1)
 
     def generate_multi_path_graph(self, n) -> Generator[tuple[int, int], None, None]:
+        """
+        Generate a multi path graph with n nodes.
+        """
         logging.info(f'Generating multi path graph for n={n}')
         for i in range(1, (n - 1) * self.k + 1):
             yield (i, i + self.k)
 
     def generate_binary_tree_graph(self, n) -> Generator[tuple[int, int], None, None]:
+        """
+        Generate a binary tree graph with n nodes.
+        """
         h = math.floor(math.log2(n))
         logging.info(f'Generating binary tree graph for n={n} and h={h}')
         parent_count = 2 ** (h - 1) - 1
@@ -71,6 +92,9 @@ class DataGenerator:
             yield (i, 2 * i + 1)
 
     def generate_reverse_binary_tree_graph(self, n) -> Generator[tuple[int, int], None, None]:
+        """
+        Generate a reverse binary tree graph with n nodes.
+        """
         h = math.floor(math.log2(n))
         logging.info(f'Generating reverse binary tree graph for n={n} and h={h}')
         parent_count = 2 ** (h - 1) - 1
@@ -79,6 +103,9 @@ class DataGenerator:
             yield (2 * i + 1, i)
 
     def generate_y_graph(self, n) -> Generator[tuple[int, int], None, None]:
+        """
+        Generate a Y graph with n nodes.
+        """
         logging.info(f'Generating Y graph for n={n}')
         for i in range(1, n + 1):
             yield (i, n + 1)
@@ -86,12 +113,18 @@ class DataGenerator:
             yield (i - 1, i)
 
     def generate_w_graph(self, n) -> Generator[tuple[int, int], None, None]:
+        """
+        Generate a W graph with n nodes.
+        """
         logging.info(f'Generating W graph for n={n}')
         for i in range(1, n + 1):
             for j in range(1, self.k + 1):
                 yield (i, n + 1 + (i + j - 1) % n)
 
     def generate_x_graph(self, n) -> Generator[tuple[int, int], None, None]:
+        """
+        Generate a X graph with n nodes.
+        """
         logging.info(f'Generating X graph for n={n}')
         for i in range(1, n + 1):
             yield (i, n + 1)
@@ -99,11 +132,17 @@ class DataGenerator:
             yield (n + 1, n + 1 + j)
 
     def generate_star_graph(self, n) -> Generator[tuple[int, int], None, None]:
+        """
+        Generate a star graph with n nodes.
+        """
         logging.info(f'Generating star graph for n={n}')
         for i in range(2, n + 1):
             yield (i, 1)
 
     def generate_grid_graph(self, n) -> Generator[tuple[int, int], None, None]:
+        """
+        Generate a grid graph with n nodes.
+        """
         logging.info(f'Generating grid graph for n={n}')
 
         n = int(math.sqrt(n))
