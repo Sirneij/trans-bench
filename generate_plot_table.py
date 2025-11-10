@@ -21,6 +21,39 @@ class BaseTableAndPlotGenerator:
         self.component_colors = self.__initialize_component_colors()
         self.component_legend = self.__initialize_component_legends()
         self.graphs_k_values = self.__initialize_graphs_k_values()
+        self.graph_name_mappings = self.__initialize_graph_name_mappings()
+
+    @staticmethod
+    def __initialize_graph_name_mappings() -> dict[str, str]:
+        """Map internal graph type names to short display names."""
+        return {
+            'complete': 'Cmpl',
+            'max_acyclic': 'MaxAcyc',
+            'binary_tree': 'BinTree',
+            'reverse_binary_tree': 'BinTreeRev',
+            'cycle_with_shortcuts': 'CycExtra',
+            'cycle': 'Cyc',
+            'grid': 'Grid',
+            'multi_path': 'PathDisj',
+            'path': 'Path',
+            'star': 'Star',
+            'w': 'W',
+            'x': 'X',
+            'y': 'Y',
+        }
+    
+    @staticmethod
+    def __get_xlabel_for_graph_type(graph_type: str) -> str:
+        """Get the appropriate x-axis label for a given graph type."""
+        xlabel_map = {
+            'cycle_with_shortcuts': 'Number of nodes, and $k=10$',
+            'multi_path': 'Number of nodes / $k$, and $k=10$',
+            'w': 'Number of nodes / 2, and $k=10$',
+            'x': 'Number of nodes - $k$ - 1, and $k=10$',
+            'y': 'Number of nodes - $k$, and $k=10$',
+        }
+        return xlabel_map.get(graph_type, 'Number of nodes')
+    
 
     @staticmethod
     def __initialize_components() -> dict[str, list[str]]:
@@ -545,13 +578,8 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
             ylabel = 'Time (centiseconds)'
             max_real_time = max_real_time / scale_factor
 
-        # Determine xlabel based on graph type
-        if key[1] in ['binary_tree', 'reverse_binary_tree']:
-            xlabel = 'Number of nodes ($h=\\log_2 n$)'
-        elif key[1] in ['cycle_with_shortcuts', 'w', 'y', 'x', 'multi_path']:
-            xlabel = 'Number of nodes ($n \\times k$, $k=10$)'
-        else:
-            xlabel = 'Number of nodes'
+        # Determine xlabel based on graph type - UPDATED
+        xlabel = self._BaseTableAndPlotGenerator__get_xlabel_for_graph_type(key[1])
 
         f.write('\\begin{tikzpicture}\n')
         for i in range(2):
@@ -783,17 +811,15 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
                     ylabel = 'CPU Time (centiseconds)'
                     ymax = ymax / scale_factor
 
-                # Determine xlabel based on graph type
-                if graph_type in ['binary_tree', 'reverse_binary_tree']:
-                    xlabel = 'Number of nodes ($h=\\log_2 n$)'
-                elif graph_type in ['cycle_with_shortcuts', 'w', 'y', 'x', 'multi_path']:
-                    xlabel = 'Number of nodes ($n \\times k$, $k=10$)'
-                else:
-                    xlabel = 'Number of nodes'
+                # Determine xlabel based on graph type - UPDATED
+                xlabel = self._BaseTableAndPlotGenerator__get_xlabel_for_graph_type(graph_type)
+                # Get short name for file - UPDATED
+                short_name = self.graph_name_mappings.get(graph_type, graph_type)
+
 
                 file_folder = file_dir / mode
                 file_folder.mkdir(exist_ok=True, parents=True)
-                file_path = file_folder / f'{graph_type}.tex'
+                file_path = file_folder / f'{short_name}.tex'  # UPDATED: Use short name
 
                 with open(file_path, 'w') as f:
                     self._BaseTableAndPlotGenerator__write_latex_header(f)
@@ -922,7 +948,15 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
             else:
 
                 for graph_type in graph_types:
-                    combined_content = self.__combine_files(directory_path, graph_type, mode)
+                    # Get short name for file lookup
+                    short_name = self.graph_name_mappings.get(graph_type, graph_type)
+                    
+                    combined_content = self.__combine_files(directory_path, short_name, mode)
+
+                    # Only create combined file if we have content
+                    if not combined_content.strip():
+                        logging.warning(f"No content found for {graph_type} ({short_name}) in {mode}, skipping...")
+                        continue
                     final_content = f"""
 \\documentclass[border=10pt, 12pt]{{standalone}}
 \\usepackage[svgnames]{{xcolor}}
@@ -939,12 +973,12 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
 \\end{{tikzpicture}}
 \\end{{document}}
                     """
-                    output_file_path = mode_dir / f'{graph_type}.tex'
+                    output_file_path = mode_dir / f'{short_name}.tex'  # UPDATED: Use short name
                     output_file_path.write_text(final_content)
 
                     self._BaseTableAndPlotGenerator__format_latex_file(output_file_path)
 
-                    logging.info(f"Combined LaTeX for {graph_type} in {mode} saved to {output_file_path}")
+                    logging.info(f"Combined LaTeX for {short_name} in {mode} saved to {output_file_path}")
 
                 self._BaseTableAndPlotGenerator__compile_latex_to_pdf(mode_dir)
 
@@ -1012,7 +1046,7 @@ def main():
     parser.add_argument(
         '--exclude-modes',
         nargs='*',  # Changed from '+' to '*' to allow zero arguments
-        default=['double_recursion'],
+        default=[],
         help='Modes to exclude from processing',
     )
     args = parser.parse_args()
