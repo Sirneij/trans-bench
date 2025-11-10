@@ -86,7 +86,7 @@ class DataGenerator:
         """
         h = math.floor(math.log2(n))
         logging.info(f'Generating binary tree graph for n={n} and h={h}')
-        parent_count = 2 ** (h - 1) - 1
+        parent_count = 2 ** (h - 1)
         for i in range(1, parent_count + 1):
             yield (i, 2 * i)
             yield (i, 2 * i + 1)
@@ -97,7 +97,7 @@ class DataGenerator:
         """
         h = math.floor(math.log2(n))
         logging.info(f'Generating reverse binary tree graph for n={n} and h={h}')
-        parent_count = 2 ** (h - 1) - 1
+        parent_count = 2 ** (h - 1)
         for i in range(1, parent_count + 1):
             yield (2 * i, i)
             yield (2 * i + 1, i)
@@ -107,6 +107,7 @@ class DataGenerator:
         Generate a Y graph with n nodes.
         """
         logging.info(f'Generating Y graph for n={n}')
+        self.k = n
         for i in range(1, n + 1):
             yield (i, n + 1)
         for i in range(n + 2, n + self.k + 1):
@@ -117,6 +118,7 @@ class DataGenerator:
         Generate a W graph with n nodes.
         """
         logging.info(f'Generating W graph for n={n}')
+        self.k = n
         for i in range(1, n + 1):
             for j in range(1, self.k + 1):
                 yield (i, n + 1 + (i + j - 1) % n)
@@ -126,6 +128,7 @@ class DataGenerator:
         Generate a X graph with n nodes.
         """
         logging.info(f'Generating X graph for n={n}')
+        self.k = n
         for i in range(1, n + 1):
             yield (i, n + 1)
         for j in range(1, self.k + 1):

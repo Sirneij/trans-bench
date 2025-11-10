@@ -548,7 +548,13 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
         # Determine xlabel based on graph type
         if key[1] in ['binary_tree', 'reverse_binary_tree']:
             xlabel = 'Number of nodes ($h=\\log_2 n$)'
-        elif key[1] in ['cycle_with_shortcuts', 'w', 'y', 'x', 'multi_path']:
+        elif key[1] == 'w':
+            xlabel = 'Number of nodes / 2 ($k=n$)'
+        elif key[1] == 'y':
+            xlabel = 'Number of nodes - $k$ ($k=n$)'
+        elif key[1] == 'x':
+            xlabel = 'Number of nodes - $k$ - 1 ($k=n$)'
+        elif key[1] in ['cycle_with_shortcuts', 'multi_path']:
             xlabel = 'Number of nodes ($n \\times k$, $k=10$)'
         else:
             xlabel = 'Number of nodes'
@@ -743,8 +749,11 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
         file_dir = latex_file_dir / 'comparison' / 'charts' / env_name / f'{self.max_x}'
         file_dir.mkdir(exist_ok=True, parents=True)
 
+        # Dynamically get modes from collected data for this environment
         mds = [key[2] for key in self.data if key[0] == env_name]
         modes = sorted(list(self._BaseTableAndPlotGenerator__list_to_ordered_set(mds)))
+        
+        # Dynamically get sizes from collected data
         sizes = sorted(
             {
                 entry[0]
@@ -760,11 +769,13 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
 
         bar_width = (600 / self.max_x) if self.max_x > 0 else 0.6
 
+
         for mode in modes:
             if compile_file_alone:
                 self._BaseTableAndPlotGenerator__compile_latex_to_pdf(file_dir / mode)
                 return
-            graph_types = set(key[1] for key in self.data if key[2] == mode and key[0] == env_name)
+            # Dynamically get graph types for this environment and mode
+            graph_types = sorted(set(key[1] for key in self.data if key[2] == mode and key[0] == env_name))
             for graph_type in sorted(graph_types):
                 ymax = self._BaseTableAndPlotGenerator__adjust_ymax(
                     self._BaseTableAndPlotGenerator__find_max_cpu_time_across_envs,
@@ -786,7 +797,13 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
                 # Determine xlabel based on graph type
                 if graph_type in ['binary_tree', 'reverse_binary_tree']:
                     xlabel = 'Number of nodes ($h=\\log_2 n$)'
-                elif graph_type in ['cycle_with_shortcuts', 'w', 'y', 'x', 'multi_path']:
+                elif graph_type == 'w':
+                    xlabel = 'Number of nodes / 2 ($k=n$)'
+                elif graph_type == 'y':
+                    xlabel = 'Number of nodes - $k$ ($k=n$)'
+                elif graph_type == 'x':
+                    xlabel = 'Number of nodes - $k$ - 1 ($k=n$)'
+                elif graph_type in ['cycle_with_shortcuts', 'multi_path']:
                     xlabel = 'Number of nodes ($n \\times k$, $k=10$)'
                 else:
                     xlabel = 'Number of nodes'
@@ -893,22 +910,12 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
 
         The function first creates a directory for the combined LaTeX files if it doesn't exist. It then iterates over the modes and calls the combine_files function for each mode. The combined axis content is written to a new LaTeX file. If the compile_file_alone flag is set, the function compiles the LaTeX files to PDFs using the compile_latex_to_pdf function.
         """
-        graph_types = [
-            'binary_tree',
-            'complete',
-            'cycle',
-            'cycle_with_shortcuts',
-            'max_acyclic',
-            'multi_path',
-            'path',
-            'grid',
-            'reverse_binary_tree',
-            'star',
-            'w',
-            'x',
-            'y',
-        ]
-        modes = ['left_recursion', 'right_recursion', 'double_recursion']
+        # Dynamically get graph types from available data
+        graph_types = sorted(set(key[1] for key in self.data.keys()))
+        
+        # Dynamically get modes from available data
+        modes = sorted(set(key[2] for key in self.data.keys()))
+    
         anchor_x = self.charts_metrics[str(self.max_x)]['anchor']['x']
         anchor_y = self.charts_metrics[str(self.max_x)]['anchor']['y']
 
@@ -923,22 +930,28 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
 
                 for graph_type in graph_types:
                     combined_content = self.__combine_files(directory_path, graph_type, mode)
+                    
+                    # Only create combined file if we have content
+                    if not combined_content.strip():
+                        logging.warning(f"No content found for {graph_type} in {mode}, skipping...")
+                        continue
+                        
                     final_content = f"""
-\\documentclass[border=10pt, 12pt]{{standalone}}
-\\usepackage[svgnames]{{xcolor}}
-\\usepackage{{amsmath}}
-\\usepackage{{pgfplots}}
-\\pgfplotsset{{compat=newest}}
-\\usepackage[sfdefault]{{FiraSans}}
-\\usepackage{{FiraMono}}
-\\renewcommand*\\familydefault{{\\sfdefault}}
-\\begin{{document}}
-\\begin{{tikzpicture}}
-                        {combined_content}
-\\node[anchor=south, draw, fill=white] at (rel axis cs:{anchor_x}, {anchor_y}) {{\\Huge Left: XSB, Middle: Clingo, Right: Soufflé}};
-\\end{{tikzpicture}}
-\\end{{document}}
-                    """
+    \\documentclass[border=10pt, 12pt]{{standalone}}
+    \\usepackage[svgnames]{{xcolor}}
+    \\usepackage{{amsmath}}
+    \\usepackage{{pgfplots}}
+    \\pgfplotsset{{compat=newest}}
+    \\usepackage[sfdefault]{{FiraSans}}
+    \\usepackage{{FiraMono}}
+    \\renewcommand*\\familydefault{{\\sfdefault}}
+    \\begin{{document}}
+    \\begin{{tikzpicture}}
+                            {combined_content}
+    \\node[anchor=south, draw, fill=white] at (rel axis cs:{anchor_x}, {anchor_y}) {{\\Huge Left: XSB, Middle: Clingo, Right: Soufflé}};
+    \\end{{tikzpicture}}
+    \\end{{document}}
+                        """
                     output_file_path = mode_dir / f'{graph_type}.tex'
                     output_file_path.write_text(final_content)
 
@@ -1010,11 +1023,11 @@ def main():
         default='timing',
     )
     parser.add_argument(
-        '--exclude-modes',
-        nargs='*',  # Changed from '+' to '*' to allow zero arguments
-        default=['double_recursion'],
-        help='Modes to exclude from processing',
-    )
+    '--exclude-modes',
+    nargs='*',  # Changed from '+' to '*' to allow zero arguments
+    default=[],  # Changed from ['double_recursion'] to empty list
+    help='Modes to exclude from processing',
+)
     args = parser.parse_args()
 
     if args.config and os.path.isfile(args.config):
