@@ -1,7 +1,6 @@
 import argparse
 import json
 import logging
-import math
 import os
 import re
 import subprocess
@@ -153,7 +152,7 @@ class BaseTableAndPlotGenerator:
         }
 
     def collect_data(self) -> None:
-        data = {}
+        data: dict[tuple[str, str, str], list[tuple[int, dict[str, tuple[float, float]]]]]= {}
         for csv_file in self.timing_base_dir.glob('**/*_graph_*.csv'):
             try:
                 parts = csv_file.parts

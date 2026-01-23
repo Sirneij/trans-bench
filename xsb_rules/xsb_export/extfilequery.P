@@ -18,7 +18,7 @@ external_file_query_only(RuleBase, FactBase, Query, OutputFile) :-
     statistics(walltime, [_,LoadRule]),
     statistics(runtime, [_,CPUTimeLoadRule]),
 
-    load_dync(FactBase),
+    load_dynca(FactBase),
 
     statistics(walltime, [_,LoadFacts]),
     statistics(runtime, [_,CPUTimeLoadFacts]),

@@ -12,11 +12,13 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s: %(m
 
 ENVIRONMENT_MAPPINGS = {
     'xsb': ('XSB', 'DarkSlateGray'),
-    'postgres': ('PostgreSQL', 'RoyalBlue'),
-    'mariadb': ('MariaDB', 'MediumSeaGreen'),
-    'duckdb': ('DuckDB', 'Gold'),
-    'neo4j': ('Neo4J', 'DeepSkyBlue'),
-    'cockroachdb': ('CockroachDB', 'MediumPurple'),
+    'souffle': ('Soufflé', 'Crimson'),
+    'clingo': ('Clingo', 'DarkOrange'),
+    # 'postgres': ('PostgreSQL', 'RoyalBlue'),
+    # 'mariadb': ('MariaDB', 'MediumSeaGreen'),
+    # 'duckdb': ('DuckDB', 'Gold'),
+    # 'neo4j': ('Neo4J', 'DeepSkyBlue'),
+    # 'cockroachdb': ('CockroachDB', 'MediumPurple'),
     # 'mongodb': ('MongoDB', 'ForestGreen'),
 }
 
@@ -27,8 +29,8 @@ def load_data(file_path: str) -> Any:
     return data
 
 
-def extract_records(data: Any, sizes_to_analyze: list[int]) -> list[dict]:
-    records = []
+def extract_records(data: Any, sizes_to_analyze: list[int]) -> list[dict[str, str | int | float]]:
+    records: list[dict[str, str | int | float]]= []
     for (environment, graph_type, recursion_variant), entries in data.items():
         # Only process left_recursion for neo4j
         if environment == 'neo4j' and recursion_variant != 'left_recursion':
@@ -68,13 +70,13 @@ def extract_records(data: Any, sizes_to_analyze: list[int]) -> list[dict]:
     return records
 
 
-def process_data(records: list[dict]) -> pd.DataFrame:
+def process_data(records: list[dict[str, str | int | float]]) -> pd.DataFrame:
     df = pd.DataFrame(records)
     unique_df = df.drop_duplicates(subset=['environment', 'graph_type', 'recursion_variant', 'metric_name', 'size'])
     return unique_df
 
 
-def analyze_data(unique_df: pd.DataFrame) -> dict:
+def analyze_data(unique_df: pd.DataFrame) -> dict[str, dict[str, pd.DataFrame]]:
     unique_result = {}
     grouped_unique = unique_df.groupby(['graph_type', 'recursion_variant'])
 
