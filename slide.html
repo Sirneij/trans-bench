@@ -1,0 +1,1283 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RPE Presentation: Database Performance on Recursive Queries</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    />
+    <!-- Prism.js for Syntax Highlighting -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css"
+    />
+
+    <!-- MathJax for Math Rendering -->
+    <script
+      id="MathJax-script"
+      async
+      src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"
+    ></script>
+
+    <style>
+      :root {
+        --primary: #990000; /* Stony Brook Red */
+        --secondary: #1a1a1a;
+        --accent: #f2a900;
+        --text-main: #2d3436;
+        --text-light: #636e72;
+        --bg-page: #0f172a;
+        --bg-slide: #ffffff;
+        --transition: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        --slide-gap: 2rem;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        background-color: var(--bg-page);
+        font-family: "Inter", sans-serif;
+        height: 100dvh;
+        overflow: hidden;
+        color: var(--text-main);
+      }
+
+      /* Responsive Slide Engine */
+      #presentation {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+      }
+
+      .slide {
+        position: absolute;
+        width: 95%;
+        max-width: 1100px;
+        height: 90%;
+        max-height: 700px;
+        background: var(--bg-slide);
+        border-radius: 16px;
+        box-shadow: 0 20px 60px -15px rgba(0, 0, 0, 0.7);
+        padding: clamp(1.5rem, 5vw, 3.5rem);
+        opacity: 0;
+        transform: translateX(100px) scale(0.95);
+        transition: var(--transition);
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+      }
+
+      .slide.active {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+        pointer-events: all;
+        z-index: 10;
+      }
+
+      .slide.prev {
+        transform: translateX(-100px) scale(0.95);
+      }
+
+      /* Typography Scaling */
+      h1 {
+        font-size: clamp(2rem, 5vw, 3.2rem);
+        color: var(--secondary);
+        font-weight: 800;
+        line-height: 1.1;
+        margin-bottom: 1rem;
+      }
+      h2 {
+        font-size: clamp(1.5rem, 4vw, 2.2rem);
+        color: var(--primary);
+        margin-bottom: 1.5rem;
+        border-left: clamp(4px, 1vw, 8px) solid var(--primary);
+        padding-left: 1rem;
+        line-height: 1.2;
+      }
+      h2::after {
+        content: "";
+        display: block;
+        width: 60px;
+        height: 3px;
+        background: var(--primary);
+        margin-top: 0.5rem;
+      }
+      h3 {
+        font-size: clamp(1rem, 2.5vw, 1.4rem);
+        color: var(--accent);
+        margin-bottom: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-weight: 700;
+      }
+      p,
+      li {
+        font-size: clamp(0.9rem, 1.8vw, 1.15rem);
+        line-height: 1.6;
+        color: var(--text-main);
+      }
+
+      /* Grid Layouts - Responsive Stack */
+      .content-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2rem;
+        align-items: start;
+        height: 100%;
+      }
+      @media (max-width: 768px) {
+        .content-grid {
+          grid-template-columns: 1fr;
+          gap: 1rem;
+        }
+        .slide {
+          height: 95%;
+          padding: 1.5rem;
+        }
+      }
+
+      /* Components */
+      .bullet-list {
+        list-style: none;
+      }
+      .bullet-list li {
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        animation: fadeInUp 0.5s ease-out forwards;
+        opacity: 0;
+      }
+      .slide.active .bullet-list li:nth-child(1) {
+        animation-delay: 0.1s;
+      }
+      .slide.active .bullet-list li:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+      .slide.active .bullet-list li:nth-child(3) {
+        animation-delay: 0.3s;
+      }
+      .slide.active .bullet-list li:nth-child(4) {
+        animation-delay: 0.4s;
+      }
+      .slide.active .bullet-list li:nth-child(5) {
+        animation-delay: 0.5s;
+      }
+      .slide.active .bullet-list li:nth-child(6) {
+        animation-delay: 0.6s;
+      }
+
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .bullet-list i {
+        color: var(--primary);
+        margin-top: 4px;
+        font-size: 1rem;
+        flex-shrink: 0;
+      }
+
+      .stat-card {
+        background: #f8fafc;
+        border-radius: 12px;
+        padding: 1.5rem;
+        border-top: 4px solid var(--primary);
+        box-shadow: 0 4px 12px rgba(153, 0, 0, 0.1);
+      }
+      .stat-val {
+        font-size: clamp(1.5rem, 4vw, 2.5rem);
+        font-weight: 800;
+        color: var(--primary);
+        display: block;
+        line-height: 1;
+        margin-bottom: 0.5rem;
+      }
+      .stat-label {
+        font-size: 0.85rem;
+        color: var(--text-light);
+        font-weight: 600;
+        text-transform: uppercase;
+      }
+
+      /* Table Styling - Responsive Scroll */
+      .table-wrap {
+        width: 100%;
+        overflow-x: auto;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+        margin-top: 1rem;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 500px;
+      }
+      th {
+        background: var(--secondary);
+        color: white;
+        padding: 12px;
+        text-align: left;
+        font-size: 0.9rem;
+      }
+      td {
+        padding: 10px 12px;
+        border-bottom: 1px solid #e2e8f0;
+        background: #fff;
+        font-size: 0.85rem;
+      }
+      tr:hover {
+        background: #f8fafc !important;
+      }
+
+      /* Chart Container */
+      .chart-container {
+        background: #f8fafc;
+        border-radius: 12px;
+        padding: 1rem;
+        border: 1px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .chart-container img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 8px;
+      }
+
+      /* UI Elements */
+      .controls {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        display: flex;
+        gap: 10px;
+        z-index: 100;
+      }
+      .btn {
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: white;
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: 0.3s;
+      }
+      .btn:hover {
+        background: var(--primary);
+      }
+
+      .progress-container {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 4px;
+        background: rgba(255, 255, 255, 0.1);
+        z-index: 100;
+      }
+      #progress-bar {
+        width: 0%;
+        height: 100%;
+        background: var(--primary);
+        transition: 0.3s;
+      }
+
+      .slide-counter {
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        color: rgba(255, 255, 255, 0.6);
+        font-weight: 600;
+        font-size: 0.85rem;
+        z-index: 100;
+      }
+      .sbu-logo {
+        position: absolute;
+        top: 20px;
+        right: 25px;
+        font-weight: 800;
+        color: var(--primary);
+        font-size: clamp(0.7rem, 2vw, 1rem);
+        z-index: 100;
+      }
+
+      .warning-box {
+        background: #fff5f5;
+        border-left: 5px solid #f56565;
+        padding: 1.5rem;
+        border-radius: 8px;
+        margin-top: 1rem;
+      }
+
+      .highlight-box {
+        background: linear-gradient(135deg, #fff5f5 0%, #ffe5e5 100%);
+        border-left: 6px solid var(--primary);
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin: 1rem 0;
+        box-shadow: 0 4px 12px rgba(153, 0, 0, 0.1);
+      }
+
+      .fullscreen-btn {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: white;
+        padding: 8px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+        z-index: 100;
+        font-size: 0.85rem;
+        border: none;
+        transition: 0.3s;
+      }
+      .fullscreen-btn:hover {
+        background: var(--primary);
+      }
+
+      /* Code Styling with Prism Override */
+      .code-comparison {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin-top: 1rem;
+      }
+
+      .code-section {
+        background: #1e293b;
+        border-radius: 8px;
+        overflow: hidden;
+        border-left: 4px solid var(--accent);
+      }
+
+      .code-header {
+        background: #0f172a;
+        padding: 0.5rem 1rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--accent);
+        border-bottom: 1px solid #334155;
+      }
+
+      .code-section pre {
+        margin: 0 !important;
+        border-radius: 0 !important;
+        background: #1e293b !important;
+      }
+
+      .code-section code {
+        font-family: "JetBrains Mono", monospace !important;
+        font-size: clamp(0.65rem, 1.3vw, 0.75rem) !important;
+        line-height: 1.6 !important;
+      }
+
+      /* Prism Theme Overrides */
+      pre[class*="language-"] {
+        background: #1e293b !important;
+        padding: 1rem !important;
+        margin: 0 !important;
+        border-radius: 8px;
+        overflow-x: auto;
+      }
+
+      code[class*="language-"] {
+        font-family: "JetBrains Mono", monospace !important;
+        font-size: clamp(0.7rem, 1.5vw, 0.85rem) !important;
+        line-height: 1.6 !important;
+        color: #e2e8f0 !important;
+      }
+
+      /* Custom color scheme for better visibility */
+      .token.comment {
+        color: #94a3b8 !important;
+      }
+      .token.keyword {
+        color: #c792ea !important;
+        font-weight: 600;
+      }
+      .token.function {
+        color: #82aaff !important;
+      }
+      .token.string {
+        color: #c3e88d !important;
+      }
+      .token.operator {
+        color: #89ddff !important;
+      }
+      .token.punctuation {
+        color: #cbd5e1 !important;
+      }
+      .token.number {
+        color: #f78c6c !important;
+      }
+      .token.builtin {
+        color: #ffcb6b !important;
+      }
+
+      @media (max-width: 768px) {
+        .code-comparison {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* Print styles */
+      @media print {
+        body {
+          background: white;
+        }
+        .slide {
+          position: relative !important;
+          opacity: 1 !important;
+          transform: none !important;
+          page-break-after: always;
+          box-shadow: none;
+          border: 1px solid #ccc;
+          margin-bottom: 20px;
+        }
+        .controls,
+        .fullscreen-btn,
+        .slide-counter,
+        .progress-container {
+          display: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="sbu-logo">STONY BROOK UNIVERSITY</div>
+    <button class="fullscreen-btn" onclick="toggleFullscreen()">
+      <i class="fa-solid fa-expand"></i> Fullscreen
+    </button>
+
+    <div id="presentation">
+      <!-- SLIDE 1: TITLE -->
+      <div class="slide active" id="s1">
+        <div style="margin: auto 0">
+          <h3>Research Proficiency Exam</h3>
+          <h1>Database System Performance<br />on Recursive Queries</h1>
+          <div
+            style="
+              height: 4px;
+              width: clamp(40px, 10vw, 100px);
+              background: var(--primary);
+              margin: 2rem 0;
+            "
+          ></div>
+          <p
+            style="
+              font-size: clamp(1.1rem, 2.5vw, 1.6rem);
+              font-weight: 600;
+              color: var(--secondary);
+            "
+          >
+            John Idogun
+          </p>
+          <p style="color: var(--text-light); margin-bottom: 2rem">
+            January 23, 2026
+          </p>
+
+          <div class="content-grid" style="grid-template-columns: 1fr 1fr">
+            <div>
+              <p
+                style="
+                  font-size: 0.9rem;
+                  font-weight: 700;
+                  text-transform: uppercase;
+                  color: var(--text-light);
+                "
+              >
+                Committee
+              </p>
+              <p style="font-size: 1rem">
+                Prof. Scott D. Stoller<br />Prof. David S. Warren
+              </p>
+            </div>
+            <div>
+              <p
+                style="
+                  font-size: 0.9rem;
+                  font-weight: 700;
+                  text-transform: uppercase;
+                  color: var(--text-light);
+                "
+              >
+                Advisor
+              </p>
+              <p style="font-size: 1rem">Prof. Yanhong A. Liu</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 2: INTRODUCTION -->
+      <div class="slide" id="s2">
+        <h2>Introduction & Motivation</h2>
+        <div class="content-grid">
+          <div>
+            <p>
+              Recursive queries are fundamental for analyzing complex graph
+              relationships in critical applications:
+            </p>
+            <ul class="bullet-list" style="margin-top: 1.5rem">
+              <li>
+                <i class="fa-solid fa-tree"></i>
+                <strong>Genealogy:</strong> Ancestry tracing across multiple
+                generations
+              </li>
+              <li>
+                <i class="fa-solid fa-user-shield"></i>
+                <strong>Security:</strong> Role-based access control (RBAC
+                systems)
+              </li>
+              <li>
+                <i class="fa-solid fa-money-bill-transfer"></i>
+                <strong>Finance:</strong> Transaction chains and fraud detection
+              </li>
+              <li>
+                <i class="fa-solid fa-network-wired"></i>
+                <strong>Networks:</strong> Reachability and path analysis
+              </li>
+            </ul>
+          </div>
+          <div>
+            <div class="stat-card">
+              <h3>Research Scope</h3>
+              <p style="font-size: 1rem">
+                <strong>7 database systems</strong> evaluated across
+                <strong>12 graph topologies</strong>. Standard benchmarks
+                (TPC-H, TPC-DS) lack recursive workloads, creating a critical
+                gap in performance evaluation.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 3: SYSTEMS UNDER EVALUATION -->
+      <div class="slide" id="s3">
+        <h2>Systems Under Evaluation</h2>
+        <div style="margin-bottom: 1rem">
+          <p style="font-size: 0.95rem; color: var(--text-light)">
+            <strong>Selection Criteria:</strong> Industry adoption,
+            architectural diversity, and claimed recursion support.
+          </p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Paradigm</th>
+                <th>Systems</th>
+                <th>Execution Model</th>
+                <th>Key Feature</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>SQL</strong></td>
+                <td>PostgreSQL, MariaDB, DuckDB</td>
+                <td>Row vs. Vectorized</td>
+                <td>ANSI SQL:1999 CTEs</td>
+              </tr>
+              <tr>
+                <td><strong>NoSQL</strong></td>
+                <td>MongoDB, Neo4j</td>
+                <td>Document / Graph Native</td>
+                <td>Native graph traversal</td>
+              </tr>
+              <tr>
+                <td><strong>NewSQL</strong></td>
+                <td>CockroachDB</td>
+                <td>Distributed SQL</td>
+                <td>Raft consensus</td>
+              </tr>
+              <tr>
+                <td><strong>Logic</strong></td>
+                <td>XSB Prolog</td>
+                <td>Tabled Resolution</td>
+                <td>SLG-WAM engine</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p
+          style="margin-top: 1rem; font-size: 0.85rem; color: var(--text-light)"
+        >
+          <strong>Note:</strong> SingleStore excluded due to CTE limitations
+          (v8.7).
+        </p>
+      </div>
+
+      <!-- SLIDE 4: METHODOLOGY -->
+      <div class="slide" id="s4">
+        <h2>Transitive Closure Methodology</h2>
+        <div class="content-grid">
+          <div>
+            <h3>12 Graph Topologies</h3>
+            <ul class="bullet-list" style="font-size: 0.85rem">
+              <li>
+                <strong>Dense:</strong>
+                <p>Complete (\(Cmpl_n\)), Max Acyclic (\(MaxAcyc_n\))</p>
+              </li>
+              <li>
+                <strong>Sparse:</strong>
+                <p>Path (\(Path_n\)), Cycle (\(Cyc_n\))</p>
+              </li>
+              <li>
+                <strong>Trees:</strong>
+                <p>
+                  Binary Tree (\(BinTree_h\)), Reverse Binary (\(BinTreeRev_h\))
+                </p>
+              </li>
+              <li>
+                <strong>Structured:</strong>
+                <p>Grid (\(Grid_n\)), Cycle+Shortcuts (\(CycExtra_{n,k}\))</p>
+              </li>
+              <li>
+                <strong>Custom:</strong>
+                <p>Multi-Path (\(PathDisj_{n,k}\)), X/Y/W shapes</p>
+              </li>
+            </ul>
+            <h3 style="margin-top: 1.5rem">3 Recursion Variants</h3>
+            <ul class="bullet-list" style="font-size: 0.85rem">
+              <li>
+                <strong>Left:</strong>
+                <code>path(X,Z), edge(Z,Y)</code>
+              </li>
+              <li>
+                <strong>Right:</strong>
+                <code>edge(X,Z), path(Z,Y)</code>
+              </li>
+              <li>
+                <strong>Non-Linear:</strong>
+                <code>path(X,Z), path(Z,Y)</code>
+              </li>
+            </ul>
+            <p
+              style="
+                font-size: 0.8rem;
+                margin-top: 1rem;
+                color: var(--text-light);
+              "
+            >
+              <strong>Evaluation:</strong> Graph sizes 100-10,000 nodes • 5 runs
+              per configuration
+            </p>
+          </div>
+          <div>
+            <div class="code-section">
+              <div class="code-header">Right Recursion (SQL)</div>
+              <pre><code class="language-sql">-- Base case: direct edges
+WITH RECURSIVE tc AS (
+  SELECT x, y FROM edge
+  
+  UNION
+  
+  -- Recursive: extend paths
+  SELECT edge.x, tc.y
+  FROM edge
+  JOIN tc ON edge.y = tc.x
+)
+SELECT COUNT(*) FROM tc;</code></pre>
+            </div>
+            <div
+              class="code-section"
+              style="margin-top: 1rem; border-left-color: #8b5cf6"
+            >
+              <div class="code-header" style="color: #8b5cf6">
+                Right Recursion (Prolog)
+              </div>
+              <pre><code class="language-prolog">path(X, Y) :- edge(X, Y).
+path(X, Y) :- 
+  edge(X, Z), 
+  path(Z, Y).</code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 5: ARCHITECTURAL LIMITATIONS -->
+      <div class="slide" id="s5">
+        <h2>Architectural Limitations Discovered</h2>
+        <div class="content-grid">
+          <div class="stat-card" style="border-top-color: #c53030">
+            <h3>SingleStore (Excluded)</h3>
+            <p style="font-size: 0.9rem; margin-bottom: 0.5rem">
+              <strong>Issue:</strong> "Crippled CTEs" — explicitly disallows:
+            </p>
+            <ul style="font-size: 0.85rem; line-height: 1.6">
+              <li>GROUP BY in recursive branch</li>
+              <li>Aggregate functions (COUNT, SUM)</li>
+              <li>UNION (only UNION ALL)</li>
+            </ul>
+            <p
+              style="font-size: 0.8rem; margin-top: 0.5rem; font-style: italic"
+            >
+              Documentation: v8.7 (confirmed 2024)
+            </p>
+          </div>
+          <div class="stat-card" style="border-top-color: #c53030">
+            <h3>MongoDB (Performance Issues)</h3>
+            <p style="font-size: 0.9rem">
+              <strong>$graphLookup:</strong> Stage memory limitations
+            </p>
+            <p style="font-size: 0.85rem; margin-top: 0.5rem; line-height: 1.6">
+              Struggles with dense graphs (100-node graph took >1,500s) due to
+              intermediate result explosion and 100MB stage memory cap
+            </p>
+          </div>
+          <div class="stat-card" style="border-top-color: #c53030">
+            <h3>Neo4j (Scalability Challenge)</h3>
+            <p style="font-size: 0.9rem">
+              <strong>Cypher Path Enumeration:</strong> Pre-deduplication issues
+            </p>
+            <p style="font-size: 0.85rem; margin-top: 0.5rem">
+              Complete graphs cause path explosion before deduplication can
+              occur
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 6: DENSE GRAPHS WITH CHART -->
+      <div class="slide" id="s6">
+        <h2>Finding 1: Dense Graph Performance</h2>
+        <div class="content-grid">
+          <div>
+            <h3>Complete & Max Acyclic Graphs</h3>
+            <p style="font-size: 0.95rem; margin-bottom: 1rem">
+              On dense graphs (edge density > 0.5), different execution
+              strategies show significant performance variance.
+            </p>
+            <ul class="bullet-list" style="font-size: 0.9rem">
+              <li>
+                <i class="fa-solid fa-database"></i>
+                <strong>DuckDB:</strong> Vectorized execution benefits from
+                batch processing
+              </li>
+              <li>
+                <i class="fa-solid fa-bolt"></i>
+                <strong>XSB Prolog:</strong> Tabled resolution handles high edge
+                density efficiently
+              </li>
+              <li>
+                <i class="fa-solid fa-chart-line"></i>
+                <strong>PostgreSQL/MariaDB:</strong> Row-based iteration
+                overhead evident
+              </li>
+            </ul>
+            <div
+              style="
+                margin-top: 1rem;
+                padding: 0.75rem;
+                background: #f8fafc;
+                border-left: 4px solid var(--primary);
+                font-size: 0.85rem;
+              "
+            >
+              <strong>Key Insight:</strong>
+              <p>
+                Architectural differences amplify on dense graphs with
+                \(O(n^2)\) edges
+              </p>
+            </div>
+          </div>
+          <div class="chart-container">
+            <img
+              src="slides/left_recursion_complete_real_time_times.png"
+              alt="Complete Graph Performance"
+              onerror="
+                this.onerror = null;
+                this.src =
+                  'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22300%22%3E%3Crect fill=%22%23f8fafc%22 width=%22400%22 height=%22300%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 fill=%22%23636e72%22 font-family=%22sans-serif%22 font-size=%2214%22%3EChart: Complete Graph Performance%3C/text%3E%3C/svg%3E';
+              "
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 7: SPARSE GRAPHS WITH CHART -->
+      <div class="slide" id="s7">
+        <h2>Finding 2: Sparse Graph Performance</h2>
+        <div class="content-grid">
+          <div>
+            <h3>Path & Cycle Graphs</h3>
+            <p style="font-size: 0.95rem; margin-bottom: 1rem">
+              On sparse graphs (edge density < 0.01), different factors dominate
+              performance.
+            </p>
+            <ul class="bullet-list" style="font-size: 0.9rem">
+              <li>
+                <i class="fa-solid fa-table-list"></i>
+                <strong>XSB Prolog:</strong> Goal-directed evaluation minimizes
+                redundant work
+              </li>
+              <li>
+                <i class="fa-solid fa-repeat"></i>
+                <strong>SQL Systems:</strong> Iteration overhead becomes more
+                prominent
+              </li>
+              <li>
+                <i class="fa-solid fa-circle-nodes"></i>
+                <strong>Graph Structure:</strong>
+                <p>Linear topology (\(O(n)\) edges) changes trade-offs</p>
+              </li>
+            </ul>
+            <div
+              style="
+                margin-top: 1rem;
+                padding: 0.75rem;
+                background: #f8fafc;
+                border-left: 4px solid var(--accent);
+                font-size: 0.85rem;
+              "
+            >
+              <strong>Key Insight:</strong> Sparse graphs favor systems with
+              lower per-iteration overhead
+            </div>
+          </div>
+          <div class="chart-container">
+            <img
+              src="slides/left_recursion_path_real_time_times.png"
+              alt="Path Graph Performance"
+              onerror="
+                this.onerror = null;
+                this.src =
+                  'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22300%22%3E%3Crect fill=%22%23f8fafc%22 width=%22400%22 height=%22300%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 fill=%22%23636e72%22 font-family=%22sans-serif%22 font-size=%2214%22%3EChart: Path Graph Performance%3C/text%3E%3C/svg%3E';
+              "
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 8: CORRECTNESS CRISIS -->
+      <div class="slide" id="s8">
+        <h2>Critical Finding: Correctness Failures</h2>
+        <div class="warning-box">
+          <h3 style="display: flex; align-items: center; gap: 0.5rem">
+            <i
+              class="fa-solid fa-triangle-exclamation"
+              style="color: #c53030"
+            ></i>
+            DuckDB Non-Linear Recursion Bug
+          </h3>
+          <p
+            style="
+              font-size: 1.1rem;
+              font-weight: 700;
+              color: #c53030;
+              margin: 1rem 0;
+            "
+          >
+            Incorrect results on multiple graph topologies (v0.9.2)
+          </p>
+          <p
+            style="font-size: 0.95rem; line-height: 1.6; margin-bottom: 0.75rem"
+          >
+            <strong>Root Cause:</strong> While DuckDB accepts non-linear
+            recursion syntax, it fails to properly compute transitive closure
+            when paths require composition of two <em>derived</em> paths.
+          </p>
+
+          <div class="code-comparison">
+            <div class="code-section" style="border-left-color: #10b981">
+              <div class="code-header" style="color: #10b981">
+                ✓ Correct (Prolog)
+              </div>
+              <pre><code class="language-prolog">path(X, Y) :- edge(X, Y).
+path(X, Y) :- 
+  path(X, Z), 
+  path(Z, Y).
+
+-- Properly handles
+-- transitive composition</code></pre>
+            </div>
+
+            <div class="code-section" style="border-left-color: #ef4444">
+              <div class="code-header" style="color: #ef4444">
+                ✗ Buggy (DuckDB)
+              </div>
+              <pre><code class="language-sql">WITH RECURSIVE tc AS (
+  SELECT x, y FROM edge
+  UNION
+  SELECT tc1.x, tc2.y
+  FROM tc AS tc1, tc AS tc2
+  WHERE tc1.y = tc2.x
+)
+-- Misses derived→derived paths</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div
+          class="content-grid"
+          style="margin-top: 1.5rem; grid-template-columns: 1fr 1fr"
+        >
+          <div
+            class="stat-card"
+            style="background: #e6f7ff; border-top-color: #1890ff"
+          >
+            <h3 style="color: #1890ff">Safe Alternatives</h3>
+            <ul
+              style="
+                font-size: 0.85rem;
+                line-height: 1.8;
+                list-style: none;
+                padding: 0;
+              "
+            >
+              <li>✓ <strong>PostgreSQL:</strong> Rejects non-linear syntax</li>
+              <li>✓ <strong>CockroachDB:</strong> Rejects non-linear syntax</li>
+              <li>✓ <strong>MariaDB:</strong> Explicit flag required</li>
+              <li>✓ <strong>XSB Prolog:</strong> Tabling handles correctly</li>
+            </ul>
+          </div>
+          <div
+            class="stat-card"
+            style="background: #fff2e8; border-top-color: #fa8c16"
+          >
+            <h3 style="color: #fa8c16">Impact</h3>
+            <p style="font-size: 0.85rem; line-height: 1.8">
+              <strong>Affected graphs:</strong> Grid, Balanced Tree, and other
+              topologies<br />
+              <strong>Workaround:</strong> Use linear recursion variants<br />
+              <strong>Status:</strong> Reported to DuckDB team
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 9: SYSTEM COMPARISON TABLE -->
+      <div class="slide" id="s9">
+        <h2>Performance Comparison Summary</h2>
+        <div style="height: 100%; display: flex; flex-direction: column">
+          <p
+            style="
+              font-size: 0.95rem;
+              margin-bottom: 1rem;
+              color: var(--text-light);
+            "
+          >
+            <strong>Key Observations:</strong> Performance varies significantly
+            based on graph structure, with no single system dominating across
+            all topologies.
+          </p>
+          <div class="table-wrap" style="flex: 1">
+            <table>
+              <thead>
+                <tr>
+                  <th>Graph Type</th>
+                  <th>Characteristics</th>
+                  <th>Best Performer</th>
+                  <th>Key Factor</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Complete</strong></td>
+                  <td>\(O(n^2)\) edges, dense</td>
+                  <td>DuckDB</td>
+                  <td>Vectorized batch processing</td>
+                </tr>
+                <tr>
+                  <td><strong>Path</strong></td>
+                  <td>\(O(n)\) edges, linear</td>
+                  <td>XSB Prolog</td>
+                  <td>Minimal iteration overhead</td>
+                </tr>
+                <tr>
+                  <td><strong>Cycle</strong></td>
+                  <td>\(O(n)\) edges, circular</td>
+                  <td>XSB Prolog</td>
+                  <td>Tabled resolution efficiency</td>
+                </tr>
+                <tr>
+                  <td><strong>Binary Tree</strong></td>
+                  <td>Height \(h\), balanced</td>
+                  <td>PostgreSQL</td>
+                  <td>Stable performance</td>
+                </tr>
+                <tr>
+                  <td><strong>Grid</strong></td>
+                  <td>\(n \times n\), structured</td>
+                  <td>DuckDB</td>
+                  <td>Regular access patterns</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLIDE 10: RECOMMENDATIONS -->
+      <div class="slide" id="s10">
+        <h2>System Selection Guide</h2>
+        <div
+          style="
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background: #f0f9ff;
+            border-left: 4px solid #0284c7;
+            font-size: 0.9rem;
+          "
+        >
+          <strong>Decision Framework:</strong> Consider graph density, recursion
+          depth, and correctness requirements when selecting a database system.
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Workload Profile</th>
+                <th>Recommended System</th>
+                <th>Rationale</th>
+                <th>Alternative</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <strong>Dense Graphs</strong><br /><span
+                    style="font-size: 0.8rem"
+                    >Density > 0.3</span
+                  >
+                </td>
+                <td>DuckDB*</td>
+                <td>Vectorized execution benefits</td>
+                <td>PostgreSQL (safety)</td>
+              </tr>
+              <tr>
+                <td>
+                  <strong>Sparse / Deep Paths</strong><br /><span
+                    style="font-size: 0.8rem"
+                    >Density < 0.05</span
+                  >
+                </td>
+                <td>XSB Prolog</td>
+                <td>Tabling minimizes redundancy</td>
+                <td>PostgreSQL</td>
+              </tr>
+              <tr>
+                <td><strong>General Purpose</strong></td>
+                <td>PostgreSQL</td>
+                <td>Standards compliance + maturity</td>
+                <td>MariaDB</td>
+              </tr>
+              <tr>
+                <td><strong>Distributed Workloads</strong></td>
+                <td>CockroachDB</td>
+                <td>Multi-region support</td>
+                <td>N/A</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p style="margin-top: 1rem; font-size: 0.8rem; color: #c53030">
+          <strong>*Warning:</strong> DuckDB non-linear recursion requires linear
+          rewrites for correctness.
+        </p>
+      </div>
+
+      <!-- SLIDE 11: CONCLUSION -->
+      <div class="slide" id="s11">
+        <h2>Key Contributions & Future Work</h2>
+        <div class="content-grid">
+          <div>
+            <h3>Research Contributions</h3>
+            <ul class="bullet-list" style="font-size: 0.95rem">
+              <li>
+                <i class="fa-solid fa-database"></i>
+                <strong>Comprehensive Benchmark:</strong> 12 graph topologies ×
+                7 systems × 3 recursion variants
+              </li>
+              <li>
+                <i class="fa-solid fa-bug"></i>
+                <strong>Correctness Analysis:</strong> Identified DuckDB
+                non-linear recursion bug
+              </li>
+              <li>
+                <i class="fa-solid fa-chart-bar"></i>
+                <strong>Performance Characterization:</strong>
+                Workload-dependent system selection guidance
+              </li>
+            </ul>
+            <h3 style="margin-top: 1.5rem">Future Directions</h3>
+            <ul class="bullet-list" style="font-size: 0.9rem">
+              <li>
+                <i class="fa-solid fa-network-wired"></i>
+                Distributed recursion (multi-node CockroachDB evaluation)
+              </li>
+              <li>
+                <i class="fa-solid fa-route"></i>
+                Shortest path with aggregation (cost-based recursion)
+              </li>
+              <li>
+                <i class="fa-solid fa-bolt"></i>
+                Adaptive query optimization (dynamic strategy selection)
+              </li>
+            </ul>
+          </div>
+          <div
+            style="
+              display: flex;
+              flex-direction: column;
+              justify-content: center;
+              gap: 1.5rem;
+            "
+          >
+            <div class="stat-card" style="text-align: center">
+              <span class="stat-val">7</span>
+              <span class="stat-label">Database Systems</span>
+            </div>
+            <div class="stat-card" style="text-align: center">
+              <span class="stat-val">12</span>
+              <span class="stat-label">Graph Topologies</span>
+            </div>
+            <div class="stat-card" style="text-align: center">
+              <span class="stat-val">252</span>
+              <span class="stat-label">Test Configurations</span>
+            </div>
+            <div style="text-align: center; margin-top: 1rem">
+              <h1 style="color: var(--primary); font-size: 2.5rem">
+                Questions?
+              </h1>
+              <p style="margin-top: 0.5rem; font-size: 0.95rem">
+                <strong>John Idogun</strong><br />jidogun@cs.stonybrook.edu
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide-counter"><span id="curr">1</span> / 11</div>
+    <div class="controls">
+      <button
+        class="btn"
+        onclick="nav(-1)"
+        title="Previous slide (← or Backspace)"
+      >
+        <i class="fa-solid fa-chevron-left"></i>
+      </button>
+      <button class="btn" onclick="nav(1)" title="Next slide (→ or Space)">
+        <i class="fa-solid fa-chevron-right"></i>
+      </button>
+    </div>
+    <div class="progress-container"><div id="progress-bar"></div></div>
+
+    <!-- Prism.js Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-sql.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-prolog.min.js"></script>
+
+    <script>
+      let current = 0;
+      const slides = document.querySelectorAll(".slide");
+      const bar = document.getElementById("progress-bar");
+      const counter = document.getElementById("curr");
+
+      function nav(dir) {
+        slides[current].classList.remove("active");
+        slides[current].classList.add("prev");
+
+        current = (current + dir + slides.length) % slides.length;
+
+        slides.forEach((s, i) => {
+          s.classList.toggle("active", i === current);
+          s.classList.toggle("prev", i < current);
+        });
+
+        bar.style.width = ((current + 1) / slides.length) * 100 + "%";
+        counter.innerText = current + 1;
+
+        // Trigger MathJax re-render
+        document.dispatchEvent(new Event("slideChange"));
+      }
+
+      function toggleFullscreen() {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen();
+        } else {
+          if (document.exitFullscreen) {
+            document.exitFullscreen();
+          }
+        }
+      }
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowRight" || e.key === " ") {
+          e.preventDefault();
+          nav(1);
+        }
+        if (e.key === "ArrowLeft" || e.key === "Backspace") {
+          e.preventDefault();
+          nav(-1);
+        }
+        if (e.key === "f" || e.key === "F") toggleFullscreen();
+        if (e.key === "Home") {
+          e.preventDefault();
+          current = -1;
+          nav(1);
+        }
+        if (e.key === "End") {
+          e.preventDefault();
+          current = slides.length;
+          nav(-1);
+        }
+      });
+
+      // Touch handling
+      let touchstartX = 0;
+      document.addEventListener(
+        "touchstart",
+        (e) => (touchstartX = e.changedTouches[0].screenX),
+      );
+      document.addEventListener("touchend", (e) => {
+        let touchendX = e.changedTouches[0].screenX;
+        if (touchendX < touchstartX - 50) nav(1);
+        if (touchendX > touchstartX + 50) nav(-1);
+      });
+
+      bar.style.width = (1 / slides.length) * 100 + "%";
+
+      // Initialize Prism highlighting
+      Prism.highlightAll();
+    </script>
+  </body>
+</html>
