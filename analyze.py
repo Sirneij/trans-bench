@@ -27,8 +27,8 @@ def load_data(file_path: str) -> Any:
     return data
 
 
-def extract_records(data: Any, sizes_to_analyze: list[int]) -> list[dict]:
-    records = []
+def extract_records(data: Any, sizes_to_analyze: list[int]) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
     for (environment, graph_type, recursion_variant), entries in data.items():
         # Only process left_recursion for neo4j
         if environment == 'neo4j' and recursion_variant != 'left_recursion':
@@ -68,14 +68,14 @@ def extract_records(data: Any, sizes_to_analyze: list[int]) -> list[dict]:
     return records
 
 
-def process_data(records: list[dict]) -> pd.DataFrame:
+def process_data(records: list[dict[str, Any]]) -> pd.DataFrame:
     df = pd.DataFrame(records)
     unique_df = df.drop_duplicates(subset=['environment', 'graph_type', 'recursion_variant', 'metric_name', 'size'])
     return unique_df
 
 
-def analyze_data(unique_df: pd.DataFrame) -> dict:
-    unique_result = {}
+def analyze_data(unique_df: pd.DataFrame) -> dict[str, dict[str, pd.DataFrame]]:
+    unique_result: dict[str, dict[str, pd.DataFrame]] = {}
     grouped_unique = unique_df.groupby(['graph_type', 'recursion_variant'])
 
     for name, group in grouped_unique:
@@ -91,8 +91,8 @@ def analyze_data(unique_df: pd.DataFrame) -> dict:
     return unique_result
 
 
-def calculate_factors(unique_result: dict) -> dict:
-    final_tables = {}
+def calculate_factors(unique_result: dict[str, dict[str, pd.DataFrame]]) -> dict[tuple[str, str], dict[str, pd.DataFrame]]:
+    final_tables: dict[tuple[str, str], dict[str, pd.DataFrame]] = {}
 
     for key in unique_result:
         graph_type, recursion_variant = key
@@ -125,7 +125,7 @@ def calculate_factors(unique_result: dict) -> dict:
     return final_tables
 
 
-def export_to_csv(final_tables: dict) -> None:
+def export_to_csv(final_tables: dict[tuple[str, str], dict[str, pd.DataFrame]]) -> None:
     for key, tables in final_tables.items():
         graph_type, time_type = key
 
@@ -156,7 +156,7 @@ def get_short_graph_name(graph_type: str, size: int) -> str:
     return graph_names.get(graph_type, f'Unknown_{graph_type}_{{n={size}}}')
 
 
-def create_overall_csvs(unique_result: dict, size: int):
+def create_overall_csvs(unique_result: dict[tuple[str, str], dict[str, pd.DataFrame]], size: int):
     overall_data = {
         'left_recursion': {'real_time': [], 'cpu_time': []},
         'right_recursion': {'real_time': [], 'cpu_time': []},
