@@ -312,6 +312,7 @@ def main() -> None:
         'w',
         'y',
         'x',
+        'barabasi_albert',
     ]
 
     parser = argparse.ArgumentParser()
@@ -351,7 +352,7 @@ def main() -> None:
         nargs='+',
         default=graph_types,
         choices=graph_types,
-        help='The types of graphs to run the experiment on. Default is complete cycle cycle_with_shortcuts star max_acyclic path multi_path binary_tree reverse_binary_tree w y x.',
+        help='The types of graphs to run the experiment on. Default is complete cycle cycle_with_shortcuts star max_acyclic path multi_path binary_tree reverse_binary_tree w y x barabasi_albert.',
     )
     parser.add_argument(
         '--souffle-include-dir',

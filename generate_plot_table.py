@@ -40,6 +40,7 @@ class BaseTableAndPlotGenerator:
             'w': 'W',
             'x': 'X',
             'y': 'Y',
+            'barabasi_albert': 'BA',
         }
     
     @staticmethod
