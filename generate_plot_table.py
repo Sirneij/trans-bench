@@ -545,6 +545,18 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
                     'y': 1,
                 },
             },
+            '10000': {
+                'xLimits': 0.04,
+                'barShift': {
+                    'xsb': -24.3,
+                    'clingo': -6.0,
+                    'souffle': 12.3,
+                },
+                'anchor': {
+                    'x': 0.42,
+                    'y': 1,
+                },
+            },
         }
 
     def __write_latex_body_for_environment(
@@ -787,7 +799,7 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
             (component, self.component_colors[env_name][component]) for component in reversed(self.components[env_name])
         ]
 
-        bar_width = (600 / self.max_x) if self.max_x > 0 else 0.6
+        bar_width = (6.0 / len(sizes)) if sizes else 0.6
 
         for mode in modes:
             if compile_file_alone:
@@ -921,6 +933,7 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
         The function first creates a directory for the combined LaTeX files if it doesn't exist. It then iterates over the modes and calls the combine_files function for each mode. The combined axis content is written to a new LaTeX file. If the compile_file_alone flag is set, the function compiles the LaTeX files to PDFs using the compile_latex_to_pdf function.
         """
         graph_types = [
+            'barabasi_albert',
             'binary_tree',
             'complete',
             'cycle',

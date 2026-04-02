@@ -282,8 +282,11 @@ class Experiment(Base):
                             self.souffle_include_dir,
                         )
 
+        # Calculate max_x_axis precisely based on the range logic
+        max_x = list(range(*self.size_range))[-1] if self.size_range else 1000
+
         # Generate latex plots and tables of the
-        subprocess.run(['python', 'generate_plot_table.py', '--config', config_str])
+        subprocess.run(['python', 'generate_plot_table.py', '--config', config_str, '--max-x-axis', str(max_x)])
 
 
 def load_config(file_path: str) -> dict[str, Any]:
