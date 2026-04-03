@@ -1,0 +1,297 @@
+
+\documentclass[border=10pt, 12pt]{standalone}
+\usepackage[svgnames]{xcolor}
+\usepackage{amsmath}
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest}
+\usepackage[sfdefault]{FiraSans}
+\usepackage{FiraMono}
+\renewcommand*\familydefault{\sfdefault}
+\begin{document}
+\begin{tikzpicture}
+                        \begin{axis}[bar shift=-24.3pt, 
+   ybar stacked,
+   width=1.7\textwidth,
+   bar width=0.6cm,
+   ymajorgrids, tick align=inside,
+   major grid style={draw=gray!20},
+   xtick=data,
+   scaled x ticks={base 10:-3},
+   ymin=0, ymax=74.64057999999999,
+   axis x line*=bottom,
+   axis y line*=left,
+   enlarge x limits=0.04,
+   legend style={
+       at={(0.23, 0.97)},
+       anchor=north east,
+       legend columns=1,
+       font=\Huge,
+   },
+   ylabel={CPU Time (seconds)},
+   xlabel={Number of nodes},
+   label style={font=\Huge},
+   tick label style={font=\Huge},
+]
+\addlegendimage{fill=DodgerBlue, draw=black, line width=0.2pt}
+\addlegendentry{WriteRes}
+\addlegendimage{fill=Crimson, draw=black, line width=0.2pt}
+\addlegendentry{Query}
+\addlegendimage{fill=LimeGreen, draw=black, line width=0.2pt}
+\addlegendentry{ReadData}
+\addlegendimage{fill=LightPink, draw=black, line width=0.2pt}
+\addlegendentry{LoadRules}
+\addplot +[fill=LightPink, draw=black, line width=0.55pt] coordinates {
+(10000, 0.0007355999999999997)
+(20000, 0.0006488000000000006)
+(30000, 0.0006170000000000004)
+(40000, 0.0005971999999999998)
+(50000, 0.0007036000000000002)
+(60000, 0.0005997999999999996)
+(70000, 0.0006347999999999988)
+(80000, 0.0006036000000000008)
+(90000, 0.0005747999999999997)
+(100000, 0.0005995999999999994)
+};
+\addplot +[fill=LimeGreen, draw=black, line width=0.55pt] coordinates {
+(10000, 0.018874)
+(20000, 0.0370382)
+(30000, 0.0545336)
+(40000, 0.0728992)
+(50000, 0.09241540000000001)
+(60000, 0.10948879999999998)
+(70000, 0.1323098)
+(80000, 0.15005200000000002)
+(90000, 0.1656952)
+(100000, 0.1835138)
+};
+\addplot +[fill=Crimson, draw=black, line width=0.55pt] coordinates {
+(10000, 0.08357479999999999)
+(20000, 0.22042820000000002)
+(30000, 0.3758816)
+(40000, 0.5540347999999999)
+(50000, 0.7550118)
+(60000, 0.9748091999999999)
+(70000, 1.2728106000000001)
+(80000, 1.4836688)
+(90000, 1.7032426)
+(100000, 1.9744964)
+};
+\addplot +[fill=DodgerBlue, draw=black, line width=0.55pt] coordinates {
+(10000, 0.3703058)
+(20000, 0.9046986)
+(30000, 1.5280218)
+(40000, 2.2403648)
+(50000, 3.0331982)
+(60000, 3.8459803999999997)
+(70000, 4.846091599999999)
+(80000, 5.714709999999999)
+(90000, 6.589374000000001)
+(100000, 7.5791968)
+};
+\end{axis}
+
+\begin{axis}[bar shift=-6.0pt, 
+   ybar stacked,
+   width=1.7\textwidth,
+   bar width=0.6cm,
+   ymajorgrids, tick align=inside,
+   major grid style={draw=none},
+   xtick=data,
+   scaled x ticks={base 10:-3},
+   ymin=0, ymax=74.64057999999999,
+   axis x line*=none,
+   axis y line*=none,
+   enlarge x limits=0.04,
+   legend style={
+       at={(0.454, 0.97)},
+       anchor=north east,
+       legend columns=1,
+       font=\Huge,
+   },
+   label style={font=\Huge},
+   tick label style={font=\Huge},
+]
+\addlegendimage{fill=DodgerBlue, draw=black, line width=0.2pt}
+\addlegendentry{WriteRes}
+\addlegendimage{fill=FireBrick, draw=black, line width=0.2pt}
+\addlegendentry{Solve}
+\addlegendimage{fill=OrangeRed, draw=black, line width=0.2pt}
+\addlegendentry{Ground}
+\addlegendimage{fill=LimeGreen, draw=black, line width=0.2pt}
+\addlegendentry{ReadData}
+\addlegendimage{fill=LightPink, draw=black, line width=0.2pt}
+\addlegendentry{LoadRules}
+\addplot +[fill=LightPink, draw=black, line width=0.55pt] coordinates {
+(10000, 0.0)
+(20000, 0.0)
+(30000, 0.0)
+(40000, 0.0)
+(50000, 0.0)
+(60000, 0.0)
+(70000, 0.0)
+(80000, 0.0)
+(90000, 0.0)
+(100000, 0.0)
+};
+\addplot +[fill=LimeGreen, draw=black, line width=0.55pt] coordinates {
+(10000, 0.040000000000000015)
+(20000, 0.07200000000000001)
+(30000, 0.11599999999999999)
+(40000, 0.15200000000000002)
+(50000, 0.196)
+(60000, 0.238)
+(70000, 0.28)
+(80000, 0.314)
+(90000, 0.366)
+(100000, 0.39399999999999996)
+};
+\addplot +[fill=OrangeRed, draw=black, line width=0.55pt] coordinates {
+(10000, 0.23600000000000004)
+(20000, 0.716)
+(30000, 1.324)
+(40000, 2.032)
+(50000, 2.8440000000000003)
+(60000, 3.722)
+(70000, 4.499999999999999)
+(80000, 5.4479999999999995)
+(90000, 6.4)
+(100000, 7.514)
+};
+\addplot +[fill=FireBrick, draw=black, line width=0.55pt] coordinates {
+(10000, 0.03600000000000001)
+(20000, 0.10200000000000009)
+(30000, 0.18199999999999994)
+(40000, 0.2759999999999999)
+(50000, 0.38)
+(60000, 0.47600000000000026)
+(70000, 0.6219999999999998)
+(80000, 0.748)
+(90000, 0.8839999999999997)
+(100000, 1.02)
+};
+\addplot +[fill=DodgerBlue, draw=black, line width=0.55pt] coordinates {
+(10000, 0.42399999999999993)
+(20000, 1.052)
+(30000, 1.784)
+(40000, 2.6799999999999997)
+(50000, 3.599999999999999)
+(60000, 4.5840000000000005)
+(70000, 5.536000000000001)
+(80000, 6.818)
+(90000, 7.81)
+(100000, 8.952000000000002)
+};
+\end{axis}
+
+\begin{axis}[bar shift=12.3pt, 
+   ybar stacked,
+   width=1.7\textwidth,
+   bar width=0.6cm,
+   ymajorgrids, tick align=inside,
+   major grid style={draw=none},
+   xtick=data,
+   scaled x ticks={base 10:-3},
+   ymin=0, ymax=74.64057999999999,
+   axis x line*=none,
+   axis y line*=none,
+   enlarge x limits=0.04,
+   legend style={
+       at={(0.69, 0.97)},
+       anchor=north east,
+       legend columns=1,
+       font=\Huge,
+   },
+   label style={font=\Huge},
+   tick label style={font=\Huge},
+]
+\addlegendimage{fill=DodgerBlue, draw=black, line width=0.2pt}
+\addlegendentry{WriteRes}
+\addlegendimage{fill=Crimson, draw=black, line width=0.2pt}
+\addlegendentry{Query}
+\addlegendimage{fill=LimeGreen, draw=black, line width=0.2pt}
+\addlegendentry{ReadData}
+\addlegendimage{fill=LightPink, draw=black, line width=0.2pt}
+\addlegendentry{LoadRules}
+\addlegendimage{fill=DarkOrange, draw=black, line width=0.2pt}
+\addlegendentry{C++ToExec}
+\addlegendimage{fill=LightGoldenrod, draw=black, line width=0.2pt}
+\addlegendentry{RulesToC++}
+\addplot +[fill=LightGoldenrod, draw=black, line width=0.55pt] coordinates {
+(10000, 0.004)
+(20000, 0.006000000000000003)
+(30000, 0.0)
+(40000, 0.0)
+(50000, 0.001999999999999999)
+(60000, 0.0)
+(70000, 0.0)
+(80000, 0.0020000000000000018)
+(90000, 0.0020000000000000018)
+(100000, 0.0)
+};
+\addplot +[fill=DarkOrange, draw=black, line width=0.55pt] coordinates {
+(10000, 1.4580000000000002)
+(20000, 1.3980000000000001)
+(30000, 1.368)
+(40000, 1.3900000000000001)
+(50000, 1.3760000000000001)
+(60000, 1.366)
+(70000, 1.36)
+(80000, 1.3760000000000001)
+(90000, 1.37)
+(100000, 1.358)
+};
+\addplot +[fill=LightPink, draw=black, line width=0.55pt] coordinates {
+(10000, 0.0001684)
+(20000, 0.0001226)
+(30000, 0.0001222)
+(40000, 0.0001692)
+(50000, 0.0001466)
+(60000, 0.00017280000000000003)
+(70000, 0.0001562)
+(80000, 0.0001348)
+(90000, 0.0001386)
+(100000, 0.00015040000000000002)
+};
+\addplot +[fill=LimeGreen, draw=black, line width=0.55pt] coordinates {
+(10000, 0.030203800000000003)
+(20000, 0.049249)
+(30000, 0.0719254)
+(40000, 0.0944756)
+(50000, 0.11433940000000001)
+(60000, 0.13498459999999998)
+(70000, 0.1514872)
+(80000, 0.1740026)
+(90000, 0.1907146)
+(100000, 0.21157120000000001)
+};
+\addplot +[fill=Crimson, draw=black, line width=0.55pt] coordinates {
+(10000, 0.4451904)
+(20000, 1.131834)
+(30000, 1.970448)
+(40000, 2.899878)
+(50000, 3.921976)
+(60000, 5.012474)
+(70000, 6.154302)
+(80000, 7.404278)
+(90000, 8.667658)
+(100000, 10.013678)
+};
+\addplot +[fill=DodgerBlue, draw=black, line width=0.55pt] coordinates {
+(10000, 0.0757984)
+(20000, 0.1904204)
+(30000, 0.3510922)
+(40000, 0.4776344)
+(50000, 0.6425826)
+(60000, 0.8179632)
+(70000, 1.0069624)
+(80000, 1.2065540000000001)
+(90000, 1.40946)
+(100000, 1.6255619999999997)
+};
+\end{axis}
+
+
+\node[anchor=south, draw, fill=white] at (rel axis cs:0.42, 1) {\Huge Left: XSB, Middle: Clingo, Right: Soufflé};
+\end{tikzpicture}
+\end{document}
+                    

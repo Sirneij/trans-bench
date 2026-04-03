@@ -162,46 +162,17 @@ class DataGenerator:
         Generate a Barabási-Albert graph (Real-world scale-free model).
         Mathmatically guarantees that a subset of nodes N1 inside N2 will have identical edges.
         """
-        import random
-        # Save current random state to avoid side-effects on other code
-        state = random.getstate()
-        random.seed(42)
-
+        import networkx as nx
         logging.info(f'Generating Barabási-Albert graph for n={n} (m={m})')
 
-        try:
-            if n <= m:
-                # If n is too small, just yield a complete graph
-                for i in range(1, n + 1):
-                    for j in range(i + 1, n + 1):
-                        yield (i, j)
-                        yield (j, i) # undirected but returning both? Actually the other generators just yield directed or undirected edges. The original snippet used `number_of_edges`. I'll just yield (i, j).
-                        # Let's just stick to (i, j).
-            else:
-                # Initial complete graph of m nodes
-                repeated_nodes = []
-                for i in range(1, m + 1):
-                    for j in range(i + 1, m + 1):
-                        yield (i, j)
-                        repeated_nodes.extend([i, j])
-
-                if not repeated_nodes:
-                    # Fallback if m < 2 (e.g. m=1), start with node 1 existing.
-                    for i in range(1, m + 1):
-                        repeated_nodes.append(i)
-
-                # Preferential attachment
-                for source in range(m + 1, n + 1):
-                    targets = set()
-                    while len(targets) < m:
-                        x = random.choice(repeated_nodes)
-                        targets.add(x)
-
-                    for t in targets:
-                        yield (source, t)
-                        repeated_nodes.extend([source, t])
-        finally:
-            random.setstate(state)
+        if n <= m:
+            for i in range(1, n + 1):
+                for j in range(i + 1, n + 1):
+                    yield (i, j)
+        else:
+            G = nx.barabasi_albert_graph(n, m, seed=42)
+            for u, v in G.edges():
+                yield (u + 1, v + 1)
 
 
 class GraphGenerator:

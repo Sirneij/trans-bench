@@ -557,6 +557,18 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
                     'y': 1,
                 },
             },
+            '100000': {
+                'xLimits': 0.04,
+                'barShift': {
+                    'xsb': -24.3,
+                    'clingo': -6.0,
+                    'souffle': 12.3,
+                },
+                'anchor': {
+                    'x': 0.42,
+                    'y': 1,
+                },
+            },
         }
 
     def __write_latex_body_for_environment(
@@ -594,6 +606,8 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
         # Determine xlabel based on graph type - UPDATED
         xlabel = self._BaseTableAndPlotGenerator__get_xlabel_for_graph_type(key[1])
 
+        max_x_val = max(value[0] for value in values) if values else 0
+
         f.write('\\begin{tikzpicture}\n')
         for i in range(2):
             f.write('\\begin{axis}[\n')
@@ -610,6 +624,8 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
             f.write('   ymajorgrids, tick align=inside,\n')
             f.write('   major grid style={draw=gray!20},\n' if i == 0 else '   major grid style={draw=none},\n')
             f.write('   xtick=data,\n')
+            if max_x_val >= 1000:
+                f.write('   scaled x ticks={base 10:-3},\n')
             f.write(f'   ymin=0, ymax={max_real_time},\n')
             f.write('   axis x line*=bottom,\n' if i == 0 else '   axis x line*=none,\n')
             f.write('   axis y line*=left,\n' if i == 0 else '   axis y line*=none,\n')
@@ -843,7 +859,10 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
                     f.write(f'   bar width={bar_width}cm,\n')
                     f.write('   ymajorgrids, tick align=inside,\n')
                     f.write('   major grid style={draw=gray!20},\n')
+                    max_x_val = max(sizes) if sizes else 0
                     f.write('   xtick=data,\n')
+                    if max_x_val >= 1000:
+                        f.write('   scaled x ticks={base 10:-3},\n')
                     f.write(f'   ymin=0, ymax={ymax},\n')
                     f.write('   axis x line*=bottom,\n')
                     f.write('   axis y line*=left,\n')
