@@ -316,6 +316,7 @@ def main() -> None:
         'y',
         'x',
         'barabasi_albert',
+        'scale_free',
     ]
 
     parser = argparse.ArgumentParser()

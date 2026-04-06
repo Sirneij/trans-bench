@@ -41,6 +41,7 @@ class BaseTableAndPlotGenerator:
             'x': 'X',
             'y': 'Y',
             'barabasi_albert': 'BA',
+            'scale_free': 'SF',
         }
     
     @staticmethod
@@ -953,6 +954,7 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
         """
         graph_types = [
             'barabasi_albert',
+            'scale_free',
             'binary_tree',
             'complete',
             'cycle',

@@ -174,6 +174,18 @@ class DataGenerator:
             for u, v in G.edges():
                 yield (u + 1, v + 1)
 
+    def generate_scale_free_graph(self, n) -> Generator[tuple[int, int], None, None]:
+        """
+        Generate a scale-free directed graph.
+        """
+        import networkx as nx
+        logging.info(f'Generating scale-free graph for n={n}')
+        G = nx.scale_free_graph(n, seed=42)
+        # using set to remove multigraph duplicate edges
+        for u, v in G.edges():
+            yield (u + 1, v + 1)
+
+
 
 class GraphGenerator:
     """
@@ -289,8 +301,9 @@ def main():
             'y',
             'x',
             'barabasi_albert',
+            'scale_free',
         ],
-        help='The types of graphs to run the experiment on. Default is complete cycle cycle_with_shortcuts star max_acyclic path multi_path binary_tree reverse_binary_tree w y x barabasi_albert.',
+        help='The types of graphs to run the experiment on. Default is complete cycle cycle_with_shortcuts star max_acyclic path multi_path binary_tree reverse_binary_tree w y x barabasi_albert scale_free.',
     )
     args = parser.parse_args()
 
