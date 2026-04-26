@@ -1,0 +1,5 @@
+DeleteDataRealTime,DeleteDataCPUTime,LoadDataRealTime,LoadDataCPUTime,CreateIndexXRealTime,CreateIndexXCPUTime,CreateIndexYRealTime,CreateIndexYCPUTime,QueryRealTime,QueryCPUTime,WriteResultRealTime,WriteResultCPUTime
+0,0,0,0,0,0,0,0,0,0,0,0
+0,0,0,0,0,0,0,0,0,0,0,0
+0,0,0,0,0,0,0,0,0,0,0,0
+0,0,0,0,0,0,0,0,0,0,0,0

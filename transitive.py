@@ -77,7 +77,7 @@ class Experiment(Base):
         input_dir.mkdir(parents=True, exist_ok=True)
 
         # List to hold graph types that need data generation
-        missing_graph_types = []
+        missing_graph_types: list[str] = []
 
         # Check each graph type directory for missing sizes
         for graph_type in graph_types:
@@ -141,6 +141,8 @@ class Experiment(Base):
         output_path = output_dir / f'timing_{mode}_graph_{size}.csv'
 
         config_str = json.dumps(self.config)
+
+        command: list[str] = []
 
         if env_name in self.config.get('defaults', {}).get('systems', {}).get('alda', []):
             command = [
@@ -233,7 +235,7 @@ class Experiment(Base):
                             logging.warning(f"Row has more columns than headers: {row}")
 
         # Calculate averages and prepare the row to append
-        averages = []
+        averages: list[float] = []
         for sum_value, count_value in zip(sums, counts):
             average = sum_value / count_value if count_value > 0 else 0
             averages.append(average)

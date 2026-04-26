@@ -6,7 +6,7 @@ import math
 import os
 import pickle
 from pathlib import Path
-from typing import Any, Generator
+from typing import Any, Generator, Callable
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s')
 
@@ -19,7 +19,7 @@ class DataGenerator:
     def __init__(self):
         self.k = 10
 
-    def generate_complete_graph(self, n) -> Generator[tuple[int, int], None, None]:
+    def generate_complete_graph(self, n: int) -> Generator[tuple[int, int], None, None]:
         """
         Generate a complete graph with n nodes.
         """
@@ -29,7 +29,7 @@ class DataGenerator:
             for j in range(1, n + 1):
                 yield (i, j)
 
-    def generate_max_acyclic_graph(self, n) -> Generator[tuple[int, int], None, None]:
+    def generate_max_acyclic_graph(self, n: int) -> Generator[tuple[int, int], None, None]:
         """
         Generate a max acyclic graph with n nodes.
         """
@@ -40,7 +40,7 @@ class DataGenerator:
                 if a > b:
                     yield (a, b)
 
-    def generate_cycle_graph(self, n) -> Generator[tuple[int, int], None, None]:
+    def generate_cycle_graph(self, n: int) -> Generator[tuple[int, int], None, None]:
         """
         Generate a cycle graph with n nodes.
         """
@@ -50,7 +50,7 @@ class DataGenerator:
             yield (i, i + 1)
         yield (n, 1)
 
-    def generate_cycle_with_shortcuts_graph(self, n) -> Generator[tuple[int, int], None, None]:
+    def generate_cycle_with_shortcuts_graph(self, n: int) -> Generator[tuple[int, int], None, None]:
         """
         Generate a cycle with shortcuts graph with n nodes.
         """
@@ -64,7 +64,7 @@ class DataGenerator:
             for t in range(1, self.k + 1):
                 yield (i, 1 + (i - 1 + skip * t) % n)
 
-    def generate_path_graph(self, n) -> Generator[tuple[int, int], None, None]:
+    def generate_path_graph(self, n: int) -> Generator[tuple[int, int], None, None]:
         """
         Generate a path graph with n nodes.
         """
@@ -72,7 +72,7 @@ class DataGenerator:
         for i in range(1, n):
             yield (i, i + 1)
 
-    def generate_multi_path_graph(self, n) -> Generator[tuple[int, int], None, None]:
+    def generate_multi_path_graph(self, n: int) -> Generator[tuple[int, int], None, None]:
         """
         Generate a multi path graph with n nodes.
         """
@@ -80,7 +80,7 @@ class DataGenerator:
         for i in range(1, (n - 1) * self.k + 1):
             yield (i, i + self.k)
 
-    def generate_binary_tree_graph(self, n) -> Generator[tuple[int, int], None, None]:
+    def generate_binary_tree_graph(self, n: int) -> Generator[tuple[int, int], None, None]:
         """
         Generate a binary tree graph with n nodes.
         """
@@ -91,7 +91,7 @@ class DataGenerator:
             yield (i, 2 * i)
             yield (i, 2 * i + 1)
 
-    def generate_reverse_binary_tree_graph(self, n) -> Generator[tuple[int, int], None, None]:
+    def generate_reverse_binary_tree_graph(self, n: int) -> Generator[tuple[int, int], None, None]:
         """
         Generate a reverse binary tree graph with n nodes.
         """
@@ -102,7 +102,7 @@ class DataGenerator:
             yield (2 * i, i)
             yield (2 * i + 1, i)
 
-    def generate_y_graph(self, n) -> Generator[tuple[int, int], None, None]:
+    def generate_y_graph(self, n: int) -> Generator[tuple[int, int], None, None]:
         """
         Generate a Y graph with n nodes.
         """
@@ -112,7 +112,7 @@ class DataGenerator:
         for i in range(n + 2, n + self.k + 1):
             yield (i - 1, i)
 
-    def generate_w_graph(self, n) -> Generator[tuple[int, int], None, None]:
+    def generate_w_graph(self, n: int) -> Generator[tuple[int, int], None, None]:
         """
         Generate a W graph with n nodes.
         """
@@ -121,7 +121,7 @@ class DataGenerator:
             for j in range(1, self.k + 1):
                 yield (i, n + 1 + (i + j - 1) % n)
 
-    def generate_x_graph(self, n) -> Generator[tuple[int, int], None, None]:
+    def generate_x_graph(self, n: int) -> Generator[tuple[int, int], None, None]:
         """
         Generate a X graph with n nodes.
         """
@@ -131,7 +131,7 @@ class DataGenerator:
         for j in range(1, self.k + 1):
             yield (n + 1, n + 1 + j)
 
-    def generate_star_graph(self, n) -> Generator[tuple[int, int], None, None]:
+    def generate_star_graph(self, n: int) -> Generator[tuple[int, int], None, None]:
         """
         Generate a star graph with n nodes.
         """
@@ -139,7 +139,7 @@ class DataGenerator:
         for i in range(2, n + 1):
             yield (i, 1)
 
-    def generate_grid_graph(self, n) -> Generator[tuple[int, int], None, None]:
+    def generate_grid_graph(self, n: int) -> Generator[tuple[int, int], None, None]:
         """
         Generate a grid graph with n nodes.
         """
@@ -157,7 +157,7 @@ class DataGenerator:
             for j in range((i - 1) * n + 1, (i - 1) * n + n + 1):
                 yield (j, j + n)
 
-    def generate_barabasi_albert_graph(self, n, m=2) -> Generator[tuple[int, int], None, None]:
+    def generate_barabasi_albert_graph(self, n: int, m: int = 2) -> Generator[tuple[int, int], None, None]:
         """
         Generate a Barabási-Albert graph (Real-world scale-free model).
         Mathmatically guarantees that a subset of nodes N1 inside N2 will have identical edges.
@@ -174,7 +174,7 @@ class DataGenerator:
             for u, v in G.edges():
                 yield (u + 1, v + 1)
 
-    def generate_scale_free_graph(self, n) -> Generator[tuple[int, int], None, None]:
+    def generate_scale_free_graph(self, n: int) -> Generator[tuple[int, int], None, None]:
         """
         Generate a scale-free directed graph.
         """
@@ -203,20 +203,20 @@ class GraphGenerator:
         self.base_dir = Path(base_dir)
         self.config = config
 
-    def save_for_alda(self, graph_generator_func, size, filename: Path):
+    def save_for_alda(self, graph_generator_func: Callable[[int], Generator[tuple[int, int], None, None]], size: int, filename: Path):
         graph_generator = graph_generator_func(size)
         data_set_of_tuples = set(graph_generator)
         with open(filename, 'wb') as f:
             pickle.dump(data_set_of_tuples, f)
 
-    def save_for_souffle(self, graph_generator_func, size, filename: Path, fact_name: str = 'edge'):
+    def save_for_souffle(self, graph_generator_func: Callable[[int], Generator[tuple[int, int], None, None]], size: int, filename: Path, fact_name: str = 'edge'):
         graph_generator = graph_generator_func(size)
         with open(filename, 'w') as file:
             for value in graph_generator:
                 first, second = value
                 file.write(f'{first}\t{second}\n')
 
-    def save_for_clingo_xsb(self, graph_generator_func, size: int, filename: Path, fact_name: str = 'edge'):
+    def save_for_clingo_xsb(self, graph_generator_func: Callable[[int], Generator[tuple[int, int], None, None]], size: int, filename: Path, fact_name: str = 'edge'):
         graph_generator = graph_generator_func(size)
         with open(filename, 'w') as file:
             for value in graph_generator:
