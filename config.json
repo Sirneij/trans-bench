@@ -13,7 +13,7 @@
         "uri": "neo4j://localhost:7687",
         "user": "neo4j",
         "password": "@12345Data",
-        "import_directory": "/opt/homebrew/var/neo4j/import"
+        "import_directory": "/opt/homebrew/Cellar/neo4j/2026.04.0/libexec/import"
     },
     "mongodb": {
         "uri": "mongodb://127.0.0.1:27017/",
@@ -21,7 +21,7 @@
     },
     "cockroachdb": {
         "dbURL": "postgresql://root@localhost:26257/defaultdb?sslmode=disable",
-        "externalDirectory": "~/cockroach-data/extern/"
+        "externalDirectory": "/opt/homebrew/var/cockroach/extern/"
     },
     "machineUserPassword": "my1stchoice",
     "defaults": {

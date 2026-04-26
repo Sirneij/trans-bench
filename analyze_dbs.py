@@ -272,7 +272,7 @@ class AnalyzeDBs(AnalyzeSystems):
             logging.error(f'Error copying Neo4j results: {e}')
 
         # Clean up files from Neo4j import directory
-        rm_cmd = f'rm {neo4j_import_dir}/{fact_file_name} {export_source}'
+        rm_cmd = f'rm -f {neo4j_import_dir}/{fact_file_name} {export_source}'
         if os.name == 'posix' and 'darwin' in os.uname().sysname.lower():
             subprocess.run(rm_cmd, shell=True, text=True, capture_output=True, check=True)
         else:
