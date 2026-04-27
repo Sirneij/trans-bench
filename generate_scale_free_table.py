@@ -56,25 +56,45 @@ def generate():
                             data[mode][size] = {}
                         data[mode][size][env] = val
 
-    for mode, size_data in data.items():
+    latex_lines = [
+        "\\documentclass{article}",
+        "\\usepackage[landscape, margin=1in]{geometry}",
+        "\\usepackage{booktabs}",
+        "\\begin{document}",
+        "",
+        "\\begin{table}[htpb]",
+        "\\centering",
+        "\\caption{Query execution times (in seconds) for Left and Right Recursion on scale-free graphs. Missing entries ($-$) indicate execution was manually aborted due to excessive runtime or Out-of-Memory.}",
+        "\\label{tab:scale_free_side_by_side}",
+        ""
+    ]
+
+    modes_to_print = ['left_recursion', 'right_recursion']
+    
+    for i, mode in enumerate(modes_to_print):
+        if mode not in data:
+            continue
+        size_data = data[mode]
         sizes = sorted(list(size_data.keys()))
         
-        latex_lines = [
-            "\\begin{table}[h]",
+        latex_lines.extend([
+            "\\begin{minipage}[t]{0.48\\textwidth}",
             "\\centering",
-            "\\rowcolors{2}{gray!15}{white}",
-            "\\begin{tabular}{l" + "r" * len(environments) + "}",
+            f"\\textbf{{{mode.replace('_', ' ').title()}}}",
+            "",
+            "\\vspace{0.2cm}",
+            "\\begin{tabular}{lrrrrrr}",
             "\\toprule",
             "\\textbf{Graph Size} & " + " & ".join(f"\\textbf{{{env_names[env]}}}" for env in environments) + " \\\\",
             "\\midrule"
-        ]
+        ])
         
         for size in sizes:
             row = [f"{size:,}"]
             for env in environments:
                 val = size_data[size].get(env, None)
                 if val is None:
-                    row.append("$\\times$")  # denote missing/closed
+                    row.append("-")  # denote missing/closed
                 else:
                     if val > 100:
                         row.append(f"{val:.1f}")
@@ -87,15 +107,19 @@ def generate():
         latex_lines.extend([
             "\\bottomrule",
             "\\end{tabular}",
-            f"\\caption{{Query execution times (in seconds) for {mode.replace('_', ' ').title()} on scale-free graphs. Missing entries ($\\times$) indicate execution was manually aborted due to excessive runtime or Out-of-Memory. }}",
-            f"\\label{{tab:scale_free_{mode}}}",
-            "\\end{table}",
-            ""
+            "\\end{minipage}" + ("\\hfill" if i == 0 else "")
         ])
         
-        output_file = Path(f'scale_free_{mode}_table.tex')
-        output_file.write_text('\n'.join(latex_lines))
-        print(f"Generated {output_file}")
+    latex_lines.extend([
+        "",
+        "\\end{table}",
+        "",
+        "\\end{document}"
+    ])
+    
+    output_file = Path('scale_free_tables_standalone.tex')
+    output_file.write_text('\n'.join(latex_lines))
+    print(f"Generated {output_file}")
 
 if __name__ == '__main__':
     generate()
