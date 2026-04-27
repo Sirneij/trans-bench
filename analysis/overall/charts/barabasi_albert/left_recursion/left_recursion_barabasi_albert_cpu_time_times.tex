@@ -1,0 +1,26 @@
+
+\documentclass{standalone}
+\usepackage[svgnames]{xcolor}
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest}
+\usepackage[sfdefault]{FiraSans}
+\usepackage{FiraMono}
+\renewcommand*\familydefault{\sfdefault}
+\begin{document}
+\begin{tikzpicture}
+    \begin{axis}[
+        title={Graph: Barabasi Albert},
+        xlabel={Number of nodes},
+        ylabel={CPU time (s)},
+        legend pos={north west},
+        ymax=20.7505398,
+        scaled x ticks={base 10:-3}
+    ]
+    \addplot+[DarkSlateGray, mark options={color=DarkSlateGray}] coordinates {(10000,0.36358199999999996) (20000,1.1696154) (30000,2.3285028) (40000,3.9547263999999998) (50000,5.8050168) (60000,8.135305) (70000,11.136376) (80000,13.7002634) (90000,17.3112944) (100000,20.7505398)};
+\addlegendentry{XSB}
+\addplot+[Gold, mark options={color=Gold}] coordinates {(10000,0.06865780000000002) (20000,0.14326120000000003) (30000,0.235668) (40000,0.38532940000000004) (50000,0.4666616) (60000,0.5864628) (70000,0.6849823999999999) (80000,0.9933624) (90000,1.028557) (100000,1.2273992)};
+\addlegendentry{DuckDB}
+
+    \end{axis}
+\end{tikzpicture}
+\end{document}

@@ -152,6 +152,8 @@ def get_short_graph_name(graph_type: str, size: int) -> str:
         'x': f'X_{{n={size}, k=10}}',
         'y': f'Y_{{n={size},k=10}}',
         'w': f'W_{{n={size},k=10}}',
+        'barabasi_albert': f'BA_{{n={size}}}',
+        'scale_free': f'SF_{{n={size}}}',
     }
     return graph_names.get(graph_type, f'Unknown_{graph_type}_{{n={size}}}')
 
@@ -177,6 +179,8 @@ def create_overall_csvs(unique_result: dict[tuple[str, str], dict[str, pd.DataFr
         'x',
         'y',
         'w',
+        'barabasi_albert',
+        'scale_free',
     ]
 
     environments = sorted(
@@ -416,7 +420,8 @@ def generate_pgfplots(
         xlabel={{Number of nodes}},
         ylabel={{{transform_text(time_type)} (s)}},
         legend pos={{north west}},
-        ymax={max_y_value}
+        ymax={max_y_value},
+        scaled x ticks={{base 10:-3}}
     ]
     {plot_lines}
     \\end{{axis}}
@@ -487,8 +492,7 @@ def main(file_path: str, sizes_to_analyze: list[int]):
 
 def run_main():
     file_path = 'data.txt'
-    sizes_to_analyze = [i for i in range(100, 1001, 100)]
-    # sizes_to_analyze = [1000]
+    sizes_to_analyze = [i for i in range(10000, 100001, 10000)]
     main(file_path, sizes_to_analyze)
 
 

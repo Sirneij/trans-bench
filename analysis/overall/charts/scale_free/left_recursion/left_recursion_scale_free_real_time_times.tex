@@ -1,0 +1,32 @@
+
+\documentclass{standalone}
+\usepackage[svgnames]{xcolor}
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest}
+\usepackage[sfdefault]{FiraSans}
+\usepackage{FiraMono}
+\renewcommand*\familydefault{\sfdefault}
+\begin{document}
+\begin{tikzpicture}
+    \begin{axis}[
+        title={Graph: Scale Free},
+        xlabel={Number of nodes},
+        ylabel={Elapsed time (s)},
+        legend pos={north west},
+        ymax=1095.0468196332076,
+        scaled x ticks={base 10:-3}
+    ]
+    \addplot+[RoyalBlue, mark options={color=RoyalBlue}] coordinates {(10000,8.956431449798401) (20000,36.387922625200005) (30000,90.81212973319634) (40000,172.39118717520324) (50000,439.1967607586004) (60000,1095.0468196332076)};
+\addlegendentry{PostgreSQL}
+\addplot+[DeepSkyBlue, mark options={color=DeepSkyBlue}] coordinates {(10000,90.38038659159793) (20000,357.97773687519947)};
+\addlegendentry{Neo4J}
+\addplot+[MediumSeaGreen, mark options={color=MediumSeaGreen}] coordinates {(10000,201.358339075197)};
+\addlegendentry{MariaDB}
+\addplot+[MediumPurple, mark options={color=MediumPurple}] coordinates {(10000,166.39622038340895)};
+\addlegendentry{CockroachDB}
+\addplot+[Gold, mark options={color=Gold}] coordinates {(10000,0.6709996333927848) (20000,3.0062470916018356) (30000,5.710823267203523) (40000,11.230903291597496) (50000,22.16587261640234) (60000,25.76539090820588) (70000,122.99734959999914) (80000,182.98581296660123)};
+\addlegendentry{DuckDB}
+
+    \end{axis}
+\end{tikzpicture}
+\end{document}

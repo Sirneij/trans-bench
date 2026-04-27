@@ -1,0 +1,20 @@
+\begin{table}[h]
+\centering
+\rowcolors{2}{gray!15}{white}
+\begin{tabular}{lrrrrrr}
+\toprule
+\textbf{Graph Size} & \textbf{CockroachDB} & \textbf{Neo4J} & \textbf{MariaDB} & \textbf{PostgreSQL} & \textbf{DuckDB} & \textbf{XSB} \\
+\midrule
+10,000 & 166.4 & 90.38 & 201.4 & 8.96 & 0.6710 & $\times$ \\
+20,000 & $\times$ & 358.0 & $\times$ & 36.39 & 3.01 & $\times$ \\
+30,000 & $\times$ & $\times$ & $\times$ & 90.81 & 5.71 & $\times$ \\
+40,000 & $\times$ & $\times$ & $\times$ & 172.4 & 11.23 & $\times$ \\
+50,000 & $\times$ & $\times$ & $\times$ & 439.2 & 22.17 & $\times$ \\
+60,000 & $\times$ & $\times$ & $\times$ & 1095.0 & 25.77 & $\times$ \\
+70,000 & $\times$ & $\times$ & $\times$ & $\times$ & 123.0 & $\times$ \\
+80,000 & $\times$ & $\times$ & $\times$ & $\times$ & 183.0 & $\times$ \\
+\bottomrule
+\end{tabular}
+\caption{Query execution times (in seconds) for Left Recursion on scale-free graphs. Missing entries ($\times$) indicate execution was manually aborted due to excessive runtime or Out-of-Memory. }
+\label{tab:scale_free_left_recursion}
+\end{table}

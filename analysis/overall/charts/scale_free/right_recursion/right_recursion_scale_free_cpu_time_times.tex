@@ -1,0 +1,24 @@
+
+\documentclass{standalone}
+\usepackage[svgnames]{xcolor}
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest}
+\usepackage[sfdefault]{FiraSans}
+\usepackage{FiraMono}
+\renewcommand*\familydefault{\sfdefault}
+\begin{document}
+\begin{tikzpicture}
+    \begin{axis}[
+        title={Graph: Scale Free},
+        xlabel={Number of nodes},
+        ylabel={CPU time (s)},
+        legend pos={north west},
+        ymax=515.5593774,
+        scaled x ticks={base 10:-3}
+    ]
+    \addplot+[Gold, mark options={color=Gold}] coordinates {(10000,1.140913) (20000,3.4427808) (30000,6.8562032) (40000,11.760900600000003) (50000,44.8497756) (60000,53.883187) (70000,424.13586940000005) (80000,515.5593774)};
+\addlegendentry{DuckDB}
+
+    \end{axis}
+\end{tikzpicture}
+\end{document}
