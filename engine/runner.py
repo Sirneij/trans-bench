@@ -142,7 +142,9 @@ class ExperimentRunner:
             )
             self._write_timing(timing_path, system.csv_headers, timing)
         except Exception as e:
-            log.error(f'Experiment failed ({system.name}): {e}')
+            msg = f'Experiment failed ({system.name}): {e}'
+            log.error(msg)
+            self._emit_log(msg, level='error')
         finally:
             connector.close()
             gc.collect()
@@ -261,13 +263,25 @@ class ExperimentRunner:
 
         if missing:
             log.info(f'Generating input for {system.name}: missing graphs {missing}')
+            self._emit_log(f'Generating input data for graphs: {missing}', level='info')
             config_str = json.dumps(self.config)
-            subprocess.run([
-                'python', 'generate_db.py',
-                '--config', config_str,
-                '--sizes', str(self.size_range[0]), str(self.size_range[1]), str(self.size_range[2]),
-                '--graph-types', *missing,
-            ])
+            result = subprocess.run(
+                [
+                    'python', 'generate_db.py',
+                    '--config', config_str,
+                    '--sizes', str(self.size_range[0]), str(self.size_range[1]), str(self.size_range[2]),
+                    '--graph-types', *missing,
+                ],
+                capture_output=True,
+                text=True,
+            )
+            # Emit stdout lines so they appear in the Web UI live log
+            for line in (result.stdout + result.stderr).splitlines():
+                if line.strip():
+                    level = 'error' if ('error' in line.lower() or 'traceback' in line.lower()) else 'info'
+                    self._emit_log(f'[generate_db] {line}', level=level)
+            if result.returncode != 0:
+                self._emit_log(f'generate_db.py exited with code {result.returncode}', level='error')
 
     def _clean_empty_timing_dirs(self) -> None:
         if not self.timing_dir.exists():
@@ -279,6 +293,7 @@ class ExperimentRunner:
     def _emit(self, done: int, total: int, system: str, graph: str, size: int, mode: str, status: str) -> None:
         if self.progress_cb:
             self.progress_cb({
+                'type': 'progress',
                 'done': done,
                 'total': total,
                 'pct': round(100 * done / max(total, 1), 1),
@@ -287,4 +302,13 @@ class ExperimentRunner:
                 'size': size,
                 'mode': mode,
                 'status': status,
+            })
+
+    def _emit_log(self, message: str, level: str = 'info') -> None:
+        """Emit a plain log line (not a progress update) through the progress callback."""
+        if self.progress_cb:
+            self.progress_cb({
+                'type': 'log',
+                'message': message,
+                'level': level,
             })

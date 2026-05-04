@@ -234,16 +234,32 @@ def create_app() -> Flask:
             _progress_queue.get_nowait()
 
         def progress_cb(evt: dict):
-            msg = (f"[{evt['pct']}%] {evt['system']} / {evt['graph']} / "
-                   f"size={evt['size']} / {evt['mode']} → {evt['status']}")
-            with _experiment_lock:
-                _experiment_state['progress'] = evt
-                _experiment_state['log_lines'].append(msg)
-                _experiment_state['log_lines'] = _experiment_state['log_lines'][-200:]
-            try:
-                _progress_queue.put_nowait(json.dumps(evt))
-            except queue.Full:
-                pass
+            evt_type = evt.get('type', 'progress')
+            if evt_type == 'log':
+                # Plain log line from subprocess or connector
+                msg = evt.get('message', '')
+                level = evt.get('level', 'info')
+                with _experiment_lock:
+                    _experiment_state['log_lines'].append(msg)
+                    _experiment_state['log_lines'] = _experiment_state['log_lines'][-500:]
+                    if level == 'error':
+                        _experiment_state['error'] = msg
+                try:
+                    _progress_queue.put_nowait(json.dumps({'type': 'log', 'message': msg, 'level': level}))
+                except queue.Full:
+                    pass
+            else:
+                # Progress update
+                msg = (f"[{evt['pct']}%] {evt['system']} / {evt['graph']} / "
+                       f"size={evt['size']} / {evt['mode']} → {evt['status']}")
+                with _experiment_lock:
+                    _experiment_state['progress'] = evt
+                    _experiment_state['log_lines'].append(msg)
+                    _experiment_state['log_lines'] = _experiment_state['log_lines'][-500:]
+                try:
+                    _progress_queue.put_nowait(json.dumps(evt))
+                except queue.Full:
+                    pass
 
         def run_in_thread():
             try:

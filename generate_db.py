@@ -10,6 +10,25 @@ from typing import Any, Generator, Callable
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s')
 
+# Built-in defaults — used when config is missing the 'defaults' key (e.g. new config.yaml)
+_DEFAULT_SYSTEMS: dict[str, Any] = {
+    'environmentExtensions': {
+        'clingo':     '.lp',
+        'xsb':        '.P',
+        'souffle':    '.dl',
+        'postgres':   '.py',
+        'mariadb':    '.py',
+        'duckdb':     '.sql',
+        'neo4j':      '.cypher',
+        'mongodb':    '.py',
+        'cockroachdb':'.py',
+        'alda':       '.da',
+    },
+    'dbSystems': ['postgres', 'mariadb', 'duckdb', 'mongodb', 'neo4j', 'cockroachdb'],
+    'otherLogicSystems': ['xsb', 'clingo', 'souffle'],
+    'alda': ['alda'],
+}
+
 
 class DataGenerator:
     """
@@ -230,7 +249,7 @@ class GraphGenerator:
             logging.error(f"Graph type '{graph_type}' is not supported or method is missing.")
             return
 
-        config = self.config['defaults']['systems']
+        config = self.config.get('defaults', {}).get('systems', _DEFAULT_SYSTEMS)
 
         for env, ext in config.get('environmentExtensions', {}).items():
             # Use a combined folder for 'clingo' and 'xsb'

@@ -1,127 +1,197 @@
 {% extends "base.html" %}
 {% block title %}Live Monitor{% endblock %}
-{% block page_title %}Live Experiment Monitor{% endblock %}
+{% block page_title %}Live Monitor{% endblock %}
 
 {% block content %}
-<div class="monitor-layout">
+<div class="monitor-wrap">
 
-  <!-- Progress card -->
-  <div class="glass-card monitor-main">
-    <div class="monitor-header">
-      <h2>Experiment Progress</h2>
-      <div class="monitor-controls">
-        <button class="btn btn-danger-outline" onclick="stopExperiment()" id="stop-btn">⏹ Stop</button>
-        <a href="{{ url_for('results') }}" class="btn">View Results</a>
+  <!-- Left column: progress + current step + error banner -->
+  <div class="monitor-left">
+
+    <!-- Top bar -->
+    <div class="monitor-card">
+      <div class="monitor-header">
+        <div>
+          <h2 class="monitor-title">Experiment Progress</h2>
+          <p class="monitor-subtitle" id="steps-label">Connecting…</p>
+        </div>
+        <div class="monitor-controls">
+          <button class="btn btn-danger-outline" onclick="stopExperiment()" id="stop-btn">⏹ Stop</button>
+          <a href="{{ url_for('results') }}" class="btn">View Results</a>
+        </div>
+      </div>
+
+      <!-- Progress bar -->
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-fill" style="width:0%">
+          <span class="progress-glow"></span>
+        </div>
+      </div>
+      <div class="progress-labels">
+        <span id="pct-label" class="pct-label">0%</span>
+        <span id="eta-label" class="eta-label"></span>
       </div>
     </div>
 
-    <!-- Overall progress bar -->
-    <div class="progress-section">
-      <div class="progress-info">
-        <span id="pct-label">0%</span>
-        <span id="steps-label">—</span>
+    <!-- Current step card -->
+    <div class="step-card" id="step-card" style="opacity:0">
+      <div class="step-card-header">
+        <span class="step-pulse" id="step-pulse">●</span>
+        <span id="step-status-text">Waiting…</span>
       </div>
-      <div class="progress-bar-wrap">
-        <div class="progress-bar" id="progress-bar" style="width:0%"></div>
+      <div class="step-fields">
+        <div class="sf"><span class="sf-k">System</span><span class="sf-v" id="cur-system">—</span></div>
+        <div class="sf"><span class="sf-k">Graph</span><span class="sf-v" id="cur-graph">—</span></div>
+        <div class="sf"><span class="sf-k">Size</span><span class="sf-v" id="cur-size">—</span></div>
+        <div class="sf"><span class="sf-k">Mode</span><span class="sf-v" id="cur-mode">—</span></div>
       </div>
     </div>
 
-    <!-- Current step details -->
-    <div class="current-step glass-card" id="current-step" style="display:none">
-      <div class="step-detail">
-        <div class="step-field"><span class="step-key">System</span><span class="step-val" id="cur-system">—</span></div>
-        <div class="step-field"><span class="step-key">Graph</span><span class="step-val" id="cur-graph">—</span></div>
-        <div class="step-field"><span class="step-key">Size</span><span class="step-val" id="cur-size">—</span></div>
-        <div class="step-field"><span class="step-key">Mode</span><span class="step-val" id="cur-mode">—</span></div>
-        <div class="step-field"><span class="step-key">Status</span>
-          <span class="step-val status-badge" id="cur-status">—</span></div>
+    <!-- Error panel -->
+    <div class="error-panel" id="error-panel" style="display:none">
+      <div class="error-icon">⚠</div>
+      <div class="error-body">
+        <div class="error-title">Error Detected</div>
+        <div class="error-msg" id="error-msg"></div>
       </div>
     </div>
 
     <!-- Done banner -->
-    <div class="done-banner" id="done-banner" style="display:none">
+    <div class="done-card" id="done-card" style="display:none">
+      <div class="done-glow"></div>
       <div class="done-icon">✓</div>
-      <div class="done-text">
-        <strong>Experiment complete!</strong>
+      <div class="done-body">
+        <strong>Experiment Complete</strong>
         <span>All benchmark runs finished. Charts and CSVs are ready.</span>
       </div>
       <a href="{{ url_for('results') }}" class="btn btn-primary">View Results →</a>
     </div>
   </div>
 
-  <!-- Live log -->
-  <div class="glass-card monitor-log">
-    <div class="log-header">
-      <h3>Live Log</h3>
-      <label class="check-inline">
-        <input type="checkbox" id="auto-scroll" checked/> Auto-scroll
-      </label>
+  <!-- Right column: live log -->
+  <div class="monitor-log-card">
+    <div class="log-toolbar">
+      <span class="log-title">Live Log</span>
+      <div class="log-actions">
+        <label class="check-inline">
+          <input type="checkbox" id="auto-scroll" checked/> Auto-scroll
+        </label>
+        <button class="btn btn-sm" onclick="clearLog()">Clear</button>
+      </div>
     </div>
-    <div class="log-body" id="log-body"></div>
+    <div class="log-stream" id="log-stream"></div>
+    <div class="log-count" id="log-count">0 lines</div>
   </div>
 
 </div>
 
 <script>
-const evtSource = new EventSource('/experiment/stream');
-const logBody = document.getElementById('log-body');
+let lineCount = 0;
+let startTime = Date.now();
+const logStream = document.getElementById('log-stream');
 const autoScroll = document.getElementById('auto-scroll');
 
-function appendLog(msg, cls) {
-  const line = document.createElement('div');
-  line.className = `log-line ${cls || ''}`;
-  line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-  logBody.appendChild(line);
-  if (autoScroll.checked) logBody.scrollTop = logBody.scrollHeight;
+function clearLog() {
+  logStream.innerHTML = '';
+  lineCount = 0;
+  document.getElementById('log-count').textContent = '0 lines';
 }
+
+function appendLog(msg, level) {
+  lineCount++;
+  const line = document.createElement('div');
+  line.className = `log-line log-${level || 'info'}`;
+  const ts = new Date().toLocaleTimeString('en-US', {hour12: false});
+  line.innerHTML = `<span class="log-ts">${ts}</span><span class="log-msg">${escHtml(msg)}</span>`;
+  logStream.appendChild(line);
+  document.getElementById('log-count').textContent = `${lineCount} lines`;
+  if (autoScroll.checked) logStream.scrollTop = logStream.scrollHeight;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function showError(msg) {
+  const panel = document.getElementById('error-panel');
+  panel.style.display = 'flex';
+  document.getElementById('error-msg').textContent = msg;
+  appendLog('ERROR: ' + msg, 'error');
+}
+
+const evtSource = new EventSource('/experiment/stream');
 
 evtSource.onmessage = (e) => {
   const data = JSON.parse(e.data);
 
+  // Heartbeat / connected
   if (data.status === 'heartbeat' || data.status === 'connected') return;
 
+  // Done signal
   if (data.status === '__done__') {
-    document.getElementById('done-banner').style.display = 'flex';
+    document.getElementById('done-card').style.display = 'flex';
     document.getElementById('stop-btn').disabled = true;
-    document.getElementById('current-step').style.display = 'none';
-    document.getElementById('progress-bar').style.width = '100%';
+    document.getElementById('step-card').style.opacity = '0';
+    document.getElementById('progress-fill').style.width = '100%';
     document.getElementById('pct-label').textContent = '100%';
-    appendLog('✓ Experiment complete!', 'log-success');
+    document.getElementById('steps-label').textContent = 'Completed';
+    appendLog('✓ Experiment complete!', 'success');
     evtSource.close();
     return;
   }
 
-  // Update progress bar
+  // Log-only event (from subprocess, generate_db, errors)
+  if (data.type === 'log') {
+    if (data.level === 'error') showError(data.message);
+    else appendLog(data.message, data.level || 'info');
+    return;
+  }
+
+  // Progress update
   const pct = data.pct || 0;
-  document.getElementById('progress-bar').style.width = pct + '%';
+  document.getElementById('progress-fill').style.width = pct + '%';
   document.getElementById('pct-label').textContent = pct + '%';
+
+  const elapsed = (Date.now() - startTime) / 1000;
+  if (pct > 0) {
+    const eta = Math.round((elapsed / pct) * (100 - pct));
+    document.getElementById('eta-label').textContent = eta > 0 ? `ETA ~${eta}s` : '';
+  }
+
   document.getElementById('steps-label').textContent = `${data.done} / ${data.total} steps`;
 
-  // Update current step
-  const stepEl = document.getElementById('current-step');
-  stepEl.style.display = 'block';
+  // Step card
+  const stepCard = document.getElementById('step-card');
+  stepCard.style.opacity = '1';
   document.getElementById('cur-system').textContent = data.system;
   document.getElementById('cur-graph').textContent = data.graph;
   document.getElementById('cur-size').textContent = data.size;
   document.getElementById('cur-mode').textContent = data.mode;
-  const statusEl = document.getElementById('cur-status');
-  statusEl.textContent = data.status;
-  statusEl.className = `step-val status-badge status-${data.status}`;
 
-  // Append to log
-  const msg = `${data.system} / ${data.graph} / ${data.size} / ${data.mode} → ${data.status}`;
-  appendLog(msg, data.status === 'done' ? 'log-success' : 'log-info');
+  const pulse = document.getElementById('step-pulse');
+  const statusText = document.getElementById('step-status-text');
+  if (data.status === 'done') {
+    pulse.className = 'step-pulse done';
+    statusText.textContent = 'Done';
+  } else {
+    pulse.className = 'step-pulse running';
+    statusText.textContent = 'Running…';
+  }
+
+  const icon = data.status === 'done' ? '✓' : '⟳';
+  appendLog(`${icon} ${data.system} / ${data.graph} / ${data.size} / ${data.mode} → ${data.status}`,
+            data.status === 'done' ? 'success' : 'info');
 };
 
 evtSource.onerror = () => {
-  appendLog('Connection lost. Reconnecting…', 'log-warn');
+  appendLog('Connection lost. Attempting reconnect…', 'warn');
 };
 
 function stopExperiment() {
   if (!confirm('Stop the running experiment?')) return;
   fetch('/experiment/stop', { method: 'POST' })
     .then(r => r.json())
-    .then(d => { if (d.ok) appendLog('⏹ Stop requested', 'log-warn'); });
+    .then(d => { if (d.ok) appendLog('⏹ Stop requested', 'warn'); });
 }
 </script>
 {% endblock %}
