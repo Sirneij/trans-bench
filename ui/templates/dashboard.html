@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<!-- Hero stats -->
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-icon" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">◈</div>
+    <div class="stat-body">
+      <div class="stat-value">{{ systems|length }}</div>
+      <div class="stat-label">Registered Systems</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:linear-gradient(135deg,#06b6d4,#3b82f6)">⬡</div>
+    <div class="stat-body">
+      <div class="stat-value">{{ graph_types|length }}</div>
+      <div class="stat-label">Graph Topologies</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:linear-gradient(135deg,#10b981,#059669)">◉</div>
+    <div class="stat-body">
+      <div class="stat-value">{{ csv_count }}</div>
+      <div class="stat-label">Result CSV Files</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:linear-gradient(135deg,#f59e0b,#ef4444)">▶</div>
+    <div class="stat-body">
+      <div class="stat-value">{{ benchmarked_systems|length }}</div>
+      <div class="stat-label">Benchmarked Systems</div>
+    </div>
+  </div>
+</div>
+
+<!-- Quick actions -->
+<div class="section-header">
+  <h2 class="section-title">Quick Actions</h2>
+</div>
+<div class="action-grid">
+  <a href="{{ url_for('experiment_new') }}" class="action-card action-primary">
+    <div class="action-icon">▷</div>
+    <div class="action-body">
+      <div class="action-title">New Experiment</div>
+      <div class="action-desc">Configure and run a benchmark across any systems and graph types</div>
+    </div>
+  </a>
+  <a href="{{ url_for('systems_list') }}" class="action-card">
+    <div class="action-icon">◈</div>
+    <div class="action-body">
+      <div class="action-title">Manage Systems</div>
+      <div class="action-desc">Add new systems, edit descriptors, configure credentials</div>
+    </div>
+  </a>
+  <a href="{{ url_for('new_system') }}" class="action-card">
+    <div class="action-icon">＋</div>
+    <div class="action-body">
+      <div class="action-title">Add a System</div>
+      <div class="action-desc">Clone an existing descriptor and adapt it for a new database or logic system</div>
+    </div>
+  </a>
+  <a href="{{ url_for('results') }}" class="action-card">
+    <div class="action-icon">◉</div>
+    <div class="action-body">
+      <div class="action-title">Browse Results</div>
+      <div class="action-desc">Explore timing CSVs and generated charts</div>
+    </div>
+  </a>
+</div>
+
+<!-- Systems overview -->
+<div class="section-header">
+  <h2 class="section-title">Registered Systems</h2>
+  <a href="{{ url_for('systems_list') }}" class="section-link">View all →</a>
+</div>
+<div class="systems-grid">
+  {% for system in systems %}
+  <a href="{{ url_for('system_detail', name=system.name) }}" class="system-card">
+    <div class="system-badge {{ system.category }}">{{ system.category }}</div>
+    <div class="system-name">{{ system.display_name }}</div>
+    <div class="system-meta">
+      <span class="system-proto">{{ system.protocol }}</span>
+      <span class="system-modes">{{ system.modes|length }} modes</span>
+    </div>
+    <div class="system-phases">
+      {% for phase in system.timing_phases %}
+        <span class="phase-chip">{{ phase.label }}</span>
+      {% endfor %}
+    </div>
+  </a>
+  {% endfor %}
+</div>
+
+<!-- Graph types -->
+<div class="section-header">
+  <h2 class="section-title">Graph Topologies</h2>
+</div>
+<div class="graph-grid">
+  {% for g in graph_types %}
+  <div class="graph-card">
+    <div class="graph-name">{{ g.display_name }}</div>
+    <div class="graph-desc">{{ g.description[:80] }}{% if g.description|length > 80 %}…{% endif %}</div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

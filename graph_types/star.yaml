@@ -1,0 +1,5 @@
+name: star
+display_name: Star Graph
+description: All nodes point to a single hub node. TC is sparse.
+generator: engine.data_generator.DataGenerator.generate_star_graph
+parameters: {}

@@ -1,0 +1,9 @@
+name: barabasi_albert
+display_name: Barabási-Albert (Scale-Free)
+description: >
+  Real-world scale-free model via preferential attachment (m=2). Mathematically guarantees
+  that smaller graphs are subsets of larger ones, preventing zig-zagging curves.
+generator: engine.data_generator.DataGenerator.generate_barabasi_albert_graph
+parameters:
+  m: 2
+  seed: 42

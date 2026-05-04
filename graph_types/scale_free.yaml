@@ -1,0 +1,6 @@
+name: scale_free
+display_name: Scale-Free Directed
+description: NetworkX scale_free_graph — directed scale-free graph with configurable alpha/beta/gamma.
+generator: engine.data_generator.DataGenerator.generate_scale_free_graph
+parameters:
+  seed: 42

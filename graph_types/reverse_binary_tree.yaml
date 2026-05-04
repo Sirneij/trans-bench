@@ -1,0 +1,5 @@
+name: reverse_binary_tree
+display_name: Reverse Binary Tree
+description: Binary tree with edges reversed — children point to parent.
+generator: engine.data_generator.DataGenerator.generate_reverse_binary_tree_graph
+parameters: {}

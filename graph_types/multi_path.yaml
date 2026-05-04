@@ -1,0 +1,5 @@
+name: multi_path
+display_name: Multi-Path Graph
+description: k parallel paths, stress-testing multi-path transitive closure.
+generator: engine.data_generator.DataGenerator.generate_multi_path_graph
+parameters: {}

@@ -1,0 +1,5 @@
+name: max_acyclic
+display_name: Max Acyclic Graph
+description: Maximum acyclic directed graph — all edges go from higher to lower numbered nodes.
+generator: engine.data_generator.DataGenerator.generate_max_acyclic_graph
+parameters: {}

@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}{{ system.display_name }}{% endblock %}
+{% block page_title %}{{ system.display_name }}{% endblock %}
+
+{% block content %}
+<div class="toolbar">
+  <div class="breadcrumb">
+    <a href="{{ url_for('systems_list') }}">Systems</a>
+    <span>›</span>
+    <span>{{ system.display_name }}</span>
+  </div>
+</div>
+
+<!-- System header -->
+<div class="detail-header glass-card">
+  <div class="detail-hero">
+    <div class="detail-badge {{ system.category }}">{{ system.category }}</div>
+    <div>
+      <h1 class="detail-name">{{ system.display_name }}</h1>
+      <div class="detail-meta">
+        <code>protocol: {{ system.protocol }}</code>
+        <code>input: {{ system.input_format }}</code>
+        <code>ext: {{ system.rule_extension }}</code>
+      </div>
+    </div>
+  </div>
+  <div class="detail-phases">
+    {% for phase in system.timing_phases %}
+    <div class="phase-pill">
+      <span class="phase-id">{{ phase.id }}</span>
+      <span class="phase-arrow">→</span>
+      <span class="phase-cols">{{ phase.label }}RealTime · {{ phase.label }}CPUTime</span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Tab navigation -->
+<div class="tabs" id="system-tabs">
+  <button class="tab active" data-tab="descriptor">📄 Descriptor</button>
+  <button class="tab" data-tab="credentials">🔑 Credentials</button>
+  <button class="tab" data-tab="rules">📁 Rule Files</button>
+</div>
+
+<!-- Descriptor editor -->
+<div class="tab-panel active" id="tab-descriptor">
+  <div class="glass-card editor-card">
+    <div class="editor-header">
+      <h3>descriptor.yaml</h3>
+      <div class="editor-actions">
+        <span class="editor-hint">Edit directly — changes take effect on next run</span>
+        <button class="btn btn-primary" onclick="saveDescriptor()">Save</button>
+      </div>
+    </div>
+    <textarea id="descriptor-editor" class="code-editor" spellcheck="false">{{ descriptor_yaml }}</textarea>
+  </div>
+</div>
+
+<!-- Credentials editor -->
+<div class="tab-panel" id="tab-credentials">
+  <div class="glass-card editor-card">
+    <div class="editor-header">
+      <h3>credentials.yaml <span class="editor-note">(gitignored)</span></h3>
+      <div class="editor-actions">
+        <span class="editor-hint">Stored in systems/{{ system.name }}/credentials.yaml</span>
+        <button class="btn btn-primary" onclick="saveCredentials()">Save</button>
+      </div>
+    </div>
+    {% if not system.flags.get('requires_credentials', True) %}
+    <div class="info-banner">This system does not require credentials.</div>
+    {% endif %}
+    <textarea id="cred-editor" class="code-editor" spellcheck="false" placeholder="# Example:&#10;dbURL: postgres://user:pass@localhost:5432/mydb">{{ cred_yaml }}</textarea>
+  </div>
+</div>
+
+<!-- Rule files -->
+<div class="tab-panel" id="tab-rules">
+  <div class="glass-card">
+    <div class="editor-header">
+      <h3>Rule Files <code>systems/{{ system.name }}/rules/</code></h3>
+      <div class="editor-hint">Files named <code>transitive_&lt;mode&gt;{{ system.rule_extension }}</code> are auto-discovered</div>
+    </div>
+    {% if rule_files %}
+    <ul class="file-list">
+      {% for f in rule_files %}
+      <li class="file-item">
+        <span class="file-icon">📄</span>
+        <code>{{ f }}</code>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="empty-state">
+      <p>No rule files found in <code>systems/{{ system.name }}/rules/</code></p>
+      <p class="empty-hint">Create files named <code>transitive_right_recursion{{ system.rule_extension }}</code>, etc.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+  const systemName = {{ system.name | tojson }};
+
+  function saveDescriptor() {
+    const yaml = document.getElementById('descriptor-editor').value;
+    fetch(`/systems/${systemName}/save`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: `descriptor_yaml=${encodeURIComponent(yaml)}`
+    }).then(r => r.json()).then(d => {
+      showToast(d.ok ? '✓ Descriptor saved' : '✗ ' + d.error, d.ok ? 'success' : 'error');
+    });
+  }
+
+  function saveCredentials() {
+    const yaml = document.getElementById('cred-editor').value;
+    fetch(`/systems/${systemName}/creds`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: `cred_yaml=${encodeURIComponent(yaml)}`
+    }).then(r => r.json()).then(d => {
+      showToast(d.ok ? '✓ Credentials saved' : '✗ ' + d.error, d.ok ? 'success' : 'error');
+    });
+  }
+
+  // Tab switching
+  document.querySelectorAll('.tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+</script>
+{% endblock %}

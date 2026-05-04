@@ -1,0 +1,26 @@
+name: clingo
+display_name: Clingo (ASP)
+category: logic
+protocol: clingo_python
+
+timing_phases:
+  - id: load_rules
+    label: LoadRules
+  - id: load_facts
+    label: LoadFacts
+  - id: ground
+    label: Ground
+  - id: query
+    label: Query
+  - id: write_result
+    label: Write
+
+input_format: lp
+modes:
+  - right_recursion
+  - left_recursion
+  - double_recursion
+rule_extension: .lp
+
+flags:
+  requires_credentials: false

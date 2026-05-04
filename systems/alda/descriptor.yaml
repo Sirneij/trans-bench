@@ -1,0 +1,32 @@
+name: alda
+display_name: Alda (DistAlgo)
+category: logic
+protocol: alda_subprocess
+
+timing_phases:
+  - id: load_rules
+    label: LoadRules
+  - id: load_facts
+    label: LoadFacts
+  - id: query
+    label: Query
+  - id: write_result
+    label: Write
+
+input_format: pickle
+modes:
+  - right_recursion
+  - left_recursion
+  - double_recursion
+rule_extension: .da
+
+execution:
+  binary: python
+  module: da
+  args:
+    - -r
+  timing_parser: alda_stdout
+
+flags:
+  requires_credentials: false
+  requires_pythonpath: true

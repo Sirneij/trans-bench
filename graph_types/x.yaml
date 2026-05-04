@@ -1,0 +1,5 @@
+name: x
+display_name: X Graph
+description: All n nodes point to a hub, which fans out to k leaf nodes.
+generator: engine.data_generator.DataGenerator.generate_x_graph
+parameters: {}

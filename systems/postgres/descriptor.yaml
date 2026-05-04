@@ -1,0 +1,31 @@
+name: postgres
+display_name: PostgreSQL
+category: db
+protocol: psycopg2
+
+timing_phases:
+  - id: create_table
+    label: CreateTable
+  - id: load_data
+    label: LoadData
+  - id: create_index
+    label: CreateIndex
+  - id: analyze
+    label: Analyze
+  - id: execute_query
+    label: ExecuteQuery
+  - id: write_result
+    label: WriteResult
+
+input_format: tsv
+modes:
+  - right_recursion
+  - left_recursion
+  - double_recursion
+rule_extension: .py
+
+flags:
+  requires_credentials: true
+  supports_analyze_step: true
+  class_prefix: PostgreSQL
+  module_prefix: postgres_rules

@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Results{% endblock %}
+{% block page_title %}Experiment Results{% endblock %}
+
+{% block content %}
+<div class="toolbar">
+  <h1 class="page-heading">Timing Results</h1>
+  <span class="toolbar-hint">Browse CSV files grouped by system → graph type</span>
+</div>
+
+{% if tree %}
+<div class="results-layout">
+  {% for system_name, graphs in tree.items() %}
+  <div class="results-system glass-card">
+    <div class="results-system-header">
+      <h3 class="results-system-name">{{ system_name }}</h3>
+      <span class="results-system-count">{{ graphs.values()|sum(attribute='__len__') }} files</span>
+    </div>
+
+    <div class="results-graphs">
+      {% for graph_name, files in graphs.items() %}
+      <div class="results-graph">
+        <div class="results-graph-title">⬡ {{ graph_name }}</div>
+        <ul class="results-file-list">
+          {% for fname in files %}
+          <li>
+            <button class="results-file-btn" onclick="loadResult('{{ system_name }}', '{{ graph_name }}', '{{ fname }}')">
+              {{ fname }}
+            </button>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Data viewer panel -->
+<div class="data-panel glass-card" id="data-panel" style="display:none">
+  <div class="data-panel-header">
+    <h3 id="data-panel-title">—</h3>
+    <button onclick="document.getElementById('data-panel').style.display='none'" class="close-btn">✕</button>
+  </div>
+  <div class="table-scroll">
+    <table class="data-table" id="result-table">
+      <thead id="result-thead"></thead>
+      <tbody id="result-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+{% else %}
+<div class="empty-state large">
+  <div class="empty-icon">◉</div>
+  <h2>No results yet</h2>
+  <p>Run an experiment to generate timing data.</p>
+  <a href="{{ url_for('experiment_new') }}" class="btn btn-primary">▷ Run Experiment</a>
+</div>
+{% endif %}
+
+<script>
+function loadResult(system, graph, fname) {
+  fetch(`/results/${system}/${graph}/${fname}`)
+    .then(r => r.json())
+    .then(d => {
+      if (d.error) { showToast('Error: ' + d.error, 'error'); return; }
+      const panel = document.getElementById('data-panel');
+      document.getElementById('data-panel-title').textContent = `${system} / ${graph} / ${fname}`;
+      const rows = d.rows;
+      if (!rows.length) { showToast('No data in file', 'warn'); return; }
+      const keys = Object.keys(rows[0]);
+      document.getElementById('result-thead').innerHTML =
+        '<tr>' + keys.map(k => `<th>${k}</th>`).join('') + '</tr>';
+      document.getElementById('result-tbody').innerHTML =
+        rows.map(row =>
+          '<tr class="' + (row[keys[0]] === 'Average' ? 'row-average' : '') + '">' +
+          keys.map(k => `<td>${parseFloat(row[k])?.toFixed(4) ?? row[k]}</td>`).join('') +
+          '</tr>'
+        ).join('');
+      panel.style.display = 'block';
+      panel.scrollIntoView({behavior: 'smooth'});
+    });
+}
+</script>
+{% endblock %}

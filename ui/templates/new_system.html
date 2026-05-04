@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Add System{% endblock %}
+{% block page_title %}Add New System{% endblock %}
+
+{% block content %}
+<div class="toolbar">
+  <div class="breadcrumb">
+    <a href="{{ url_for('systems_list') }}">Systems</a>
+    <span>›</span>
+    <span>Add New</span>
+  </div>
+</div>
+
+<div class="glass-card form-card">
+  <h2>Clone from template</h2>
+  <p class="form-desc">The fastest way to add a new system is to copy an existing descriptor and adapt it. No Python code changes required.</p>
+
+  <div class="form-grid">
+    <div class="form-group">
+      <label class="form-label">New system name <span class="required">*</span></label>
+      <input type="text" id="new-name" class="form-input" placeholder="e.g. sqlite, clickhouse, mysql"
+             pattern="[a-z0-9_]+" title="Lowercase letters, numbers, underscores only"/>
+      <span class="form-hint">Used as directory name: systems/&lt;name&gt;/</span>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Copy descriptor from</label>
+      <select id="template-select" class="form-input">
+        {% for s in systems %}
+        <option value="{{ s.name }}">{{ s.display_name }} ({{ s.protocol }})</option>
+        {% endfor %}
+      </select>
+      <span class="form-hint">Choose the closest existing system as a starting point</span>
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <button class="btn btn-primary" onclick="createSystem()">Create System →</button>
+    <a href="{{ url_for('systems_list') }}" class="btn">Cancel</a>
+  </div>
+
+  <div class="info-box">
+    <h4>What happens when you click Create:</h4>
+    <ol>
+      <li>A new directory <code>systems/&lt;name&gt;/</code> is created</li>
+      <li>The selected template's <code>descriptor.yaml</code> is copied and name-updated</li>
+      <li>An empty <code>rules/</code> sub-directory is created for your rule files</li>
+      <li>You'll be redirected to edit the descriptor and add credentials</li>
+    </ol>
+  </div>
+</div>
+
+<script>
+function createSystem() {
+  const name = document.getElementById('new-name').value.trim();
+  const template = document.getElementById('template-select').value;
+  if (!name) { showToast('Name is required', 'error'); return; }
+  if (!/^[a-z0-9_]+$/.test(name)) { showToast('Use only lowercase letters, numbers, underscores', 'error'); return; }
+
+  fetch('/systems/new', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: `name=${encodeURIComponent(name)}&template=${encodeURIComponent(template)}`,
+  }).then(r => r.json()).then(d => {
+    if (d.ok) window.location.href = d.redirect;
+    else showToast('✗ ' + d.error, 'error');
+  });
+}
+</script>
+{% endblock %}

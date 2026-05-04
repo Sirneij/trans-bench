@@ -17,3 +17,11 @@ __pycache__
 */*/*/*/*/*/*/*/*/*DS_Store
 cockroach-data
 coverage
+# trans-bench credentials (never commit these)
+systems/*/credentials.yaml
+config.yaml
+
+# Python engine cache
+engine/__pycache__/
+engine/connectors/__pycache__/
+ui/__pycache__/

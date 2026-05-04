@@ -1,0 +1,5 @@
+name: cycle
+display_name: Cycle Graph
+description: A simple directed cycle of n nodes. TC is the complete graph on those nodes.
+generator: engine.data_generator.DataGenerator.generate_cycle_graph
+parameters: {}

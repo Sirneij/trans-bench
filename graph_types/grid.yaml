@@ -1,0 +1,5 @@
+name: grid
+display_name: Grid Graph
+description: A 2D grid graph of sqrt(n) x sqrt(n) nodes with right and down edges.
+generator: engine.data_generator.DataGenerator.generate_grid_graph
+parameters: {}

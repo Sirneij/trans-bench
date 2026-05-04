@@ -1,0 +1,5 @@
+name: y
+display_name: Y Graph
+description: All n nodes converge to a central hub, then fan out along a k-length path.
+generator: engine.data_generator.DataGenerator.generate_y_graph
+parameters: {}

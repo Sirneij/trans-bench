@@ -1,0 +1,5 @@
+name: cycle_with_shortcuts
+display_name: Cycle with Shortcuts
+description: A cycle graph augmented with k shortcut edges per node for faster reachability.
+generator: engine.data_generator.DataGenerator.generate_cycle_with_shortcuts_graph
+parameters: {}

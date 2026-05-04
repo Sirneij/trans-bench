@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{% block title %}trans-bench{% endblock %} · Benchmark Suite</title>
+  <meta name="description" content="Plugin-driven transitive closure benchmarking for logic and database systems"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}"/>
+  {% block head %}{% endblock %}
+</head>
+<body>
+
+<!-- Sidebar Navigation -->
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-icon">⧖</div>
+    <div class="brand-text">
+      <span class="brand-name">trans-bench</span>
+      <span class="brand-tag">v2.0 · plugin-driven</span>
+    </div>
+  </div>
+
+  <ul class="nav-list">
+    <li class="nav-item {% if request.endpoint == 'dashboard' %}active{% endif %}">
+      <a href="{{ url_for('dashboard') }}" class="nav-link">
+        <span class="nav-icon">⊞</span>
+        <span>Dashboard</span>
+      </a>
+    </li>
+    <li class="nav-item {% if 'system' in request.endpoint %}active{% endif %}">
+      <a href="{{ url_for('systems_list') }}" class="nav-link">
+        <span class="nav-icon">◈</span>
+        <span>Systems</span>
+      </a>
+    </li>
+    <li class="nav-item {% if 'experiment' in request.endpoint %}active{% endif %}">
+      <a href="{{ url_for('experiment_new') }}" class="nav-link">
+        <span class="nav-icon">▷</span>
+        <span>Run Experiment</span>
+      </a>
+    </li>
+    <li class="nav-item {% if request.endpoint == 'results' %}active{% endif %}">
+      <a href="{{ url_for('results') }}" class="nav-link">
+        <span class="nav-icon">◉</span>
+        <span>Results</span>
+      </a>
+    </li>
+  </ul>
+
+  <div class="nav-footer">
+    <a href="https://github.com/Sirneij/trans-bench" target="_blank" class="nav-link">
+      <span class="nav-icon">↗</span>
+      <span>GitHub</span>
+    </a>
+  </div>
+</nav>
+
+<!-- Main Content -->
+<main class="main-content" id="main">
+  <header class="topbar">
+    <button class="menu-btn" onclick="toggleSidebar()" aria-label="Toggle menu">☰</button>
+    <div class="topbar-title">{% block page_title %}{% endblock %}</div>
+    <div class="topbar-actions">
+      {% if experiment_running is defined and experiment_running %}
+        <a href="{{ url_for('experiment_live') }}" class="badge badge-running pulse">● Running</a>
+      {% endif %}
+    </div>
+  </header>
+
+  <div class="content-area">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for cat, msg in messages %}
+        <div class="alert alert-{{ cat }}">{{ msg }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </div>
+</main>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

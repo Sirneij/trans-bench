@@ -1,0 +1,5 @@
+name: binary_tree
+display_name: Binary Tree
+description: A complete binary tree of depth floor(log2(n)). Edges go parent to child.
+generator: engine.data_generator.DataGenerator.generate_binary_tree_graph
+parameters: {}

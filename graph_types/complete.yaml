@@ -1,0 +1,5 @@
+name: complete
+display_name: Complete Graph
+description: Every node has edges to every other node. Transitive closure is the graph itself.
+generator: engine.data_generator.DataGenerator.generate_complete_graph
+parameters: {}

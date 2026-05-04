@@ -1,0 +1,30 @@
+name: neo4j
+display_name: Neo4j
+category: db
+protocol: neo4j
+
+timing_phases:
+  - id: delete_data
+    label: DeleteData
+  - id: load_data
+    label: LoadData
+  - id: create_index_x
+    label: CreateIndexX
+  - id: create_index_y
+    label: CreateIndexY
+  - id: query
+    label: Query
+  - id: write_result
+    label: WriteResult
+
+input_format: tsv
+modes:
+  - right_recursion
+  - left_recursion
+  - double_recursion
+rule_extension: .cypher
+
+flags:
+  requires_credentials: true
+  requires_import_directory: true
+  requires_apoc: true

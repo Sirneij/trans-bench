@@ -1,0 +1,35 @@
+name: souffle
+display_name: Soufflé (Datalog)
+category: logic
+protocol: souffle_subprocess
+
+timing_phases:
+  - id: datalog_to_cpp
+    label: DatalogToCPP
+  - id: compile
+    label: Compile
+  - id: instance_loading
+    label: InstanceLoading
+  - id: loading_fact
+    label: LoadingFact
+  - id: query
+    label: Query
+  - id: writing_result
+    label: WritingResult
+
+input_format: facts
+modes:
+  - right_recursion
+  - left_recursion
+  - double_recursion
+rule_extension: .dl
+
+execution:
+  binary: souffle
+  compiler: g++
+  export_dir: souffle_rules/souffle_export
+  timing_parser: souffle_stdout
+
+flags:
+  requires_credentials: false
+  requires_souffle_include_dir: true

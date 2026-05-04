@@ -1,0 +1,5 @@
+name: w
+display_name: W Graph
+description: Each node in the first half connects to k nodes in the second half (circular).
+generator: engine.data_generator.DataGenerator.generate_w_graph
+parameters: {}

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Systems{% endblock %}
+{% block page_title %}Systems{% endblock %}
+
+{% block content %}
+<div class="toolbar">
+  <h1 class="page-heading">Registered Systems</h1>
+  <a href="{{ url_for('new_system') }}" class="btn btn-primary">＋ Add System</a>
+</div>
+
+<div class="systems-table-wrap">
+  <table class="data-table" id="systems-table">
+    <thead>
+      <tr>
+        <th>System</th>
+        <th>Category</th>
+        <th>Protocol</th>
+        <th>Modes</th>
+        <th>Rule Extension</th>
+        <th>Credentials</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for system in systems %}
+    <tr>
+      <td>
+        <div class="system-name-cell">
+          <span class="system-dot {{ system.category }}"></span>
+          <strong>{{ system.display_name }}</strong>
+          <code class="system-slug">{{ system.name }}</code>
+        </div>
+      </td>
+      <td><span class="badge badge-{{ system.category }}">{{ system.category }}</span></td>
+      <td><code>{{ system.protocol }}</code></td>
+      <td>{{ system.modes | join(', ') }}</td>
+      <td><code>{{ system.rule_extension }}</code></td>
+      <td>
+        {% if system.credentials %}
+          <span class="badge badge-ok">✓ Set</span>
+        {% elif not system.flags.get('requires_credentials', False) %}
+          <span class="badge badge-neutral">Not needed</span>
+        {% else %}
+          <span class="badge badge-warn">⚠ Missing</span>
+        {% endif %}
+      </td>
+      <td>
+        <a href="{{ url_for('system_detail', name=system.name) }}" class="btn btn-sm">Edit</a>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

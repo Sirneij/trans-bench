@@ -1,0 +1,5 @@
+name: path
+display_name: Path Graph
+description: A simple directed path 1→2→3→...→n. TC is a dense upper-triangular graph.
+generator: engine.data_generator.DataGenerator.generate_path_graph
+parameters: {}

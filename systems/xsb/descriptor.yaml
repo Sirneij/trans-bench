@@ -1,0 +1,35 @@
+name: xsb
+display_name: XSB Prolog
+category: logic
+protocol: subprocess
+
+timing_phases:
+  - id: load_rules
+    label: LoadRules
+  - id: load_facts
+    label: LoadFacts
+  - id: query
+    label: Query
+  - id: write_result
+    label: Write
+
+input_format: lp
+modes:
+  - right_recursion
+  - left_recursion
+  - double_recursion
+rule_extension: .P
+
+execution:
+  binary: xsb
+  args:
+    - --nobanner
+    - --quietload
+    - --noprompt
+  timing_parser: xsb_stdout
+  export_module: xsb_export/extfilequery
+
+flags:
+  requires_credentials: false
+  cleanup_patterns:
+    - "*.xwam"

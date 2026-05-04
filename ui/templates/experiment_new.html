@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+{% block title %}New Experiment{% endblock %}
+{% block page_title %}Configure Experiment{% endblock %}
+
+{% block content %}
+<div class="wizard" id="wizard">
+
+  <!-- Step indicators -->
+  <div class="wizard-steps">
+    <div class="wizard-step active" data-step="1">
+      <div class="step-num">1</div><div class="step-label">Systems</div>
+    </div>
+    <div class="wizard-step" data-step="2">
+      <div class="step-num">2</div><div class="step-label">Graphs</div>
+    </div>
+    <div class="wizard-step" data-step="3">
+      <div class="step-num">3</div><div class="step-label">Settings</div>
+    </div>
+    <div class="wizard-step" data-step="4">
+      <div class="step-num">4</div><div class="step-label">Review</div>
+    </div>
+  </div>
+
+  <!-- Step 1: Select systems -->
+  <div class="wizard-panel active" id="step-1">
+    <h2 class="wizard-heading">Which systems do you want to benchmark?</h2>
+    <p class="wizard-sub">Select one or more. Leave all unchecked to run all discovered systems.</p>
+    <div class="check-grid" id="systems-grid">
+      {% for system in systems %}
+      <label class="check-card" for="sys-{{ system.name }}">
+        <input type="checkbox" id="sys-{{ system.name }}" name="systems" value="{{ system.name }}"/>
+        <div class="check-body">
+          <div class="check-badge {{ system.category }}">{{ system.category }}</div>
+          <div class="check-title">{{ system.display_name }}</div>
+          <div class="check-meta">{{ system.protocol }}</div>
+        </div>
+        <div class="check-mark">✓</div>
+      </label>
+      {% endfor %}
+    </div>
+    <div class="wizard-nav">
+      <span></span>
+      <button class="btn btn-primary" onclick="nextStep()">Next →</button>
+    </div>
+  </div>
+
+  <!-- Step 2: Select graph types -->
+  <div class="wizard-panel" id="step-2">
+    <h2 class="wizard-heading">Which graph topologies?</h2>
+    <p class="wizard-sub">Leave all unchecked to test all discovered topologies.</p>
+    <div class="check-grid" id="graphs-grid">
+      {% for g in graph_types %}
+      <label class="check-card" for="g-{{ g.name }}">
+        <input type="checkbox" id="g-{{ g.name }}" name="graphs" value="{{ g.name }}"/>
+        <div class="check-body">
+          <div class="check-title">{{ g.display_name }}</div>
+          <div class="check-meta">{{ g.description[:60] }}{% if g.description|length > 60 %}…{% endif %}</div>
+        </div>
+        <div class="check-mark">✓</div>
+      </label>
+      {% endfor %}
+    </div>
+    <div class="wizard-nav">
+      <button class="btn" onclick="prevStep()">← Back</button>
+      <button class="btn btn-primary" onclick="nextStep()">Next →</button>
+    </div>
+  </div>
+
+  <!-- Step 3: Settings -->
+  <div class="wizard-panel" id="step-3">
+    <h2 class="wizard-heading">Experiment settings</h2>
+
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">Recursion Modes</label>
+        <div class="mode-checks">
+          <label class="check-inline">
+            <input type="checkbox" name="modes" value="right_recursion" checked/> Right recursion
+          </label>
+          <label class="check-inline">
+            <input type="checkbox" name="modes" value="left_recursion" checked/> Left recursion
+          </label>
+          <label class="check-inline">
+            <input type="checkbox" name="modes" value="double_recursion"/> Double recursion
+          </label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Graph Size Range</label>
+        <div class="range-inputs">
+          <div class="range-field">
+            <label>Start</label>
+            <input type="number" id="size-start" value="10" min="1" class="form-input"/>
+          </div>
+          <div class="range-field">
+            <label>Stop (exclusive)</label>
+            <input type="number" id="size-stop" value="101" min="2" class="form-input"/>
+          </div>
+          <div class="range-field">
+            <label>Step</label>
+            <input type="number" id="size-step" value="10" min="1" class="form-input"/>
+          </div>
+        </div>
+        <div class="size-preview" id="size-preview"></div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Runs per Cell</label>
+        <input type="number" id="num-runs" value="3" min="1" max="50" class="form-input form-input-sm"/>
+        <span class="form-hint">Higher = more accurate averages, longer runtime</span>
+      </div>
+    </div>
+
+    <div class="wizard-nav">
+      <button class="btn" onclick="prevStep()">← Back</button>
+      <button class="btn btn-primary" onclick="nextStep()">Review →</button>
+    </div>
+  </div>
+
+  <!-- Step 4: Review -->
+  <div class="wizard-panel" id="step-4">
+    <h2 class="wizard-heading">Review & Start</h2>
+    <div class="review-grid" id="review-summary"></div>
+    <div class="wizard-nav">
+      <button class="btn" onclick="prevStep()">← Back</button>
+      <button class="btn btn-success btn-lg" onclick="startExperiment()" id="start-btn">▷ Start Experiment</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let currentStep = 1;
+const totalSteps = 4;
+
+function nextStep() {
+  if (currentStep < totalSteps) {
+    setStep(currentStep + 1);
+  }
+}
+function prevStep() {
+  if (currentStep > 1) {
+    setStep(currentStep - 1);
+  }
+}
+function setStep(n) {
+  document.querySelectorAll('.wizard-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.wizard-step').forEach(s => {
+    s.classList.remove('active', 'done');
+    if (parseInt(s.dataset.step) < n) s.classList.add('done');
+    if (parseInt(s.dataset.step) === n) s.classList.add('active');
+  });
+  document.getElementById(`step-${n}`).classList.add('active');
+  currentStep = n;
+  if (n === 4) buildReview();
+  updateSizePreview();
+}
+
+function updateSizePreview() {
+  const s = parseInt(document.getElementById('size-start')?.value || 10);
+  const e = parseInt(document.getElementById('size-stop')?.value || 101);
+  const st= parseInt(document.getElementById('size-step')?.value || 10);
+  const sizes = [];
+  for (let i = s; i < e; i += st) sizes.push(i);
+  const el = document.getElementById('size-preview');
+  if (el) el.textContent = `Sizes: [${sizes.slice(0,8).join(', ')}${sizes.length > 8 ? ', …' : ''}] (${sizes.length} total)`;
+}
+
+['size-start','size-stop','size-step'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('input', updateSizePreview);
+});
+updateSizePreview();
+
+function buildReview() {
+  const systems = [...document.querySelectorAll('#systems-grid input:checked')].map(i => i.value);
+  const graphs  = [...document.querySelectorAll('#graphs-grid input:checked')].map(i => i.value);
+  const modes   = [...document.querySelectorAll('input[name="modes"]:checked')].map(i => i.value);
+  const start = document.getElementById('size-start').value;
+  const stop  = document.getElementById('size-stop').value;
+  const step  = document.getElementById('size-step').value;
+  const runs  = document.getElementById('num-runs').value;
+
+  const sizes = [];
+  for (let i = parseInt(start); i < parseInt(stop); i += parseInt(step)) sizes.push(i);
+  const cells = (systems.length || 1) * (graphs.length || 1) * sizes.length * modes.length;
+
+  document.getElementById('review-summary').innerHTML = `
+    <div class="review-item"><div class="review-key">Systems</div>
+      <div class="review-val">${systems.length ? systems.join(', ') : 'All discovered'}</div></div>
+    <div class="review-item"><div class="review-key">Graphs</div>
+      <div class="review-val">${graphs.length ? graphs.join(', ') : 'All discovered'}</div></div>
+    <div class="review-item"><div class="review-key">Modes</div>
+      <div class="review-val">${modes.join(', ')}</div></div>
+    <div class="review-item"><div class="review-key">Sizes</div>
+      <div class="review-val">${sizes.join(', ')} (${sizes.length} sizes)</div></div>
+    <div class="review-item"><div class="review-key">Runs per cell</div>
+      <div class="review-val">${runs}</div></div>
+    <div class="review-item highlight"><div class="review-key">Est. total runs</div>
+      <div class="review-val">${cells} × ${runs} = <strong>${cells * parseInt(runs)}</strong> benchmark executions</div></div>
+  `;
+}
+
+function startExperiment() {
+  const btn = document.getElementById('start-btn');
+  btn.disabled = true; btn.textContent = '⏳ Starting…';
+
+  const systems = [...document.querySelectorAll('#systems-grid input:checked')].map(i => i.value);
+  const graphs  = [...document.querySelectorAll('#graphs-grid input:checked')].map(i => i.value);
+  const modes   = [...document.querySelectorAll('input[name="modes"]:checked')].map(i => i.value);
+  const payload = {
+    systems, graphs, modes,
+    sizes: [
+      parseInt(document.getElementById('size-start').value),
+      parseInt(document.getElementById('size-stop').value),
+      parseInt(document.getElementById('size-step').value),
+    ],
+    num_runs: parseInt(document.getElementById('num-runs').value),
+  };
+
+  fetch('/experiment/start', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload),
+  }).then(r => r.json()).then(d => {
+    if (d.ok) {
+      window.location.href = '/experiment/live';
+    } else {
+      showToast('✗ ' + d.error, 'error');
+      btn.disabled = false; btn.textContent = '▷ Start Experiment';
+    }
+  });
+}
+</script>
+{% endblock %}
