@@ -57,14 +57,15 @@ def generate():
                         data[mode][size][env] = val
 
     latex_lines = [
-        "\\documentclass{article}",
-        "\\usepackage[landscape, margin=1in]{geometry}",
+        "\\documentclass[varwidth=6.5in]{standalone}",
         "\\usepackage{booktabs}",
+        "\\usepackage{caption}",
+        "\\usepackage{adjustbox}",
         "\\begin{document}",
         "",
         "\\begin{table}[htpb]",
         "\\centering",
-        "\\caption{Query execution times (in seconds) for Left and Right Recursion on scale-free graphs. Missing entries ($-$) indicate execution was manually aborted due to excessive runtime or Out-of-Memory.}",
+        "\\caption*{Query execution times (in seconds) for Left and Right Recursion on scale-free graphs. Missing entries ($-$) indicate execution was manually aborted due to excessive runtime or Out-of-Memory.}",
         "\\label{tab:scale_free_side_by_side}",
         ""
     ]
@@ -83,6 +84,7 @@ def generate():
             f"\\textbf{{{mode.replace('_', ' ').title()}}}",
             "",
             "\\vspace{0.2cm}",
+            "\\begin{adjustbox}{max width=\\linewidth}",
             "\\begin{tabular}{lrrrrrr}",
             "\\toprule",
             "\\textbf{Graph Size} & " + " & ".join(f"\\textbf{{{env_names[env]}}}" for env in environments) + " \\\\",
@@ -107,6 +109,7 @@ def generate():
         latex_lines.extend([
             "\\bottomrule",
             "\\end{tabular}",
+            "\\end{adjustbox}",
             "\\end{minipage}" + ("\\hfill" if i == 0 else "")
         ])
         
