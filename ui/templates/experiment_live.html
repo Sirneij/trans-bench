@@ -1,86 +1,109 @@
 {% extends "base.html" %}
 {% block title %}Live Monitor{% endblock %}
-{% block page_title %}Live Monitor{% endblock %}
+{% block page_title %}Experiment Live Monitor{% endblock %}
 
 {% block content %}
-<div class="monitor-wrap">
+<div class="monitor-layout">
 
   <!-- Left column: progress + current step + error banner -->
-  <div class="monitor-left">
-
-    <!-- Top bar -->
-    <div class="monitor-card">
+  <div class="monitor-main">
+    
+    <!-- Top Progress Card -->
+    <div class="glass-card progress-section">
       <div class="monitor-header">
         <div>
-          <h2 class="monitor-title">Experiment Progress</h2>
-          <p class="monitor-subtitle" id="steps-label">Connecting…</p>
+          <h2 class="section-title" style="margin:0;">Experiment Progress</h2>
+          <p class="toolbar-hint" id="steps-label" style="margin-top:4px;">Connecting to test runner…</p>
         </div>
         <div class="monitor-controls">
-          <button class="btn btn-danger-outline" onclick="stopExperiment()" id="stop-btn">⏹ Stop</button>
+          <button class="btn btn-danger-outline" onclick="stopExperiment()" id="stop-btn">
+            <span style="font-size:1.1rem;">⏹</span> Stop
+          </button>
           <a href="{{ url_for('results') }}" class="btn">View Results</a>
         </div>
       </div>
 
-      <!-- Progress bar -->
-      <div class="progress-track">
-        <div class="progress-fill" id="progress-fill" style="width:0%">
-          <span class="progress-glow"></span>
-        </div>
+      <div class="progress-info">
+        <span id="pct-label" style="font-size: 1.2rem; font-weight: 800; color: var(--accent);">0%</span>
+        <span id="eta-label" style="color: var(--text2); font-family: var(--mono); font-size: 0.85rem;"></span>
       </div>
-      <div class="progress-labels">
-        <span id="pct-label" class="pct-label">0%</span>
-        <span id="eta-label" class="eta-label"></span>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar" id="progress-fill" style="width:0%"></div>
       </div>
     </div>
 
-    <!-- Current step card -->
-    <div class="step-card" id="step-card" style="opacity:0">
-      <div class="step-card-header">
-        <span class="step-pulse" id="step-pulse">●</span>
-        <span id="step-status-text">Waiting…</span>
+    <!-- Current Step Card -->
+    <div class="glass-card" id="step-card" style="opacity:0; transform: translateY(10px); transition: all 0.5s ease;">
+      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div class="pulse" id="step-pulse" style="width: 12px; height: 12px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 10px var(--amber);"></div>
+          <h3 style="font-size: 1.1rem; font-weight: 700; margin: 0;">Current Benchmark Phase</h3>
+        </div>
+        <div id="step-status-text" class="status-badge status-running">Initializing…</div>
       </div>
-      <div class="step-fields">
-        <div class="sf"><span class="sf-k">System</span><span class="sf-v" id="cur-system">—</span></div>
-        <div class="sf"><span class="sf-k">Graph</span><span class="sf-v" id="cur-graph">—</span></div>
-        <div class="sf"><span class="sf-k">Size</span><span class="sf-v" id="cur-size">—</span></div>
-        <div class="sf"><span class="sf-k">Mode</span><span class="sf-v" id="cur-mode">—</span></div>
+      
+      <div class="step-detail">
+        <div class="step-field">
+          <span class="step-key">System</span>
+          <span class="step-val" id="cur-system">—</span>
+        </div>
+        <div class="step-field">
+          <span class="step-key">Graph Topology</span>
+          <span class="step-val" id="cur-graph">—</span>
+        </div>
+        <div class="step-field">
+          <span class="step-key">Size Range</span>
+          <span class="step-val" id="cur-size" style="font-family: var(--mono); color: var(--cyan);">—</span>
+        </div>
+        <div class="step-field">
+          <span class="step-key">Recursion Mode</span>
+          <span class="step-val" id="cur-mode" style="font-family: var(--mono);">—</span>
+        </div>
       </div>
     </div>
 
     <!-- Error panel -->
-    <div class="error-panel" id="error-panel" style="display:none">
-      <div class="error-icon">⚠</div>
-      <div class="error-body">
-        <div class="error-title">Error Detected</div>
-        <div class="error-msg" id="error-msg"></div>
+    <div class="glass-card" id="error-panel" style="display:none; border-color: rgba(244,63,94,0.4); background: rgba(244,63,94,0.05);">
+      <div style="display: flex; gap: 16px; align-items: center;">
+        <div style="font-size: 2rem; color: var(--red);">⚠</div>
+        <div>
+          <h4 style="color: var(--red); font-size: 1rem; margin-bottom: 4px;">Error Detected</h4>
+          <div id="error-msg" style="color: var(--text2); font-size: 0.9rem;"></div>
+        </div>
       </div>
     </div>
 
     <!-- Done banner -->
-    <div class="done-card" id="done-card" style="display:none">
-      <div class="done-glow"></div>
+    <div class="done-banner" id="done-card" style="display:none; margin-top: 24px;">
       <div class="done-icon">✓</div>
-      <div class="done-body">
-        <strong>Experiment Complete</strong>
-        <span>All benchmark runs finished. Charts and CSVs are ready.</span>
+      <div class="done-text">
+        <strong style="font-size: 1.1rem;">Experiment Complete</strong>
+        <span style="color: var(--text2); font-size: 0.9rem;">All benchmark runs finished successfully. Data is ready for review.</span>
       </div>
-      <a href="{{ url_for('results') }}" class="btn btn-primary">View Results →</a>
+      <a href="{{ url_for('results') }}" class="btn btn-success" style="margin-left: auto;">View Results →</a>
     </div>
+
   </div>
 
   <!-- Right column: live log -->
-  <div class="monitor-log-card">
-    <div class="log-toolbar">
-      <span class="log-title">Live Log</span>
-      <div class="log-actions">
-        <label class="check-inline">
+  <div class="monitor-log glass-card" style="padding: 0; display: flex; flex-direction: column;">
+    <div class="log-header" style="padding: 16px 20px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.02);">
+      <h3 style="font-size: 1rem; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 8px;">
+        <span style="color: var(--accent);">⌨</span> Live Terminal
+      </h3>
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <label class="check-inline" style="font-size: 0.8rem; color: var(--text2);">
           <input type="checkbox" id="auto-scroll" checked/> Auto-scroll
         </label>
-        <button class="btn btn-sm" onclick="clearLog()">Clear</button>
+        <button class="btn btn-sm" onclick="clearLog()" style="background: transparent; border-color: var(--border);">Clear</button>
       </div>
     </div>
-    <div class="log-stream" id="log-stream"></div>
-    <div class="log-count" id="log-count">0 lines</div>
+    
+    <div class="log-body" id="log-stream" style="border-radius: 0 0 var(--radius) var(--radius); border: none;"></div>
+    
+    <div style="padding: 8px 20px; font-size: 0.75rem; color: var(--text3); font-family: var(--mono); border-top: 1px solid rgba(255,255,255,0.05); background: #050608; border-radius: 0 0 var(--radius) var(--radius);">
+      <span id="log-count">0 lines</span> captured
+    </div>
   </div>
 
 </div>
@@ -102,7 +125,7 @@ function appendLog(msg, level) {
   const line = document.createElement('div');
   line.className = `log-line log-${level || 'info'}`;
   const ts = new Date().toLocaleTimeString('en-US', {hour12: false});
-  line.innerHTML = `<span class="log-ts">${ts}</span><span class="log-msg">${escHtml(msg)}</span>`;
+  line.innerHTML = `<span style="color:var(--text3); margin-right:8px;">[${ts}]</span><span>${escHtml(msg)}</span>`;
   logStream.appendChild(line);
   document.getElementById('log-count').textContent = `${lineCount} lines`;
   if (autoScroll.checked) logStream.scrollTop = logStream.scrollHeight;
@@ -131,16 +154,28 @@ evtSource.onmessage = (e) => {
   if (data.status === '__done__') {
     document.getElementById('done-card').style.display = 'flex';
     document.getElementById('stop-btn').disabled = true;
-    document.getElementById('step-card').style.opacity = '0';
+    
+    const stepCard = document.getElementById('step-card');
+    stepCard.style.opacity = '0.5';
+    stepCard.style.filter = 'grayscale(100%)';
+    
+    const pulse = document.getElementById('step-pulse');
+    pulse.style.background = 'var(--green)';
+    pulse.style.boxShadow = 'none';
+    pulse.className = '';
+    
+    document.getElementById('step-status-text').className = 'status-badge status-done';
+    document.getElementById('step-status-text').textContent = 'Finished';
+    
     document.getElementById('progress-fill').style.width = '100%';
     document.getElementById('pct-label').textContent = '100%';
-    document.getElementById('steps-label').textContent = 'Completed';
+    document.getElementById('steps-label').textContent = 'Benchmark completed successfully';
     appendLog('✓ Experiment complete!', 'success');
     evtSource.close();
     return;
   }
 
-  // Log-only event (from subprocess, generate_db, errors)
+  // Log-only event
   if (data.type === 'log') {
     if (data.level === 'error') showError(data.message);
     else appendLog(data.message, data.level || 'info');
@@ -158,11 +193,13 @@ evtSource.onmessage = (e) => {
     document.getElementById('eta-label').textContent = eta > 0 ? `ETA ~${eta}s` : '';
   }
 
-  document.getElementById('steps-label').textContent = `${data.done} / ${data.total} steps`;
+  document.getElementById('steps-label').textContent = `Running step ${data.done} of ${data.total}`;
 
   // Step card
   const stepCard = document.getElementById('step-card');
   stepCard.style.opacity = '1';
+  stepCard.style.transform = 'translateY(0)';
+  
   document.getElementById('cur-system').textContent = data.system;
   document.getElementById('cur-graph').textContent = data.graph;
   document.getElementById('cur-size').textContent = data.size;
@@ -170,12 +207,17 @@ evtSource.onmessage = (e) => {
 
   const pulse = document.getElementById('step-pulse');
   const statusText = document.getElementById('step-status-text');
+  
   if (data.status === 'done') {
-    pulse.className = 'step-pulse done';
-    statusText.textContent = 'Done';
+    pulse.style.background = 'var(--green)';
+    pulse.style.boxShadow = '0 0 10px var(--green)';
+    statusText.className = 'status-badge status-done';
+    statusText.textContent = 'Completed';
   } else {
-    pulse.className = 'step-pulse running';
-    statusText.textContent = 'Running…';
+    pulse.style.background = 'var(--amber)';
+    pulse.style.boxShadow = '0 0 10px var(--amber)';
+    statusText.className = 'status-badge status-running';
+    statusText.textContent = 'Executing';
   }
 
   const icon = data.status === 'done' ? '✓' : '⟳';

@@ -27,7 +27,7 @@ rule_extension: .dl
 execution:
   binary: souffle
   compiler: g++
-  export_dir: souffle_rules/souffle_export
+  # export_dir: souffle_rules/souffle_export
   timing_parser: souffle_stdout
 
 flags:

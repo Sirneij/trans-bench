@@ -14,7 +14,7 @@
   <div class="results-system glass-card">
     <div class="results-system-header">
       <h3 class="results-system-name">{{ system_name }}</h3>
-      <span class="results-system-count">{{ graphs.values()|sum(attribute='__len__') }} files</span>
+      <span class="results-system-count">{{ graphs.values()|map('length')|sum }} files</span>
     </div>
 
     <div class="results-graphs">

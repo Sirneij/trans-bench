@@ -236,8 +236,8 @@ class SouffleConnector(BaseConnector):
         config: dict[str, Any],
     ) -> dict[str, float]:
         queries = config.get('queries', '[[query1, path(X, Y)]]')
-        include_dir = config.get('souffle_include_dir', '$HOME/systems/souffle/include')
-        export_path = Path('souffle_rules') / 'souffle_export'
+        include_dir = config.get('souffle_include_dir', '/opt/homebrew/Cellar/souffle/HEAD-8abf896/include')
+        export_path = rule_path.parent / 'souffle_export'
         export_file = export_path / 'main'
         generated_cpp = export_path / 'souffle_generated.cpp'
 
@@ -264,7 +264,7 @@ class SouffleConnector(BaseConnector):
             measurements[1] = (r, c)
 
             # Phase 2-5: Run compiled binary (timing from stdout)
-            run_str, run_timing = self._run_cmd(f'./{export_file} {input_path}')
+            run_str, run_timing = self._run_cmd(f'{export_file} {input_path}')
             measurements[2] = (run_timing.get('Instance time', 0.0), run_timing.get('InstanceCPU time', 0.0))
             measurements[3] = (run_timing.get('LoadingFacts time', 0.0), run_timing.get('LoadingFactsCPU time', 0.0))
             measurements[4] = (run_timing.get('Query time', 0.0), run_timing.get('QueryCPU time', 0.0))
