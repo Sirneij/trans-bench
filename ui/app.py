@@ -21,19 +21,27 @@ GET  /results                Browse timing results
 GET  /api/systems            JSON: all system descriptors
 GET  /api/graph-types        JSON: all graph type descriptors
 """
+
 from __future__ import annotations
 
 import json
 import logging
 import queue
 import threading
-import time
 from pathlib import Path
 from typing import Any, Optional
 
 import yaml
-from flask import (Flask, Response, jsonify, redirect, render_template,
-                   request, stream_with_context, url_for)
+from flask import (
+    Flask,
+    Response,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    stream_with_context,
+    url_for,
+)
 
 BASE_DIR = Path(__file__).parent.parent
 log = logging.getLogger(__name__)
@@ -59,6 +67,7 @@ def create_app() -> Flask:
     app.secret_key = 'trans-bench-ui-secret-2025'
 
     from engine.loader import DescriptorLoader
+
     loader = DescriptorLoader(base_dir=BASE_DIR)
 
     # ── Helpers ─────────────────────────────────────────────────────────────
@@ -84,6 +93,16 @@ def create_app() -> Flask:
         csv_count = len(list(timing_dir.glob('**/*.csv'))) if timing_dir.exists() else 0
         system_dirs = [d.name for d in timing_dir.iterdir() if d.is_dir()] if timing_dir.exists() else []
 
+        import platform
+        import os
+
+        machine_info = {
+            'os': f"{platform.system()} {platform.release()}",
+            'arch': platform.machine(),
+            'cpu_count': os.cpu_count(),
+            'python_version': platform.python_version()
+        }
+
         return render_template(
             'dashboard.html',
             systems=systems,
@@ -91,6 +110,7 @@ def create_app() -> Flask:
             csv_count=csv_count,
             benchmarked_systems=system_dirs,
             experiment_running=_experiment_state['running'],
+            machine_info=machine_info,
         )
 
     # ── Systems ──────────────────────────────────────────────────────────────
@@ -174,8 +194,7 @@ def create_app() -> Flask:
             if template_desc.exists():
                 content = template_desc.read_text().replace(f'name: {template_name}', f'name: {new_name}')
                 content = content.replace(
-                    f'display_name: {template_name.title()}',
-                    f'display_name: {new_name.replace("_", " ").title()}'
+                    f'display_name: {template_name.title()}', f'display_name: {new_name.replace("_", " ").title()}'
                 )
                 (new_dir / 'descriptor.yaml').write_text(content)
 
@@ -250,8 +269,10 @@ def create_app() -> Flask:
                     pass
             else:
                 # Progress update
-                msg = (f"[{evt['pct']}%] {evt['system']} / {evt['graph']} / "
-                       f"size={evt['size']} / {evt['mode']} → {evt['status']}")
+                msg = (
+                    f"[{evt['pct']}%] {evt['system']} / {evt['graph']} / "
+                    f"size={evt['size']} / {evt['mode']} → {evt['status']}"
+                )
                 with _experiment_lock:
                     _experiment_state['progress'] = evt
                     _experiment_state['log_lines'].append(msg)
@@ -315,12 +336,14 @@ def create_app() -> Flask:
     @app.route('/experiment/status')
     def experiment_status():
         with _experiment_lock:
-            return jsonify({
-                'running': _experiment_state['running'],
-                'progress': _experiment_state['progress'],
-                'recent_logs': _experiment_state['log_lines'][-50:],
-                'error': _experiment_state['error'],
-            })
+            return jsonify(
+                {
+                    'running': _experiment_state['running'],
+                    'progress': _experiment_state['progress'],
+                    'recent_logs': _experiment_state['log_lines'][-50:],
+                    'error': _experiment_state['error'],
+                }
+            )
 
     @app.route('/experiment/stop', methods=['POST'])
     def experiment_stop():
@@ -351,7 +374,7 @@ def create_app() -> Flask:
                     tree[system_dir.name][graph_dir.name] = [c.name for c in csvs]
         return render_template('results.html', tree=tree)
 
-    @app.route('/results/<system>/<graph>/<filename>')
+    @app.route('/results/data/<system>/<graph>/<filename>')
     def result_detail(system: str, graph: str, filename: str):
         csv_path = BASE_DIR / 'timing' / system / graph / filename
         if not csv_path.exists():
@@ -359,9 +382,34 @@ def create_app() -> Flask:
         rows = []
         with open(csv_path) as f:
             import csv as csvmod
-            reader = csvmod.DictReader(f)
+
+            reader = csvmod.reader(f)
+            headers = next(reader, [])
+            
+            # The CSV might have 8 headers, but the average row has 9 columns (starts with "Average").
+            # We will artificially add a 'Step' header at the beginning to align the data.
+            aligned_headers = ['Step'] + headers
+            
+            row_idx = 1
             for row in reader:
-                rows.append(row)
+                if not row:
+                    continue
+                
+                clean_row = {}
+                if row[0] == 'Average':
+                    # Average row has 9 columns: ['Average', val1, val2, ..., val8]
+                    clean_row['Step'] = 'Average'
+                    for i, h in enumerate(headers):
+                        clean_row[h] = row[i+1] if i+1 < len(row) else ''
+                else:
+                    # Data row has 8 columns: [val1, val2, ..., val8]
+                    clean_row['Step'] = f'Run {row_idx}'
+                    for i, h in enumerate(headers):
+                        clean_row[h] = row[i] if i < len(row) else ''
+                    row_idx += 1
+                
+                rows.append(clean_row)
+
         return jsonify({'file': filename, 'rows': rows})
 
     # ── JSON API ─────────────────────────────────────────────────────────────

@@ -2,6 +2,10 @@
 {% block title %}Results{% endblock %}
 {% block page_title %}Experiment Results{% endblock %}
 
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
 {% block content %}
 <div class="toolbar">
   <h1 class="page-heading">Timing Results</h1>
@@ -38,11 +42,16 @@
 </div>
 
 <!-- Data viewer panel -->
-<div class="data-panel glass-card" id="data-panel" style="display:none">
-  <div class="data-panel-header">
-    <h3 id="data-panel-title">—</h3>
-    <button onclick="document.getElementById('data-panel').style.display='none'" class="close-btn">✕</button>
+<div class="data-panel glass-card" id="data-panel" style="display:none; margin-top: 24px;">
+  <div class="data-panel-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+    <h3 id="data-panel-title" style="margin:0; font-size: 1.2rem; font-weight: 700;">—</h3>
+    <button onclick="document.getElementById('data-panel').style.display='none'" class="close-btn" style="background:transparent; border:none; color:var(--text); font-size:1.5rem; cursor:pointer;">✕</button>
   </div>
+  
+  <div style="margin-bottom: 24px; background: rgba(0,0,0,0.2); padding: 16px; border-radius: var(--radius); border: 1px solid var(--border);">
+    <canvas id="result-chart" height="80"></canvas>
+  </div>
+
   <div class="table-scroll">
     <table class="data-table" id="result-table">
       <thead id="result-thead"></thead>
@@ -59,10 +68,59 @@
   <a href="{{ url_for('experiment_new') }}" class="btn btn-primary">▷ Run Experiment</a>
 </div>
 {% endif %}
+{% endblock %}
 
+{% block scripts %}
 <script>
+let chartInstance = null;
+
+function renderChart(keys, rows) {
+  const ctx = document.getElementById('result-chart').getContext('2d');
+  if (chartInstance) chartInstance.destroy();
+  
+  // Filter out the 'Average' row and use remaining rows
+  const dataRows = rows.filter(r => r[keys[0]] !== 'Average');
+  if (dataRows.length === 0) return;
+  
+  const labels = dataRows.map(r => r[keys[0]]);
+  const datasets = [];
+  
+  // Create a dataset for each column except the first
+  const colors = ['#8b5cf6', '#ec4899', '#10b981', '#f59e0b', '#3b82f6'];
+  
+  for (let i = 1; i < keys.length; i++) {
+    const key = keys[i];
+    // Attempt to convert values to float
+    const data = dataRows.map(r => parseFloat(r[key]) || 0);
+    datasets.push({
+      label: key,
+      data: data,
+      borderColor: colors[(i-1) % colors.length],
+      backgroundColor: colors[(i-1) % colors.length] + '33',
+      borderWidth: 2,
+      tension: 0.3,
+      fill: true
+    });
+  }
+
+  chartInstance = new Chart(ctx, {
+    type: 'line',
+    data: { labels: labels, datasets: datasets },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { labels: { color: '#e2e8f0' } }
+      },
+      scales: {
+        x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+        y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' }, title: { display: true, text: 'Time (s)', color: '#94a3b8' } }
+      }
+    }
+  });
+}
+
 function loadResult(system, graph, fname) {
-  fetch(`/results/${system}/${graph}/${fname}`)
+  fetch(`/results/data/${system}/${graph}/${fname}`)
     .then(r => r.json())
     .then(d => {
       if (d.error) { showToast('Error: ' + d.error, 'error'); return; }
@@ -70,7 +128,10 @@ function loadResult(system, graph, fname) {
       document.getElementById('data-panel-title').textContent = `${system} / ${graph} / ${fname}`;
       const rows = d.rows;
       if (!rows.length) { showToast('No data in file', 'warn'); return; }
+      
       const keys = Object.keys(rows[0]);
+      
+      // Update Table
       document.getElementById('result-thead').innerHTML =
         '<tr>' + keys.map(k => `<th>${k}</th>`).join('') + '</tr>';
       document.getElementById('result-tbody').innerHTML =
@@ -79,8 +140,16 @@ function loadResult(system, graph, fname) {
           keys.map(k => `<td>${parseFloat(row[k])?.toFixed(4) ?? row[k]}</td>`).join('') +
           '</tr>'
         ).join('');
+        
+      // Render Chart
+      renderChart(keys, rows);
+      
       panel.style.display = 'block';
       panel.scrollIntoView({behavior: 'smooth'});
+    })
+    .catch(err => {
+      showToast('Failed to load data.', 'error');
+      console.error(err);
     });
 }
 </script>
