@@ -43,13 +43,15 @@
 
 <!-- Data viewer panel -->
 <div class="data-panel glass-card" id="data-panel" style="display:none; margin-top: 24px;">
-  <div class="data-panel-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
-    <h3 id="data-panel-title" style="margin:0; font-size: 1.2rem; font-weight: 700;">—</h3>
-    <button onclick="document.getElementById('data-panel').style.display='none'" class="close-btn" style="background:transparent; border:none; color:var(--text); font-size:1.5rem; cursor:pointer;">✕</button>
+  <div class="data-panel-header" style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 16px;">
+    <h3 id="data-panel-title" style="margin:0; font-size: 1.2rem; font-weight: 700; word-break: break-all;">—</h3>
+    <button onclick="document.getElementById('data-panel').style.display='none'" class="close-btn" style="background:rgba(255,255,255,0.05); border:none; color:var(--text); font-size:1.2rem; cursor:pointer; flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%;">✕</button>
   </div>
   
   <div style="margin-bottom: 24px; background: rgba(0,0,0,0.2); padding: 16px; border-radius: var(--radius); border: 1px solid var(--border);">
-    <canvas id="result-chart" height="80"></canvas>
+    <div style="position: relative; height: 300px; width: 100%;">
+      <canvas id="result-chart"></canvas>
+    </div>
   </div>
 
   <div class="table-scroll">
@@ -108,6 +110,7 @@ function renderChart(keys, rows) {
     data: { labels: labels, datasets: datasets },
     options: {
       responsive: true,
+      maintainAspectRatio: false,
       plugins: {
         legend: { labels: { color: '#e2e8f0' } }
       },
@@ -129,7 +132,7 @@ function loadResult(system, graph, fname) {
       const rows = d.rows;
       if (!rows.length) { showToast('No data in file', 'warn'); return; }
       
-      const keys = Object.keys(rows[0]);
+      const keys = d.columns || Object.keys(rows[0]);
       
       // Update Table
       document.getElementById('result-thead').innerHTML =
@@ -137,7 +140,10 @@ function loadResult(system, graph, fname) {
       document.getElementById('result-tbody').innerHTML =
         rows.map(row =>
           '<tr class="' + (row[keys[0]] === 'Average' ? 'row-average' : '') + '">' +
-          keys.map(k => `<td>${parseFloat(row[k])?.toFixed(4) ?? row[k]}</td>`).join('') +
+          keys.map(k => {
+            const val = parseFloat(row[k]);
+            return `<td>${isNaN(val) ? row[k] : val.toFixed(4)}</td>`;
+          }).join('') +
           '</tr>'
         ).join('');
         

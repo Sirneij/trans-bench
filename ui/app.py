@@ -410,7 +410,7 @@ def create_app() -> Flask:
                 
                 rows.append(clean_row)
 
-        return jsonify({'file': filename, 'rows': rows})
+        return jsonify({'file': filename, 'columns': aligned_headers, 'rows': rows})
 
     # ── JSON API ─────────────────────────────────────────────────────────────
 
