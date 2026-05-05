@@ -31,6 +31,15 @@
         <div class="progress-bar" id="progress-fill" style="width:0%"></div>
       </div>
     </div>
+    
+    <!-- Equivalent CLI Command -->
+    <div class="glass-card" style="margin-bottom: 24px;">
+      <h3 style="font-size: 1.1rem; font-weight: 700; margin: 0 0 12px 0; color: var(--text);">Equivalent CLI Command</h3>
+      <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; position: relative; padding-right: 70px;">
+        <code id="cli-command" style="font-family: var(--mono); color: var(--cyan); font-size: 0.9rem; word-break: break-all; display: block;">Loading...</code>
+        <button onclick="copyCliCommand()" class="btn btn-sm" style="position: absolute; right: 8px; top: 8px; background: rgba(255,255,255,0.1); border: none; padding: 4px 10px;">Copy</button>
+      </div>
+    </div>
 
     <!-- Current Step Card -->
     <div class="glass-card" id="step-card" style="opacity:0; transform: translateY(10px); transition: all 0.5s ease;">
@@ -235,5 +244,28 @@ function stopExperiment() {
     .then(r => r.json())
     .then(d => { if (d.ok) appendLog('⏹ Stop requested', 'warn'); });
 }
+
+function copyCliCommand() {
+  const text = document.getElementById('cli-command').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('Copied to clipboard!', 'success');
+  }).catch(err => {
+    console.error('Failed to copy', err);
+    showToast('Failed to copy', 'error');
+  });
+}
+
+// Fetch initial status to get CLI command
+fetch('/experiment/status')
+  .then(r => r.json())
+  .then(d => {
+    if (d.cli_command) {
+      document.getElementById('cli-command').textContent = d.cli_command;
+    } else {
+      document.getElementById('cli-command').textContent = 'python transitive.py';
+    }
+  }).catch(() => {
+    document.getElementById('cli-command').textContent = 'python transitive.py';
+  });
 </script>
 {% endblock %}

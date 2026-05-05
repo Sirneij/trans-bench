@@ -110,6 +110,12 @@
         <input type="number" id="num-runs" value="3" min="1" max="50" class="form-input form-input-sm"/>
         <span class="form-hint">Higher = more accurate averages, longer runtime</span>
       </div>
+
+      <div class="form-group">
+        <label class="form-label">Soufflé Include Directory</label>
+        <input type="text" id="souffle-include-dir" value="{{ config.get('souffle_include_dir', '') }}" class="form-input"/>
+        <span class="form-hint">Path to Soufflé's C++ include directory (only used if Soufflé is selected)</span>
+      </div>
     </div>
 
     <div class="wizard-nav">
@@ -217,6 +223,7 @@ function startExperiment() {
       parseInt(document.getElementById('size-step').value),
     ],
     num_runs: parseInt(document.getElementById('num-runs').value),
+    souffle_include_dir: document.getElementById('souffle-include-dir').value,
   };
 
   fetch('/experiment/start', {

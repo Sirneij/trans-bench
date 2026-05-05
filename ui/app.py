@@ -231,6 +231,21 @@ def create_app() -> Flask:
         selected_modes = data.get('modes', ['right_recursion', 'left_recursion'])
         sizes = data.get('sizes', [10, 101, 10])
         num_runs = int(data.get('num_runs', 3))
+        souffle_dir = data.get('souffle_include_dir')
+        
+        cli_args = ["python transitive.py"]
+        if selected_systems:
+            cli_args.append(f"--systems {' '.join(selected_systems)}")
+        if selected_graphs:
+            cli_args.append(f"--graphs {' '.join(selected_graphs)}")
+        if selected_modes:
+            cli_args.append(f"--modes {' '.join(selected_modes)}")
+        if sizes:
+            cli_args.append(f"--sizes {' '.join(map(str, sizes))}")
+        cli_args.append(f"--num-runs {num_runs}")
+        if souffle_dir:
+            cli_args.append(f"--souffle-include-dir {souffle_dir}")
+        cli_command = " ".join(cli_args)
 
         from engine.loader import DescriptorLoader
         from engine.runner import ExperimentRunner
@@ -242,10 +257,25 @@ def create_app() -> Flask:
 
         if not systems or not graph_types:
             return jsonify({'ok': False, 'error': 'No systems or graph types found'}), 400
+            
+        if souffle_dir:
+            config['souffle_include_dir'] = souffle_dir
+            try:
+                import yaml
+                cfg_path = BASE_DIR / 'config.yaml'
+                if cfg_path.exists():
+                    with open(cfg_path, 'r') as f:
+                        cfg_data = yaml.safe_load(f) or {}
+                    cfg_data['souffle_include_dir'] = souffle_dir
+                    with open(cfg_path, 'w') as f:
+                        yaml.dump(cfg_data, f)
+            except Exception as e:
+                log.warning(f"Could not save souffle_include_dir to config.yaml: {e}")
 
         # Reset state
         with _experiment_lock:
             _experiment_state['running'] = True
+            _experiment_state['cli_command'] = cli_command
             _experiment_state['progress'] = {}
             _experiment_state['log_lines'] = []
             _experiment_state['error'] = None
@@ -339,6 +369,7 @@ def create_app() -> Flask:
             return jsonify(
                 {
                     'running': _experiment_state['running'],
+                    'cli_command': _experiment_state.get('cli_command', ''),
                     'progress': _experiment_state['progress'],
                     'recent_logs': _experiment_state['log_lines'][-50:],
                     'error': _experiment_state['error'],
@@ -362,17 +393,36 @@ def create_app() -> Flask:
     def results():
         timing_dir = BASE_DIR / 'timing'
         tree: dict = {}
+        all_systems = set()
+        all_graphs = set()
+        all_modes = set()
+        
+        import re
+        mode_pattern = re.compile(r'^timing_(.*)_graph_\d+\.csv$')
+
         if timing_dir.exists():
             for system_dir in sorted(timing_dir.iterdir()):
                 if not system_dir.is_dir():
                     continue
                 tree[system_dir.name] = {}
+                all_systems.add(system_dir.name)
                 for graph_dir in sorted(system_dir.iterdir()):
                     if not graph_dir.is_dir():
                         continue
+                    all_graphs.add(graph_dir.name)
                     csvs = sorted(graph_dir.glob('*.csv'))
+                    for c in csvs:
+                        match = mode_pattern.match(c.name)
+                        if match:
+                            all_modes.add(match.group(1))
                     tree[system_dir.name][graph_dir.name] = [c.name for c in csvs]
-        return render_template('results.html', tree=tree)
+        return render_template(
+            'results.html', 
+            tree=tree, 
+            all_systems=sorted(list(all_systems)), 
+            all_graphs=sorted(list(all_graphs)), 
+            all_modes=sorted(list(all_modes))
+        )
 
     @app.route('/results/data/<system>/<graph>/<filename>')
     def result_detail(system: str, graph: str, filename: str):
@@ -423,5 +473,64 @@ def create_app() -> Flask:
     def api_graph_types():
         gts = _get_graph_types()
         return jsonify([g.to_dict() for g in gts])
+
+    @app.route('/api/compare/trends', methods=['POST'])
+    def api_compare_trends():
+        req = request.get_json()
+        if not req:
+            return jsonify({'error': 'Invalid request'}), 400
+        
+        graph_type = req.get('graph_type')
+        mode = req.get('mode')
+        req_systems = req.get('systems', [])
+        
+        if not graph_type or not mode or not req_systems:
+            return jsonify({'error': 'Missing required fields'}), 400
+            
+        import re
+        import csv
+        timing_dir = BASE_DIR / 'timing'
+        pattern = re.compile(rf'^timing_{mode}_graph_(\d+)\.csv$')
+        
+        # size -> system -> { phase: time }
+        results_by_size = {}
+        
+        for sys_name in req_systems:
+            sys_graph_dir = timing_dir / sys_name / graph_type
+            if not sys_graph_dir.exists():
+                continue
+                
+            for csv_file in sys_graph_dir.glob('*.csv'):
+                match = pattern.match(csv_file.name)
+                if not match:
+                    continue
+                
+                size = int(match.group(1))
+                if size not in results_by_size:
+                    results_by_size[size] = {}
+                    
+                with open(csv_file, 'r') as f:
+                    reader = csv.reader(f)
+                    headers = next(reader, [])
+                    for row in reader:
+                        if not row: continue
+                        if row[0] == 'Average':
+                            phase_data = {}
+                            for i, h in enumerate(headers):
+                                val_str = row[i+1] if i+1 < len(row) else ''
+                                try:
+                                    phase_data[h] = float(val_str)
+                                except ValueError:
+                                    phase_data[h] = 0.0
+                            results_by_size[size][sys_name] = phase_data
+                            break
+                            
+        # Sort by size
+        sorted_results = [
+            {'size': size, 'systems': results_by_size[size]}
+            for size in sorted(results_by_size.keys())
+        ]
+        
+        return jsonify(sorted_results)
 
     return app

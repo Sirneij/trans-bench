@@ -12,6 +12,54 @@
   <span class="toolbar-hint">Browse CSV files grouped by system → graph type</span>
 </div>
 
+<!-- Trend Analysis Panel -->
+<div class="glass-card" style="margin-bottom: 32px;">
+  <div class="section-header" style="margin-top: 0;">
+    <h2 class="section-title">Trend Analysis (Scaling Performance)</h2>
+  </div>
+  <div class="form-grid">
+    <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+      <div class="form-group" style="flex: 1; min-width: 200px;">
+        <label class="form-label">Graph Type</label>
+        <select id="trend-graph-type" class="form-input">
+          {% for g in all_graphs %}
+          <option value="{{ g }}">{{ g }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="flex: 1; min-width: 200px;">
+        <label class="form-label">Mode</label>
+        <select id="trend-mode" class="form-input">
+          {% for m in all_modes %}
+          <option value="{{ m }}">{{ m }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Systems to Compare</label>
+      <div class="mode-checks">
+        {% for s in all_systems %}
+        <label class="check-inline">
+          <input type="checkbox" class="trend-system-check" value="{{ s }}" checked>
+          {{ s }}
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+    <div style="display: flex; justify-content: flex-end;">
+      <button onclick="generateTrendChart()" class="btn btn-primary">Generate Comparison</button>
+    </div>
+  </div>
+  
+  <div id="trend-chart-container" style="display: none; margin-top: 32px; border-top: 1px solid var(--border); padding-top: 24px;">
+    <div id="trend-legend"></div>
+    <div style="position: relative; height: 500px; width: 100%;">
+      <canvas id="trend-chart"></canvas>
+    </div>
+  </div>
+</div>
+
 {% if tree %}
 <div class="results-layout">
   {% for system_name, graphs in tree.items() %}
@@ -75,6 +123,160 @@
 {% block scripts %}
 <script>
 let chartInstance = null;
+let trendChartInstance = null;
+
+function stringToColor(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  return `hsl(${Math.abs(hash) % 360}, 70%, 60%)`;
+}
+
+function generateTrendChart() {
+  const graphType = document.getElementById('trend-graph-type').value;
+  const mode = document.getElementById('trend-mode').value;
+  const systems = Array.from(document.querySelectorAll('.trend-system-check:checked')).map(cb => cb.value);
+  
+  if (!systems.length) {
+    showToast('Select at least one system', 'warn');
+    return;
+  }
+  
+  fetch('/api/compare/trends', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ graph_type: graphType, mode: mode, systems: systems })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.error) { showToast(data.error, 'error'); return; }
+    if (!data.length) { showToast('No data found for this configuration.', 'warn'); return; }
+    
+    document.getElementById('trend-chart-container').style.display = 'block';
+    const ctx = document.getElementById('trend-chart').getContext('2d');
+    if (trendChartInstance) trendChartInstance.destroy();
+    
+    const sizes = data.map(d => d.size);
+    const datasets = [];
+    const phaseColors = {};
+    
+    systems.forEach(sys => {
+      const phases = new Set();
+      data.forEach(d => {
+        if (d.systems[sys]) {
+          Object.keys(d.systems[sys]).forEach(p => phases.add(p));
+        }
+      });
+      
+      Array.from(phases).forEach(phase => {
+        if (!phaseColors[phase]) phaseColors[phase] = stringToColor(phase);
+        
+        const phaseData = data.map(d => {
+          if (d.systems[sys] && d.systems[sys][phase]) return d.systems[sys][phase];
+          return 0;
+        });
+        
+        datasets.push({
+          label: phase,
+          data: phaseData,
+          backgroundColor: phaseColors[phase],
+          stack: sys
+        });
+      });
+    });
+    
+    // Build custom grouped HTML legend
+    const legendContainer = document.getElementById('trend-legend');
+    let legendHTML = '<div style="display: flex; gap: 32px; flex-wrap: wrap; justify-content: center; margin-bottom: 24px;">';
+    systems.forEach(sys => {
+      legendHTML += `<div style="display: flex; flex-direction: column; gap: 6px; background: rgba(0,0,0,0.2); padding: 12px 24px; border-radius: var(--radius); border: 1px solid var(--border);">`;
+      legendHTML += `<strong style="color: var(--text); font-size: 1rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">${sys}</strong>`;
+      
+      const sysPhases = [];
+      data.forEach(d => {
+        if (d.systems[sys]) {
+          Object.keys(d.systems[sys]).forEach(p => {
+            if (!sysPhases.includes(p)) sysPhases.push(p);
+          });
+        }
+      });
+      
+      // Reverse to match the visual top-down reading order of the stack
+      [...sysPhases].reverse().forEach(phase => {
+        const color = phaseColors[phase];
+        legendHTML += `
+          <div style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--text2);">
+            <div style="width: 14px; height: 14px; background-color: ${color}; border-radius: 3px;"></div>
+            <span>${phase}</span>
+          </div>
+        `;
+      });
+      legendHTML += `</div>`;
+    });
+    legendHTML += '</div>';
+    legendContainer.innerHTML = legendHTML;
+    
+    let maxTotal = 0;
+    data.forEach(d => {
+      systems.forEach(sys => {
+        if (d.systems[sys]) {
+          const total = Object.values(d.systems[sys]).reduce((a, b) => a + b, 0);
+          if (total > maxTotal) maxTotal = total;
+        }
+      });
+    });
+    
+    let yAxisLabel = 'Time (s)';
+    let scaleFactor = 1;
+    if (maxTotal > 1000) {
+      yAxisLabel = 'Time (s) × 10³';
+      scaleFactor = 1000;
+      datasets.forEach(ds => ds.data = ds.data.map(v => v / scaleFactor));
+    } else if (maxTotal > 0 && maxTotal < 1) {
+      yAxisLabel = 'Time (ms)';
+      scaleFactor = 0.001;
+      datasets.forEach(ds => ds.data = ds.data.map(v => v / scaleFactor));
+    }
+    
+    trendChartInstance = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: sizes.map(s => `Size ${s}`),
+        datasets: datasets
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'nearest', intersect: true },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              title: (ctx) => `Size: ${sizes[ctx[0].dataIndex]} | ${ctx[0].dataset.stack.toUpperCase()}`,
+              label: (ctx) => `${ctx.dataset.label}: ${ctx.raw.toFixed(4)}`
+            }
+          }
+        },
+        scales: {
+          x: {
+            stacked: true,
+            ticks: { color: '#94a3b8' },
+            grid: { color: 'rgba(255,255,255,0.05)' }
+          },
+          y: {
+            stacked: true,
+            ticks: { color: '#94a3b8' },
+            grid: { color: 'rgba(255,255,255,0.05)' },
+            title: { display: true, text: yAxisLabel, color: '#94a3b8' }
+          }
+        }
+      }
+    });
+  })
+  .catch(err => {
+    showToast('Failed to load trends', 'error');
+    console.error(err);
+  });
+}
 
 function renderChart(keys, rows) {
   const ctx = document.getElementById('result-chart').getContext('2d');

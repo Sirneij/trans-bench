@@ -102,8 +102,8 @@ Examples:
     )
     parser.add_argument(
         '--souffle-include-dir',
-        default='$HOME/systems/souffle/include',
-        help="Soufflé C++ include directory. Default: $HOME/systems/souffle/include",
+        default='/opt/homebrew/Cellar/souffle/HEAD-8abf896/include',
+        help="Soufflé C++ include directory. Default: /opt/homebrew/Cellar/souffle/HEAD-8abf896/include",
     )
 
     # ── Web UI ────────────────────────────────────────────────────────────
@@ -131,7 +131,7 @@ Examples:
         from ui.app import create_app
         app = create_app()
         print(f'\n  trans-bench Web UI  →  http://{args.ui_host}:{args.ui_port}\n')
-        app.run(host=args.ui_host, port=args.ui_port, debug=False)
+        app.run(host=args.ui_host, port=args.ui_port, debug=True)
         return
 
     # ── CLI experiment mode ───────────────────────────────────────────────
