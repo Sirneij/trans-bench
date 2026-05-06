@@ -6,121 +6,222 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/dracula.min.css">
 <style>
-  .CodeMirror {
-    height: auto;
-    min-height: 400px;
-    border-radius: var(--radius-sm);
-    font-family: var(--mono);
-    font-size: 14px;
-    background: rgba(0, 0, 0, 0.3);
-    border: 1px solid var(--border);
-  }
+/* New Detail Styles */
+.detail-bento {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 24px;
+  margin-top: 10px;
+  margin-bottom: 40px;
+}
+.bento-hero {
+  grid-column: span 12;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.7), rgba(30, 41, 59, 0.4));
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  border-radius: calc(var(--radius) * 1.5);
+  padding: 32px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  position: relative;
+  overflow: hidden;
+}
+.bento-hero::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(circle at top right, rgba(56, 189, 248, 0.1), transparent 50%);
+  pointer-events: none;
+}
+.hero-left { display: flex; flex-direction: column; gap: 8px; z-index: 1; }
+.hero-right { display: flex; flex-direction: column; gap: 8px; z-index: 1; align-items: flex-end; }
+
+.sys-badge { font-size: 0.8rem; padding: 4px 12px; border-radius: 12px; font-weight: 700; text-transform: uppercase; background: rgba(255,255,255,0.1); color: var(--text2); display: inline-block; margin-bottom: 8px; }
+.sys-badge.datalog { background: rgba(139, 92, 246, 0.2); color: #c4b5fd; border: 1px solid rgba(139, 92, 246, 0.3); }
+.sys-badge.sql { background: rgba(56, 189, 248, 0.2); color: #bae6fd; border: 1px solid rgba(56, 189, 248, 0.3); }
+.sys-badge.graph { background: rgba(16, 185, 129, 0.2); color: #a7f3d0; border: 1px solid rgba(16, 185, 129, 0.3); }
+
+.hero-title { font-size: 2.5rem; font-weight: 800; margin: 0; background: linear-gradient(to right, #fff, #94a3b8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; display: flex; align-items: center; gap: 16px;}
+.hero-meta { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
+.meta-tag { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); padding: 6px 16px; border-radius: 20px; font-family: var(--mono); font-size: 0.85rem; color: var(--text2); display: flex; gap: 8px; align-items: center; }
+.meta-key { color: var(--text3); font-weight: 700; text-transform: uppercase; font-size: 0.7rem; }
+.meta-val { color: var(--accent); font-weight: 600; }
+
+.phases-container { display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end; max-width: 400px;}
+.phase-pill-new { background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.05); padding: 10px 16px; border-radius: var(--radius); display: flex; flex-direction: column; gap: 4px; transition: all 0.2s; }
+.phase-pill-new:hover { border-color: rgba(255,255,255,0.1); transform: translateY(-2px); }
+.phase-id-new { font-weight: 700; color: white; font-size: 0.95rem; }
+.phase-cols-new { font-size: 0.75rem; color: var(--text3); font-family: var(--mono); }
+
+.bento-workspace { grid-column: span 12; display: flex; gap: 24px; min-height: 600px; }
+.workspace-nav { width: 220px; flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; }
+.workspace-tab { padding: 16px 20px; background: rgba(15, 23, 42, 0.4); border: 1px solid rgba(255,255,255,0.05); border-radius: calc(var(--radius) * 1.2); color: var(--text2); font-weight: 600; cursor: pointer; transition: all 0.2s; text-align: left; display: flex; align-items: center; gap: 12px; }
+.workspace-tab:hover { background: rgba(255,255,255,0.05); color: var(--text); transform: translateX(4px); }
+.workspace-tab.active { background: rgba(56, 189, 248, 0.15); border-color: rgba(56, 189, 248, 0.3); color: white; box-shadow: 0 4px 12px rgba(0,0,0,0.2); transform: translateX(4px); }
+
+.workspace-content { flex: 1; background: rgba(15, 23, 42, 0.4); border: 1px solid rgba(255,255,255,0.05); border-radius: calc(var(--radius) * 1.5); backdrop-filter: blur(12px); overflow: hidden; display: flex; flex-direction: column; min-width: 0; }
+.tab-panel { display: none; flex-direction: column; height: 100%; }
+.tab-panel.active { display: flex; }
+
+.editor-toolbar { padding: 20px 24px; background: rgba(0,0,0,0.2); border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center; }
+.editor-title { font-family: var(--mono); font-weight: 700; color: white; font-size: 1.15rem; display: flex; align-items: center; gap: 10px; }
+.editor-title-icon { color: var(--accent); }
+.editor-subtitle { font-size: 0.85rem; color: var(--text3); margin-top: 6px; }
+.cm-container { flex: 1; position: relative; }
+.CodeMirror { height: 100%; position: absolute; inset: 0; background: transparent; border: none; font-family: var(--mono); font-size: 14px; }
+.CodeMirror-gutters { background: rgba(0,0,0,0.2) !important; border-right: 1px solid rgba(255,255,255,0.05) !important; }
+
+.rules-layout { display: flex; flex: 1; min-height: 0; }
+.rules-sidebar { width: 250px; background: rgba(0,0,0,0.15); border-right: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; overflow-y: auto; padding: 12px; gap: 8px; }
+.rule-item { background: transparent; border: 1px solid transparent; padding: 10px 16px; border-radius: var(--radius); color: var(--text2); display: flex; align-items: center; gap: 10px; cursor: pointer; text-align: left; transition: all 0.2s; font-family: var(--mono); font-size: 0.85rem; }
+.rule-item:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+.rule-item.active { background: rgba(56, 189, 248, 0.15); border-color: rgba(56, 189, 248, 0.3); color: white; font-weight: 600; }
+.rule-editor-area { flex: 1; display: flex; flex-direction: column; min-width: 0; position: relative; }
+.rule-empty { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; color: var(--text3); }
+
+@media (max-width: 900px) {
+  .bento-workspace { flex-direction: column; }
+  .workspace-nav { width: 100%; flex-direction: row; overflow-x: auto; }
+  .workspace-tab { white-space: nowrap; flex: 1; justify-content: center; transform: none !important; }
+}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="toolbar">
-  <div class="breadcrumb">
-    <a href="{{ url_for('systems_list') }}">Systems</a>
-    <span>›</span>
-    <span>{{ system.display_name }}</span>
-  </div>
+<div class="breadcrumb" style="margin-bottom: 24px;">
+  <a href="{{ url_for('systems_list') }}" style="color: var(--text2); text-decoration: none; font-weight: 600;">Systems</a>
+  <span style="color: var(--text3); margin: 0 8px;">›</span>
+  <span style="color: white; font-weight: 700;">{{ system.display_name }}</span>
 </div>
 
-<!-- System header -->
-<div class="detail-header glass-card">
-  <div class="detail-hero">
-    <div class="system-badge {{ system.category }}">{{ system.category }}</div>
-    <div>
-      <h1 class="detail-name">{{ system.display_name }}</h1>
-      <div class="detail-meta">
-        <code>protocol: {{ system.protocol }}</code>
-        <code>input: {{ system.input_format }}</code>
-        <code>ext: {{ system.rule_extension }}</code>
+<div class="detail-bento">
+  <!-- Hero Section -->
+  <div class="bento-hero">
+    <div class="hero-left">
+      <div class="sys-badge {{ system.category|lower }}">{{ system.category }}</div>
+      <h1 class="hero-title">{{ system.display_name }}</h1>
+      <div class="hero-meta">
+        <div class="meta-tag"><span class="meta-key">Protocol</span><span class="meta-val">{{ system.protocol }}</span></div>
+        <div class="meta-tag"><span class="meta-key">Input</span><span class="meta-val">{{ system.input_format }}</span></div>
+        <div class="meta-tag"><span class="meta-key">Ext</span><span class="meta-val">{{ system.rule_extension }}</span></div>
+      </div>
+    </div>
+    
+    <div class="hero-right">
+      <div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text3); font-weight: 600; margin-bottom: 4px;">Timing Phases</div>
+      <div class="phases-container">
+        {% for phase in system.timing_phases %}
+        <div class="phase-pill-new">
+          <div class="phase-id-new">{{ phase.id }}</div>
+          <div class="phase-cols-new">{{ phase.label }}RealTime</div>
+        </div>
+        {% endfor %}
       </div>
     </div>
   </div>
-  <div class="detail-phases">
-    {% for phase in system.timing_phases %}
-    <div class="phase-pill">
-      <span class="phase-id">{{ phase.id }}</span>
-      <span class="phase-arrow">→</span>
-      <span class="phase-cols">{{ phase.label }}RealTime · {{ phase.label }}CPUTime</span>
+
+  <!-- Workspace -->
+  <div class="bento-workspace">
+    <!-- Left Navigation -->
+    <div class="workspace-nav" id="system-tabs">
+      <button class="workspace-tab active" data-tab="descriptor">
+        <span style="font-size: 1.2rem;">📄</span> Descriptor
+      </button>
+      <button class="workspace-tab" data-tab="credentials">
+        <span style="font-size: 1.2rem;">🔑</span> Credentials
+      </button>
+      <button class="workspace-tab" data-tab="rules">
+        <span style="font-size: 1.2rem;">📁</span> Rule Files
+      </button>
     </div>
-    {% endfor %}
-  </div>
-</div>
 
-<!-- Tab navigation -->
-<div class="tabs" id="system-tabs">
-  <button class="tab active" data-tab="descriptor">📄 Descriptor</button>
-  <button class="tab" data-tab="credentials">🔑 Credentials</button>
-  <button class="tab" data-tab="rules">📁 Rule Files</button>
-</div>
-
-<!-- Descriptor editor -->
-<div class="tab-panel active" id="tab-descriptor">
-  <div class="glass-card editor-card">
-    <div class="editor-header">
-      <h3>descriptor.yaml</h3>
-      <div class="editor-actions">
-        <span class="editor-hint">Edit directly — changes take effect on next run</span>
-        <button class="btn btn-primary" onclick="saveDescriptor()">Save</button>
+    <!-- Right Content Area -->
+    <div class="workspace-content">
+      
+      <!-- Descriptor Tab -->
+      <div class="tab-panel active" id="tab-descriptor">
+        <div class="editor-toolbar">
+          <div>
+            <div class="editor-title"><span class="editor-title-icon">⚙️</span> descriptor.yaml</div>
+            <div class="editor-subtitle">Edit configuration directly — changes apply on next run</div>
+          </div>
+          <button class="btn btn-primary" onclick="saveDescriptor()">Save Changes</button>
+        </div>
+        <div class="cm-container">
+          <textarea id="descriptor-editor" class="code-editor" spellcheck="false">{{ descriptor_yaml }}</textarea>
+        </div>
       </div>
-    </div>
-    <textarea id="descriptor-editor" class="code-editor" spellcheck="false">{{ descriptor_yaml }}</textarea>
-  </div>
-</div>
 
-<!-- Credentials editor -->
-<div class="tab-panel" id="tab-credentials">
-  <div class="glass-card editor-card">
-    <div class="editor-header">
-      <h3>credentials.yaml <span class="editor-note">(gitignored)</span></h3>
-      <div class="editor-actions">
-        <span class="editor-hint">Stored in systems/{{ system.name }}/credentials.yaml</span>
-        <button class="btn btn-primary" onclick="saveCredentials()">Save</button>
+      <!-- Credentials Tab -->
+      <div class="tab-panel" id="tab-credentials">
+        <div class="editor-toolbar">
+          <div>
+            <div class="editor-title"><span class="editor-title-icon">🔒</span> credentials.yaml <span style="font-size: 0.7rem; background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 6px; margin-left: 8px;">Git-ignored</span></div>
+            <div class="editor-subtitle">Stored securely in systems/{{ system.name }}/credentials.yaml</div>
+          </div>
+          <button class="btn btn-primary" onclick="saveCredentials()">Save Secrets</button>
+        </div>
+        {% if not system.flags.get('requires_credentials', True) %}
+        <div style="padding: 16px 24px; background: rgba(56, 189, 248, 0.1); border-bottom: 1px solid rgba(56, 189, 248, 0.2); color: #bae6fd; font-size: 0.95rem;">
+          <strong style="color: #38bdf8;">Note:</strong> This system does not explicitly require credentials.
+        </div>
+        {% endif %}
+        <div class="cm-container">
+          <textarea id="cred-editor" class="code-editor" spellcheck="false" placeholder="# Example:&#10;dbURL: postgres://user:pass@localhost:5432/mydb">{{ cred_yaml }}</textarea>
+        </div>
       </div>
-    </div>
-    {% if not system.flags.get('requires_credentials', True) %}
-    <div class="info-banner">This system does not require credentials.</div>
-    {% endif %}
-    <textarea id="cred-editor" class="code-editor" spellcheck="false"
-      placeholder="# Example:&#10;dbURL: postgres://user:pass@localhost:5432/mydb">{{ cred_yaml }}</textarea>
-  </div>
-</div>
 
-<!-- Rule files -->
-<div class="tab-panel" id="tab-rules">
-  <div class="glass-card">
-    <div class="editor-header">
-      <h3>Rule Files <code>systems/{{ system.name }}/rules/</code></h3>
-      <div class="editor-hint">Files named <code>transitive_&lt;mode&gt;{{ system.rule_extension }}</code> are
-        auto-discovered</div>
+      <!-- Rules Tab -->
+      <div class="tab-panel" id="tab-rules">
+        <div class="editor-toolbar">
+          <div>
+            <div class="editor-title" id="rule-title"><span class="editor-title-icon">📜</span> Local Rule Files</div>
+            <div class="editor-subtitle">Auto-discovered in <code>systems/{{ system.name }}/rules/</code></div>
+          </div>
+          <button class="btn btn-primary" id="btn-save-rule" onclick="saveRuleFile()" style="display: none;">Save Rule</button>
+        </div>
+        <div class="rules-layout">
+          {% if rule_files %}
+          <div class="rules-sidebar">
+            {% for f in rule_files %}
+            <button class="rule-item" data-filename="{{ f }}" onclick="loadRuleFile('{{ f }}', this)">
+              <span>📄</span> <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ f }}">{{ f }}</span>
+            </button>
+            {% endfor %}
+          </div>
+          <div class="rule-editor-area">
+            <div id="rule-empty-state" class="rule-empty">
+              <div style="font-size: 3rem; margin-bottom: 16px; opacity: 0.3;">👈</div>
+              Select a rule file to view or edit its contents
+            </div>
+            <div id="rule-cm-container" class="cm-container" style="display: none;">
+              <textarea id="rule-editor" class="code-editor" spellcheck="false"></textarea>
+            </div>
+          </div>
+          {% else %}
+          <div class="empty-state" style="margin: auto; border: none; background: transparent; width: 100%;">
+            <div class="empty-icon" style="font-size: 4rem; opacity: 0.5;">📁</div>
+            <h3 style="font-size: 1.5rem; margin-top: 16px;">No rule files found</h3>
+            <p style="color: var(--text2);">Create files named <code>transitive_right_recursion{{ system.rule_extension }}</code> in the rules directory.</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
     </div>
-    {% if rule_files %}
-    <ul class="file-list">
-      {% for f in rule_files %}
-      <li class="file-item">
-        <span class="file-icon">📄</span>
-        <code>{{ f }}</code>
-      </li>
-      {% endfor %}
-    </ul>
-    {% else %}
-    <div class="empty-state">
-      <p>No rule files found in <code>systems/{{ system.name }}/rules/</code></p>
-      <p class="empty-hint">Create files named <code>transitive_right_recursion{{ system.rule_extension }}</code>, etc.
-      </p>
-    </div>
-    {% endif %}
   </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/edit/closebrackets.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/yaml/yaml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/python/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/sql/sql.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/javascript/javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/erlang/erlang.min.js"></script>
 <script>
   const systemName = {{ system.name | tojson }};
 
@@ -129,11 +230,42 @@
     theme: 'dracula',
     lineNumbers: true,
     tabSize: 2,
-    indentWithTabs: false
+    indentWithTabs: false,
+    autoCloseBrackets: true,
+    extraKeys: {
+      "Ctrl-S": function(cm) {
+        if (cm === descEditor) saveDescriptor();
+        else if (cm === credEditor) saveCredentials();
+        else if (cm === ruleEditor) saveRuleFile();
+      },
+      "Cmd-S": function(cm) {
+        if (cm === descEditor) saveDescriptor();
+        else if (cm === credEditor) saveCredentials();
+        else if (cm === ruleEditor) saveRuleFile();
+      }
+    }
   };
 
   const descEditor = CodeMirror.fromTextArea(document.getElementById('descriptor-editor'), cmConfig);
   const credEditor = CodeMirror.fromTextArea(document.getElementById('cred-editor'), cmConfig);
+  
+  // Rule Editor Setup
+  let ruleEditor = null;
+  let currentRuleFile = null;
+  let ruleIsDirty = false;
+  
+  if (document.getElementById('rule-editor')) {
+    ruleEditor = CodeMirror.fromTextArea(document.getElementById('rule-editor'), Object.assign({}, cmConfig, { mode: 'text/plain' }));
+    
+    ruleEditor.on('change', () => {
+      if (!ruleIsDirty && currentRuleFile) {
+        ruleIsDirty = true;
+        document.getElementById('rule-title').innerHTML = `<span class="editor-title-icon">📜</span> ${currentRuleFile} <span style="color: #f59e0b; font-size: 0.8rem; margin-left: 8px;">● Unsaved</span>`;
+        document.getElementById('btn-save-rule').style.background = '#f59e0b';
+        document.getElementById('btn-save-rule').style.color = '#fff';
+      }
+    });
+  }
 
   function saveDescriptor() {
     const yaml = descEditor.getValue();
@@ -156,11 +288,73 @@
       showToast(d.ok ? '✓ Credentials saved' : '✗ ' + d.error, d.ok ? 'success' : 'error');
     });
   }
+  
+  function loadRuleFile(filename, btnElement) {
+    document.querySelectorAll('.rule-item').forEach(el => el.classList.remove('active'));
+    if (btnElement) btnElement.classList.add('active');
+    
+    currentRuleFile = filename;
+    document.getElementById('rule-title').innerHTML = `<span class="editor-title-icon">📜</span> ${filename}`;
+    
+    fetch(`/systems/${systemName}/rules/${filename}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.error) {
+          showToast(d.error, 'error');
+          return;
+        }
+        document.getElementById('rule-empty-state').style.display = 'none';
+        document.getElementById('rule-cm-container').style.display = 'block';
+        document.getElementById('btn-save-rule').style.display = 'block';
+        
+        // Basic syntax highlighting based on extension
+        let mode = 'text/plain';
+        if (filename.endsWith('.py')) mode = 'python';
+        else if (filename.endsWith('.sql')) mode = 'sql';
+        else if (filename.endsWith('.yaml') || filename.endsWith('.yml')) mode = 'yaml';
+        else if (filename.endsWith('.json')) mode = 'javascript';
+        else if (filename.endsWith('.dl') || filename.endsWith('.lp') || filename.endsWith('.P')) mode = 'erlang';
+        
+        ruleIsDirty = false;
+        document.getElementById('btn-save-rule').style.background = '';
+        document.getElementById('btn-save-rule').style.color = '';
+        ruleEditor.setOption('mode', mode);
+        ruleEditor.setValue(d.content);
+        // Clear history so you can't undo into empty
+        ruleEditor.clearHistory();
+        setTimeout(() => ruleEditor.refresh(), 50);
+      })
+      .catch(e => {
+        showToast('Failed to load rule file', 'error');
+        console.error(e);
+      });
+  }
+
+  function saveRuleFile() {
+    if (!currentRuleFile) return;
+    const content = ruleEditor.getValue();
+    
+    fetch(`/systems/${systemName}/rules/${currentRuleFile}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `content=${encodeURIComponent(content)}`
+    }).then(r => r.json()).then(d => {
+      if (d.ok) {
+        showToast('✓ Rule file saved', 'success');
+        ruleIsDirty = false;
+        document.getElementById('rule-title').innerHTML = `<span class="editor-title-icon">📜</span> ${currentRuleFile}`;
+        document.getElementById('btn-save-rule').style.background = '';
+        document.getElementById('btn-save-rule').style.color = '';
+      } else {
+        showToast('✗ ' + d.error, 'error');
+      }
+    });
+  }
 
   // Tab switching
-  document.querySelectorAll('.tab').forEach(btn => {
+  document.querySelectorAll('.workspace-tab').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.workspace-tab').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
       btn.classList.add('active');
       document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
@@ -168,6 +362,7 @@
       // Refresh CodeMirror when tab becomes visible
       if (btn.dataset.tab === 'descriptor') descEditor.refresh();
       if (btn.dataset.tab === 'credentials') credEditor.refresh();
+      if (btn.dataset.tab === 'rules' && ruleEditor) ruleEditor.refresh();
     });
   });
 

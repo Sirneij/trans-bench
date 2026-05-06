@@ -3,134 +3,220 @@
 {% block page_title %}Configure Experiment{% endblock %}
 
 {% block content %}
-<div class="wizard" id="wizard">
+<style>
+/* Bento Wizard Styles */
+.wizard-bento {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 24px;
+}
+.bento-wizard-panel {
+  background: rgba(15, 23, 42, 0.4);
+  border: 1px solid rgba(255,255,255,0.05);
+  backdrop-filter: blur(12px);
+  border-radius: calc(var(--radius) * 1.5);
+  padding: 32px;
+  grid-column: span 12;
+  display: none;
+  animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.bento-wizard-panel.active { display: block; }
+
+@keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+.wizard-steps-bento {
+  display: flex; gap: 16px; margin-bottom: 40px; grid-column: span 12;
+}
+.step-bento {
+  flex: 1; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05); padding: 16px; border-radius: var(--radius); display: flex; align-items: center; gap: 16px; transition: all 0.3s;
+}
+.step-bento.active { background: linear-gradient(135deg, rgba(56, 189, 248, 0.15), rgba(59, 130, 246, 0.05)); border-color: rgba(56, 189, 248, 0.3); transform: translateY(-2px); box-shadow: 0 4px 15px rgba(56, 189, 248, 0.15); }
+.step-bento.done { border-color: rgba(16, 185, 129, 0.3); }
+
+.step-num-bento {
+  width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.05); display: grid; place-items: center; font-weight: 700; color: var(--text3); transition: all 0.3s;
+}
+.step-bento.active .step-num-bento { background: #38bdf8; color: white; box-shadow: 0 0 10px rgba(56, 189, 248, 0.5); }
+.step-bento.done .step-num-bento { background: #10b981; color: white; }
+
+.step-label-bento { font-weight: 600; color: var(--text2); transition: all 0.3s; }
+.step-bento.active .step-label-bento { color: white; font-weight: 700; }
+.step-bento.done .step-label-bento { color: #a7f3d0; }
+
+.bento-heading-large { font-size: 2rem; font-weight: 800; color: white; margin-bottom: 8px; }
+.bento-sub { font-size: 1.05rem; color: var(--text2); margin-bottom: 32px; }
+
+.check-grid-bento { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+.check-card-bento {
+  position: relative; display: flex; align-items: center; gap: 16px;
+  background: rgba(0,0,0,0.3); border: 2px solid rgba(255,255,255,0.05); border-radius: var(--radius);
+  padding: 20px; cursor: pointer; transition: all 0.2s; user-select: none;
+}
+.check-card-bento input { position: absolute; opacity: 0; width: 0; height: 0; }
+.check-card-bento:hover { border-color: rgba(255,255,255,0.15); transform: translateY(-2px); }
+.check-card-bento:has(input:checked) { border-color: #38bdf8; background: linear-gradient(135deg, rgba(56, 189, 248, 0.1), transparent); box-shadow: 0 4px 15px rgba(56, 189, 248, 0.15); }
+
+.check-mark-bento { width: 24px; height: 24px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.1); display: grid; place-items: center; color: transparent; font-size: 0.9rem; transition: all 0.2s; }
+.check-card-bento:has(input:checked) .check-mark-bento { background: #38bdf8; border-color: #38bdf8; color: white; }
+
+.wizard-nav-bento { display: flex; justify-content: space-between; margin-top: 40px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.05); }
+
+.review-bento {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+}
+.review-item-bento {
+  background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05); padding: 20px; border-radius: var(--radius); display: flex; flex-direction: column; gap: 8px;
+}
+.review-item-bento.highlight { grid-column: span 2; background: linear-gradient(135deg, rgba(56, 189, 248, 0.15), rgba(59, 130, 246, 0.05)); border-color: rgba(56, 189, 248, 0.3); }
+
+@media (max-width: 900px) {
+  .wizard-steps-bento { flex-direction: column; gap: 8px; }
+  .review-bento { grid-template-columns: 1fr; }
+  .review-item-bento.highlight { grid-column: span 1; }
+}
+</style>
+
+<div class="breadcrumb" style="margin-bottom: 24px;">
+  <a href="{{ url_for('dashboard') }}" style="color: var(--text2); text-decoration: none; font-weight: 600;">Dashboard</a>
+  <span style="color: var(--text3); margin: 0 8px;">›</span>
+  <span style="color: white; font-weight: 700;">New Experiment</span>
+</div>
+
+<div class="wizard-bento" id="wizard">
 
   <!-- Step indicators -->
-  <div class="wizard-steps">
-    <div class="wizard-step active" data-step="1">
-      <div class="step-num">1</div><div class="step-label">Systems</div>
+  <div class="wizard-steps-bento">
+    <div class="step-bento active" data-step="1">
+      <div class="step-num-bento">1</div><div class="step-label-bento">Systems</div>
     </div>
-    <div class="wizard-step" data-step="2">
-      <div class="step-num">2</div><div class="step-label">Graphs</div>
+    <div class="step-bento" data-step="2">
+      <div class="step-num-bento">2</div><div class="step-label-bento">Graphs</div>
     </div>
-    <div class="wizard-step" data-step="3">
-      <div class="step-num">3</div><div class="step-label">Settings</div>
+    <div class="step-bento" data-step="3">
+      <div class="step-num-bento">3</div><div class="step-label-bento">Settings</div>
     </div>
-    <div class="wizard-step" data-step="4">
-      <div class="step-num">4</div><div class="step-label">Review</div>
+    <div class="step-bento" data-step="4">
+      <div class="step-num-bento">4</div><div class="step-label-bento">Review</div>
     </div>
   </div>
 
   <!-- Step 1: Select systems -->
-  <div class="wizard-panel active" id="step-1">
-    <h2 class="wizard-heading">Which systems do you want to benchmark?</h2>
-    <p class="wizard-sub">Select one or more. Leave all unchecked to run all discovered systems.</p>
-    <div class="check-grid" id="systems-grid">
+  <div class="bento-wizard-panel active" id="step-1">
+    <h2 class="bento-heading-large">Which systems do you want to benchmark?</h2>
+    <p class="bento-sub">Select one or more. Leave all unchecked to run all discovered systems.</p>
+    <div class="check-grid-bento" id="systems-grid">
       {% for system in systems %}
-      <label class="check-card" for="sys-{{ system.name }}">
+      <label class="check-card-bento" for="sys-{{ system.name }}">
         <input type="checkbox" id="sys-{{ system.name }}" name="systems" value="{{ system.name }}"/>
-        <div class="check-body">
+        <div style="flex: 1;">
           <div class="check-badge {{ system.category }}">{{ system.category }}</div>
-          <div class="check-title">{{ system.display_name }}</div>
-          <div class="check-meta">{{ system.protocol }}</div>
+          <div style="font-weight: 700; font-size: 1.1rem; color: white; margin-bottom: 4px;">{{ system.display_name }}</div>
+          <div style="font-size: 0.85rem; color: var(--text2);">{{ system.protocol }}</div>
         </div>
-        <div class="check-mark">✓</div>
+        <div class="check-mark-bento">✓</div>
       </label>
       {% endfor %}
     </div>
-    <div class="wizard-nav">
+    <div class="wizard-nav-bento">
       <span></span>
-      <button class="btn btn-primary" onclick="nextStep()">Next →</button>
+      <button class="btn btn-primary" style="padding: 12px 28px; font-size: 1.1rem; box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);" onclick="nextStep()">Next Step →</button>
     </div>
   </div>
 
   <!-- Step 2: Select graph types -->
-  <div class="wizard-panel" id="step-2">
-    <h2 class="wizard-heading">Which graph topologies?</h2>
-    <p class="wizard-sub">Leave all unchecked to test all discovered topologies.</p>
-    <div class="check-grid" id="graphs-grid">
+  <div class="bento-wizard-panel" id="step-2">
+    <h2 class="bento-heading-large">Which graph topologies?</h2>
+    <p class="bento-sub">Leave all unchecked to test all discovered topologies.</p>
+    <div class="check-grid-bento" id="graphs-grid">
       {% for g in graph_types %}
-      <label class="check-card" for="g-{{ g.name }}">
+      <label class="check-card-bento" for="g-{{ g.name }}">
         <input type="checkbox" id="g-{{ g.name }}" name="graphs" value="{{ g.name }}"/>
-        <div class="check-body">
-          <div class="check-title">{{ g.display_name }}</div>
-          <div class="check-meta">{{ g.description[:60] }}{% if g.description|length > 60 %}…{% endif %}</div>
+        <div style="flex: 1;">
+          <div style="font-weight: 700; font-size: 1.05rem; color: white; margin-bottom: 6px;">{{ g.display_name }}</div>
+          <div style="font-size: 0.85rem; color: var(--text2); line-height: 1.4;">{{ g.description[:70] }}{% if g.description|length > 70 %}…{% endif %}</div>
         </div>
-        <div class="check-mark">✓</div>
+        <div class="check-mark-bento">✓</div>
       </label>
       {% endfor %}
     </div>
-    <div class="wizard-nav">
-      <button class="btn" onclick="prevStep()">← Back</button>
-      <button class="btn btn-primary" onclick="nextStep()">Next →</button>
+    <div class="wizard-nav-bento">
+      <button class="btn" style="padding: 12px 28px; font-size: 1.1rem; background: rgba(255,255,255,0.05);" onclick="prevStep()">← Back</button>
+      <button class="btn btn-primary" style="padding: 12px 28px; font-size: 1.1rem; box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);" onclick="nextStep()">Next Step →</button>
     </div>
   </div>
 
   <!-- Step 3: Settings -->
-  <div class="wizard-panel" id="step-3">
-    <h2 class="wizard-heading">Experiment settings</h2>
-
-    <div class="form-grid">
-      <div class="form-group">
-        <label class="form-label">Recursion Modes</label>
-        <div class="mode-checks">
-          <label class="check-inline">
-            <input type="checkbox" name="modes" value="right_recursion" checked/> Right recursion
+  <div class="bento-wizard-panel" id="step-3">
+    <h2 class="bento-heading-large">Experiment settings</h2>
+    
+    <div style="display: flex; flex-direction: column; gap: 32px; margin-top: 32px;">
+      
+      <div>
+        <label style="display: block; font-size: 1.1rem; font-weight: 700; color: white; margin-bottom: 12px;">Recursion Modes</label>
+        <div style="display: flex; gap: 24px; background: rgba(0,0,0,0.2); padding: 20px; border-radius: var(--radius); border: 1px solid rgba(255,255,255,0.05);">
+          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: white; font-weight: 500;">
+            <input type="checkbox" name="modes" value="right_recursion" checked style="width: 18px; height: 18px; accent-color: #38bdf8;"/> Right recursion
           </label>
-          <label class="check-inline">
-            <input type="checkbox" name="modes" value="left_recursion" checked/> Left recursion
+          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: white; font-weight: 500;">
+            <input type="checkbox" name="modes" value="left_recursion" checked style="width: 18px; height: 18px; accent-color: #38bdf8;"/> Left recursion
           </label>
-          <label class="check-inline">
-            <input type="checkbox" name="modes" value="double_recursion"/> Double recursion
+          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: white; font-weight: 500;">
+            <input type="checkbox" name="modes" value="double_recursion" style="width: 18px; height: 18px; accent-color: #38bdf8;"/> Double recursion
           </label>
         </div>
       </div>
 
-      <div class="form-group">
-        <label class="form-label">Graph Size Range</label>
-        <div class="range-inputs">
-          <div class="range-field">
-            <label>Start</label>
-            <input type="number" id="size-start" value="10" min="1" class="form-input"/>
+      <div>
+        <label style="display: block; font-size: 1.1rem; font-weight: 700; color: white; margin-bottom: 12px;">Graph Size Range</label>
+        <div style="display: flex; gap: 20px; flex-wrap: wrap; background: rgba(0,0,0,0.2); padding: 20px; border-radius: var(--radius); border: 1px solid rgba(255,255,255,0.05);">
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <label style="font-size: 0.85rem; color: var(--text2); font-weight: 600; text-transform: uppercase;">Start Size</label>
+            <input type="number" id="size-start" value="10" min="1" style="background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 12px; color: white; width: 140px; font-size: 1.1rem;"/>
           </div>
-          <div class="range-field">
-            <label>Stop (exclusive)</label>
-            <input type="number" id="size-stop" value="101" min="2" class="form-input"/>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <label style="font-size: 0.85rem; color: var(--text2); font-weight: 600; text-transform: uppercase;">Stop (Exclusive)</label>
+            <input type="number" id="size-stop" value="101" min="2" style="background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 12px; color: white; width: 140px; font-size: 1.1rem;"/>
           </div>
-          <div class="range-field">
-            <label>Step</label>
-            <input type="number" id="size-step" value="10" min="1" class="form-input"/>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <label style="font-size: 0.85rem; color: var(--text2); font-weight: 600; text-transform: uppercase;">Step</label>
+            <input type="number" id="size-step" value="10" min="1" style="background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 12px; color: white; width: 140px; font-size: 1.1rem;"/>
           </div>
         </div>
-        <div class="size-preview" id="size-preview"></div>
+        <div id="size-preview" style="margin-top: 12px; font-family: var(--mono); color: #38bdf8; font-size: 0.9rem; background: rgba(56, 189, 248, 0.1); padding: 8px 16px; border-radius: 8px; display: inline-block;"></div>
       </div>
 
-      <div class="form-group">
-        <label class="form-label">Runs per Cell</label>
-        <input type="number" id="num-runs" value="3" min="1" max="50" class="form-input form-input-sm"/>
-        <span class="form-hint">Higher = more accurate averages, longer runtime</span>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+        <div>
+          <label style="display: block; font-size: 1.1rem; font-weight: 700; color: white; margin-bottom: 12px;">Runs per Cell</label>
+          <input type="number" id="num-runs" value="3" min="1" max="50" style="background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 12px; color: white; width: 100%; font-size: 1.1rem;"/>
+          <div style="margin-top: 8px; font-size: 0.85rem; color: var(--text3);">Higher = more accurate averages, longer runtime</div>
+        </div>
+
+        <div>
+          <label style="display: block; font-size: 1.1rem; font-weight: 700; color: white; margin-bottom: 12px;">Soufflé Include Directory</label>
+          <input type="text" id="souffle-include-dir" value="{{ config.get('souffle_include_dir', '') }}" style="background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 12px; color: white; width: 100%; font-size: 1.1rem; font-family: var(--mono);"/>
+          <div style="margin-top: 8px; font-size: 0.85rem; color: var(--text3);">Path to Soufflé's C++ include directory (if using Soufflé)</div>
+        </div>
       </div>
 
-      <div class="form-group">
-        <label class="form-label">Soufflé Include Directory</label>
-        <input type="text" id="souffle-include-dir" value="{{ config.get('souffle_include_dir', '') }}" class="form-input"/>
-        <span class="form-hint">Path to Soufflé's C++ include directory (only used if Soufflé is selected)</span>
-      </div>
     </div>
 
-    <div class="wizard-nav">
-      <button class="btn" onclick="prevStep()">← Back</button>
-      <button class="btn btn-primary" onclick="nextStep()">Review →</button>
+    <div class="wizard-nav-bento">
+      <button class="btn" style="padding: 12px 28px; font-size: 1.1rem; background: rgba(255,255,255,0.05);" onclick="prevStep()">← Back</button>
+      <button class="btn btn-primary" style="padding: 12px 28px; font-size: 1.1rem; box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);" onclick="nextStep()">Review Settings →</button>
     </div>
   </div>
 
   <!-- Step 4: Review -->
-  <div class="wizard-panel" id="step-4">
-    <h2 class="wizard-heading">Review & Start</h2>
-    <div class="review-grid" id="review-summary"></div>
-    <div class="wizard-nav">
-      <button class="btn" onclick="prevStep()">← Back</button>
-      <button class="btn btn-success btn-lg" onclick="startExperiment()" id="start-btn">▷ Start Experiment</button>
+  <div class="bento-wizard-panel" id="step-4">
+    <h2 class="bento-heading-large">Review & Start</h2>
+    <p class="bento-sub">Verify your configuration before launching the benchmark runner.</p>
+    
+    <div class="review-bento" id="review-summary"></div>
+    
+    <div class="wizard-nav-bento">
+      <button class="btn" style="padding: 12px 28px; font-size: 1.1rem; background: rgba(255,255,255,0.05);" onclick="prevStep()">← Back</button>
+      <button class="btn btn-success" style="padding: 16px 36px; font-size: 1.2rem; font-weight: 800; background: linear-gradient(135deg, #10b981, #059669); border: none; box-shadow: 0 8px 24px rgba(16, 185, 129, 0.4);" onclick="startExperiment()" id="start-btn">▷ Launch Experiment</button>
     </div>
   </div>
 
@@ -151,8 +237,8 @@ function prevStep() {
   }
 }
 function setStep(n) {
-  document.querySelectorAll('.wizard-panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.wizard-step').forEach(s => {
+  document.querySelectorAll('.bento-wizard-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.step-bento').forEach(s => {
     s.classList.remove('active', 'done');
     if (parseInt(s.dataset.step) < n) s.classList.add('done');
     if (parseInt(s.dataset.step) === n) s.classList.add('active');
@@ -193,18 +279,18 @@ function buildReview() {
   const cells = (systems.length || 1) * (graphs.length || 1) * sizes.length * modes.length;
 
   document.getElementById('review-summary').innerHTML = `
-    <div class="review-item"><div class="review-key">Systems</div>
-      <div class="review-val">${systems.length ? systems.join(', ') : 'All discovered'}</div></div>
-    <div class="review-item"><div class="review-key">Graphs</div>
-      <div class="review-val">${graphs.length ? graphs.join(', ') : 'All discovered'}</div></div>
-    <div class="review-item"><div class="review-key">Modes</div>
-      <div class="review-val">${modes.join(', ')}</div></div>
-    <div class="review-item"><div class="review-key">Sizes</div>
-      <div class="review-val">${sizes.join(', ')} (${sizes.length} sizes)</div></div>
-    <div class="review-item"><div class="review-key">Runs per cell</div>
-      <div class="review-val">${runs}</div></div>
-    <div class="review-item highlight"><div class="review-key">Est. total runs</div>
-      <div class="review-val">${cells} × ${runs} = <strong>${cells * parseInt(runs)}</strong> benchmark executions</div></div>
+    <div class="review-item-bento"><div style="color: var(--text2); font-weight: 600; text-transform: uppercase; font-size: 0.85rem;">Systems</div>
+      <div style="font-size: 1.1rem; color: white;">${systems.length ? systems.join(', ') : 'All discovered'}</div></div>
+    <div class="review-item-bento"><div style="color: var(--text2); font-weight: 600; text-transform: uppercase; font-size: 0.85rem;">Graphs</div>
+      <div style="font-size: 1.1rem; color: white;">${graphs.length ? graphs.join(', ') : 'All discovered'}</div></div>
+    <div class="review-item-bento"><div style="color: var(--text2); font-weight: 600; text-transform: uppercase; font-size: 0.85rem;">Modes</div>
+      <div style="font-size: 1.1rem; color: white;">${modes.join(', ')}</div></div>
+    <div class="review-item-bento"><div style="color: var(--text2); font-weight: 600; text-transform: uppercase; font-size: 0.85rem;">Sizes</div>
+      <div style="font-size: 1.1rem; color: white;">${sizes.join(', ')} (${sizes.length} sizes)</div></div>
+    <div class="review-item-bento"><div style="color: var(--text2); font-weight: 600; text-transform: uppercase; font-size: 0.85rem;">Runs per cell</div>
+      <div style="font-size: 1.1rem; color: white;">${runs}</div></div>
+    <div class="review-item-bento highlight"><div style="color: #38bdf8; font-weight: 700; text-transform: uppercase; font-size: 0.85rem;">Est. total runs</div>
+      <div style="font-size: 1.25rem; color: white;">${cells} × ${runs} = <strong style="font-size: 1.5rem;">${cells * parseInt(runs)}</strong> benchmark executions</div></div>
   `;
 }
 

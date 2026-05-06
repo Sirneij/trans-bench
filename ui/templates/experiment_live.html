@@ -3,115 +3,152 @@
 {% block page_title %}Experiment Live Monitor{% endblock %}
 
 {% block content %}
-<div class="monitor-layout">
+<style>
+/* Bento Monitor Styles */
+.monitor-bento {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 24px;
+}
+.monitor-panel {
+  background: rgba(15, 23, 42, 0.4);
+  border: 1px solid rgba(255,255,255,0.05);
+  backdrop-filter: blur(12px);
+  border-radius: calc(var(--radius) * 1.5);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.panel-top { grid-column: span 12; padding: 32px; background: linear-gradient(135deg, rgba(15, 23, 42, 0.7), rgba(30, 41, 59, 0.4)); position: relative; }
+.panel-left { grid-column: span 7; }
+.panel-right { grid-column: span 5; height: 600px; }
 
-  <!-- Left column: progress + current step + error banner -->
-  <div class="monitor-main">
-    
-    <!-- Top Progress Card -->
-    <div class="glass-card progress-section">
-      <div class="monitor-header">
-        <div>
-          <h2 class="section-title" style="margin:0;">Experiment Progress</h2>
-          <p class="toolbar-hint" id="steps-label" style="margin-top:4px;">Connecting to test runner…</p>
-        </div>
-        <div class="monitor-controls">
-          <button class="btn btn-danger-outline" onclick="stopExperiment()" id="stop-btn">
-            <span style="font-size:1.1rem;">⏹</span> Stop
-          </button>
-          <a href="{{ url_for('results') }}" class="btn">View Results</a>
-        </div>
-      </div>
+.bento-heading { font-size: 1.25rem; font-weight: 700; color: white; display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+.progress-huge { font-size: 3.5rem; font-weight: 800; color: #38bdf8; line-height: 1; letter-spacing: -0.03em; text-shadow: 0 4px 20px rgba(56, 189, 248, 0.3); }
+.progress-sub { font-family: var(--mono); color: var(--text3); margin-left: 12px; font-weight: 600; font-size: 0.95rem; }
 
-      <div class="progress-info">
-        <span id="pct-label" style="font-size: 1.2rem; font-weight: 800; color: var(--accent);">0%</span>
-        <span id="eta-label" style="color: var(--text2); font-family: var(--mono); font-size: 0.85rem;"></span>
+.cmd-box { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); border-radius: var(--radius); padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0 24px 24px 24px; }
+.cmd-text { font-family: var(--mono); color: #bae6fd; font-size: 0.95rem; word-break: break-all; margin: 0; flex: 1; }
+
+.step-bento-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 0 24px 24px 24px; }
+.step-bento-card { background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.02); padding: 16px 20px; border-radius: var(--radius); }
+
+.log-bento-body { flex: 1; background: #0b0f19; font-family: var(--mono); font-size: 0.85rem; padding: 20px; overflow-y: auto; color: var(--text2); border-top: 1px solid rgba(255,255,255,0.02); }
+.log-line { padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.02); }
+
+@media (max-width: 1024px) {
+  .panel-left, .panel-right { grid-column: span 12; height: auto; }
+  .panel-right { min-height: 500px; }
+}
+</style>
+
+<div class="breadcrumb" style="margin-bottom: 24px;">
+  <a href="{{ url_for('dashboard') }}" style="color: var(--text2); text-decoration: none; font-weight: 600;">Dashboard</a>
+  <span style="color: var(--text3); margin: 0 8px;">›</span>
+  <span style="color: white; font-weight: 700;">Live Monitor</span>
+</div>
+
+<div class="monitor-bento">
+
+  <!-- Top Progress Card -->
+  <div class="monitor-panel panel-top">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px;">
+      <div>
+        <h1 style="margin: 0 0 8px 0; font-size: 2rem; font-weight: 800; color: white;">Experiment Progress</h1>
+        <p id="steps-label" style="margin: 0; color: var(--text2); font-weight: 500;">Connecting to test runner…</p>
       </div>
-      <div class="progress-bar-wrap">
-        <div class="progress-bar" id="progress-fill" style="width:0%"></div>
+      <div style="display: flex; gap: 12px;">
+        <button class="btn" style="background: rgba(244,63,94,0.1); border-color: rgba(244,63,94,0.3); color: #f43f5e;" onclick="stopExperiment()" id="stop-btn">
+          <span style="font-size:1.1rem;">⏹</span> Stop
+        </button>
+        <a href="{{ url_for('results') }}" class="btn btn-primary" style="box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);">View Results →</a>
       </div>
     </div>
+
+    <div style="display: flex; align-items: baseline; margin-bottom: 16px;">
+      <span id="pct-label" class="progress-huge">0%</span>
+      <span id="eta-label" class="progress-sub"></span>
+    </div>
+
+    <div class="progress-bar-wrap" style="height: 12px; background: rgba(0,0,0,0.4); border-radius: 6px;">
+      <div class="progress-bar" id="progress-fill" style="width:0%; background: linear-gradient(90deg, #38bdf8, #8b5cf6);"></div>
+    </div>
+  </div>
+
+  <!-- Left Column: Details -->
+  <div class="monitor-panel panel-left">
     
-    <!-- Equivalent CLI Command -->
-    <div class="glass-card" style="margin-bottom: 24px;">
-      <h3 style="font-size: 1.1rem; font-weight: 700; margin: 0 0 12px 0; color: var(--text);">Equivalent CLI Command</h3>
-      <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; position: relative; padding-right: 70px;">
-        <code id="cli-command" style="font-family: var(--mono); color: var(--cyan); font-size: 0.9rem; word-break: break-all; display: block;">Loading...</code>
-        <button onclick="copyCliCommand()" class="btn btn-sm" style="position: absolute; right: 8px; top: 8px; background: rgba(255,255,255,0.1); border: none; padding: 4px 10px;">Copy</button>
+    <div style="padding: 24px; border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center;">
+      <h2 class="bento-heading" style="margin: 0;">
+        <div class="pulse" id="step-pulse" style="width: 12px; height: 12px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 10px var(--amber);"></div>
+        Current Phase
+      </h2>
+      <div id="step-status-text" class="status-badge status-running" style="background: rgba(245,158,11,0.1); color: #fbbf24; border: 1px solid rgba(245,158,11,0.2);">Initializing…</div>
+    </div>
+
+    <div class="step-bento-grid" id="step-card">
+      <div class="step-bento-card">
+        <div class="step-key">System</div>
+        <div class="step-val" id="cur-system" style="font-size: 1.1rem; color: white;">—</div>
+      </div>
+      <div class="step-bento-card">
+        <div class="step-key">Graph Topology</div>
+        <div class="step-val" id="cur-graph" style="font-size: 1.1rem; color: white;">—</div>
+      </div>
+      <div class="step-bento-card">
+        <div class="step-key">Size Range</div>
+        <div class="step-val" id="cur-size" style="font-size: 1.1rem; font-family: var(--mono); color: #38bdf8;">—</div>
+      </div>
+      <div class="step-bento-card">
+        <div class="step-key">Recursion Mode</div>
+        <div class="step-val" id="cur-mode" style="font-size: 1.1rem; font-family: var(--mono); color: white;">—</div>
       </div>
     </div>
 
-    <!-- Current Step Card -->
-    <div class="glass-card" id="step-card" style="opacity:0; transform: translateY(10px); transition: all 0.5s ease;">
-      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 16px;">
-        <div style="display: flex; align-items: center; gap: 12px;">
-          <div class="pulse" id="step-pulse" style="width: 12px; height: 12px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 10px var(--amber);"></div>
-          <h3 style="font-size: 1.1rem; font-weight: 700; margin: 0;">Current Benchmark Phase</h3>
-        </div>
-        <div id="step-status-text" class="status-badge status-running">Initializing…</div>
-      </div>
-      
-      <div class="step-detail">
-        <div class="step-field">
-          <span class="step-key">System</span>
-          <span class="step-val" id="cur-system">—</span>
-        </div>
-        <div class="step-field">
-          <span class="step-key">Graph Topology</span>
-          <span class="step-val" id="cur-graph">—</span>
-        </div>
-        <div class="step-field">
-          <span class="step-key">Size Range</span>
-          <span class="step-val" id="cur-size" style="font-family: var(--mono); color: var(--cyan);">—</span>
-        </div>
-        <div class="step-field">
-          <span class="step-key">Recursion Mode</span>
-          <span class="step-val" id="cur-mode" style="font-family: var(--mono);">—</span>
-        </div>
-      </div>
+    <h2 class="bento-heading" style="padding: 0 24px; margin: 8px 0 16px 0;">Equivalent CLI Command</h2>
+    <div class="cmd-box">
+      <code id="cli-command" class="cmd-text">Loading...</code>
+      <button onclick="copyCliCommand()" class="btn" style="padding: 8px 16px; background: rgba(255,255,255,0.05);">Copy</button>
     </div>
 
     <!-- Error panel -->
-    <div class="glass-card" id="error-panel" style="display:none; border-color: rgba(244,63,94,0.4); background: rgba(244,63,94,0.05);">
+    <div id="error-panel" style="display:none; margin: 0 24px 24px 24px; padding: 20px; border: 1px solid rgba(244,63,94,0.4); background: rgba(244,63,94,0.1); border-radius: var(--radius);">
       <div style="display: flex; gap: 16px; align-items: center;">
-        <div style="font-size: 2rem; color: var(--red);">⚠</div>
+        <div style="font-size: 2rem; color: #f43f5e;">⚠</div>
         <div>
-          <h4 style="color: var(--red); font-size: 1rem; margin-bottom: 4px;">Error Detected</h4>
-          <div id="error-msg" style="color: var(--text2); font-size: 0.9rem;"></div>
+          <h4 style="color: #f43f5e; font-size: 1rem; margin-bottom: 4px; font-weight: 700;">Error Detected</h4>
+          <div id="error-msg" style="color: #fda4af; font-size: 0.9rem;"></div>
         </div>
       </div>
     </div>
 
     <!-- Done banner -->
-    <div class="done-banner" id="done-card" style="display:none; margin-top: 24px;">
-      <div class="done-icon">✓</div>
-      <div class="done-text">
-        <strong style="font-size: 1.1rem;">Experiment Complete</strong>
-        <span style="color: var(--text2); font-size: 0.9rem;">All benchmark runs finished successfully. Data is ready for review.</span>
+    <div id="done-card" style="display:none; margin: 0 24px 24px 24px; padding: 24px; background: linear-gradient(135deg, rgba(16,185,129,0.15), rgba(16,185,129,0.05)); border: 1px solid rgba(16,185,129,0.3); border-radius: var(--radius); display: flex; align-items: center; gap: 20px;">
+      <div style="font-size: 2.5rem; color: #10b981; filter: drop-shadow(0 0 12px rgba(16,185,129,0.5));">✓</div>
+      <div style="flex: 1;">
+        <strong style="font-size: 1.15rem; color: white; display: block; margin-bottom: 4px;">Experiment Complete</strong>
+        <span style="color: #a7f3d0; font-size: 0.95rem;">All benchmark runs finished successfully. Data is ready for review.</span>
       </div>
-      <a href="{{ url_for('results') }}" class="btn btn-success" style="margin-left: auto;">View Results →</a>
     </div>
 
   </div>
 
-  <!-- Right column: live log -->
-  <div class="monitor-log glass-card" style="padding: 0; display: flex; flex-direction: column;">
-    <div class="log-header" style="padding: 16px 20px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.02);">
-      <h3 style="font-size: 1rem; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 8px;">
-        <span style="color: var(--accent);">⌨</span> Live Terminal
-      </h3>
+  <!-- Right Column: Live Log -->
+  <div class="monitor-panel panel-right">
+    <div style="padding: 20px 24px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center;">
+      <h2 class="bento-heading" style="margin: 0;"><span style="color: #8b5cf6;">⌨</span> Live Terminal</h2>
       <div style="display: flex; align-items: center; gap: 16px;">
-        <label class="check-inline" style="font-size: 0.8rem; color: var(--text2);">
-          <input type="checkbox" id="auto-scroll" checked/> Auto-scroll
+        <label style="font-size: 0.85rem; color: var(--text2); display: flex; align-items: center; gap: 8px; cursor: pointer;">
+          <input type="checkbox" id="auto-scroll" checked style="accent-color: #38bdf8; width: 16px; height: 16px;" /> Auto-scroll
         </label>
-        <button class="btn btn-sm" onclick="clearLog()" style="background: transparent; border-color: var(--border);">Clear</button>
+        <button class="btn" onclick="clearLog()" style="padding: 6px 12px; font-size: 0.8rem; background: rgba(255,255,255,0.05);">Clear</button>
       </div>
     </div>
     
-    <div class="log-body" id="log-stream" style="border-radius: 0 0 var(--radius) var(--radius); border: none;"></div>
+    <div class="log-bento-body" id="log-stream"></div>
     
-    <div style="padding: 8px 20px; font-size: 0.75rem; color: var(--text3); font-family: var(--mono); border-top: 1px solid rgba(255,255,255,0.05); background: #050608; border-radius: 0 0 var(--radius) var(--radius);">
-      <span id="log-count">0 lines</span> captured
+    <div style="padding: 12px 24px; font-size: 0.8rem; color: var(--text3); font-family: var(--mono); background: rgba(0,0,0,0.2);">
+      <span id="log-count" style="color: #38bdf8;">0 lines</span> captured
     </div>
   </div>
 

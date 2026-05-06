@@ -7,115 +7,345 @@
 {% endblock %}
 
 {% block content %}
-<div class="toolbar">
-  <h1 class="page-heading">Timing Results</h1>
-  <span class="toolbar-hint">Browse CSV files grouped by system → graph type</span>
-</div>
+<style>
+/* IDE-like Layout Styles */
+.ide-container {
+    display: flex;
+    gap: 20px;
+    height: calc(100vh - 120px);
+    margin-top: 10px;
+    align-items: stretch;
+}
+.ide-sidebar {
+    width: 320px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: rgba(15, 23, 42, 0.4);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: var(--radius);
+    overflow: hidden;
+    backdrop-filter: blur(12px);
+}
+.ide-sidebar-header {
+    padding: 16px 20px;
+    background: rgba(0,0,0,0.2);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-weight: 600;
+    font-size: 1.05rem;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.ide-sidebar-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+}
+.ide-sidebar-body::-webkit-scrollbar { width: 6px; }
+.ide-sidebar-body::-webkit-scrollbar-track { background: transparent; }
+.ide-sidebar-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
 
-<!-- Trend Analysis Panel -->
-<div class="glass-card" style="margin-bottom: 32px;">
-  <div class="section-header" style="margin-top: 0;">
-    <h2 class="section-title">Trend Analysis (Scaling Performance)</h2>
-  </div>
-  <div class="form-grid">
-    <div style="display: flex; gap: 16px; flex-wrap: wrap;">
-      <div class="form-group" style="flex: 1; min-width: 200px;">
-        <label class="form-label">Graph Type</label>
-        <select id="trend-graph-type" class="form-input">
-          {% for g in all_graphs %}
-          <option value="{{ g }}">{{ g }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="form-group" style="flex: 1; min-width: 200px;">
-        <label class="form-label">Mode</label>
-        <select id="trend-mode" class="form-input">
-          {% for m in all_modes %}
-          <option value="{{ m }}">{{ m }}</option>
-          {% endfor %}
-        </select>
-      </div>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Systems to Compare</label>
-      <div class="mode-checks">
-        {% for s in all_systems %}
-        <label class="check-inline">
-          <input type="checkbox" class="trend-system-check" value="{{ s }}" checked>
-          {{ s }}
-        </label>
-        {% endfor %}
-      </div>
-    </div>
-    <div style="display: flex; justify-content: flex-end;">
-      <button onclick="generateTrendChart()" class="btn btn-primary">Generate Comparison</button>
-    </div>
-  </div>
-  
-  <div id="trend-chart-container" style="display: none; margin-top: 32px; border-top: 1px solid var(--border); padding-top: 24px;">
-    <div id="trend-legend"></div>
-    <div style="position: relative; height: 500px; width: 100%;">
-      <canvas id="trend-chart"></canvas>
-    </div>
-  </div>
-</div>
+.ide-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0; 
+}
+.ide-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    background: rgba(0,0,0,0.2);
+    padding: 6px;
+    border-radius: var(--radius);
+    border: 1px solid rgba(255,255,255,0.05);
+}
+.ide-tab {
+    background: transparent;
+    border: none;
+    padding: 10px 20px;
+    color: var(--text2);
+    font-weight: 600;
+    font-size: 0.9rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.ide-tab:hover:not(:disabled) { color: var(--text); background: rgba(255,255,255,0.05); }
+.ide-tab.active { background: var(--accent); color: white; box-shadow: 0 4px 12px rgba(56,189,248,0.2); }
+.ide-tab:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.sub-tabs { display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; }
+.sub-tab { background: transparent; border: none; color: var(--text2); padding: 6px 12px; cursor: pointer; border-radius: 4px; transition: 0.2s; }
+.sub-tab:hover { background: rgba(255,255,255,0.05); color: white; }
+.sub-tab.active { background: rgba(56, 189, 248, 0.15); color: #38bdf8; font-weight: 600; }
+
+.ide-content {
+    flex: 1;
+    display: none;
+    flex-direction: column;
+    overflow-y: auto;
+    background: rgba(15, 23, 42, 0.4);
+    border: 1px solid rgba(255,255,255,0.05);
+    backdrop-filter: blur(12px);
+    border-radius: var(--radius);
+    padding: 24px;
+}
+.ide-content.active { display: flex; }
+.ide-content::-webkit-scrollbar { width: 6px; height: 6px; }
+.ide-content::-webkit-scrollbar-track { background: transparent; }
+.ide-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+/* Tree view styling */
+details.tree-system > summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 8px 12px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text);
+    font-weight: 600;
+    transition: background 0.2s;
+}
+details.tree-system > summary::-webkit-details-marker { display: none; }
+details.tree-system > summary:hover { background: rgba(255,255,255,0.04); }
+
+details.tree-graph { margin-left: 12px; margin-top: 4px; }
+details.tree-graph > summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 6px 12px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text2);
+    font-size: 0.9rem;
+    transition: background 0.2s;
+}
+details.tree-graph > summary::-webkit-details-marker { display: none; }
+details.tree-graph > summary:hover { background: rgba(255,255,255,0.04); color: var(--text); }
+
+.tree-files {
+    margin-left: 20px;
+    margin-top: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.tree-file-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text3);
+    padding: 6px 10px 6px 20px;
+    border-radius: 6px;
+    text-align: left;
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+    position: relative;
+    width: 100%;
+}
+.tree-file-btn::before {
+    content: ''; position: absolute; left: 8px; top: -10px; bottom: 50%; width: 1px;
+    background: rgba(255,255,255,0.1);
+}
+.tree-file-btn::after {
+    content: ''; position: absolute; left: 8px; top: 50%; width: 8px; height: 1px;
+    background: rgba(255,255,255,0.1);
+}
+.tree-file-btn:hover {
+    background: rgba(56, 189, 248, 0.1);
+    color: var(--accent);
+    border-color: rgba(56, 189, 248, 0.2);
+}
+.tree-file-btn.active {
+    background: rgba(56, 189, 248, 0.15);
+    color: var(--accent);
+    border-color: rgba(56, 189, 248, 0.3);
+    font-weight: 600;
+}
+.tree-icon { opacity: 0.8; font-size: 0.95rem; display: inline-block; width: 16px; text-align: center; transition: transform 0.2s; }
+details[open] > summary > .tree-icon { transform: rotate(90deg); color: var(--accent); }
+.tree-badge { font-size: 0.7rem; background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 10px; color: var(--text3); margin-left: auto; }
+
+/* Override app.css form/card styles for this layout */
+.glass-card { margin-bottom: 0; }
+.toolbar { display: none; }
+</style>
 
 {% if tree %}
-<div class="results-layout">
-  {% for system_name, graphs in tree.items() %}
-  <div class="results-system glass-card">
-    <div class="results-system-header">
-      <h3 class="results-system-name">{{ system_name }}</h3>
-      <span class="results-system-count">{{ graphs.values()|map('length')|sum }} files</span>
+<div class="ide-container">
+  <!-- LEFT SIDEBAR -->
+  <div class="ide-sidebar">
+    <div class="ide-sidebar-header">
+      <span style="color: var(--accent);">🗂️</span> Data Explorer
     </div>
-
-    <div class="results-graphs">
-      {% for graph_name, files in graphs.items() %}
-      <div class="results-graph">
-        <div class="results-graph-title">⬡ {{ graph_name }}</div>
-        <ul class="results-file-list">
-          {% for fname in files %}
-          <li>
-            <button class="results-file-btn" onclick="loadResult('{{ system_name }}', '{{ graph_name }}', '{{ fname }}')">
-              {{ fname }}
+    <div class="ide-sidebar-body">
+      {% for system_name, graphs in tree.items() %}
+      <details class="tree-system" open>
+        <summary>
+          <span class="tree-icon">▶</span>
+          <span style="color: var(--text);">{{ system_name }}</span>
+          <span class="tree-badge">{{ graphs.values()|map('length')|sum }}</span>
+        </summary>
+        
+        {% for graph_name, files in graphs.items() %}
+        <details class="tree-graph">
+          <summary>
+            <span class="tree-icon">▶</span>
+            <span>{{ graph_name }}</span>
+            <span class="tree-badge" style="background:transparent;opacity:0.5;">{{ files|length }}</span>
+          </summary>
+          <div class="tree-files">
+            {% for fname in files %}
+            <button class="tree-file-btn" onclick="loadResult('{{ system_name }}', '{{ graph_name }}', '{{ fname }}', this)">
+              <span style="font-size: 0.9rem;">📊</span> <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ fname }}">{{ fname }}</span>
             </button>
-          </li>
-          {% endfor %}
-        </ul>
-      </div>
+            {% endfor %}
+          </div>
+        </details>
+        {% endfor %}
+      </details>
       {% endfor %}
     </div>
   </div>
-  {% endfor %}
-</div>
 
-<!-- Data viewer panel -->
-<div class="data-panel glass-card" id="data-panel" style="display:none; margin-top: 24px;">
-  <div class="data-panel-header" style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 16px;">
-    <h3 id="data-panel-title" style="margin:0; font-size: 1.2rem; font-weight: 700; word-break: break-all;">—</h3>
-    <button onclick="document.getElementById('data-panel').style.display='none'" class="close-btn" style="background:rgba(255,255,255,0.05); border:none; color:var(--text); font-size:1.2rem; cursor:pointer; flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%;">✕</button>
-  </div>
-  
-  <div style="margin-bottom: 24px; background: rgba(0,0,0,0.2); padding: 16px; border-radius: var(--radius); border: 1px solid var(--border);">
-    <div style="position: relative; height: 300px; width: 100%;">
-      <canvas id="result-chart"></canvas>
+  <!-- RIGHT MAIN AREA -->
+  <div class="ide-main">
+    <div class="ide-tabs">
+      <button class="ide-tab active" id="tab-trend" onclick="switchView('trend')"><span>📈</span> Trend Analysis</button>
+      <button class="ide-tab" id="tab-file" onclick="switchView('file')" disabled><span>📄</span> File Viewer</button>
+    </div>
+
+    <!-- VIEW: TREND ANALYSIS (now contains Stacked & Line charts) -->
+    <div id="view-trend" class="ide-content active">
+      <div style="margin-bottom: 16px;">
+        <h2 style="margin: 0 0 8px 0; font-size: 1.5rem; color: var(--text); font-weight: 700;">Scaling Performance Comparison</h2>
+        <p style="margin: 0; color: var(--text2); font-size: 0.95rem;">Compare execution times across different graph sizes and systems.</p>
+      </div>
+
+      <div class="sub-tabs">
+        <button class="sub-tab active" id="subtab-stacked" onclick="switchSubView('stacked')">Stacked Comparison</button>
+        <button class="sub-tab" id="subtab-line" onclick="switchSubView('line')">Phase Trends</button>
+      </div>
+
+      <div class="form-grid" style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: var(--radius); border: 1px solid rgba(255,255,255,0.05); margin-bottom: 24px;">
+        <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+          <div class="form-group" style="flex: 1; min-width: 200px;">
+            <label class="form-label">Graph Type</label>
+            <select id="trend-graph-type" class="form-input">
+              {% for g in all_graphs %}
+              <option value="{{ g }}">{{ g }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group" style="flex: 2; min-width: 300px;">
+            <label class="form-label">Modes <span style="font-size: 0.8em; color: var(--text3);">(Multiple selection supported for stacked view)</span></label>
+            <div class="mode-checks">
+              {% for m in all_modes %}
+              <label class="check-inline">
+                <input type="checkbox" class="trend-mode-check" value="{{ m }}" {% if loop.first %}checked{% endif %}>
+                {{ m }}
+              </label>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        
+        <div id="phase-selector-container" class="form-group" style="margin-top: 16px; display: none;">
+          <label class="form-label">Phase to Plot</label>
+          <select id="trend-phase" class="form-input">
+            <option value="Query">Query / Execute / WriteResult</option>
+            <option value="LoadFacts">Load Facts / Data</option>
+            <option value="Total">Total Runtime</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-top: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <label class="form-label">Systems to Compare</label>
+            <label class="check-inline" id="logic-systems-toggle-container" style="margin: 0;">
+              <input type="checkbox" id="logic-systems-only" checked onchange="toggleLogicSystems()">
+              <span style="color: var(--accent); font-weight: 600;">Logic Systems Only</span>
+            </label>
+          </div>
+          <div class="mode-checks">
+            {% for s in all_systems %}
+            <label class="check-inline sys-check-label" data-sys="{{ s }}">
+              <input type="checkbox" class="trend-system-check" value="{{ s }}" checked>
+              {{ s }}
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+        
+        <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
+          <button onclick="generateTrendChart()" class="btn btn-primary">Generate Comparison</button>
+        </div>
+      </div>
+
+      <div id="trend-chart-container" style="display: none; flex-direction: column; gap: 16px; margin-top: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h3 id="chart-title" style="margin: 0; font-size: 1.1rem; color: var(--text);">Performance Trend</h3>
+          <div class="mode-checks" style="background: rgba(0,0,0,0.3); padding: 6px 16px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.05);">
+            <label class="check-inline" style="margin-right: 16px; margin-bottom: 0;">
+              <input type="radio" name="chart-metric" value="RealTime" checked onchange="updateTrendMetric()"> Real Time
+            </label>
+            <label class="check-inline" style="margin-bottom: 0;">
+              <input type="radio" name="chart-metric" value="CPUTime" onchange="updateTrendMetric()"> CPU Time
+            </label>
+          </div>
+        </div>
+        <div id="trend-legend"></div>
+        <div id="charts-wrapper" style="display: flex; gap: 20px; flex-wrap: wrap; width: 100%;">
+          <!-- Canvases will be injected here -->
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW: FILE VIEWER -->
+    <div id="view-file" class="ide-content">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 24px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 16px;">
+        <div>
+          <h3 id="data-panel-title" style="margin:0; font-size: 1.3rem; font-weight: 700; color: var(--accent); font-family: var(--mono);">—</h3>
+          <p id="data-panel-subtitle" style="margin: 6px 0 0 0; color: var(--text2); font-size: 0.95rem;">—</p>
+        </div>
+      </div>
+      
+      <div style="margin-bottom: 24px; background: rgba(0,0,0,0.3); padding: 20px; border-radius: var(--radius); border: 1px solid rgba(255,255,255,0.05);">
+        <div style="position: relative; height: 350px; width: 100%;">
+          <canvas id="result-chart"></canvas>
+        </div>
+      </div>
+
+      <h4 style="margin: 0 0 12px 0; color: var(--text2);">Raw Data</h4>
+      <div class="table-scroll" style="background: rgba(0,0,0,0.2); border-color: rgba(255,255,255,0.05);">
+        <table class="data-table" id="result-table">
+          <thead id="result-thead"></thead>
+          <tbody id="result-tbody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
-
-  <div class="table-scroll">
-    <table class="data-table" id="result-table">
-      <thead id="result-thead"></thead>
-      <tbody id="result-tbody"></tbody>
-    </table>
-  </div>
 </div>
-
 {% else %}
-<div class="empty-state large">
+<div class="empty-state large" style="margin-top: 40px;">
   <div class="empty-icon">◉</div>
   <h2>No results yet</h2>
   <p>Run an experiment to generate timing data.</p>
-  <a href="{{ url_for('experiment_new') }}" class="btn btn-primary">▷ Run Experiment</a>
+  <a href="{{ url_for('experiment_new') }}" class="btn btn-primary" style="margin-top: 16px;">▷ Run Experiment</a>
 </div>
 {% endif %}
 {% endblock %}
@@ -123,7 +353,52 @@
 {% block scripts %}
 <script>
 let chartInstance = null;
-let trendChartInstance = null;
+let trendChartInstances = [];
+let currentTrendData = null;
+let currentTrendSystems = null;
+let currentTrendModes = null;
+let currentSubView = 'stacked';
+
+const LOGIC_SYSTEMS = ['xsb', 'souffle', 'clingo', 'alda', 'prolog'];
+
+function toggleLogicSystems() {
+  const isLogicOnly = document.getElementById('logic-systems-only').checked;
+  document.querySelectorAll('.sys-check-label').forEach(label => {
+    const sys = label.dataset.sys;
+    const checkbox = label.querySelector('input');
+    const isLogic = LOGIC_SYSTEMS.includes(sys);
+    if (isLogicOnly && !isLogic) {
+      checkbox.checked = false;
+    } else if (isLogicOnly && isLogic) {
+      checkbox.checked = true;
+    } else if (!isLogicOnly) {
+      checkbox.checked = true; // Select all when logic only is off
+    }
+  });
+}
+
+function switchSubView(view) {
+  currentSubView = view;
+  document.querySelectorAll('.sub-tab').forEach(el => el.classList.remove('active'));
+  document.getElementById(`subtab-${view}`).classList.add('active');
+  
+  if (view === 'line') {
+    document.getElementById('phase-selector-container').style.display = 'block';
+    document.getElementById('logic-systems-toggle-container').style.display = 'none';
+    // For line chart, only allow one mode to keep it readable, but we handle it in render
+  } else {
+    document.getElementById('phase-selector-container').style.display = 'none';
+    document.getElementById('logic-systems-toggle-container').style.display = 'block';
+  }
+  
+  if (currentTrendData) {
+    renderTrendChart();
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  toggleLogicSystems();
+});
 
 function stringToColor(str) {
   let hash = 0;
@@ -133,80 +408,199 @@ function stringToColor(str) {
 
 function generateTrendChart() {
   const graphType = document.getElementById('trend-graph-type').value;
-  const mode = document.getElementById('trend-mode').value;
+  const modes = Array.from(document.querySelectorAll('.trend-mode-check:checked')).map(cb => cb.value);
   const systems = Array.from(document.querySelectorAll('.trend-system-check:checked')).map(cb => cb.value);
   
   if (!systems.length) {
     showToast('Select at least one system', 'warn');
     return;
   }
+  if (!modes.length) {
+    showToast('Select at least one mode', 'warn');
+    return;
+  }
   
   fetch('/api/compare/trends', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ graph_type: graphType, mode: mode, systems: systems })
+    body: JSON.stringify({ graph_type: graphType, modes: modes, systems: systems })
   })
   .then(r => r.json())
   .then(data => {
     if (data.error) { showToast(data.error, 'error'); return; }
     if (!data.length) { showToast('No data found for this configuration.', 'warn'); return; }
     
-    document.getElementById('trend-chart-container').style.display = 'block';
-    const ctx = document.getElementById('trend-chart').getContext('2d');
-    if (trendChartInstance) trendChartInstance.destroy();
+    currentTrendData = data;
+    currentTrendSystems = systems;
+    currentTrendModes = modes;
+    renderTrendChart();
+  })
+  .catch(err => {
+    showToast('Failed to load trends', 'error');
+    console.error(err);
+  });
+}
+
+function updateTrendMetric() {
+  if (currentTrendData) renderTrendChart();
+}
+
+function findPhaseValue(systemObj, requestedPhase, metric, sysName) {
+  if (!systemObj) return 0;
+  
+  // Custom mapping logic
+  let targetKeys = [];
+  if (requestedPhase === 'Query') {
+    if (sysName === 'neo4j') targetKeys = ['WriteResult'];
+    else if (sysName === 'duckdb' || sysName === 'postgres' || sysName === 'mariadb' || sysName === 'cockroachdb') targetKeys = ['ExecuteQuery', 'Query'];
+    else if (sysName === 'alda') targetKeys = ['Evaluation'];
+    else targetKeys = ['Query'];
+  } else if (requestedPhase === 'LoadFacts') {
+    targetKeys = ['LoadFacts', 'LoadData', 'LoadRules', 'CreateTable'];
+  } else if (requestedPhase === 'Total') {
+    // Sum all metric keys
+    let total = 0;
+    Object.keys(systemObj).forEach(k => {
+      if (k.endsWith(metric)) total += systemObj[k];
+    });
+    return total;
+  } else {
+    targetKeys = [requestedPhase];
+  }
+  
+  for (let tk of targetKeys) {
+    const key = tk + metric;
+    if (systemObj[key] !== undefined) return systemObj[key];
+    if (systemObj[tk] !== undefined) return systemObj[tk]; // Fallback if metric suffix missing
+  }
+  return 0;
+}
+
+function renderTrendChart() {
+  const data = currentTrendData;
+  const systems = currentTrendSystems;
+  const modes = currentTrendModes;
+  const metric = document.querySelector('input[name="chart-metric"]:checked').value;
+  
+  document.getElementById('trend-chart-container').style.display = 'flex';
+  const wrapper = document.getElementById('charts-wrapper');
+  
+  // Cleanup old chart instances
+  trendChartInstances.forEach(inst => inst.destroy());
+  trendChartInstances = [];
+  wrapper.innerHTML = '';
+  
+  const sizes = data.map(d => d.size);
+  
+  if (currentSubView === 'line') {
+    document.getElementById('chart-title').textContent = 'Phase Trend Analysis';
+    document.getElementById('trend-legend').innerHTML = ''; // Chart.js default legend is fine for line charts
     
-    const sizes = data.map(d => d.size);
+    // Create single canvas wrapper for line chart
+    const canvasWrap = document.createElement('div');
+    canvasWrap.style.cssText = 'position: relative; height: 500px; width: 100%;';
+    const canvas = document.createElement('canvas');
+    canvasWrap.appendChild(canvas);
+    wrapper.appendChild(canvasWrap);
+    
+    const ctx = canvas.getContext('2d');
+    
+    const selectedPhase = document.getElementById('trend-phase').value;
+    const modeToUse = modes[0]; // Line chart uses first selected mode
+    
     const datasets = [];
-    const phaseColors = {};
+    const colors = ['#38bdf8', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b', '#ef4444', '#a855f7'];
     
-    systems.forEach(sys => {
-      const phases = new Set();
-      data.forEach(d => {
-        if (d.systems[sys]) {
-          Object.keys(d.systems[sys]).forEach(p => phases.add(p));
+    systems.forEach((sys, i) => {
+      const phaseData = data.map(d => {
+        if (d.modes[modeToUse] && d.modes[modeToUse][sys]) {
+          return findPhaseValue(d.modes[modeToUse][sys], selectedPhase, metric, sys);
         }
+        return 0;
       });
       
-      Array.from(phases).forEach(phase => {
-        if (!phaseColors[phase]) phaseColors[phase] = stringToColor(phase);
-        
-        const phaseData = data.map(d => {
-          if (d.systems[sys] && d.systems[sys][phase]) return d.systems[sys][phase];
-          return 0;
-        });
-        
-        datasets.push({
-          label: phase,
-          data: phaseData,
-          backgroundColor: phaseColors[phase],
-          stack: sys
-        });
+      datasets.push({
+        label: `${sys} (${selectedPhase})`,
+        data: phaseData,
+        borderColor: colors[i % colors.length],
+        backgroundColor: colors[i % colors.length] + '33',
+        borderWidth: 2,
+        tension: 0.3,
+        fill: false
       });
     });
     
-    // Build custom grouped HTML legend
+    const chart = new Chart(ctx, {
+      type: 'line',
+      data: { labels: sizes.map(s => `Size ${s}`), datasets: datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { labels: { color: '#e2e8f0' } },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => `${ctx.dataset.label}: ${ctx.raw.toFixed(4)} s`
+            }
+          }
+        },
+        scales: {
+          x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+          y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' }, title: { display: true, text: 'Time (s)', color: '#94a3b8' } }
+        }
+      }
+    });
+    trendChartInstances.push(chart);
+
+  } else {
+    // STACKED BAR CHART
+    document.getElementById('chart-title').textContent = 'Stacked Phase Comparison';
+    
+    const phaseColors = {};
+    
+    // First, determine all phases and colors globally for the legend
+    const globalSysPhases = {};
+    systems.forEach(sys => globalSysPhases[sys] = []);
+    
+    data.forEach(d => {
+      modes.forEach(mode => {
+        systems.forEach(sys => {
+          if (d.modes[mode] && d.modes[mode][sys]) {
+            Object.keys(d.modes[mode][sys]).forEach(p => {
+              if (p.endsWith('RealTime') || p.endsWith('CPUTime')) {
+                if (p.endsWith(metric)) {
+                  const basePhase = p.replace(metric, '');
+                  if (!globalSysPhases[sys].includes(basePhase)) {
+                    globalSysPhases[sys].push(basePhase);
+                    if (!phaseColors[basePhase]) phaseColors[basePhase] = stringToColor(basePhase);
+                  }
+                }
+              } else {
+                if (!globalSysPhases[sys].includes(p)) {
+                  globalSysPhases[sys].push(p);
+                  if (!phaseColors[p]) phaseColors[p] = stringToColor(p);
+                }
+              }
+            });
+          }
+        });
+      });
+    });
+      
+    // Build custom grouped HTML legend for stacked chart
     const legendContainer = document.getElementById('trend-legend');
     let legendHTML = '<div style="display: flex; gap: 32px; flex-wrap: wrap; justify-content: center; margin-bottom: 24px;">';
     systems.forEach(sys => {
       legendHTML += `<div style="display: flex; flex-direction: column; gap: 6px; background: rgba(0,0,0,0.2); padding: 12px 24px; border-radius: var(--radius); border: 1px solid var(--border);">`;
       legendHTML += `<strong style="color: var(--text); font-size: 1rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">${sys}</strong>`;
       
-      const sysPhases = [];
-      data.forEach(d => {
-        if (d.systems[sys]) {
-          Object.keys(d.systems[sys]).forEach(p => {
-            if (!sysPhases.includes(p)) sysPhases.push(p);
-          });
-        }
-      });
-      
-      // Reverse to match the visual top-down reading order of the stack
-      [...sysPhases].reverse().forEach(phase => {
-        const color = phaseColors[phase];
+      [...globalSysPhases[sys]].reverse().forEach(basePhase => {
+        const color = phaseColors[basePhase];
         legendHTML += `
           <div style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--text2);">
             <div style="width: 14px; height: 14px; background-color: ${color}; border-radius: 3px;"></div>
-            <span>${phase}</span>
+            <span>${basePhase}</span>
           </div>
         `;
       });
@@ -214,68 +608,104 @@ function generateTrendChart() {
     });
     legendHTML += '</div>';
     legendContainer.innerHTML = legendHTML;
-    
-    let maxTotal = 0;
-    data.forEach(d => {
+      
+    // Generate a chart for each mode
+    modes.forEach(mode => {
+      const modeDatasets = [];
+      
       systems.forEach(sys => {
-        if (d.systems[sys]) {
-          const total = Object.values(d.systems[sys]).reduce((a, b) => a + b, 0);
-          if (total > maxTotal) maxTotal = total;
-        }
+        const modeSysPhases = [];
+        data.forEach(d => {
+          if (d.modes[mode] && d.modes[mode][sys]) {
+            Object.keys(d.modes[mode][sys]).forEach(p => {
+              if (p.endsWith('RealTime') || p.endsWith('CPUTime')) {
+                if (p.endsWith(metric)) {
+                  const bp = p.replace(metric, '');
+                  if (!modeSysPhases.includes(bp)) modeSysPhases.push(bp);
+                }
+              } else {
+                if (!modeSysPhases.includes(p)) modeSysPhases.push(p);
+              }
+            });
+          }
+        });
+        
+        modeSysPhases.forEach(basePhase => {
+          const phaseData = data.map(d => {
+            if (d.modes[mode] && d.modes[mode][sys]) {
+              if (d.modes[mode][sys][basePhase + metric] !== undefined) return d.modes[mode][sys][basePhase + metric];
+              if (d.modes[mode][sys][basePhase] !== undefined) return d.modes[mode][sys][basePhase];
+            }
+            return 0;
+          });
+          
+          modeDatasets.push({
+            label: basePhase,
+            data: phaseData,
+            backgroundColor: phaseColors[basePhase],
+            stack: sys
+          });
+        });
       });
-    });
-    
-    let yAxisLabel = 'Time (s)';
-    let scaleFactor = 1;
-    if (maxTotal > 1000) {
-      yAxisLabel = 'Time (s) × 10³';
-      scaleFactor = 1000;
-      datasets.forEach(ds => ds.data = ds.data.map(v => v / scaleFactor));
-    } else if (maxTotal > 0 && maxTotal < 1) {
-      yAxisLabel = 'Time (ms)';
-      scaleFactor = 0.001;
-      datasets.forEach(ds => ds.data = ds.data.map(v => v / scaleFactor));
-    }
-    
-    trendChartInstance = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: sizes.map(s => `Size ${s}`),
-        datasets: datasets
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: 'nearest', intersect: true },
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              title: (ctx) => `Size: ${sizes[ctx[0].dataIndex]} | ${ctx[0].dataset.stack.toUpperCase()}`,
-              label: (ctx) => `${ctx.dataset.label}: ${ctx.raw.toFixed(4)}`
+      
+      // Create DOM wrapper for this mode's chart
+      const modeWrap = document.createElement('div');
+      // If only 1 mode, full width. If 2 modes, 48% width. If >2, flex basis 30%.
+      const widthPct = modes.length === 1 ? '100%' : (modes.length === 2 ? 'calc(50% - 10px)' : 'calc(33.3% - 14px)');
+      
+      modeWrap.style.cssText = `flex: 1 1 ${widthPct}; min-width: 300px; display: flex; flex-direction: column; background: rgba(0,0,0,0.2); border-radius: var(--radius); padding: 16px; border: 1px solid var(--border);`;
+      
+      const title = document.createElement('div');
+      title.style.cssText = 'font-weight: 700; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.9rem; text-align: center; margin-bottom: 12px;';
+      title.innerText = mode.replace(/_/g, ' ');
+      modeWrap.appendChild(title);
+      
+      const canvasWrap = document.createElement('div');
+      canvasWrap.style.cssText = 'position: relative; height: 400px; width: 100%;';
+      const canvas = document.createElement('canvas');
+      canvasWrap.appendChild(canvas);
+      modeWrap.appendChild(canvasWrap);
+      
+      wrapper.appendChild(modeWrap);
+      
+      const ctx = canvas.getContext('2d');
+      const chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: sizes.map(s => `Size ${s}`),
+          datasets: modeDatasets
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'nearest', intersect: true },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                title: (ctx) => `Size: ${sizes[ctx[0].dataIndex]} | ${ctx[0].dataset.stack.toUpperCase()}`,
+                label: (ctx) => `${ctx.dataset.label}: ${ctx.raw.toFixed(4)}`
+              }
+            }
+          },
+          scales: {
+            x: {
+              stacked: true,
+              ticks: { color: '#94a3b8' },
+              grid: { color: 'rgba(255,255,255,0.05)' }
+            },
+            y: {
+              stacked: true,
+              ticks: { color: '#94a3b8' },
+              grid: { color: 'rgba(255,255,255,0.05)' },
+              title: { display: true, text: 'Time (s)', color: '#94a3b8' }
             }
           }
-        },
-        scales: {
-          x: {
-            stacked: true,
-            ticks: { color: '#94a3b8' },
-            grid: { color: 'rgba(255,255,255,0.05)' }
-          },
-          y: {
-            stacked: true,
-            ticks: { color: '#94a3b8' },
-            grid: { color: 'rgba(255,255,255,0.05)' },
-            title: { display: true, text: yAxisLabel, color: '#94a3b8' }
-          }
         }
-      }
+      });
+      trendChartInstances.push(chart);
     });
-  })
-  .catch(err => {
-    showToast('Failed to load trends', 'error');
-    console.error(err);
-  });
+  }
 }
 
 function renderChart(keys, rows) {
@@ -324,13 +754,26 @@ function renderChart(keys, rows) {
   });
 }
 
-function loadResult(system, graph, fname) {
+function switchView(viewId) {
+  document.querySelectorAll('.ide-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.ide-tab').forEach(el => el.classList.remove('active'));
+  
+  document.getElementById(`view-${viewId}`).classList.add('active');
+  document.getElementById(`tab-${viewId}`).classList.add('active');
+}
+
+function loadResult(system, graph, fname, btnElement) {
+  if (btnElement) {
+    document.querySelectorAll('.tree-file-btn').forEach(el => el.classList.remove('active'));
+    btnElement.classList.add('active');
+  }
+
   fetch(`/results/data/${system}/${graph}/${fname}`)
     .then(r => r.json())
     .then(d => {
       if (d.error) { showToast('Error: ' + d.error, 'error'); return; }
-      const panel = document.getElementById('data-panel');
-      document.getElementById('data-panel-title').textContent = `${system} / ${graph} / ${fname}`;
+      document.getElementById('data-panel-title').textContent = fname;
+      document.getElementById('data-panel-subtitle').textContent = `${system} / ${graph}`;
       const rows = d.rows;
       if (!rows.length) { showToast('No data in file', 'warn'); return; }
       
@@ -352,8 +795,8 @@ function loadResult(system, graph, fname) {
       // Render Chart
       renderChart(keys, rows);
       
-      panel.style.display = 'block';
-      panel.scrollIntoView({behavior: 'smooth'});
+      document.getElementById('tab-file').disabled = false;
+      switchView('file');
     })
     .catch(err => {
       showToast('Failed to load data.', 'error');

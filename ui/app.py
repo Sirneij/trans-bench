@@ -113,6 +113,98 @@ def create_app() -> Flask:
             machine_info=machine_info,
         )
 
+    def _get_math_info(name: str):
+        info = {
+            'complete': {
+                'symbol': 'K_n',
+                'definition': r'\{(i,j) \mid i \in 1..n, j \in 1..n\}'
+            },
+            'max_acyclic': {
+                'symbol': 'T_n',
+                'definition': r'\{(i,j) \mid i \in 1..n-1, j \in i+1..n\}'
+            },
+            'cycle': {
+                'symbol': 'C_n',
+                'definition': r'\{(i,i+1) \mid i \in 1..n-1\} \cup \{(n,1)\}'
+            },
+            'cycle_with_shortcuts': {
+                'symbol': 'S_{n,k}',
+                'definition': r'\{(i, (i-1 + t \cdot n/(k+1)) \bmod n + 1) \mid i \in 1..n, t \in 1..k\} \cup C_n'
+            },
+            'path': {
+                'symbol': 'P_n',
+                'definition': r'\{(i,i+1) \mid i \in 1..n-1\}'
+            },
+            'multi_path': {
+                'symbol': 'M_{n,k}',
+                'definition': r'\{(i,i+k) \mid i \in 1..(n-1) \cdot k\}'
+            },
+            'grid': {
+                'symbol': 'G_{n \times n}',
+                'definition': r'\{(j, j+1) \mid i \in 1..n, j \in (i-1)n+1..in-1\} \cup \{(j, j+n) \mid i \in 1..n-1, j \in (i-1)n+1..in\}'
+            },
+            'binary_tree': {
+                'symbol': 'B_h',
+                'definition': r'\{(i, 2i) \mid i \in 1..2^{h-1}\} \cup \{(i, 2i+1) \mid i \in 1..2^{h-1}\}'
+            },
+            'reverse_binary_tree': {
+                'symbol': 'V_h',
+                'definition': r'\{(2i, i) \mid i \in 1..2^{h-1}\} \cup \{(2i+1, i) \mid i \in 1..2^{h-1}\}'
+            },
+            'x': {
+                'symbol': 'X_{n,k}',
+                'definition': r'\{(i, n+1) \mid i \in 1..n\} \cup \{(n+1, n+1+j) \mid j \in 1..k\}'
+            },
+            'y': {
+                'symbol': 'Y_{n,k}',
+                'definition': r'\{(i, n+1) \mid i \in 1..n\} \cup \{(i, i+1) \mid i \in n+1..n+k-1\}'
+            },
+            'w': {
+                'symbol': 'W_{n,k}',
+                'definition': r'\{(i, n+1 + (i+j-1) \bmod n) \mid i \in 1..n, j \in 1..k\}'
+            },
+            'barabasi_albert': {
+                'symbol': 'BA_{n,m}',
+                'definition': r'\text{Scale-free network generated using preferential attachment with } m \text{ edges.}'
+            },
+            'scale_free': {
+                'symbol': 'SF_n',
+                'definition': r'\text{Directed scale-free graph.}'
+            },
+            'star': {
+                'symbol': 'S_n',
+                'definition': r'\{(i, 1) \mid i \in 2..n\}'
+            }
+        }
+        return info.get(name, {'symbol': 'G_n', 'definition': r'\text{No formal definition available.}'})
+
+    @app.route('/graphs/<name>')
+    def graph_detail(name: str):
+        graph_types = _get_graph_types()
+        graph = next((g for g in graph_types if g.name == name), None)
+        if not graph:
+            return redirect(url_for('dashboard'))
+
+        import sys
+        if str(BASE_DIR) not in sys.path:
+            sys.path.insert(0, str(BASE_DIR))
+
+        try:
+            from generate_db import DataGenerator
+            import inspect
+            gen_method_name = f'generate_{name}_graph'
+            data_gen = DataGenerator()
+            if hasattr(data_gen, gen_method_name):
+                method = getattr(data_gen, gen_method_name)
+                code_impl = inspect.getsource(method)
+            else:
+                code_impl = "# No Python implementation found."
+        except Exception as e:
+            code_impl = f"# Error loading implementation: {e}"
+
+        math_info = _get_math_info(name)
+        return render_template('graph_detail.html', graph=graph, code_impl=code_impl, math_info=math_info)
+
     # ── Systems ──────────────────────────────────────────────────────────────
 
     @app.route('/systems')
@@ -175,6 +267,39 @@ def create_app() -> Flask:
             return jsonify({'ok': True})
         except Exception as e:
             return jsonify({'ok': False, 'error': str(e)}), 400
+
+    @app.route('/systems/<name>/rules/<path:filename>', methods=['GET'])
+    def get_rule_file(name: str, filename: str):
+        system = loader.get_system(name)
+        if system is None:
+            return jsonify({'error': 'System not found'}), 404
+        
+        rule_path = system.rules_dir / filename
+        if not rule_path.exists() or not rule_path.is_file():
+            return jsonify({'error': 'Rule file not found'}), 404
+            
+        try:
+            content = rule_path.read_text()
+            return jsonify({'content': content})
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/systems/<name>/rules/<path:filename>', methods=['POST'])
+    def save_rule_file(name: str, filename: str):
+        system = loader.get_system(name)
+        if system is None:
+            return jsonify({'ok': False, 'error': 'System not found'}), 404
+            
+        rule_path = system.rules_dir / filename
+        if not rule_path.exists() or not rule_path.is_file():
+            return jsonify({'ok': False, 'error': 'Rule file not found'}), 404
+            
+        content = request.form.get('content', '')
+        try:
+            rule_path.write_text(content)
+            return jsonify({'ok': True})
+        except Exception as e:
+            return jsonify({'ok': False, 'error': str(e)}), 500
 
     @app.route('/systems/new', methods=['GET', 'POST'])
     def new_system():
@@ -481,18 +606,19 @@ def create_app() -> Flask:
             return jsonify({'error': 'Invalid request'}), 400
         
         graph_type = req.get('graph_type')
-        mode = req.get('mode')
+        modes = req.get('modes', [])
+        if not modes and req.get('mode'):
+            modes = [req.get('mode')]
         req_systems = req.get('systems', [])
         
-        if not graph_type or not mode or not req_systems:
+        if not graph_type or not modes or not req_systems:
             return jsonify({'error': 'Missing required fields'}), 400
             
         import re
         import csv
         timing_dir = BASE_DIR / 'timing'
-        pattern = re.compile(rf'^timing_{mode}_graph_(\d+)\.csv$')
         
-        # size -> system -> { phase: time }
+        # size -> mode -> system -> { phase: time }
         results_by_size = {}
         
         for sys_name in req_systems:
@@ -500,34 +626,38 @@ def create_app() -> Flask:
             if not sys_graph_dir.exists():
                 continue
                 
-            for csv_file in sys_graph_dir.glob('*.csv'):
-                match = pattern.match(csv_file.name)
-                if not match:
-                    continue
-                
-                size = int(match.group(1))
-                if size not in results_by_size:
-                    results_by_size[size] = {}
+            for mode in modes:
+                pattern = re.compile(rf'^timing_{mode}_graph_(\d+)\.csv$')
+                for csv_file in sys_graph_dir.glob(f'timing_{mode}_graph_*.csv'):
+                    match = pattern.match(csv_file.name)
+                    if not match:
+                        continue
                     
-                with open(csv_file, 'r') as f:
-                    reader = csv.reader(f)
-                    headers = next(reader, [])
-                    for row in reader:
-                        if not row: continue
-                        if row[0] == 'Average':
-                            phase_data = {}
-                            for i, h in enumerate(headers):
-                                val_str = row[i+1] if i+1 < len(row) else ''
-                                try:
-                                    phase_data[h] = float(val_str)
-                                except ValueError:
-                                    phase_data[h] = 0.0
-                            results_by_size[size][sys_name] = phase_data
-                            break
+                    size = int(match.group(1))
+                    if size not in results_by_size:
+                        results_by_size[size] = {}
+                    if mode not in results_by_size[size]:
+                        results_by_size[size][mode] = {}
+                        
+                    with open(csv_file, 'r') as f:
+                        reader = csv.reader(f)
+                        headers = next(reader, [])
+                        for row in reader:
+                            if not row: continue
+                            if row[0] == 'Average':
+                                phase_data = {}
+                                for i, h in enumerate(headers):
+                                    val_str = row[i+1] if i+1 < len(row) else ''
+                                    try:
+                                        phase_data[h] = float(val_str)
+                                    except ValueError:
+                                        phase_data[h] = 0.0
+                                results_by_size[size][mode][sys_name] = phase_data
+                                break
                             
         # Sort by size
         sorted_results = [
-            {'size': size, 'systems': results_by_size[size]}
+            {'size': size, 'modes': results_by_size[size]}
             for size in sorted(results_by_size.keys())
         ]
         

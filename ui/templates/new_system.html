@@ -3,51 +3,104 @@
 {% block page_title %}Add New System{% endblock %}
 
 {% block content %}
-<div class="toolbar">
-  <div class="breadcrumb">
-    <a href="{{ url_for('systems_list') }}">Systems</a>
-    <span>›</span>
-    <span>Add New</span>
-  </div>
+<style>
+/* New System Bento Box Styles */
+.bento-header {
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; margin-top: 10px;
+}
+.bento-title {
+  margin: 0; font-size: 2.2rem; font-weight: 800; color: white; background: linear-gradient(to right, #fff, #94a3b8); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.new-system-bento {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 24px;
+}
+.bento-panel {
+  background: rgba(15, 23, 42, 0.4);
+  border: 1px solid rgba(255,255,255,0.05);
+  backdrop-filter: blur(12px);
+  border-radius: calc(var(--radius) * 1.5);
+  padding: 32px;
+}
+.bento-form { grid-column: span 8; }
+.bento-info { grid-column: span 4; background: linear-gradient(135deg, rgba(56, 189, 248, 0.05), rgba(59, 130, 246, 0.1)); border-color: rgba(56, 189, 248, 0.2); }
+
+.form-group-large { margin-bottom: 24px; }
+.form-label-large { display: block; font-size: 1.1rem; font-weight: 700; color: white; margin-bottom: 12px; }
+.form-input-large { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius); padding: 16px; color: white; font-size: 1.1rem; transition: all 0.2s; }
+.form-input-large:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2); }
+.form-hint-large { display: block; font-size: 0.85rem; color: var(--text3); margin-top: 8px; }
+
+.info-step { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
+.step-num { flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; background: rgba(56, 189, 248, 0.2); color: #38bdf8; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; }
+.step-text { color: var(--text2); font-size: 0.95rem; line-height: 1.5; padding-top: 4px; }
+.step-text code { background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; color: #bae6fd; border: 1px solid rgba(255,255,255,0.05); }
+
+@media (max-width: 900px) {
+  .bento-form, .bento-info { grid-column: span 12; }
+}
+</style>
+
+<div class="breadcrumb" style="margin-bottom: 24px;">
+  <a href="{{ url_for('systems_list') }}" style="color: var(--text2); text-decoration: none; font-weight: 600;">Systems</a>
+  <span style="color: var(--text3); margin: 0 8px;">›</span>
+  <span style="color: white; font-weight: 700;">Add New System</span>
 </div>
 
-<div class="glass-card form-card">
-  <h2>Clone from template</h2>
-  <p class="form-desc">The fastest way to add a new system is to copy an existing descriptor and adapt it. No Python code changes required.</p>
+<div class="bento-header">
+  <h1 class="bento-title">Clone System Descriptor</h1>
+</div>
 
-  <div class="form-grid">
-    <div class="form-group">
-      <label class="form-label">New system name <span class="required">*</span></label>
-      <input type="text" id="new-name" class="form-input" placeholder="e.g. sqlite, clickhouse, mysql"
-             pattern="[a-z0-9_]+" title="Lowercase letters, numbers, underscores only"/>
-      <span class="form-hint">Used as directory name: systems/&lt;name&gt;/</span>
+<div class="new-system-bento">
+  
+  <div class="bento-panel bento-form">
+    <div style="margin-bottom: 32px;">
+      <p style="color: var(--text2); font-size: 1.05rem; line-height: 1.6; margin: 0;">The fastest way to add a new system is to clone an existing descriptor and adapt it. No Python code changes are required.</p>
     </div>
 
-    <div class="form-group">
-      <label class="form-label">Copy descriptor from</label>
-      <select id="template-select" class="form-input">
+    <div class="form-group-large">
+      <label class="form-label-large">New system name <span style="color: #ef4444;">*</span></label>
+      <input type="text" id="new-name" class="form-input-large" placeholder="e.g. sqlite, clickhouse, mysql" pattern="[a-z0-9_]+" title="Lowercase letters, numbers, underscores only"/>
+      <span class="form-hint-large">Used as directory name: <code>systems/&lt;name&gt;/</code></span>
+    </div>
+
+    <div class="form-group-large">
+      <label class="form-label-large">Copy descriptor from</label>
+      <select id="template-select" class="form-input-large">
         {% for s in systems %}
         <option value="{{ s.name }}">{{ s.display_name }} ({{ s.protocol }})</option>
         {% endfor %}
       </select>
-      <span class="form-hint">Choose the closest existing system as a starting point</span>
+      <span class="form-hint-large">Choose the closest existing system as a starting point.</span>
+    </div>
+
+    <div style="margin-top: 40px; display: flex; gap: 16px;">
+      <button class="btn btn-primary" onclick="createSystem()" style="font-size: 1.1rem; padding: 16px 32px; box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);">Create System →</button>
+      <a href="{{ url_for('systems_list') }}" class="btn" style="font-size: 1.1rem; padding: 16px 32px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">Cancel</a>
     </div>
   </div>
 
-  <div class="form-actions">
-    <button class="btn btn-primary" onclick="createSystem()">Create System →</button>
-    <a href="{{ url_for('systems_list') }}" class="btn">Cancel</a>
+  <div class="bento-panel bento-info">
+    <h3 style="color: white; font-size: 1.2rem; font-weight: 700; margin: 0 0 24px 0;">What happens next?</h3>
+    <div class="info-step">
+      <div class="step-num">1</div>
+      <div class="step-text">A new directory <code>systems/&lt;name&gt;/</code> is created.</div>
+    </div>
+    <div class="info-step">
+      <div class="step-num">2</div>
+      <div class="step-text">The selected template's <code>descriptor.yaml</code> is copied over and the internal name is automatically updated.</div>
+    </div>
+    <div class="info-step">
+      <div class="step-num">3</div>
+      <div class="step-text">An empty <code>rules/</code> sub-directory is created for your custom logic files.</div>
+    </div>
+    <div class="info-step">
+      <div class="step-num">4</div>
+      <div class="step-text">You'll be instantly redirected to the new system's workspace to edit its descriptor and add credentials.</div>
+    </div>
   </div>
 
-  <div class="info-box">
-    <h4>What happens when you click Create:</h4>
-    <ol>
-      <li>A new directory <code>systems/&lt;name&gt;/</code> is created</li>
-      <li>The selected template's <code>descriptor.yaml</code> is copied and name-updated</li>
-      <li>An empty <code>rules/</code> sub-directory is created for your rule files</li>
-      <li>You'll be redirected to edit the descriptor and add credentials</li>
-    </ol>
-  </div>
 </div>
 
 <script>

@@ -3,129 +3,225 @@
 {% block page_title %}Dashboard{% endblock %}
 
 {% block content %}
-<!-- Hero stats -->
-<div class="stats-grid">
-  <div class="stat-card">
-    <div class="stat-icon" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">◈</div>
-    <div class="stat-body">
-      <div class="stat-value">{{ systems|length }}</div>
-      <div class="stat-label">Registered Systems</div>
-    </div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-icon" style="background:linear-gradient(135deg,#06b6d4,#3b82f6)">⬡</div>
-    <div class="stat-body">
-      <div class="stat-value">{{ graph_types|length }}</div>
-      <div class="stat-label">Graph Topologies</div>
-    </div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-icon" style="background:linear-gradient(135deg,#10b981,#059669)">◉</div>
-    <div class="stat-body">
-      <div class="stat-value">{{ csv_count }}</div>
-      <div class="stat-label">Result CSV Files</div>
-    </div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-icon" style="background:linear-gradient(135deg,#f59e0b,#ef4444)">▶</div>
-    <div class="stat-body">
-      <div class="stat-value">{{ benchmarked_systems|length }}</div>
-      <div class="stat-label">Benchmarked Systems</div>
-    </div>
-  </div>
-</div>
+<style>
+  .dashboard-bento {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 24px;
+    margin-bottom: 40px;
+    margin-top: 10px;
+  }
+  .bento-card {
+    background: rgba(15, 23, 42, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(12px);
+    border-radius: calc(var(--radius) * 1.5);
+    padding: 32px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.3s, box-shadow 0.3s, border-color 0.3s;
+  }
+  .bento-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  .bento-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .bento-card:hover::before { opacity: 1; }
+  
+  /* Specific Bento Cells */
+  .bento-welcome { grid-column: span 8; display: flex; flex-direction: column; justify-content: center; background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.05)); border-color: rgba(139, 92, 246, 0.2); }
+  .bento-stats { grid-column: span 4; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 24px; }
+  .bento-actions { grid-column: span 12; display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; padding: 0; background: transparent; border: none; backdrop-filter: none; }
+  .bento-systems { grid-column: span 8; }
+  .bento-env { grid-column: span 4; }
+  .bento-graphs { grid-column: span 12; }
 
-<!-- Quick actions -->
-<div class="section-header">
-  <h2 class="section-title">Quick Actions</h2>
-</div>
-<div class="action-grid">
-  <a href="{{ url_for('experiment_new') }}" class="action-card action-primary">
-    <div class="action-icon">▷</div>
-    <div class="action-body">
-      <div class="action-title">New Experiment</div>
-      <div class="action-desc">Configure and run a benchmark across any systems and graph types</div>
-    </div>
-  </a>
-  <a href="{{ url_for('systems_list') }}" class="action-card">
-    <div class="action-icon">◈</div>
-    <div class="action-body">
-      <div class="action-title">Manage Systems</div>
-      <div class="action-desc">Add new systems, edit descriptors, configure credentials</div>
-    </div>
-  </a>
-  <a href="{{ url_for('new_system') }}" class="action-card">
-    <div class="action-icon">＋</div>
-    <div class="action-body">
-      <div class="action-title">Add a System</div>
-      <div class="action-desc">Clone an existing descriptor and adapt it for a new database or logic system</div>
-    </div>
-  </a>
-  <a href="{{ url_for('results') }}" class="action-card">
-    <div class="action-icon">◉</div>
-    <div class="action-body">
-      <div class="action-title">Browse Results</div>
-      <div class="action-desc">Explore timing CSVs and generated charts</div>
-    </div>
-  </a>
-</div>
+  /* Welcome Card */
+  .welcome-title { font-size: 2.5rem; font-weight: 800; margin: 0 0 12px 0; background: linear-gradient(to right, #ffffff, #a5b4fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .welcome-subtitle { font-size: 1.15rem; color: #cbd5e1; margin: 0; line-height: 1.6; max-width: 90%; }
 
-<!-- Systems overview -->
-<div class="section-header">
-  <h2 class="section-title">Registered Systems</h2>
-  <a href="{{ url_for('systems_list') }}" class="section-link">View all →</a>
-</div>
-<div class="systems-grid">
-  {% for system in systems %}
-  <a href="{{ url_for('system_detail', name=system.name) }}" class="system-card">
-    <div class="system-badge {{ system.category }}">{{ system.category }}</div>
-    <div class="system-name">{{ system.display_name }}</div>
-    <div class="system-meta">
-      <span class="system-proto">{{ system.protocol }}</span>
-      <span class="system-modes">{{ system.modes|length }} modes</span>
+  /* Mini Stats inside Bento Stats */
+  .mini-stat { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.03); border-radius: var(--radius); padding: 20px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+  .mini-stat-val { font-size: 2.2rem; font-weight: 800; color: white; margin-bottom: 4px; font-family: var(--mono); text-shadow: 0 2px 10px rgba(0,0,0,0.5); }
+  .mini-stat-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text3); font-weight: 700; }
+
+  /* Action Cards */
+  .action-btn { background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.05); border-radius: calc(var(--radius) * 1.5); padding: 28px; text-decoration: none; display: flex; flex-direction: column; gap: 16px; transition: all 0.3s; position: relative; overflow: hidden; backdrop-filter: blur(12px); }
+  .action-btn::after { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at top right, rgba(255,255,255,0.05), transparent 60%); opacity: 0; transition: opacity 0.3s; }
+  .action-btn:hover { transform: translateY(-6px); box-shadow: 0 20px 40px rgba(0,0,0,0.4); border-color: rgba(255,255,255,0.15); }
+  .action-btn:hover::after { opacity: 1; }
+  .action-btn.primary { background: linear-gradient(135deg, rgba(56, 189, 248, 0.15), rgba(59, 130, 246, 0.05)); border-color: rgba(56, 189, 248, 0.3); }
+  .action-btn.primary:hover { border-color: rgba(56, 189, 248, 0.6); box-shadow: 0 20px 40px rgba(56, 189, 248, 0.2); }
+  .action-icon { font-size: 2.2rem; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.3); border-radius: 16px; border: 1px solid rgba(255,255,255,0.05); }
+  .action-btn.primary .action-icon { background: rgba(56, 189, 248, 0.2); color: #38bdf8; border-color: rgba(56, 189, 248, 0.4); }
+  .action-title { font-size: 1.2rem; font-weight: 700; color: white; margin: 0; }
+  .action-desc { font-size: 0.9rem; color: var(--text2); line-height: 1.5; margin: 0; }
+
+  /* Systems List Overlay */
+  .system-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; background: rgba(0,0,0,0.2); border-radius: 10px; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.02); transition: all 0.2s; text-decoration: none; }
+  .system-row:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.1); transform: translateX(4px); }
+  .sys-left { display: flex; align-items: center; gap: 16px; }
+  .sys-name { font-weight: 600; color: var(--text); font-size: 1.05rem; }
+  .sys-badge { font-size: 0.7rem; padding: 4px 10px; border-radius: 12px; font-weight: 700; text-transform: uppercase; background: rgba(255,255,255,0.1); color: var(--text2); border: 1px solid rgba(255,255,255,0.1); }
+  .sys-badge.datalog { background: rgba(139, 92, 246, 0.2); color: #c4b5fd; border-color: rgba(139, 92, 246, 0.3); }
+  .sys-badge.sql { background: rgba(56, 189, 248, 0.2); color: #bae6fd; border-color: rgba(56, 189, 248, 0.3); }
+  .sys-badge.graph { background: rgba(16, 185, 129, 0.2); color: #a7f3d0; border-color: rgba(16, 185, 129, 0.3); }
+  .sys-right { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .sys-phase { font-size: 0.75rem; background: rgba(0,0,0,0.3); padding: 4px 10px; border-radius: 6px; color: var(--text2); border: 1px solid rgba(255,255,255,0.05); }
+
+  /* Env Grid */
+  .env-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 24px; }
+  .env-item { background: rgba(0,0,0,0.3); padding: 16px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.03); }
+  .env-label { font-size: 0.75rem; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; font-weight: 700; }
+  .env-val { font-size: 1.1rem; font-weight: 600; color: var(--text); font-family: var(--mono); }
+  
+  /* Graph Topologies marquee / grid */
+  .graph-chips { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 20px; }
+  .graph-chip { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); padding: 12px 20px; border-radius: 30px; display: flex; align-items: center; gap: 10px; transition: all 0.2s; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-decoration: none; }
+  .graph-chip:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.2); transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.2); }
+  .graph-icon { color: var(--accent); font-size: 1.1rem; }
+  .graph-name-text { font-weight: 600; font-size: 0.95rem; color: var(--text); }
+
+  /* Section Headers */
+  .bento-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+  .bento-title { margin: 0; font-size: 1.3rem; font-weight: 700; color: white; display: flex; align-items: center; gap: 10px; }
+  .bento-link { color: var(--accent); text-decoration: none; font-size: 0.9rem; font-weight: 600; padding: 6px 12px; background: rgba(56, 189, 248, 0.1); border-radius: 20px; transition: all 0.2s; }
+  .bento-link:hover { background: rgba(56, 189, 248, 0.2); color: white; }
+
+  @media (max-width: 1024px) {
+    .bento-welcome, .bento-systems { grid-column: span 12; }
+    .bento-stats, .bento-env { grid-column: span 12; display: flex; flex-direction: row; flex-wrap: wrap; }
+    .bento-stats .mini-stat { flex: 1; min-width: 140px; }
+    .bento-actions { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 600px) {
+    .bento-actions { grid-template-columns: 1fr; }
+  }
+</style>
+
+<div class="dashboard-bento">
+  
+  <!-- Welcome / Overview -->
+  <div class="bento-card bento-welcome">
+    <h1 class="welcome-title">Trans-Bench Engine</h1>
+    <p class="welcome-subtitle">Your central hub for executing, tracking, and analyzing transitive closure queries across modern evaluation systems.</p>
+  </div>
+
+  <!-- Key Metrics -->
+  <div class="bento-card bento-stats">
+    <div class="mini-stat">
+      <div class="mini-stat-val">{{ systems|length }}</div>
+      <div class="mini-stat-label">Systems</div>
     </div>
-    <div class="system-phases">
-      {% for phase in system.timing_phases %}
-        <span class="phase-chip">{{ phase.label }}</span>
+    <div class="mini-stat">
+      <div class="mini-stat-val" style="color: #38bdf8;">{{ graph_types|length }}</div>
+      <div class="mini-stat-label">Topologies</div>
+    </div>
+    <div class="mini-stat">
+      <div class="mini-stat-val" style="color: #34d399;">{{ csv_count }}</div>
+      <div class="mini-stat-label">Result Files</div>
+    </div>
+    <div class="mini-stat">
+      <div class="mini-stat-val" style="color: #fbbf24;">{{ benchmarked_systems|length }}</div>
+      <div class="mini-stat-label">Benchmarked</div>
+    </div>
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="bento-actions">
+    <a href="{{ url_for('experiment_new') }}" class="action-btn primary">
+      <div class="action-icon">🚀</div>
+      <h3 class="action-title">Launch Experiment</h3>
+      <p class="action-desc">Configure parameters and run a live benchmark.</p>
+    </a>
+    <a href="{{ url_for('results') }}" class="action-btn">
+      <div class="action-icon">📈</div>
+      <h3 class="action-title">Trend Analysis</h3>
+      <p class="action-desc">Visualize scaling performance across systems.</p>
+    </a>
+    <a href="{{ url_for('systems_list') }}" class="action-btn">
+      <div class="action-icon">⚙️</div>
+      <h3 class="action-title">Manage Systems</h3>
+      <p class="action-desc">Configure Datalog, SQL, and Graph engines.</p>
+    </a>
+    <a href="{{ url_for('new_system') }}" class="action-btn">
+      <div class="action-icon">➕</div>
+      <h3 class="action-title">Add Target</h3>
+      <p class="action-desc">Integrate a new logic or database system.</p>
+    </a>
+  </div>
+
+  <!-- Registered Systems -->
+  <div class="bento-card bento-systems">
+    <div class="bento-header">
+      <h2 class="bento-title"><span>◈</span> Active Systems</h2>
+      <a href="{{ url_for('systems_list') }}" class="bento-link">View All →</a>
+    </div>
+    
+    <div style="display: flex; flex-direction: column;">
+      {% for system in systems %}
+      <a href="{{ url_for('system_detail', name=system.name) }}" class="system-row">
+        <div class="sys-left">
+          <span class="sys-name">{{ system.display_name }}</span>
+          <span class="sys-badge {{ system.category|lower }}">{{ system.category }}</span>
+        </div>
+        <div class="sys-right">
+          {% for phase in system.timing_phases %}
+            <span class="sys-phase">{{ phase.label }}</span>
+          {% endfor %}
+        </div>
+      </a>
       {% endfor %}
     </div>
-  </a>
-  {% endfor %}
-</div>
+  </div>
 
-<!-- Graph types -->
-<div class="section-header">
-  <h2 class="section-title">Graph Topologies</h2>
-</div>
-<div class="graph-grid">
-  {% for g in graph_types %}
-  <div class="graph-card">
-    <div class="graph-name">{{ g.display_name }}</div>
-    <div class="graph-desc">{{ g.description[:80] }}{% if g.description|length > 80 %}…{% endif %}</div>
+  <!-- Host Environment -->
+  <div class="bento-card bento-env">
+    <div class="bento-header" style="margin-bottom: 16px;">
+      <h2 class="bento-title"><span>💻</span> Environment</h2>
+    </div>
+    <div class="env-grid">
+      <div class="env-item">
+        <div class="env-label">OS</div>
+        <div class="env-val">{{ machine_info.os }}</div>
+      </div>
+      <div class="env-item">
+        <div class="env-label">Architecture</div>
+        <div class="env-val">{{ machine_info.arch }}</div>
+      </div>
+      <div class="env-item">
+        <div class="env-label">CPU Cores</div>
+        <div class="env-val">{{ machine_info.cpu_count }} vCPU</div>
+      </div>
+      <div class="env-item">
+        <div class="env-label">Python</div>
+        <div class="env-val">v{{ machine_info.python_version }}</div>
+      </div>
+    </div>
   </div>
-  {% endfor %}
-</div>
 
-<!-- Host Environment -->
-<div class="section-header" style="margin-top: 40px;">
-  <h2 class="section-title">Host Environment</h2>
-</div>
-<div class="glass-card" style="display: flex; flex-wrap: wrap; gap: 24px; padding: 20px;">
-  <div style="flex: 1; min-width: 200px;">
-    <div style="font-size: .8rem; color: var(--text3); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px;">Operating System</div>
-    <div style="font-size: 1.1rem; font-weight: 600;">{{ machine_info.os }}</div>
+  <!-- Graph Topologies -->
+  <div class="bento-card bento-graphs">
+    <div class="bento-header" style="margin-bottom: 16px;">
+      <h2 class="bento-title"><span>⬡</span> Graph Topologies</h2>
+    </div>
+    <div class="graph-chips">
+      {% for g in graph_types %}
+      <a href="{{ url_for('graph_detail', name=g.name) }}" class="graph-chip" title="{{ g.description }}">
+        <span class="graph-icon">⬡</span>
+        <span class="graph-name-text">{{ g.display_name }}</span>
+      </a>
+      {% endfor %}
+    </div>
   </div>
-  <div style="flex: 1; min-width: 150px;">
-    <div style="font-size: .8rem; color: var(--text3); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px;">Architecture</div>
-    <div style="font-size: 1.1rem; font-weight: 600; font-family: var(--mono);">{{ machine_info.arch }}</div>
-  </div>
-  <div style="flex: 1; min-width: 150px;">
-    <div style="font-size: .8rem; color: var(--text3); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px;">CPU Cores</div>
-    <div style="font-size: 1.1rem; font-weight: 600;">{{ machine_info.cpu_count }} vCPUs</div>
-  </div>
-  <div style="flex: 1; min-width: 150px;">
-    <div style="font-size: .8rem; color: var(--text3); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px;">Python Runtime</div>
-    <div style="font-size: 1.1rem; font-weight: 600; font-family: var(--mono);">v{{ machine_info.python_version }}</div>
-  </div>
+
 </div>
 {% endblock %}

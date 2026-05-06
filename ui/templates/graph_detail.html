@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}{{ graph.display_name }} Topology{% endblock %}
+{% block page_title %}Graph Topology Details{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css" crossorigin="anonymous">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
+{% endblock %}
+
+{% block content %}
+<style>
+/* Bento Graph Detail Styles */
+.graph-detail-bento {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 24px;
+}
+.bento-panel {
+  background: rgba(15, 23, 42, 0.4);
+  border: 1px solid rgba(255,255,255,0.05);
+  backdrop-filter: blur(12px);
+  border-radius: calc(var(--radius) * 1.5);
+  padding: 32px;
+}
+.panel-hero { grid-column: span 12; background: linear-gradient(135deg, rgba(15, 23, 42, 0.7), rgba(30, 41, 59, 0.4)); }
+.panel-math { grid-column: span 5; }
+.panel-code { grid-column: span 7; }
+
+.graph-title { font-size: 2.5rem; font-weight: 800; color: white; margin-bottom: 12px; }
+.graph-desc { font-size: 1.1rem; color: var(--text2); line-height: 1.6; max-width: 800px; margin: 0; }
+
+.bento-heading { font-size: 1.3rem; font-weight: 700; color: white; margin-bottom: 24px; display: flex; align-items: center; gap: 10px; }
+
+.math-box {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: var(--radius);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.math-row {
+  display: flex; flex-direction: column; gap: 12px;
+}
+.math-label { font-size: 0.85rem; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; }
+.math-content { font-size: 1.25rem; color: #38bdf8; overflow-x: auto; padding-bottom: 8px;}
+
+.code-wrapper {
+  background: #0d1117;
+  border-radius: var(--radius);
+  border: 1px solid rgba(255,255,255,0.05);
+  overflow: hidden;
+}
+.code-header {
+  background: rgba(255,255,255,0.03);
+  padding: 12px 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  color: var(--text2);
+}
+.code-wrapper pre { margin: 0; padding: 20px; overflow-x: auto; }
+.code-wrapper code { font-family: var(--mono); font-size: 0.9rem; line-height: 1.5; background: none; border: none; padding: 0; }
+
+@media (max-width: 1024px) {
+  .panel-math, .panel-code { grid-column: span 12; }
+}
+</style>
+
+<div class="breadcrumb" style="margin-bottom: 24px;">
+  <a href="{{ url_for('dashboard') }}" style="color: var(--text2); text-decoration: none; font-weight: 600;">Dashboard</a>
+  <span style="color: var(--text3); margin: 0 8px;">›</span>
+  <span style="color: white; font-weight: 700;">{{ graph.display_name }}</span>
+</div>
+
+<div class="graph-detail-bento">
+
+  <div class="bento-panel panel-hero">
+    <h1 class="graph-title">{{ graph.display_name }} Topology</h1>
+    <p class="graph-desc">{{ graph.description }}</p>
+  </div>
+
+  <div class="bento-panel panel-math">
+    <h2 class="bento-heading"><span style="color: #8b5cf6;">∑</span> Mathematical Definition</h2>
+    <div class="math-box">
+      <div class="math-row">
+        <span class="math-label">Symbolic Name</span>
+        <span class="math-content" id="math-symbol">\({{ math_info.symbol }}\)</span>
+      </div>
+      <div class="math-row" style="margin-top: 12px;">
+        <span class="math-label">Edge Definition</span>
+        <span class="math-content" id="math-def">\({{ math_info.definition }}\)</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="bento-panel panel-code">
+    <h2 class="bento-heading"><span style="color: #38bdf8;">&lt;/&gt;</span> Implementation</h2>
+    <div class="code-wrapper">
+      <div class="code-header">generate_db.py</div>
+      <pre><code class="language-python">{{ code_impl }}</code></pre>
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js" crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/python.min.js"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    renderMathInElement(document.body, {
+      delimiters: [
+        {left: '$$', right: '$$', display: true},
+        {left: '\\(', right: '\\)', display: false}
+      ],
+      throwOnError : false
+    });
+    hljs.highlightAll();
+  });
+</script>
+{% endblock %}
