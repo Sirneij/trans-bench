@@ -39,6 +39,7 @@ class Neo4jConnector(BaseConnector):
         output_folder: Path,
         descriptor: 'SystemDescriptor',
         config: dict[str, Any],
+        query_bindings: dict[str, Any] | None = None,
     ) -> dict[str, float]:
         import_dir = self._credentials.get(
             'import_directory',

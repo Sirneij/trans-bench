@@ -167,6 +167,12 @@
       </div>
 
       <div>
+        <label style="display: block; font-size: 1.1rem; font-weight: 700; color: white; margin-bottom: 12px;">Benchmark Domain</label>
+        <input type="text" id="domain" value="transitive" style="background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 12px; color: white; width: 100%; font-size: 1.1rem;"/>
+        <div style="margin-top: 8px; font-size: 0.85rem; color: var(--text3);">Controls the rule files and queries loaded (e.g., 'transitive', 'shortest_path').</div>
+      </div>
+
+      <div>
         <label style="display: block; font-size: 1.1rem; font-weight: 700; color: white; margin-bottom: 12px;">Graph Size Range</label>
         <div style="display: flex; gap: 20px; flex-wrap: wrap; background: rgba(0,0,0,0.2); padding: 20px; border-radius: var(--radius); border: 1px solid rgba(255,255,255,0.05);">
           <div style="display: flex; flex-direction: column; gap: 8px;">
@@ -273,12 +279,15 @@ function buildReview() {
   const stop  = document.getElementById('size-stop').value;
   const step  = document.getElementById('size-step').value;
   const runs  = document.getElementById('num-runs').value;
+  const domain= document.getElementById('domain').value;
 
   const sizes = [];
   for (let i = parseInt(start); i < parseInt(stop); i += parseInt(step)) sizes.push(i);
   const cells = (systems.length || 1) * (graphs.length || 1) * sizes.length * modes.length;
 
   document.getElementById('review-summary').innerHTML = `
+    <div class="review-item-bento"><div style="color: var(--text2); font-weight: 600; text-transform: uppercase; font-size: 0.85rem;">Domain</div>
+      <div style="font-size: 1.1rem; color: white;">${domain}</div></div>
     <div class="review-item-bento"><div style="color: var(--text2); font-weight: 600; text-transform: uppercase; font-size: 0.85rem;">Systems</div>
       <div style="font-size: 1.1rem; color: white;">${systems.length ? systems.join(', ') : 'All discovered'}</div></div>
     <div class="review-item-bento"><div style="color: var(--text2); font-weight: 600; text-transform: uppercase; font-size: 0.85rem;">Graphs</div>
@@ -298,11 +307,11 @@ function startExperiment() {
   const btn = document.getElementById('start-btn');
   btn.disabled = true; btn.textContent = '⏳ Starting…';
 
-  const systems = [...document.querySelectorAll('#systems-grid input:checked')].map(i => i.value);
-  const graphs  = [...document.querySelectorAll('#graphs-grid input:checked')].map(i => i.value);
-  const modes   = [...document.querySelectorAll('input[name="modes"]:checked')].map(i => i.value);
   const payload = {
-    systems, graphs, modes,
+    systems: [...document.querySelectorAll('#systems-grid input:checked')].map(i => i.value),
+    graphs: [...document.querySelectorAll('#graphs-grid input:checked')].map(i => i.value),
+    modes: [...document.querySelectorAll('input[name="modes"]:checked')].map(i => i.value),
+    domain: document.getElementById('domain').value,
     sizes: [
       parseInt(document.getElementById('size-start').value),
       parseInt(document.getElementById('size-stop').value),

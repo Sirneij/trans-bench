@@ -40,6 +40,7 @@ class DuckDBConnector(BaseConnector):
         output_folder: Path,
         descriptor: 'SystemDescriptor',
         config: dict[str, Any],
+        query_bindings: dict[str, Any] | None = None,
     ) -> dict[str, float]:
         # Per-run db file to avoid cross-contamination
         self._db_path = rule_path.parent / 'duckdb' / 'duckdb_file.db'

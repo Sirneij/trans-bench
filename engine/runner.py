@@ -60,6 +60,7 @@ class ExperimentRunner:
         size_range: list[int],
         num_runs: int,
         modes: list[str],
+        domain: str = 'transitive',
         progress_cb: Optional[Callable[[dict], None]] = None,
     ):
         self.config = config
@@ -68,6 +69,7 @@ class ExperimentRunner:
         self.size_range = size_range
         self.num_runs = num_runs
         self.modes = modes
+        self.domain = domain
         self.progress_cb = progress_cb
         self.timing_dir = Path(config.get('timing_dir', 'timing'))
         self.base_dir = Path(__file__).parent.parent
@@ -137,8 +139,20 @@ class ExperimentRunner:
         connector = ConnectorClass()
         try:
             connector.connect(system.credentials, system)
+            
+            query_bindings = None
+            query_file = input_path.parent / 'queries.csv'
+            if query_file.exists():
+                import csv
+                with open(query_file, 'r') as f:
+                    reader = csv.reader(f)
+                    headers = next(reader, [])
+                    row = next(reader, [])
+                    if headers and row:
+                        query_bindings = dict(zip(headers, row))
+                        
             timing = connector.run_experiment(
-                rule_path, input_path, output_folder, system, self.config
+                rule_path, input_path, output_folder, system, self.config, query_bindings=query_bindings
             )
             self._write_timing(timing_path, system.csv_headers, timing)
         except Exception as e:
@@ -150,15 +164,15 @@ class ExperimentRunner:
             gc.collect()
 
     def _resolve_rule_path(self, system: SystemDescriptor, mode: str) -> Optional[Path]:
-        """Find rule file for this system+mode. Checks new systems/ dir, then legacy *_rules/ dir."""
+        """Find rule file for this system+mode for the current domain."""
         candidates = [
-            system.rules_dir / f'transitive_{mode}{system.rule_extension}',
-            self.base_dir / f'{system.name}_rules' / f'transitive_{mode}{system.rule_extension}',
+            system.rules_dir / f'{self.domain}_{mode}{system.rule_extension}',
+            self.base_dir / f'{system.name}_rules' / f'{self.domain}_{mode}{system.rule_extension}',
         ]
         for path in candidates:
             if path.exists():
                 return path
-        log.warning(f'Rule file not found for {system.name}/{mode}. Tried: {candidates}')
+        log.warning(f'Rule file not found for {system.name}/{self.domain}_{mode}. Tried: {candidates}')
         return None
 
     def _resolve_input_path(self, system: SystemDescriptor, graph: GraphTypeDescriptor, size: int) -> Path:
@@ -177,9 +191,9 @@ class ExperimentRunner:
             return input_dir / system.name / graph.name / f'graph_{size}'
 
     def _timing_path(self, system: SystemDescriptor, graph: GraphTypeDescriptor, size: int, mode: str) -> Path:
-        d = self.timing_dir / system.name / graph.name
+        d = self.timing_dir / self.domain / system.name / graph.name
         d.mkdir(parents=True, exist_ok=True)
-        return d / f'timing_{mode}_graph_{size}.csv'
+        return d / f'{mode}_graph_{size}.csv'
 
     def _prepare_output_folder(
         self,
@@ -188,7 +202,7 @@ class ExperimentRunner:
         size: int,
         mode: str,
     ) -> Path:
-        folder = self.timing_dir / system.name / graph.name / mode / str(size)
+        folder = self.timing_dir / self.domain / system.name / graph.name / mode / str(size)
         folder.mkdir(parents=True, exist_ok=True)
         return folder
 

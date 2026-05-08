@@ -37,6 +37,7 @@ class MongoDBConnector(BaseConnector):
         output_folder: Path,
         descriptor: 'SystemDescriptor',
         config: dict[str, Any],
+        query_bindings: dict[str, Any] | None = None,
     ) -> dict[str, float]:
         mode_word = rule_path.stem.split('_', 1)[1].split('_')[0].capitalize()
         class_name = f'MongoDB{mode_word}Recursion'

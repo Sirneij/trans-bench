@@ -57,6 +57,7 @@ class PostgreSQLConnector(BaseConnector):
         output_folder: Path,
         descriptor: 'SystemDescriptor',
         config: dict[str, Any],
+        query_bindings: dict[str, Any] | None = None,
     ) -> dict[str, float]:
         # Derive class name from file stem: transitive_right_recursion → RightRecursion
         mode_word = rule_path.stem.split('_', 1)[1].split('_')[0].capitalize()
@@ -124,6 +125,7 @@ class MariaDBConnector(BaseConnector):
         output_folder: Path,
         descriptor: 'SystemDescriptor',
         config: dict[str, Any],
+        query_bindings: dict[str, Any] | None = None,
     ) -> dict[str, float]:
         mode_word = rule_path.stem.split('_', 1)[1].split('_')[0].capitalize()
         class_name = f'MariaDB{mode_word}Recursion'
@@ -191,6 +193,7 @@ class CockroachDBConnector(BaseConnector):
         output_folder: Path,
         descriptor: 'SystemDescriptor',
         config: dict[str, Any],
+        query_bindings: dict[str, Any] | None = None,
     ) -> dict[str, float]:
         mode_word = rule_path.stem.split('_', 1)[1].split('_')[0].capitalize()
         class_name = f'CockroachDB{mode_word}Recursion'

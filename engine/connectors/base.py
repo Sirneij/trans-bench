@@ -54,6 +54,7 @@ class BaseConnector(ABC):
         output_folder: Path,
         descriptor: 'SystemDescriptor',
         config: dict[str, Any],
+        query_bindings: dict[str, Any] | None = None,
     ) -> dict[str, float]:
         """
         Run one complete benchmark trial and return a dict mapping
@@ -83,13 +84,66 @@ class BaseConnector(ABC):
         return real, cpu, result
 
     @staticmethod
-    def build_timing_row(phases: list, measurements: list[tuple[float, float]]) -> dict[str, float]:
+    def timed_subprocess(cmd: list[str], **kwargs) -> tuple[float, float, float, Any]:
+        """
+        Run a subprocess, returning (real_seconds, cpu_seconds, max_rss_mb, CompletedProcess).
+        """
+        import psutil
+        import threading
+        import subprocess
+
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, **kwargs)
+        
+        max_rss = 0.0
+        stop_polling = threading.Event()
+        
+        def poll_memory():
+            nonlocal max_rss
+            try:
+                ps_proc = psutil.Process(proc.pid)
+            except psutil.NoSuchProcess:
+                return
+            while not stop_polling.is_set():
+                try:
+                    mem = ps_proc.memory_info().rss
+                    for child in ps_proc.children(recursive=True):
+                        mem += child.memory_info().rss
+                    max_rss = max(max_rss, mem)
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    break
+                stop_polling.wait(0.01)
+                
+        t = threading.Thread(target=poll_memory, daemon=True)
+        t.start()
+        
+        t0_cpu = process_time()
+        t0 = perf_counter()
+        
+        stdout, stderr = proc.communicate()
+        
+        real = perf_counter() - t0
+        cpu = process_time() - t0_cpu
+        
+        stop_polling.set()
+        t.join(timeout=0.2)
+        
+        result = subprocess.CompletedProcess(proc.args, proc.returncode, stdout, stderr)
+        return real, cpu, max_rss / (1024 * 1024), result
+
+    @staticmethod
+    def build_timing_row(
+        phases: list, 
+        measurements: list[tuple[float, float]],
+        memory: list[float] | None = None
+    ) -> dict[str, float]:
         """
         Zip a list of TimingPhase objects with (real, cpu) measurements into
         the flat dict that gets written to CSV.
         """
         row: dict[str, float] = {}
-        for phase, (real, cpu) in zip(phases, measurements):
+        for i, (phase, (real, cpu)) in enumerate(zip(phases, measurements)):
             row[f'{phase.label}RealTime'] = real
             row[f'{phase.label}CPUTime'] = cpu
+            if memory and i < len(memory):
+                row[f'{phase.label}MaxRAM_MB'] = memory[i]
         return row

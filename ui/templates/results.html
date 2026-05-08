@@ -193,30 +193,40 @@ details[open] > summary > .tree-icon { transform: rotate(90deg); color: var(--ac
       <span style="color: var(--accent);">🗂️</span> Data Explorer
     </div>
     <div class="ide-sidebar-body">
-      {% for system_name, graphs in tree.items() %}
+      {% for domain_name, systems in tree.items() %}
       <details class="tree-system" open>
         <summary>
           <span class="tree-icon">▶</span>
-          <span style="color: var(--text);">{{ system_name }}</span>
-          <span class="tree-badge">{{ graphs.values()|map('length')|sum }}</span>
+          <span style="color: var(--accent); font-weight: bold;">[Domain] {{ domain_name }}</span>
         </summary>
-        
-        {% for graph_name, files in graphs.items() %}
-        <details class="tree-graph">
+        <div style="padding-left: 12px; border-left: 1px solid rgba(255,255,255,0.05); margin-left: 12px;">
+        {% for system_name, graphs in systems.items() %}
+        <details class="tree-system" open>
           <summary>
             <span class="tree-icon">▶</span>
-            <span>{{ graph_name }}</span>
-            <span class="tree-badge" style="background:transparent;opacity:0.5;">{{ files|length }}</span>
+            <span style="color: var(--text);">{{ system_name }}</span>
+            <span class="tree-badge">{{ graphs.values()|map('length')|sum }}</span>
           </summary>
-          <div class="tree-files">
-            {% for fname in files %}
-            <button class="tree-file-btn" onclick="loadResult('{{ system_name }}', '{{ graph_name }}', '{{ fname }}', this)">
-              <span style="font-size: 0.9rem;">📊</span> <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ fname }}">{{ fname }}</span>
-            </button>
-            {% endfor %}
-          </div>
+          
+          {% for graph_name, files in graphs.items() %}
+          <details class="tree-graph">
+            <summary>
+              <span class="tree-icon">▶</span>
+              <span>{{ graph_name }}</span>
+              <span class="tree-badge" style="background:transparent;opacity:0.5;">{{ files|length }}</span>
+            </summary>
+            <div class="tree-files">
+              {% for fname in files %}
+              <button class="tree-file-btn" onclick="loadResult('{{ domain_name }}', '{{ system_name }}', '{{ graph_name }}', '{{ fname }}', this)">
+                <span style="font-size: 0.9rem;">📊</span> <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ fname }}">{{ fname }}</span>
+              </button>
+              {% endfor %}
+            </div>
+          </details>
+          {% endfor %}
         </details>
         {% endfor %}
+        </div>
       </details>
       {% endfor %}
     </div>
@@ -243,7 +253,15 @@ details[open] > summary > .tree-icon { transform: rotate(90deg); color: var(--ac
 
       <div class="form-grid" style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: var(--radius); border: 1px solid rgba(255,255,255,0.05); margin-bottom: 24px;">
         <div style="display: flex; gap: 16px; flex-wrap: wrap;">
-          <div class="form-group" style="flex: 1; min-width: 200px;">
+          <div class="form-group" style="flex: 1; min-width: 150px;">
+            <label class="form-label">Domain</label>
+            <select id="trend-domain" class="form-input">
+              {% for d in all_domains %}
+              <option value="{{ d }}">{{ d }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group" style="flex: 1; min-width: 150px;">
             <label class="form-label">Graph Type</label>
             <select id="trend-graph-type" class="form-input">
               {% for g in all_graphs %}
@@ -303,8 +321,11 @@ details[open] > summary > .tree-icon { transform: rotate(90deg); color: var(--ac
             <label class="check-inline" style="margin-right: 16px; margin-bottom: 0;">
               <input type="radio" name="chart-metric" value="RealTime" checked onchange="updateTrendMetric()"> Real Time
             </label>
-            <label class="check-inline" style="margin-bottom: 0;">
+            <label class="check-inline" style="margin-right: 16px; margin-bottom: 0;">
               <input type="radio" name="chart-metric" value="CPUTime" onchange="updateTrendMetric()"> CPU Time
+            </label>
+            <label class="check-inline" style="margin-bottom: 0;">
+              <input type="radio" name="chart-metric" value="MaxRAM_MB" onchange="updateTrendMetric()"> Memory (MB)
             </label>
           </div>
         </div>
@@ -407,9 +428,20 @@ function stringToColor(str) {
 }
 
 function generateTrendChart() {
+  const domain = document.getElementById('trend-domain') ? document.getElementById('trend-domain').value : 'transitive';
   const graphType = document.getElementById('trend-graph-type').value;
   const modes = Array.from(document.querySelectorAll('.trend-mode-check:checked')).map(cb => cb.value);
   const systems = Array.from(document.querySelectorAll('.trend-system-check:checked')).map(cb => cb.value);
+  
+  // Custom sort order: XSB, Clingo, Souffle
+  const preferredOrder = ['xsb', 'clingo', 'souffle'];
+  systems.sort((a, b) => {
+    let idxA = preferredOrder.indexOf(a.toLowerCase());
+    let idxB = preferredOrder.indexOf(b.toLowerCase());
+    if (idxA === -1) idxA = 999;
+    if (idxB === -1) idxB = 999;
+    return idxA - idxB || a.localeCompare(b);
+  });
   
   if (!systems.length) {
     showToast('Select at least one system', 'warn');
@@ -423,7 +455,7 @@ function generateTrendChart() {
   fetch('/api/compare/trends', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ graph_type: graphType, modes: modes, systems: systems })
+    body: JSON.stringify({ domain: domain, graph_type: graphType, modes: modes, systems: systems })
   })
   .then(r => r.json())
   .then(data => {
@@ -762,18 +794,18 @@ function switchView(viewId) {
   document.getElementById(`tab-${viewId}`).classList.add('active');
 }
 
-function loadResult(system, graph, fname, btnElement) {
+function loadResult(domain, system, graph, fname, btnElement) {
   if (btnElement) {
     document.querySelectorAll('.tree-file-btn').forEach(el => el.classList.remove('active'));
     btnElement.classList.add('active');
   }
 
-  fetch(`/results/data/${system}/${graph}/${fname}`)
+  fetch(`/results/data/${domain}/${system}/${graph}/${fname}`)
     .then(r => r.json())
     .then(d => {
       if (d.error) { showToast('Error: ' + d.error, 'error'); return; }
       document.getElementById('data-panel-title').textContent = fname;
-      document.getElementById('data-panel-subtitle').textContent = `${system} / ${graph}`;
+      document.getElementById('data-panel-subtitle').textContent = `[${domain}] ${system} / ${graph}`;
       const rows = d.rows;
       if (!rows.length) { showToast('No data in file', 'warn'); return; }
       

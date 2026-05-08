@@ -354,11 +354,14 @@ def create_app() -> Flask:
         selected_systems = data.get('systems', [])
         selected_graphs = data.get('graphs', [])
         selected_modes = data.get('modes', ['right_recursion', 'left_recursion'])
+        domain = data.get('domain', 'transitive')
         sizes = data.get('sizes', [10, 101, 10])
         num_runs = int(data.get('num_runs', 3))
         souffle_dir = data.get('souffle_include_dir')
         
         cli_args = ["python transitive.py"]
+        if domain != 'transitive':
+            cli_args.append(f"--domain {domain}")
         if selected_systems:
             cli_args.append(f"--systems {' '.join(selected_systems)}")
         if selected_graphs:
@@ -446,6 +449,7 @@ def create_app() -> Flask:
                     size_range=sizes,
                     num_runs=num_runs,
                     modes=selected_modes,
+                    domain=domain,
                     progress_cb=progress_cb,
                 )
                 runner.run()
@@ -523,35 +527,52 @@ def create_app() -> Flask:
         all_modes = set()
         
         import re
-        mode_pattern = re.compile(r'^timing_(.*)_graph_\d+\.csv$')
+        mode_pattern = re.compile(r'^(.*?)_graph_\d+\.csv$')
 
         if timing_dir.exists():
-            for system_dir in sorted(timing_dir.iterdir()):
-                if not system_dir.is_dir():
+            for domain_dir in sorted(timing_dir.iterdir()):
+                if not domain_dir.is_dir():
                     continue
-                tree[system_dir.name] = {}
-                all_systems.add(system_dir.name)
-                for graph_dir in sorted(system_dir.iterdir()):
-                    if not graph_dir.is_dir():
+                domain_name = domain_dir.name
+                if domain_name not in tree:
+                    tree[domain_name] = {}
+                    
+                for system_dir in sorted(domain_dir.iterdir()):
+                    if not system_dir.is_dir():
                         continue
-                    all_graphs.add(graph_dir.name)
-                    csvs = sorted(graph_dir.glob('*.csv'))
-                    for c in csvs:
-                        match = mode_pattern.match(c.name)
-                        if match:
-                            all_modes.add(match.group(1))
-                    tree[system_dir.name][graph_dir.name] = [c.name for c in csvs]
+                    system_name = system_dir.name
+                    if system_name not in tree[domain_name]:
+                        tree[domain_name][system_name] = {}
+                    all_systems.add(system_name)
+                    
+                    for graph_dir in sorted(system_dir.iterdir()):
+                        if not graph_dir.is_dir():
+                            continue
+                        graph_name = graph_dir.name
+                        all_graphs.add(graph_name)
+                        
+                        csvs = sorted(graph_dir.glob('*.csv'))
+                        for c in csvs:
+                            match = mode_pattern.match(c.name)
+                            if match:
+                                all_modes.add(match.group(1))
+                        tree[domain_name][system_name][graph_name] = [c.name for c in csvs]
+        # Custom sort for all_systems
+        preferred_order = ['xsb', 'clingo', 'souffle']
+        sorted_systems = sorted(list(all_systems), key=lambda x: (preferred_order.index(x.lower()) if x.lower() in preferred_order else 999, x.lower()))
+
         return render_template(
             'results.html', 
             tree=tree, 
-            all_systems=sorted(list(all_systems)), 
+            all_domains=sorted(list(tree.keys())),
+            all_systems=sorted_systems, 
             all_graphs=sorted(list(all_graphs)), 
             all_modes=sorted(list(all_modes))
         )
 
-    @app.route('/results/data/<system>/<graph>/<filename>')
-    def result_detail(system: str, graph: str, filename: str):
-        csv_path = BASE_DIR / 'timing' / system / graph / filename
+    @app.route('/results/data/<domain>/<system>/<graph>/<filename>')
+    def result_detail(domain: str, system: str, graph: str, filename: str):
+        csv_path = BASE_DIR / 'timing' / domain / system / graph / filename
         if not csv_path.exists():
             return jsonify({'error': 'Not found'}), 404
         rows = []
@@ -621,14 +642,16 @@ def create_app() -> Flask:
         # size -> mode -> system -> { phase: time }
         results_by_size = {}
         
+        domain = req.get('domain', 'transitive') # We need domain now!
+        
         for sys_name in req_systems:
-            sys_graph_dir = timing_dir / sys_name / graph_type
+            sys_graph_dir = timing_dir / domain / sys_name / graph_type
             if not sys_graph_dir.exists():
                 continue
                 
             for mode in modes:
-                pattern = re.compile(rf'^timing_{mode}_graph_(\d+)\.csv$')
-                for csv_file in sys_graph_dir.glob(f'timing_{mode}_graph_*.csv'):
+                pattern = re.compile(rf'^{re.escape(mode)}_graph_(\d+)\.csv$')
+                for csv_file in sys_graph_dir.glob(f'{mode}_graph_*.csv'):
                     match = pattern.match(csv_file.name)
                     if not match:
                         continue

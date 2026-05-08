@@ -14,7 +14,6 @@ import gc
 import logging
 import os
 import re
-import subprocess
 import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
@@ -55,6 +54,7 @@ class XSBConnector(BaseConnector):
         output_folder: Path,
         descriptor: 'SystemDescriptor',
         config: dict[str, Any],
+        query_bindings: dict[str, Any] | None = None,
     ) -> dict[str, float]:
         queries = config.get('queries', '[[query1, path(X, Y)]]')
         xsb_export_path = rule_path.parent / 'xsb_export'
@@ -67,8 +67,8 @@ class XSBConnector(BaseConnector):
         cmd1 = base_args + ['-e', f"extfilequery:external_file_query_only('{rule_path}','{input_path}',{queries},'{results_path}')."]
         cmd2 = base_args + ['-e', f"extfilequery:external_file_query('{rule_path}','{input_path}',{queries},'{results_path}')."]
 
-        out1 = subprocess.run(cmd1, capture_output=True, text=True)
-        out2 = subprocess.run(cmd2, capture_output=True, text=True)
+        real1, cpu1, mem1, out1 = self.timed_subprocess(cmd1)
+        real2, cpu2, mem2, out2 = self.timed_subprocess(cmd2)
 
         def t(key, text): return _extract(rf'{key}:\s+(-?\d+\.?\d*(?:e[+-]?\d+)?)', text)
 
@@ -86,6 +86,13 @@ class XSBConnector(BaseConnector):
             (qonly_real, qonly_cpu),
             (write_real, write_cpu),
         ]
+        
+        memory = [
+            0.0,
+            0.0,
+            mem1,
+            max(0.0, mem2 - mem1)
+        ]
 
         # Cleanup compiled .xwam files
         for f in rule_path.parent.glob('*.xwam'):
@@ -94,7 +101,7 @@ class XSBConnector(BaseConnector):
             f.unlink(missing_ok=True)
 
         gc.collect()
-        return self.build_timing_row(phases, measurements[:len(phases)])
+        return self.build_timing_row(phases, measurements[:len(phases)], memory=memory[:len(phases)])
 
     def close(self) -> None:
         pass
@@ -137,40 +144,36 @@ class ClingoConnector(BaseConnector):
         output_folder: Path,
         descriptor: 'SystemDescriptor',
         config: dict[str, Any],
+        query_bindings: dict[str, Any] | None = None,
     ) -> dict[str, float]:
-        import clingo
         queries = config.get('queries', '[[query1, path(X, Y)]]')
         temp_path = self._patch_rule_file(rule_path, queries)
         effective_rule = temp_path if temp_path else str(rule_path)
 
+        import sys
+        
         phases = descriptor.timing_phases
         measurements: list[tuple[float, float]] = [(0.0, 0.0)] * len(phases)
+        memory: list[float] = [0.0] * len(phases)
 
         try:
-            ctl = clingo.Control()
-            t0 = os.times(); ctl.load(effective_rule); t1 = os.times()
-            measurements[0] = _estimate_os_times(t0, t1)
-
-            t0 = os.times(); ctl.load(str(input_path)); t1 = os.times()
-            measurements[1] = _estimate_os_times(t0, t1)
-
-            t0 = os.times(); ctl.ground([('base', [])]); t1 = os.times()
-            measurements[2] = _estimate_os_times(t0, t1)
-
-            ctl.configuration.solve.models = '0'
-            t0 = os.times()
-            with ctl.solve(yield_=True) as handle:
-                results = [model.symbols(shown=True) for model in handle]
-            t1 = os.times()
-            measurements[3] = _estimate_os_times(t0, t1)
-
             output_file = output_folder / 'clingo_results.txt'
-            t0 = os.times()
-            with open(output_file, 'w') as f:
-                f.writelines([f'{atom}\n' for result in results for atom in result])
-            t1 = os.times()
-            write_m = _estimate_os_times(t0, t1)
-            measurements[4] = (write_m[0] - measurements[3][0], write_m[1] - measurements[3][1])
+            runner_script = Path(__file__).parent / 'clingo_runner.py'
+            
+            cmd = [sys.executable, str(runner_script), effective_rule, str(input_path), str(output_file)]
+            real, cpu, mem, result = self.timed_subprocess(cmd)
+
+            def t(key): return _extract(rf'{key}:\s+(-?\d+\.?\d*(?:e[+-]?\d+)?)', result.stdout)
+            
+            measurements[0] = (t('LoadRuleTime') or 0.0, t('CPULoadRuleTime') or 0.0)
+            measurements[1] = (t('LoadFactsTime') or 0.0, t('CPULoadFactsTime') or 0.0)
+            measurements[2] = (t('GroundTime') or 0.0, t('CPUGroundTime') or 0.0)
+            measurements[3] = (t('QueryTime') or 0.0, t('CPUQueryTime') or 0.0)
+            measurements[4] = (t('WriteTime') or 0.0, t('CPUWriteTime') or 0.0)
+            
+            # Attribute peak memory to the Solve (Query) phase
+            memory[3] = mem
+            
         except Exception as e:
             log.error(f'Clingo experiment error: {e}')
         finally:
@@ -178,7 +181,7 @@ class ClingoConnector(BaseConnector):
                 os.remove(temp_path)
             gc.collect()
 
-        return self.build_timing_row(phases, measurements[:len(phases)])
+        return self.build_timing_row(phases, measurements[:len(phases)], memory=memory[:len(phases)])
 
     def close(self) -> None:
         pass
@@ -213,19 +216,18 @@ class SouffleConnector(BaseConnector):
             f.write(content)
             return f.name
 
-    def _run_cmd(self, cmd: str) -> tuple[str, dict]:
-        """Run a shell command, return (real_cpu_str, parsed_timing_dict)."""
-        t0 = os.times()
+    def _run_cmd(self, cmd: str) -> tuple[str, dict, float]:
+        """Run a shell command, return (real_cpu_str, parsed_timing_dict, max_rss_mb)."""
         try:
-            result = subprocess.run(cmd, shell=True, check=True,
-                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            t1 = os.times()
-            real, cpu = _estimate_os_times(t0, t1)
+            real, cpu, max_rss, result = self.timed_subprocess(cmd, shell=True)
+            if result.returncode != 0:
+                log.error(f'Soufflé cmd failed: {result.stderr}')
+                return '0,0', {}, 0.0
             timing = {k: float(v) for k, v in re.findall(r'(\w+ time): (\d+\.\d+) seconds', result.stdout)}
-            return f'{real},{cpu}', timing
-        except subprocess.CalledProcessError as e:
+            return f'{real},{cpu}', timing, max_rss
+        except Exception as e:
             log.error(f'Soufflé cmd failed: {e}')
-            return '0,0', {}
+            return '0,0', {}, 0.0
 
     def run_experiment(
         self,
@@ -234,6 +236,7 @@ class SouffleConnector(BaseConnector):
         output_folder: Path,
         descriptor: 'SystemDescriptor',
         config: dict[str, Any],
+        query_bindings: dict[str, Any] | None = None,
     ) -> dict[str, float]:
         queries = config.get('queries', '[[query1, path(X, Y)]]')
         include_dir = config.get('souffle_include_dir', '/opt/homebrew/Cellar/souffle/HEAD-8abf896/include')
@@ -246,29 +249,33 @@ class SouffleConnector(BaseConnector):
 
         phases = descriptor.timing_phases
         measurements: list[tuple[float, float]] = [(0.0, 0.0)] * len(phases)
+        memory: list[float] = [0.0] * len(phases)
 
         try:
             # Phase 0: Datalog → C++
-            dtc_str, _ = self._run_cmd(
+            dtc_str, _, mem0 = self._run_cmd(
                 f'souffle {effective_rule} -F {input_path} -w -g {generated_cpp} -D {output_folder}'
             )
             r, c = [float(x) for x in dtc_str.split(',')]
             measurements[0] = (r, c)
+            memory[0] = mem0
 
             # Phase 1: Compile C++
-            compile_str, _ = self._run_cmd(
+            compile_str, _, mem1 = self._run_cmd(
                 f'g++ {export_file}.cpp {generated_cpp} -std=c++17 -I {include_dir} '
                 f'-o {export_file} -D__EMBEDDED_SOUFFLE__'
             )
             r, c = [float(x) for x in compile_str.split(',')]
             measurements[1] = (r, c)
+            memory[1] = mem1
 
             # Phase 2-5: Run compiled binary (timing from stdout)
-            run_str, run_timing = self._run_cmd(f'{export_file} {input_path}')
+            run_str, run_timing, run_mem = self._run_cmd(f'{export_file} {input_path}')
             measurements[2] = (run_timing.get('Instance time', 0.0), run_timing.get('InstanceCPU time', 0.0))
             measurements[3] = (run_timing.get('LoadingFacts time', 0.0), run_timing.get('LoadingFactsCPU time', 0.0))
             measurements[4] = (run_timing.get('Query time', 0.0), run_timing.get('QueryCPU time', 0.0))
             measurements[5] = (run_timing.get('Writing time', 0.0), run_timing.get('WritingCPU time', 0.0))
+            memory[4] = run_mem # Assign peak execution memory to the Query phase
         except Exception as e:
             log.error(f'Soufflé experiment error: {e}')
         finally:
@@ -278,7 +285,7 @@ class SouffleConnector(BaseConnector):
                 os.remove(temp_path)
             gc.collect()
 
-        return self.build_timing_row(phases, measurements[:len(phases)])
+        return self.build_timing_row(phases, measurements[:len(phases)], memory=memory[:len(phases)])
 
     def close(self) -> None:
         pass
@@ -301,6 +308,7 @@ class AldaConnector(BaseConnector):
         output_folder: Path,
         descriptor: 'SystemDescriptor',
         config: dict[str, Any],
+        query_bindings: dict[str, Any] | None = None,
     ) -> dict[str, float]:
         # Parse size from input path for buffer sizing
         try:
@@ -325,11 +333,9 @@ class AldaConnector(BaseConnector):
 
         phases = descriptor.timing_phases
         measurements: list[tuple[float, float]] = [(0.0, 0.0)] * len(phases)
+        memory: list[float] = [0.0] * len(phases)
 
-        t0 = os.times()
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        t1 = os.times()
-        real, cpu = _estimate_os_times(t0, t1)
+        real, cpu, mem, result = self.timed_subprocess(cmd)
 
         # Alda outputs timing to stdout; parse if available
         def t(key): return _extract(rf'{key}:\s+(-?\d+\.?\d*(?:e[+-]?\d+)?)', result.stdout)
@@ -344,8 +350,11 @@ class AldaConnector(BaseConnector):
             (query_real,      cpu * 0.6),
             (write_real,      cpu * 0.1),
         ]
+        
+        # Attribute all memory to the query phase since it's a single run
+        memory[2] = mem
 
-        return self.build_timing_row(phases, measurements[:len(phases)])
+        return self.build_timing_row(phases, measurements[:len(phases)], memory=memory[:len(phases)])
 
     def close(self) -> None:
         pass

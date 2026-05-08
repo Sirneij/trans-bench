@@ -95,6 +95,11 @@ Examples:
         help='Graph size range. Default: 10 101 10',
     )
     parser.add_argument(
+        '--domain',
+        default='transitive',
+        help='Benchmark domain to run. Default: transitive',
+    )
+    parser.add_argument(
         '--num-runs',
         type=int,
         default=10,
@@ -165,10 +170,11 @@ Examples:
         size_range=args.sizes,
         num_runs=args.num_runs,
         modes=args.modes,
+        domain=args.domain,
     )
 
     log.info(
-        f'Starting experiment | systems={[s.name for s in systems]} | '
+        f'Starting experiment | domain={args.domain} | systems={[s.name for s in systems]} | '
         f'graphs={[g.name for g in graph_types]} | sizes={args.sizes} | '
         f'modes={args.modes} | runs={args.num_runs}'
     )
