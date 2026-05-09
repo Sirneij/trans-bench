@@ -9,6 +9,7 @@ Connectors for SQL relational databases:
 Each connector dynamically imports the mode-specific operation class from
 the system's rules/ directory, preserving the existing query files unchanged.
 """
+
 from __future__ import annotations
 
 import importlib.util
@@ -41,11 +42,13 @@ def _dynamic_import_class(module_path: Path, class_name: str) -> type:
 # PostgreSQL
 # ────────────────────────────────────────────────────────────────────────────
 
+
 class PostgreSQLConnector(BaseConnector):
     """Runs transitive closure experiments on PostgreSQL via psycopg2."""
 
     def connect(self, credentials: dict[str, Any], descriptor: 'SystemDescriptor') -> None:
         import psycopg2
+
         db_url = credentials.get('dbURL', '')
         self._connection = psycopg2.connect(db_url)
         log.info('PostgreSQL connected')
@@ -103,11 +106,13 @@ class PostgreSQLConnector(BaseConnector):
 # MariaDB
 # ────────────────────────────────────────────────────────────────────────────
 
+
 class MariaDBConnector(BaseConnector):
     """Runs transitive closure experiments on MariaDB via mysqlclient."""
 
     def connect(self, credentials: dict[str, Any], descriptor: 'SystemDescriptor') -> None:
         import MySQLdb
+
         self._connection = MySQLdb.connect(
             db=credentials.get('database', ''),
             user=credentials.get('user', ''),
@@ -177,11 +182,13 @@ class MariaDBConnector(BaseConnector):
 # CockroachDB
 # ────────────────────────────────────────────────────────────────────────────
 
+
 class CockroachDBConnector(BaseConnector):
     """Runs transitive closure experiments on CockroachDB via psycopg2."""
 
     def connect(self, credentials: dict[str, Any], descriptor: 'SystemDescriptor') -> None:
         import psycopg2
+
         db_url = credentials.get('dbURL', '')
         self._connection = psycopg2.connect(db_url)
         log.info('CockroachDB connected')
@@ -210,8 +217,9 @@ class CockroachDBConnector(BaseConnector):
         ops = OpClass(config, self._connection)
 
         results_path = output_folder / 'cockroachdb_results.csv'
-        external_dir = descriptor.credentials.get('externalDirectory',
-                       config.get('cockroachdb', {}).get('externalDirectory', ''))
+        external_dir = descriptor.credentials.get(
+            'externalDirectory', config.get('cockroachdb', {}).get('externalDirectory', '')
+        )
         phases = descriptor.timing_phases
         measurements: list[tuple[float, float]] = [(0.0, 0.0)] * len(phases)
 

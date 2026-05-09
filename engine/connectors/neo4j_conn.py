@@ -4,6 +4,7 @@ engine/connectors/neo4j_conn.py
 Neo4j connector — executes Cypher scripts via the neo4j Python driver.
 The Cypher rule files use {data_file} and {output_file} placeholders.
 """
+
 from __future__ import annotations
 
 import logging
@@ -25,6 +26,7 @@ class Neo4jConnector(BaseConnector):
 
     def connect(self, credentials: dict[str, Any], descriptor: 'SystemDescriptor') -> None:
         from neo4j import GraphDatabase
+
         uri = credentials.get('uri', 'neo4j://localhost:7687')
         user = credentials.get('user', 'neo4j')
         password = credentials.get('password', '')
@@ -41,19 +43,13 @@ class Neo4jConnector(BaseConnector):
         config: dict[str, Any],
         query_bindings: dict[str, Any] | None = None,
     ) -> dict[str, float]:
-        import_dir = self._credentials.get(
-            'import_directory',
-            config.get('neo4j', {}).get('import_directory', '')
-        )
+        import_dir = self._credentials.get('import_directory', config.get('neo4j', {}).get('import_directory', ''))
         export_filename = f'neo4j_export_{os.getpid()}.csv'
         fact_file_name = input_path.name
 
         # Copy facts file into Neo4j's import directory
         try:
-            subprocess.run(
-                f'cp {input_path.resolve()} {import_dir}/',
-                shell=True, check=True, capture_output=True
-            )
+            subprocess.run(f'cp {input_path.resolve()} {import_dir}/', shell=True, check=True, capture_output=True)
         except Exception as e:
             log.error(f'Neo4j import copy error: {e}')
 
@@ -93,19 +89,13 @@ class Neo4jConnector(BaseConnector):
         results_path = output_folder / 'neo4j_results.csv'
         export_source = f'{import_dir}/{export_filename}'
         try:
-            subprocess.run(
-                f'cp {export_source} {results_path}',
-                shell=True, check=True, capture_output=True
-            )
+            subprocess.run(f'cp {export_source} {results_path}', shell=True, check=True, capture_output=True)
         except Exception as e:
             log.error(f'Neo4j result copy error: {e}')
 
         # Cleanup
         try:
-            subprocess.run(
-                f'rm -f {import_dir}/{fact_file_name} {export_source}',
-                shell=True, capture_output=True
-            )
+            subprocess.run(f'rm -f {import_dir}/{fact_file_name} {export_source}', shell=True, capture_output=True)
         except Exception:
             pass
 

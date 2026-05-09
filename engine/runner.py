@@ -13,6 +13,7 @@ The ExperimentRunner orchestrates the full benchmarking lifecycle:
 
 Adding a new system requires ZERO changes here — only a new descriptor.yaml.
 """
+
 from __future__ import annotations
 
 import csv
@@ -139,18 +140,19 @@ class ExperimentRunner:
         connector = ConnectorClass()
         try:
             connector.connect(system.credentials, system)
-            
+
             query_bindings = None
             query_file = input_path.parent / 'queries.csv'
             if query_file.exists():
                 import csv
+
                 with open(query_file, 'r') as f:
                     reader = csv.reader(f)
                     headers = next(reader, [])
                     row = next(reader, [])
                     if headers and row:
                         query_bindings = dict(zip(headers, row))
-                        
+
             timing = connector.run_experiment(
                 rule_path, input_path, output_folder, system, self.config, query_bindings=query_bindings
             )
@@ -207,11 +209,7 @@ class ExperimentRunner:
         return folder
 
     def _all_modes_exist(self, system: SystemDescriptor, graph: GraphTypeDescriptor, size: int) -> bool:
-        return all(
-            self._timing_path(system, graph, size, mode).exists()
-            for mode in self.modes
-            if mode in system.modes
-        )
+        return all(self._timing_path(system, graph, size, mode).exists() for mode in self.modes if mode in system.modes)
 
     def _write_timing(self, timing_path: Path, headers: list[str], timing: dict[str, float]) -> None:
         is_new = not timing_path.exists()
@@ -281,10 +279,16 @@ class ExperimentRunner:
             config_str = json.dumps(self.config)
             result = subprocess.run(
                 [
-                    'python', 'generate_db.py',
-                    '--config', config_str,
-                    '--sizes', str(self.size_range[0]), str(self.size_range[1]), str(self.size_range[2]),
-                    '--graph-types', *missing,
+                    'python',
+                    'generate_db.py',
+                    '--config',
+                    config_str,
+                    '--sizes',
+                    str(self.size_range[0]),
+                    str(self.size_range[1]),
+                    str(self.size_range[2]),
+                    '--graph-types',
+                    *missing,
                 ],
                 capture_output=True,
                 text=True,
@@ -306,23 +310,27 @@ class ExperimentRunner:
 
     def _emit(self, done: int, total: int, system: str, graph: str, size: int, mode: str, status: str) -> None:
         if self.progress_cb:
-            self.progress_cb({
-                'type': 'progress',
-                'done': done,
-                'total': total,
-                'pct': round(100 * done / max(total, 1), 1),
-                'system': system,
-                'graph': graph,
-                'size': size,
-                'mode': mode,
-                'status': status,
-            })
+            self.progress_cb(
+                {
+                    'type': 'progress',
+                    'done': done,
+                    'total': total,
+                    'pct': round(100 * done / max(total, 1), 1),
+                    'system': system,
+                    'graph': graph,
+                    'size': size,
+                    'mode': mode,
+                    'status': status,
+                }
+            )
 
     def _emit_log(self, message: str, level: str = 'info') -> None:
         """Emit a plain log line (not a progress update) through the progress callback."""
         if self.progress_cb:
-            self.progress_cb({
-                'type': 'log',
-                'message': message,
-                'level': level,
-            })
+            self.progress_cb(
+                {
+                    'type': 'log',
+                    'message': message,
+                    'level': level,
+                }
+            )

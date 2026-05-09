@@ -4,6 +4,7 @@ engine/connectors/duckdb_conn.py
 DuckDB connector — executes SQL scripts directly via the DuckDB Python driver.
 The SQL rule files use {data_file} and {output_file} placeholders.
 """
+
 from __future__ import annotations
 
 import logging

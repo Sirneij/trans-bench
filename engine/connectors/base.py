@@ -10,6 +10,7 @@ over psycopg2), you only need a new descriptor.yaml — no new connector.
 To add a genuinely new protocol, implement BaseConnector here and register
 it in engine/connectors/__init__.py.
 """
+
 from __future__ import annotations
 
 import logging
@@ -88,15 +89,16 @@ class BaseConnector(ABC):
         """
         Run a subprocess, returning (real_seconds, cpu_seconds, max_rss_mb, CompletedProcess).
         """
-        import psutil
-        import threading
         import subprocess
+        import threading
+
+        import psutil
 
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, **kwargs)
-        
+
         max_rss = 0.0
         stop_polling = threading.Event()
-        
+
         def poll_memory():
             nonlocal max_rss
             try:
@@ -112,29 +114,27 @@ class BaseConnector(ABC):
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     break
                 stop_polling.wait(0.01)
-                
+
         t = threading.Thread(target=poll_memory, daemon=True)
         t.start()
-        
+
         t0_cpu = process_time()
         t0 = perf_counter()
-        
+
         stdout, stderr = proc.communicate()
-        
+
         real = perf_counter() - t0
         cpu = process_time() - t0_cpu
-        
+
         stop_polling.set()
         t.join(timeout=0.2)
-        
+
         result = subprocess.CompletedProcess(proc.args, proc.returncode, stdout, stderr)
         return real, cpu, max_rss / (1024 * 1024), result
 
     @staticmethod
     def build_timing_row(
-        phases: list, 
-        measurements: list[tuple[float, float]],
-        memory: list[float] | None = None
+        phases: list, measurements: list[tuple[float, float]], memory: list[float] | None = None
     ) -> dict[str, float]:
         """
         Zip a list of TimingPhase objects with (real, cpu) measurements into

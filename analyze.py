@@ -91,7 +91,9 @@ def analyze_data(unique_df: pd.DataFrame) -> dict[str, dict[str, pd.DataFrame]]:
     return unique_result
 
 
-def calculate_factors(unique_result: dict[str, dict[str, pd.DataFrame]]) -> dict[tuple[str, str], dict[str, pd.DataFrame]]:
+def calculate_factors(
+    unique_result: dict[str, dict[str, pd.DataFrame]],
+) -> dict[tuple[str, str], dict[str, pd.DataFrame]]:
     final_tables: dict[tuple[str, str], dict[str, pd.DataFrame]] = {}
 
     for key in unique_result:
@@ -197,7 +199,7 @@ def create_overall_csvs(unique_result: dict[tuple[str, str], dict[str, pd.DataFr
         # Skip recursion variants that are not in overall_data
         if recursion_variant not in overall_data:
             continue
-            
+
         short_name = get_short_graph_name(graph_type, size)
 
         sorted_by_real_time = results['sorted_by_real_time']

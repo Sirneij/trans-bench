@@ -3,6 +3,7 @@ engine/connectors/mongodb_conn.py
 
 MongoDB connector — executes Python-based query modules via dynamic import.
 """
+
 from __future__ import annotations
 
 import importlib.util
@@ -24,6 +25,7 @@ class MongoDBConnector(BaseConnector):
 
     def connect(self, credentials: dict[str, Any], descriptor: 'SystemDescriptor') -> None:
         from pymongo import MongoClient
+
         uri = credentials.get('uri', 'mongodb://127.0.0.1:27017/')
         database = credentials.get('database', 'test')
         self._client = MongoClient(uri)

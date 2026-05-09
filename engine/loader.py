@@ -7,6 +7,7 @@ objects, and optionally merges legacy config.json credentials.
 
 No Python source edits required to add new systems — just drop a descriptor.
 """
+
 from __future__ import annotations
 
 import json
@@ -24,27 +25,30 @@ log = logging.getLogger(__name__)
 # Data classes
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class TimingPhase:
     """One timed section in an experiment run (maps to two CSV columns)."""
-    id: str          # snake_case key used internally
-    label: str       # CamelCase used in CSV headers  (→ {label}RealTime, {label}CPUTime)
+
+    id: str  # snake_case key used internally
+    label: str  # CamelCase used in CSV headers  (→ {label}RealTime, {label}CPUTime)
 
 
 @dataclass
 class SystemDescriptor:
     """Everything the engine needs to know about a benchmarked system."""
+
     name: str
     display_name: str
-    category: str           # db | logic | hybrid
-    protocol: str           # connector type: psycopg2 | mysqlclient | duckdb | neo4j | pymongo |
-                            #                 subprocess | clingo_python | souffle_subprocess | alda_subprocess
+    category: str  # db | logic | hybrid
+    protocol: str  # connector type: psycopg2 | mysqlclient | duckdb | neo4j | pymongo |
+    #                 subprocess | clingo_python | souffle_subprocess | alda_subprocess
     timing_phases: list[TimingPhase]
-    input_format: str       # tsv | lp | facts | pickle
+    input_format: str  # tsv | lp | facts | pickle
     modes: list[str]
     rule_extension: str
     flags: dict[str, Any]
-    execution: dict[str, Any]   # protocol-specific execution config
+    execution: dict[str, Any]  # protocol-specific execution config
     descriptor_path: Path
     rules_dir: Path
     credentials: dict[str, Any]
@@ -83,10 +87,11 @@ class SystemDescriptor:
 @dataclass
 class GraphTypeDescriptor:
     """Describes a graph topology that the benchmark can generate."""
+
     name: str
     display_name: str
     description: str
-    generator: str          # dotted Python path to a DataGenerator method
+    generator: str  # dotted Python path to a DataGenerator method
     parameters: dict[str, Any]
 
     def to_dict(self) -> dict:
@@ -102,6 +107,7 @@ class GraphTypeDescriptor:
 # ---------------------------------------------------------------------------
 # Loader
 # ---------------------------------------------------------------------------
+
 
 class DescriptorLoader:
     """
@@ -226,10 +232,7 @@ class DescriptorLoader:
         # Load credentials from credentials.yaml if it exists
         credentials = self._load_credentials(path.parent, data.get('name', path.parent.name))
 
-        timing_phases = [
-            TimingPhase(id=p['id'], label=p['label'])
-            for p in data.get('timing_phases', [])
-        ]
+        timing_phases = [TimingPhase(id=p['id'], label=p['label']) for p in data.get('timing_phases', [])]
 
         rules_dir = path.parent / 'rules'
 

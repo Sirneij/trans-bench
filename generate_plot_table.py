@@ -43,7 +43,7 @@ class BaseTableAndPlotGenerator:
             'barabasi_albert': 'BA',
             'scale_free': 'SF',
         }
-    
+
     @staticmethod
     def __get_xlabel_for_graph_type(graph_type: str) -> str:
         """Get the appropriate x-axis label for a given graph type."""
@@ -55,7 +55,6 @@ class BaseTableAndPlotGenerator:
             'y': 'Number of nodes - $k$, and $k=10$',
         }
         return xlabel_map.get(graph_type, 'Number of nodes')
-    
 
     @staticmethod
     def __initialize_components() -> dict[str, list[str]]:
@@ -729,7 +728,7 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
         preferred_order = ['xsb', 'clingo', 'souffle']
         environments = sorted(
             list(self._BaseTableAndPlotGenerator__list_to_ordered_set(env_list)),
-            key=lambda x: (preferred_order.index(x.lower()) if x.lower() in preferred_order else 999, x.lower())
+            key=lambda x: (preferred_order.index(x.lower()) if x.lower() in preferred_order else 999, x.lower()),
         )
 
         mds = [key[2] for key in self.data if key[0] in environments]
@@ -846,7 +845,6 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
                 xlabel = self._BaseTableAndPlotGenerator__get_xlabel_for_graph_type(graph_type)
                 # Get short name for file - UPDATED
                 short_name = self.graph_name_mappings.get(graph_type, graph_type)
-
 
                 file_folder = file_dir / mode
                 file_folder.mkdir(exist_ok=True, parents=True)
@@ -986,7 +984,7 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
                 for graph_type in graph_types:
                     # Get short name for file lookup
                     short_name = self.graph_name_mappings.get(graph_type, graph_type)
-                    
+
                     combined_content = self.__combine_files(directory_path, short_name, mode)
 
                     # Only create combined file if we have content

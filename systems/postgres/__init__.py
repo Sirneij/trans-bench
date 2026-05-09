@@ -40,9 +40,7 @@ class PostgresOperations(Base):
         with self.conn.cursor() as cursor:
             with open(file_path, 'r') as f:
                 cursor.copy_expert(
-                    sql.SQL("COPY {} FROM STDIN WITH DELIMITER E'\t'").format(
-                        sql.Identifier(table_name)
-                    ),
+                    sql.SQL("COPY {} FROM STDIN WITH DELIMITER E'\t'").format(sql.Identifier(table_name)),
                     f,
                 )
 
@@ -57,9 +55,7 @@ class PostgresOperations(Base):
         with self.conn.cursor() as cursor:
             with open(file_path, 'w') as f:
                 cursor.copy_expert(
-                    sql.SQL("COPY ({}) TO STDOUT WITH CSV HEADER").format(
-                        sql.SQL(query)
-                    ),
+                    sql.SQL("COPY ({}) TO STDOUT WITH CSV HEADER").format(sql.SQL(query)),
                     f,
                 )
 

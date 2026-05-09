@@ -15,9 +15,7 @@ class MariaDBOperations(Base):
         cursor: MySQLdb.cursors.BaseCursor = self.conn.cursor()
         cursor.execute(query, params)
 
-    def import_data_from_file(
-        self, table_name: str, file_path: str, delimiter: str = '\t'
-    ) -> None:
+    def import_data_from_file(self, table_name: str, file_path: str, delimiter: str = '\t') -> None:
         query = f"""
         LOAD DATA LOCAL INFILE '{file_path}'
         INTO TABLE {table_name}

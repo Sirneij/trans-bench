@@ -93,14 +93,14 @@ def create_app() -> Flask:
         csv_count = len(list(timing_dir.glob('**/*.csv'))) if timing_dir.exists() else 0
         system_dirs = [d.name for d in timing_dir.iterdir() if d.is_dir()] if timing_dir.exists() else []
 
-        import platform
         import os
+        import platform
 
         machine_info = {
             'os': f"{platform.system()} {platform.release()}",
             'arch': platform.machine(),
             'cpu_count': os.cpu_count(),
-            'python_version': platform.python_version()
+            'python_version': platform.python_version(),
         }
 
         return render_template(
@@ -115,66 +115,42 @@ def create_app() -> Flask:
 
     def _get_math_info(name: str):
         info = {
-            'complete': {
-                'symbol': 'K_n',
-                'definition': r'\{(i,j) \mid i \in 1..n, j \in 1..n\}'
-            },
-            'max_acyclic': {
-                'symbol': 'T_n',
-                'definition': r'\{(i,j) \mid i \in 1..n-1, j \in i+1..n\}'
-            },
-            'cycle': {
-                'symbol': 'C_n',
-                'definition': r'\{(i,i+1) \mid i \in 1..n-1\} \cup \{(n,1)\}'
-            },
+            'complete': {'symbol': 'K_n', 'definition': r'\{(i,j) \mid i \in 1..n, j \in 1..n\}'},
+            'max_acyclic': {'symbol': 'T_n', 'definition': r'\{(i,j) \mid i \in 1..n-1, j \in i+1..n\}'},
+            'cycle': {'symbol': 'C_n', 'definition': r'\{(i,i+1) \mid i \in 1..n-1\} \cup \{(n,1)\}'},
             'cycle_with_shortcuts': {
                 'symbol': 'S_{n,k}',
-                'definition': r'\{(i, (i-1 + t \cdot n/(k+1)) \bmod n + 1) \mid i \in 1..n, t \in 1..k\} \cup C_n'
+                'definition': r'\{(i, (i-1 + t \cdot n/(k+1)) \bmod n + 1) \mid i \in 1..n, t \in 1..k\} \cup C_n',
             },
-            'path': {
-                'symbol': 'P_n',
-                'definition': r'\{(i,i+1) \mid i \in 1..n-1\}'
-            },
-            'multi_path': {
-                'symbol': 'M_{n,k}',
-                'definition': r'\{(i,i+k) \mid i \in 1..(n-1) \cdot k\}'
-            },
+            'path': {'symbol': 'P_n', 'definition': r'\{(i,i+1) \mid i \in 1..n-1\}'},
+            'multi_path': {'symbol': 'M_{n,k}', 'definition': r'\{(i,i+k) \mid i \in 1..(n-1) \cdot k\}'},
             'grid': {
                 'symbol': 'G_{n \times n}',
-                'definition': r'\{(j, j+1) \mid i \in 1..n, j \in (i-1)n+1..in-1\} \cup \{(j, j+n) \mid i \in 1..n-1, j \in (i-1)n+1..in\}'
+                'definition': r'\{(j, j+1) \mid i \in 1..n, j \in (i-1)n+1..in-1\} \cup \{(j, j+n) \mid i \in 1..n-1, j \in (i-1)n+1..in\}',
             },
             'binary_tree': {
                 'symbol': 'B_h',
-                'definition': r'\{(i, 2i) \mid i \in 1..2^{h-1}\} \cup \{(i, 2i+1) \mid i \in 1..2^{h-1}\}'
+                'definition': r'\{(i, 2i) \mid i \in 1..2^{h-1}\} \cup \{(i, 2i+1) \mid i \in 1..2^{h-1}\}',
             },
             'reverse_binary_tree': {
                 'symbol': 'V_h',
-                'definition': r'\{(2i, i) \mid i \in 1..2^{h-1}\} \cup \{(2i+1, i) \mid i \in 1..2^{h-1}\}'
+                'definition': r'\{(2i, i) \mid i \in 1..2^{h-1}\} \cup \{(2i+1, i) \mid i \in 1..2^{h-1}\}',
             },
             'x': {
                 'symbol': 'X_{n,k}',
-                'definition': r'\{(i, n+1) \mid i \in 1..n\} \cup \{(n+1, n+1+j) \mid j \in 1..k\}'
+                'definition': r'\{(i, n+1) \mid i \in 1..n\} \cup \{(n+1, n+1+j) \mid j \in 1..k\}',
             },
             'y': {
                 'symbol': 'Y_{n,k}',
-                'definition': r'\{(i, n+1) \mid i \in 1..n\} \cup \{(i, i+1) \mid i \in n+1..n+k-1\}'
+                'definition': r'\{(i, n+1) \mid i \in 1..n\} \cup \{(i, i+1) \mid i \in n+1..n+k-1\}',
             },
-            'w': {
-                'symbol': 'W_{n,k}',
-                'definition': r'\{(i, n+1 + (i+j-1) \bmod n) \mid i \in 1..n, j \in 1..k\}'
-            },
+            'w': {'symbol': 'W_{n,k}', 'definition': r'\{(i, n+1 + (i+j-1) \bmod n) \mid i \in 1..n, j \in 1..k\}'},
             'barabasi_albert': {
                 'symbol': 'BA_{n,m}',
-                'definition': r'\text{Scale-free network generated using preferential attachment with } m \text{ edges.}'
+                'definition': r'\text{Scale-free network generated using preferential attachment with } m \text{ edges.}',
             },
-            'scale_free': {
-                'symbol': 'SF_n',
-                'definition': r'\text{Directed scale-free graph.}'
-            },
-            'star': {
-                'symbol': 'S_n',
-                'definition': r'\{(i, 1) \mid i \in 2..n\}'
-            }
+            'scale_free': {'symbol': 'SF_n', 'definition': r'\text{Directed scale-free graph.}'},
+            'star': {'symbol': 'S_n', 'definition': r'\{(i, 1) \mid i \in 2..n\}'},
         }
         return info.get(name, {'symbol': 'G_n', 'definition': r'\text{No formal definition available.}'})
 
@@ -186,12 +162,15 @@ def create_app() -> Flask:
             return redirect(url_for('dashboard'))
 
         import sys
+
         if str(BASE_DIR) not in sys.path:
             sys.path.insert(0, str(BASE_DIR))
 
         try:
-            from generate_db import DataGenerator
             import inspect
+
+            from generate_db import DataGenerator
+
             gen_method_name = f'generate_{name}_graph'
             data_gen = DataGenerator()
             if hasattr(data_gen, gen_method_name):
@@ -273,11 +252,11 @@ def create_app() -> Flask:
         system = loader.get_system(name)
         if system is None:
             return jsonify({'error': 'System not found'}), 404
-        
+
         rule_path = system.rules_dir / filename
         if not rule_path.exists() or not rule_path.is_file():
             return jsonify({'error': 'Rule file not found'}), 404
-            
+
         try:
             content = rule_path.read_text()
             return jsonify({'content': content})
@@ -289,11 +268,11 @@ def create_app() -> Flask:
         system = loader.get_system(name)
         if system is None:
             return jsonify({'ok': False, 'error': 'System not found'}), 404
-            
+
         rule_path = system.rules_dir / filename
         if not rule_path.exists() or not rule_path.is_file():
             return jsonify({'ok': False, 'error': 'Rule file not found'}), 404
-            
+
         content = request.form.get('content', '')
         try:
             rule_path.write_text(content)
@@ -358,7 +337,7 @@ def create_app() -> Flask:
         sizes = data.get('sizes', [10, 101, 10])
         num_runs = int(data.get('num_runs', 3))
         souffle_dir = data.get('souffle_include_dir')
-        
+
         cli_args = ["python transitive.py"]
         if domain != 'transitive':
             cli_args.append(f"--domain {domain}")
@@ -385,11 +364,12 @@ def create_app() -> Flask:
 
         if not systems or not graph_types:
             return jsonify({'ok': False, 'error': 'No systems or graph types found'}), 400
-            
+
         if souffle_dir:
             config['souffle_include_dir'] = souffle_dir
             try:
                 import yaml
+
                 cfg_path = BASE_DIR / 'config.yaml'
                 if cfg_path.exists():
                     with open(cfg_path, 'r') as f:
@@ -525,8 +505,9 @@ def create_app() -> Flask:
         all_systems = set()
         all_graphs = set()
         all_modes = set()
-        
+
         import re
+
         mode_pattern = re.compile(r'^(.*?)_graph_\d+\.csv$')
 
         if timing_dir.exists():
@@ -536,7 +517,7 @@ def create_app() -> Flask:
                 domain_name = domain_dir.name
                 if domain_name not in tree:
                     tree[domain_name] = {}
-                    
+
                 for system_dir in sorted(domain_dir.iterdir()):
                     if not system_dir.is_dir():
                         continue
@@ -544,13 +525,13 @@ def create_app() -> Flask:
                     if system_name not in tree[domain_name]:
                         tree[domain_name][system_name] = {}
                     all_systems.add(system_name)
-                    
+
                     for graph_dir in sorted(system_dir.iterdir()):
                         if not graph_dir.is_dir():
                             continue
                         graph_name = graph_dir.name
                         all_graphs.add(graph_name)
-                        
+
                         csvs = sorted(graph_dir.glob('*.csv'))
                         for c in csvs:
                             match = mode_pattern.match(c.name)
@@ -559,15 +540,18 @@ def create_app() -> Flask:
                         tree[domain_name][system_name][graph_name] = [c.name for c in csvs]
         # Custom sort for all_systems
         preferred_order = ['xsb', 'clingo', 'souffle']
-        sorted_systems = sorted(list(all_systems), key=lambda x: (preferred_order.index(x.lower()) if x.lower() in preferred_order else 999, x.lower()))
+        sorted_systems = sorted(
+            list(all_systems),
+            key=lambda x: (preferred_order.index(x.lower()) if x.lower() in preferred_order else 999, x.lower()),
+        )
 
         return render_template(
-            'results.html', 
-            tree=tree, 
+            'results.html',
+            tree=tree,
             all_domains=sorted(list(tree.keys())),
-            all_systems=sorted_systems, 
-            all_graphs=sorted(list(all_graphs)), 
-            all_modes=sorted(list(all_modes))
+            all_systems=sorted_systems,
+            all_graphs=sorted(list(all_graphs)),
+            all_modes=sorted(list(all_modes)),
         )
 
     @app.route('/results/data/<domain>/<system>/<graph>/<filename>')
@@ -581,29 +565,29 @@ def create_app() -> Flask:
 
             reader = csvmod.reader(f)
             headers = next(reader, [])
-            
+
             # The CSV might have 8 headers, but the average row has 9 columns (starts with "Average").
             # We will artificially add a 'Step' header at the beginning to align the data.
             aligned_headers = ['Step'] + headers
-            
+
             row_idx = 1
             for row in reader:
                 if not row:
                     continue
-                
+
                 clean_row = {}
                 if row[0] == 'Average':
                     # Average row has 9 columns: ['Average', val1, val2, ..., val8]
                     clean_row['Step'] = 'Average'
                     for i, h in enumerate(headers):
-                        clean_row[h] = row[i+1] if i+1 < len(row) else ''
+                        clean_row[h] = row[i + 1] if i + 1 < len(row) else ''
                 else:
                     # Data row has 8 columns: [val1, val2, ..., val8]
                     clean_row['Step'] = f'Run {row_idx}'
                     for i, h in enumerate(headers):
                         clean_row[h] = row[i] if i < len(row) else ''
                     row_idx += 1
-                
+
                 rows.append(clean_row)
 
         return jsonify({'file': filename, 'columns': aligned_headers, 'rows': rows})
@@ -625,65 +609,64 @@ def create_app() -> Flask:
         req = request.get_json()
         if not req:
             return jsonify({'error': 'Invalid request'}), 400
-        
+
         graph_type = req.get('graph_type')
         modes = req.get('modes', [])
         if not modes and req.get('mode'):
             modes = [req.get('mode')]
         req_systems = req.get('systems', [])
-        
+
         if not graph_type or not modes or not req_systems:
             return jsonify({'error': 'Missing required fields'}), 400
-            
-        import re
+
         import csv
+        import re
+
         timing_dir = BASE_DIR / 'timing'
-        
+
         # size -> mode -> system -> { phase: time }
         results_by_size = {}
-        
-        domain = req.get('domain', 'transitive') # We need domain now!
-        
+
+        domain = req.get('domain', 'transitive')  # We need domain now!
+
         for sys_name in req_systems:
             sys_graph_dir = timing_dir / domain / sys_name / graph_type
             if not sys_graph_dir.exists():
                 continue
-                
+
             for mode in modes:
                 pattern = re.compile(rf'^{re.escape(mode)}_graph_(\d+)\.csv$')
                 for csv_file in sys_graph_dir.glob(f'{mode}_graph_*.csv'):
                     match = pattern.match(csv_file.name)
                     if not match:
                         continue
-                    
+
                     size = int(match.group(1))
                     if size not in results_by_size:
                         results_by_size[size] = {}
                     if mode not in results_by_size[size]:
                         results_by_size[size][mode] = {}
-                        
+
                     with open(csv_file, 'r') as f:
                         reader = csv.reader(f)
                         headers = next(reader, [])
                         for row in reader:
-                            if not row: continue
+                            if not row:
+                                continue
                             if row[0] == 'Average':
                                 phase_data = {}
                                 for i, h in enumerate(headers):
-                                    val_str = row[i+1] if i+1 < len(row) else ''
+                                    val_str = row[i + 1] if i + 1 < len(row) else ''
                                     try:
                                         phase_data[h] = float(val_str)
                                     except ValueError:
                                         phase_data[h] = 0.0
                                 results_by_size[size][mode][sys_name] = phase_data
                                 break
-                            
+
         # Sort by size
-        sorted_results = [
-            {'size': size, 'modes': results_by_size[size]}
-            for size in sorted(results_by_size.keys())
-        ]
-        
+        sorted_results = [{'size': size, 'modes': results_by_size[size]} for size in sorted(results_by_size.keys())]
+
         return jsonify(sorted_results)
 
     return app

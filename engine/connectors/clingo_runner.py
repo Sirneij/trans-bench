@@ -1,11 +1,13 @@
-import sys
 import os
+import sys
 import time
+
 
 def _estimate_os_times(t1, t2):
     u1, s1, cu1, cs1, e1 = t1
     u2, s2, cu2, cs2, e2 = t2
     return e2 - e1, (u2 - u1) + (s2 - s1) + (cu2 - cu1) + (cs2 - cs1)
+
 
 def main():
     if len(sys.argv) < 4:
@@ -20,13 +22,19 @@ def main():
 
     ctl = clingo.Control()
 
-    t0 = os.times(); ctl.load(rule_path); t1 = os.times()
+    t0 = os.times()
+    ctl.load(rule_path)
+    t1 = os.times()
     rule_real, rule_cpu = _estimate_os_times(t0, t1)
 
-    t0 = os.times(); ctl.load(input_path); t1 = os.times()
+    t0 = os.times()
+    ctl.load(input_path)
+    t1 = os.times()
     fact_real, fact_cpu = _estimate_os_times(t0, t1)
 
-    t0 = os.times(); ctl.ground([('base', [])]); t1 = os.times()
+    t0 = os.times()
+    ctl.ground([('base', [])])
+    t1 = os.times()
     ground_real, ground_cpu = _estimate_os_times(t0, t1)
 
     ctl.configuration.solve.models = '0'
@@ -52,6 +60,7 @@ def main():
     print(f"CPUQueryTime: {solve_cpu}")
     print(f"WriteTime: {write_real}")
     print(f"CPUWriteTime: {write_cpu}")
+
 
 if __name__ == "__main__":
     main()

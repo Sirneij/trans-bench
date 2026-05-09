@@ -17,6 +17,7 @@ Usage examples:
   # Launch the Web UI instead
   python transitive.py --ui
 """
+
 from __future__ import annotations
 
 import argparse
@@ -134,6 +135,7 @@ Examples:
     # ── Launch Web UI mode ────────────────────────────────────────────────
     if args.ui:
         from ui.app import create_app
+
         app = create_app()
         print(f'\n  trans-bench Web UI  →  http://{args.ui_host}:{args.ui_port}\n')
         app.run(host=args.ui_host, port=args.ui_port, debug=True)

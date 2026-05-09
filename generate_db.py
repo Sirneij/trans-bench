@@ -6,23 +6,23 @@ import math
 import os
 import pickle
 from pathlib import Path
-from typing import Any, Generator, Callable
+from typing import Any, Callable, Generator
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s')
 
 # Built-in defaults — used when config is missing the 'defaults' key (e.g. new config.yaml)
 _DEFAULT_SYSTEMS: dict[str, Any] = {
     'environmentExtensions': {
-        'clingo':     '.lp',
-        'xsb':        '.P',
-        'souffle':    '.dl',
-        'postgres':   '.py',
-        'mariadb':    '.py',
-        'duckdb':     '.sql',
-        'neo4j':      '.cypher',
-        'mongodb':    '.py',
-        'cockroachdb':'.py',
-        'alda':       '.da',
+        'clingo': '.lp',
+        'xsb': '.P',
+        'souffle': '.dl',
+        'postgres': '.py',
+        'mariadb': '.py',
+        'duckdb': '.sql',
+        'neo4j': '.cypher',
+        'mongodb': '.py',
+        'cockroachdb': '.py',
+        'alda': '.da',
     },
     'dbSystems': ['postgres', 'mariadb', 'duckdb', 'mongodb', 'neo4j', 'cockroachdb'],
     'otherLogicSystems': ['xsb', 'clingo', 'souffle'],
@@ -182,6 +182,7 @@ class DataGenerator:
         Mathmatically guarantees that a subset of nodes N1 inside N2 will have identical edges.
         """
         import networkx as nx
+
         logging.info(f'Generating Barabási-Albert graph for n={n} (m={m})')
 
         if n <= m:
@@ -198,12 +199,12 @@ class DataGenerator:
         Generate a scale-free directed graph.
         """
         import networkx as nx
+
         logging.info(f'Generating scale-free graph for n={n}')
         G = nx.scale_free_graph(n, seed=42)
         # using set to remove multigraph duplicate edges
         for u, v in G.edges():
             yield (u + 1, v + 1)
-
 
 
 class GraphGenerator:
@@ -222,20 +223,34 @@ class GraphGenerator:
         self.base_dir = Path(base_dir)
         self.config = config
 
-    def save_for_alda(self, graph_generator_func: Callable[[int], Generator[tuple[int, int], None, None]], size: int, filename: Path):
+    def save_for_alda(
+        self, graph_generator_func: Callable[[int], Generator[tuple[int, int], None, None]], size: int, filename: Path
+    ):
         graph_generator = graph_generator_func(size)
         data_set_of_tuples = set(graph_generator)
         with open(filename, 'wb') as f:
             pickle.dump(data_set_of_tuples, f)
 
-    def save_for_souffle(self, graph_generator_func: Callable[[int], Generator[tuple[int, int], None, None]], size: int, filename: Path, fact_name: str = 'edge'):
+    def save_for_souffle(
+        self,
+        graph_generator_func: Callable[[int], Generator[tuple[int, int], None, None]],
+        size: int,
+        filename: Path,
+        fact_name: str = 'edge',
+    ):
         graph_generator = graph_generator_func(size)
         with open(filename, 'w') as file:
             for value in graph_generator:
                 first, second = value
                 file.write(f'{first}\t{second}\n')
 
-    def save_for_clingo_xsb(self, graph_generator_func: Callable[[int], Generator[tuple[int, int], None, None]], size: int, filename: Path, fact_name: str = 'edge'):
+    def save_for_clingo_xsb(
+        self,
+        graph_generator_func: Callable[[int], Generator[tuple[int, int], None, None]],
+        size: int,
+        filename: Path,
+        fact_name: str = 'edge',
+    ):
         graph_generator = graph_generator_func(size)
         with open(filename, 'w') as file:
             for value in graph_generator:
