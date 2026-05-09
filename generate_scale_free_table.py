@@ -3,14 +3,16 @@ from pathlib import Path
 import csv
 import re
 
-environments = ['cockroachdb', 'neo4j', 'mariadb', 'postgres', 'duckdb', 'xsb']
+environments = ['xsb', 'clingo', 'souffle', 'postgres', 'mariadb', 'duckdb', 'neo4j', 'cockroachdb']
 env_names = {
-    'cockroachdb': 'CockroachDB',
-    'neo4j': 'Neo4J',
-    'mariadb': 'MariaDB',
+    'xsb': 'XSB',
+    'clingo': 'Clingo',
+    'souffle': 'Soufflé',
     'postgres': 'PostgreSQL',
+    'mariadb': 'MariaDB',
     'duckdb': 'DuckDB',
-    'xsb': 'XSB'
+    'neo4j': 'Neo4J',
+    'cockroachdb': 'CockroachDB'
 }
 
 def get_query_time(env, headers, values):
@@ -28,33 +30,33 @@ def get_query_time(env, headers, values):
 
 def generate():
     data = {}
-    pattern = re.compile(r'^timing_(.*?)_graph_(\d+)\.csv$')
+    pattern = re.compile(r'^(.*?)_graph_(\d+)\.csv$')
     
     for file in Path('timing').rglob('*scale_free*/**/*.csv'):
-        if file.name.startswith('timing_') and 'graph' in file.name:
-            match = pattern.match(file.name)
-            if not match: continue
-            
-            mode = match.group(1)
-            size = int(match.group(2))
-            env = file.parts[1]
-            
-            if env not in environments:
-                continue
+        match = pattern.match(file.name)
+        if not match: continue
+        
+        mode = match.group(1)
+        size = int(match.group(2))
+        # Path: timing/{domain}/{env}/{graph_type}/{mode}_graph_{size}.csv
+        env = file.parts[2]
+        
+        if env not in environments:
+            continue
                 
-            with open(file) as f:
-                reader = csv.reader(f)
-                lines = list(reader)
-                if len(lines) > 1 and lines[-1][0] == 'Average':
-                    headers = lines[0]
-                    avg_vals = lines[-1]
-                    val = get_query_time(env, headers, avg_vals)
-                    if val is not None:
-                        if mode not in data:
-                            data[mode] = {}
-                        if size not in data[mode]:
-                            data[mode][size] = {}
-                        data[mode][size][env] = val
+        with open(file) as f:
+            reader = csv.reader(f)
+            lines = list(reader)
+            if len(lines) > 1 and lines[-1][0] == 'Average':
+                headers = lines[0]
+                avg_vals = lines[-1]
+                val = get_query_time(env, headers, avg_vals)
+                if val is not None:
+                    if mode not in data:
+                        data[mode] = {}
+                    if size not in data[mode]:
+                        data[mode][size] = {}
+                    data[mode][size][env] = val
 
     latex_lines = [
         "\\documentclass[varwidth=6.5in]{standalone}",

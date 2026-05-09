@@ -726,9 +726,10 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
         file_dir.mkdir(exist_ok=True, parents=True)
 
         env_list = [key[0] for key in self.data if key[0] != 'alda']
+        preferred_order = ['xsb', 'clingo', 'souffle']
         environments = sorted(
             list(self._BaseTableAndPlotGenerator__list_to_ordered_set(env_list)),
-            reverse=True,
+            key=lambda x: (preferred_order.index(x.lower()) if x.lower() in preferred_order else 999, x.lower())
         )
 
         mds = [key[2] for key in self.data if key[0] in environments]
