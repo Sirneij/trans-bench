@@ -283,29 +283,117 @@ def create_app() -> Flask:
     @app.route('/systems/new', methods=['GET', 'POST'])
     def new_system():
         if request.method == 'POST':
-            template_name = request.form.get('template', 'postgres')
+            from engine.bootstrap import BootstrapManager
+
+            template_name = request.form.get('template', 'descriptor_sql_database.yaml')
             new_name = request.form.get('name', '').strip().lower().replace(' ', '_')
             if not new_name:
                 return jsonify({'ok': False, 'error': 'Name required'}), 400
 
-            new_dir = BASE_DIR / 'systems' / new_name
-            rules_dir = new_dir / 'rules'
-            new_dir.mkdir(exist_ok=True)
-            rules_dir.mkdir(exist_ok=True)
+            try:
+                bootstrap_mgr = BootstrapManager(BASE_DIR)
+                # Use template from templates/ directory if it exists, otherwise fall back to system template
+                templates_dir = BASE_DIR / 'templates'
+                if templates_dir.exists() and (templates_dir / template_name).exists():
+                    bootstrap_mgr.bootstrap_system(new_name, template_name)
+                else:
+                    # Fallback: copy from existing system
+                    new_dir = BASE_DIR / 'systems' / new_name
+                    rules_dir = new_dir / 'rules'
+                    new_dir.mkdir(exist_ok=True)
+                    rules_dir.mkdir(exist_ok=True)
+                    template_desc = BASE_DIR / 'systems' / template_name / 'descriptor.yaml'
+                    if template_desc.exists():
+                        content = template_desc.read_text().replace(f'name: {template_name}', f'name: {new_name}')
+                        content = content.replace(
+                            f'display_name: {template_name.title()}',
+                            f'display_name: {new_name.replace("_", " ").title()}',
+                        )
+                        (new_dir / 'descriptor.yaml').write_text(content)
+                return jsonify({'ok': True, 'redirect': url_for('system_detail', name=new_name)})
+            except Exception as e:
+                log.error(f'System creation failed: {e}')
+                return jsonify({'ok': False, 'error': str(e)}), 400
 
-            # Copy template descriptor
-            template_desc = BASE_DIR / 'systems' / template_name / 'descriptor.yaml'
-            if template_desc.exists():
-                content = template_desc.read_text().replace(f'name: {template_name}', f'name: {new_name}')
-                content = content.replace(
-                    f'display_name: {template_name.title()}', f'display_name: {new_name.replace("_", " ").title()}'
-                )
-                (new_dir / 'descriptor.yaml').write_text(content)
+        # Get available templates
+        from engine.bootstrap import BootstrapManager
 
-            return jsonify({'ok': True, 'redirect': url_for('system_detail', name=new_name)})
-
+        bootstrap_mgr = BootstrapManager(BASE_DIR)
+        available_templates = bootstrap_mgr.list_templates()
         systems = _get_systems()
-        return render_template('new_system.html', systems=systems)
+
+        return render_template(
+            'new_system.html',
+            systems=systems,
+            available_templates=available_templates,
+        )
+
+    @app.route('/domains/new', methods=['GET', 'POST'])
+    def new_domain():
+        if request.method == 'POST':
+            from engine.bootstrap import BootstrapManager
+
+            domain_name = request.form.get('name', '').strip().lower().replace(' ', '_')
+            template_name = request.form.get('template', 'domain_shortest_path.yaml')
+
+            if not domain_name:
+                return jsonify({'ok': False, 'error': 'Domain name required'}), 400
+
+            try:
+                bootstrap_mgr = BootstrapManager(BASE_DIR)
+                bootstrap_mgr.bootstrap_domain(domain_name, template_name)
+                return jsonify({'ok': True, 'redirect': url_for('dashboard')})
+            except Exception as e:
+                log.error(f'Domain creation failed: {e}')
+                return jsonify({'ok': False, 'error': str(e)}), 400
+
+        from engine.bootstrap import BootstrapManager
+
+        bootstrap_mgr = BootstrapManager(BASE_DIR)
+        templates = bootstrap_mgr.list_templates()
+        return render_template(
+            'new_domain.html',
+            domain_templates=templates.get('domain_templates', []),
+        )
+
+    @app.route('/graphs/new', methods=['GET', 'POST'])
+    def new_graph():
+        if request.method == 'POST':
+            from engine.bootstrap import BootstrapManager
+
+            graph_name = request.form.get('name', '').strip().lower().replace(' ', '_')
+            description = request.form.get('description', '')
+
+            if not graph_name:
+                return jsonify({'ok': False, 'error': 'Graph name required'}), 400
+
+            try:
+                bootstrap_mgr = BootstrapManager(BASE_DIR)
+                # Generate a default generator path
+                generator_path = f'engine.data_generator.DataGenerator.generate_{graph_name}'
+                bootstrap_mgr.bootstrap_graph(graph_name, generator_path, description)
+                return jsonify(
+                    {'ok': True, 'message': 'Graph descriptor created. Next: implement the generator method.'}
+                )
+            except Exception as e:
+                log.error(f'Graph creation failed: {e}')
+                return jsonify({'ok': False, 'error': str(e)}), 400
+
+        return render_template('new_graph.html')
+
+    # ── Validation API ────────────────────────────────────────────────────
+
+    @app.route('/api/validate/<system_name>')
+    def api_validate(system_name: str):
+        from engine.validation import RuleValidator
+
+        try:
+            validator = RuleValidator(BASE_DIR)
+            is_valid = validator.validate_system(system_name)
+            return jsonify({'valid': is_valid, 'system': system_name})
+        except Exception as e:
+            log.error(f'Validation error: {e}')
+            return jsonify({'valid': False, 'error': str(e)}), 400
 
     # ── Experiment ───────────────────────────────────────────────────────────
 
@@ -334,6 +422,7 @@ def create_app() -> Flask:
         selected_graphs = data.get('graphs', [])
         selected_modes = data.get('modes', ['right_recursion', 'left_recursion'])
         domain = data.get('domain', 'transitive')
+        query_mode = data.get('query_mode', 'full_materialization')  # full_materialization or demand_driven
         sizes = data.get('sizes', [10, 101, 10])
         num_runs = int(data.get('num_runs', 3))
         souffle_dir = data.get('souffle_include_dir')
@@ -341,6 +430,8 @@ def create_app() -> Flask:
         cli_args = ["python transitive.py"]
         if domain != 'transitive':
             cli_args.append(f"--domain {domain}")
+        if query_mode != 'full_materialization':
+            cli_args.append(f"--query-mode {query_mode}")
         if selected_systems:
             cli_args.append(f"--systems {' '.join(selected_systems)}")
         if selected_graphs:
@@ -430,6 +521,7 @@ def create_app() -> Flask:
                     num_runs=num_runs,
                     modes=selected_modes,
                     domain=domain,
+                    query_mode=query_mode,
                     progress_cb=progress_cb,
                 )
                 runner.run()

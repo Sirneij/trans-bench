@@ -76,7 +76,13 @@ class PostgreSQLConnector(BaseConnector):
         spec.loader.exec_module(mod)
 
         OpClass = _dynamic_import_class(rule_path, class_name)
-        ops = OpClass(config, self._connection)
+
+        # Pass query_bindings to the operations class via config
+        config_with_bindings = {**config}
+        if query_bindings:
+            config_with_bindings['query_bindings'] = query_bindings
+
+        ops = OpClass(config_with_bindings, self._connection)
 
         results_path = output_folder / 'postgres_results.csv'
         phases = descriptor.timing_phases
@@ -144,7 +150,13 @@ class MariaDBConnector(BaseConnector):
         spec.loader.exec_module(mod)
 
         OpClass = _dynamic_import_class(rule_path, class_name)
-        ops = OpClass(config, self._connection)
+
+        # Pass query_bindings to the operations class via config
+        config_with_bindings = {**config}
+        if query_bindings:
+            config_with_bindings['query_bindings'] = query_bindings
+
+        ops = OpClass(config_with_bindings, self._connection)
 
         results_path = output_folder / 'mariadb_results.csv'
         phases = descriptor.timing_phases
@@ -214,7 +226,13 @@ class CockroachDBConnector(BaseConnector):
         spec.loader.exec_module(mod)
 
         OpClass = _dynamic_import_class(rule_path, class_name)
-        ops = OpClass(config, self._connection)
+
+        # Pass query_bindings to the operations class via config
+        config_with_bindings = {**config}
+        if query_bindings:
+            config_with_bindings['query_bindings'] = query_bindings
+
+        ops = OpClass(config_with_bindings, self._connection)
 
         results_path = output_folder / 'cockroachdb_results.csv'
         external_dir = descriptor.credentials.get(

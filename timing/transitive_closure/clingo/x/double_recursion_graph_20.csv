@@ -1,0 +1,7 @@
+LoadRulesRealTime,LoadRulesCPUTime,LoadRulesMaxRAM_MB,LoadFactsRealTime,LoadFactsCPUTime,LoadFactsMaxRAM_MB,GroundRealTime,GroundCPUTime,GroundMaxRAM_MB,QueryRealTime,QueryCPUTime,QueryMaxRAM_MB,WriteRealTime,WriteCPUTime,WriteMaxRAM_MB
+0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,22.09375,0.0,0.0,0.0
+0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,22.0,0.0,0.0,0.0
+0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,22.015625,0.0,0.0,0.0
+0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,22.03125,0.0,0.0,0.0
+0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,22.0,0.0,0.0,0.0
+Average,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,22.028125,0.0,0.0,0.0

@@ -1,0 +1,31 @@
+name: template_graph_database
+display_name: Graph Database (Template)
+category: db
+description: Template for graph-native database systems (Neo4j, etc.)
+
+protocol: neo4j # Change to: pymongo | etc.
+
+timing_phases:
+  - id: load_data
+    label: LoadData
+  - id: create_index
+    label: CreateIndex
+  - id: execute_query
+    label: ExecuteQuery
+  - id: write_result
+    label: WriteResult
+
+input_format: tsv
+modes:
+  - right_recursion
+  - left_recursion
+  - double_recursion
+
+rule_extension: .cypher # Change to: .js (MongoDB) | etc.
+
+flags:
+  requires_credentials: true
+  supports_transactions: true
+
+execution:
+  # Graph DB specific options can go here

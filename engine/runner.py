@@ -62,6 +62,7 @@ class ExperimentRunner:
         num_runs: int,
         modes: list[str],
         domain: str = 'transitive',
+        query_mode: str = 'full_materialization',
         progress_cb: Optional[Callable[[dict], None]] = None,
     ):
         self.config = config
@@ -71,6 +72,7 @@ class ExperimentRunner:
         self.num_runs = num_runs
         self.modes = modes
         self.domain = domain
+        self.query_mode = query_mode  # full_materialization or demand_driven
         self.progress_cb = progress_cb
         self.timing_dir = Path(config.get('timing_dir', 'timing'))
         self.base_dir = Path(__file__).parent.parent
@@ -114,7 +116,7 @@ class ExperimentRunner:
                         self._emit(done, total, system.name, graph.name, size, mode, 'running')
 
                         for _ in range(self.num_runs):
-                            self._run_single(system, rule_path, input_path, output_folder, timing_path)
+                            self._run_single(system, rule_path, input_path, output_folder, timing_path, size)
 
                         self._append_average(timing_path)
                         done += 1
@@ -135,6 +137,7 @@ class ExperimentRunner:
         input_path: Path,
         output_folder: Path,
         timing_path: Path,
+        size: int,
     ) -> None:
         ConnectorClass = get_connector(system.protocol)
         connector = ConnectorClass()
@@ -142,7 +145,7 @@ class ExperimentRunner:
             connector.connect(system.credentials, system)
 
             query_bindings = None
-            query_file = input_path.parent / 'queries.csv'
+            query_file = input_path.parent / f'queries_{size}.csv'
             if query_file.exists():
                 import csv
 
@@ -153,8 +156,11 @@ class ExperimentRunner:
                     if headers and row:
                         query_bindings = dict(zip(headers, row))
 
+            # Add query_mode to config for the experiment
+            config_with_mode = {**self.config, 'query_mode': self.query_mode}
+
             timing = connector.run_experiment(
-                rule_path, input_path, output_folder, system, self.config, query_bindings=query_bindings
+                rule_path, input_path, output_folder, system, config_with_mode, query_bindings=query_bindings
             )
             self._write_timing(timing_path, system.csv_headers, timing)
         except Exception as e:
@@ -167,10 +173,33 @@ class ExperimentRunner:
 
     def _resolve_rule_path(self, system: SystemDescriptor, mode: str) -> Optional[Path]:
         """Find rule file for this system+mode for the current domain."""
+        # Generate candidates with fallback naming schemes
         candidates = [
+            # New: domain-prefixed files in system directory
             system.rules_dir / f'{self.domain}_{mode}{system.rule_extension}',
+            # New: domain-prefixed files in legacy location
             self.base_dir / f'{system.name}_rules' / f'{self.domain}_{mode}{system.rule_extension}',
         ]
+
+        # Legacy support: try shortened domain names
+        # e.g., "transitive_closure" -> "transitive_", "shortest_path" -> "shortest_"
+        domain_prefix = self.domain.split('_')[0]
+        if domain_prefix != self.domain:
+            candidates.extend(
+                [
+                    system.rules_dir / f'{domain_prefix}_{mode}{system.rule_extension}',
+                    self.base_dir / f'{system.name}_rules' / f'{domain_prefix}_{mode}{system.rule_extension}',
+                ]
+            )
+
+        # Legacy: non-prefixed files (backward compatibility)
+        candidates.extend(
+            [
+                system.rules_dir / f'{mode}{system.rule_extension}',
+                self.base_dir / f'{system.name}_rules' / f'{mode}{system.rule_extension}',
+            ]
+        )
+
         for path in candidates:
             if path.exists():
                 return path

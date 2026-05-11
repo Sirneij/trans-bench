@@ -1,0 +1,52 @@
+name: reachability_with_avoidance
+display_name: Reachability with Forbidden Nodes
+description: Find all reachable nodes while avoiding specific intermediate nodes (e.g., "shortest path avoiding toll nodes")
+category: graph_constraint_satisfaction
+
+query_parameters:
+  - name: source_node
+    type: int
+    required: true
+    description: Starting node
+  - name: forbidden_nodes
+    type: list[int]
+    required: true
+    description: Nodes that cannot be traversed
+  - name: max_hops
+    type: int
+    required: false
+    default: 100
+    description: Maximum number of hops to explore
+
+output_schema:
+  - column: source
+    type: int
+  - column: target
+    type: int
+  - column: valid_path_exists
+    type: bool
+    description: True if a path exists avoiding forbidden nodes
+
+modes:
+  - avoid_and_reach # Forward exploration with constraints
+  - backward_constrained # Backward search from target
+  - bidirectional_filtering # Meet-in-the-middle constrained search
+
+data_requirements:
+  requires_weighted_edges: false
+  allows_cycles: true
+  allows_negative_weights: false
+
+# Parameterized example for SQL
+example_rules:
+  sql: |
+    WITH RECURSIVE reach AS (
+      SELECT x, y FROM edge WHERE x = ?source AND y NOT IN ?forbidden_nodes
+      UNION ALL
+      SELECT reach.x, edge.y
+      FROM reach
+      JOIN edge ON reach.y = edge.x
+      WHERE edge.y NOT IN ?forbidden_nodes
+        AND reach.x < reach.y
+    )
+    SELECT x, y, true AS valid_path_exists FROM reach;

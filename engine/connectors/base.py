@@ -39,6 +39,28 @@ class BaseConnector(ABC):
     def __init__(self):
         self._connection = None
 
+    def _substitute_query_bindings(self, rule_content: str, query_bindings: dict[str, Any] | None) -> str:
+        """
+        Substitute query binding parameters (?param_name) in rule content.
+
+        Args:
+            rule_content: The rule file content as a string
+            query_bindings: Dictionary of parameter names to values (e.g., {'limit': '10'})
+
+        Returns:
+            Rule content with parameters substituted
+        """
+        if not query_bindings:
+            return rule_content
+
+        result = rule_content
+        for param_name, param_value in query_bindings.items():
+            # Substitute ?param_name with the actual value
+            placeholder = f'?{param_name}'
+            result = result.replace(placeholder, str(param_value))
+
+        return result
+
     # ------------------------------------------------------------------
     # Must override
     # ------------------------------------------------------------------

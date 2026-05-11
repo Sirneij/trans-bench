@@ -12,12 +12,26 @@
 
 The original suite required editing **6+ Python files** to add a new system. v2 introduces a **plugin-by-configuration** model:
 
-| Before | After |
-|---|---|
-| Edit `common.py`, `analyze_dbs.py`, `transitive.py`, `config.json`, … | Drop one `descriptor.yaml` + rule files |
-| Hardcoded system lists scattered through Python | Filesystem auto-discovery |
-| No UI — CLI only | Full Web UI with live monitoring |
-| Credentials embedded in `config.json` | Per-system `credentials.yaml` (gitignored) |
+| Before                                                                | After                                                                           |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Edit `common.py`, `analyze_dbs.py`, `transitive.py`, `config.json`, … | Drop one `descriptor.yaml` + rule files                                         |
+| Hardcoded system lists scattered through Python                       | Filesystem auto-discovery                                                       |
+| No UI — CLI only                                                      | Full Web UI with live monitoring                                                |
+| Credentials embedded in `config.json`                                 | Per-system `credentials.yaml` (gitignored)                                      |
+| Single-domain (transitive closure only)                               | **Multi-domain benchmarking** (transitive, shortest_path, reachability, custom) |
+| No extension templates                                                | **Bootstrap CLI + Web UI wizards + YAML templates**                             |
+| No validation tooling                                                 | **Validation API + rule syntax checking**                                       |
+
+---
+
+## Why Trans-Bench v2?
+
+✨ **Zero-Python Extension** — Add systems, domains, and queries entirely via YAML + rule files  
+🎯 **Multi-Domain Benchmarking** — Compare implementations of transitive closure, shortest path, reachability, etc.  
+📊 **Hybrid Resource Profiling** — Track both runtime AND peak memory usage  
+🧪 **Validation & Testing** — Built-in CLI commands to validate rules before benchmarking  
+🎨 **Interactive Web UI** — System creation wizards, live progress monitoring, result exploration  
+📚 **Comprehensive Docs** — EXTENSION_GUIDE, RULES reference, step-by-step COOKBOOK
 
 ---
 
@@ -115,15 +129,15 @@ python transitive.py --modes right_recursion left_recursion --num-runs 5
 
 ## Web UI Guide
 
-| Page | URL | What you can do |
-|---|---|---|
-| Dashboard | `/` | Overview stats, quick actions |
-| Systems | `/systems` | See all registered systems, credential status |
-| System Detail | `/systems/<name>` | Edit descriptor YAML, save credentials, browse rule files |
-| Add System | `/systems/new` | Clone a template to bootstrap a new system |
-| New Experiment | `/experiment/new` | Multi-step wizard: pick systems → graphs → settings → run |
-| Live Monitor | `/experiment/live` | SSE-powered real-time progress + log stream |
-| Results | `/results` | Browse timing CSVs, view data inline |
+| Page           | URL                | What you can do                                           |
+| -------------- | ------------------ | --------------------------------------------------------- |
+| Dashboard      | `/`                | Overview stats, quick actions                             |
+| Systems        | `/systems`         | See all registered systems, credential status             |
+| System Detail  | `/systems/<name>`  | Edit descriptor YAML, save credentials, browse rule files |
+| Add System     | `/systems/new`     | Clone a template to bootstrap a new system                |
+| New Experiment | `/experiment/new`  | Multi-step wizard: pick systems → graphs → settings → run |
+| Live Monitor   | `/experiment/live` | SSE-powered real-time progress + log stream               |
+| Results        | `/results`         | Browse timing CSVs, view data inline                      |
 
 ---
 
@@ -145,14 +159,14 @@ cp -r systems/postgres systems/my_new_db
 # systems/my_new_db/descriptor.yaml
 name: my_new_db
 display_name: My New Database
-category: db          # db | logic | hybrid
-protocol: psycopg2    # reuse an existing connector protocol
+category: db # db | logic | hybrid
+protocol: psycopg2 # reuse an existing connector protocol
 
 timing_phases:
-  - { id: create_table,  label: CreateTable }
-  - { id: load_data,     label: LoadData }
+  - { id: create_table, label: CreateTable }
+  - { id: load_data, label: LoadData }
   - { id: execute_query, label: ExecuteQuery }
-  - { id: write_result,  label: WriteResult }
+  - { id: write_result, label: WriteResult }
 
 input_format: tsv
 modes: [right_recursion, left_recursion]
@@ -262,27 +276,27 @@ Then set `protocol: my_protocol` in your `descriptor.yaml`. This is a **one-time
 ## Descriptor Reference
 
 ```yaml
-name: system_name           # snake_case, matches directory name
-display_name: Human Name    # shown in Web UI
-category: db                # db | logic | hybrid
+name: system_name # snake_case, matches directory name
+display_name: Human Name # shown in Web UI
+category: db # db | logic | hybrid
 
-protocol: psycopg2          # connector to use (see engine/connectors/__init__.py)
+protocol: psycopg2 # connector to use (see engine/connectors/__init__.py)
 
-timing_phases:              # defines CSV column headers AND execution order
-  - id: create_table        # internal ID (snake_case)
-    label: CreateTable      # CSV prefix → CreateTableRealTime, CreateTableCPUTime
+timing_phases: # defines CSV column headers AND execution order
+  - id: create_table # internal ID (snake_case)
+    label: CreateTable # CSV prefix → CreateTableRealTime, CreateTableCPUTime
 
-input_format: tsv           # tsv | lp | facts | pickle
-modes:                      # which rule files to look for
+input_format: tsv # tsv | lp | facts | pickle
+modes: # which rule files to look for
   - right_recursion
   - left_recursion
-rule_extension: .sql        # file extension for rule files
+rule_extension: .sql # file extension for rule files
 
-execution: {}               # protocol-specific hints (see subprocess systems)
+execution: {} # protocol-specific hints (see subprocess systems)
 
 flags:
   requires_credentials: true
-  class_prefix: PostgreSQL   # for Python-class-based rules (RDBMS)
+  class_prefix: PostgreSQL # for Python-class-based rules (RDBMS)
   module_prefix: postgres_rules
 ```
 
@@ -320,18 +334,18 @@ Credential files are **gitignored** by default. The Web UI saves them through th
 
 ## Supported Systems (built-in)
 
-| System | Category | Protocol | Modes |
-|---|---|---|---|
-| PostgreSQL | db | psycopg2 | right, left, double |
-| MariaDB | db | mysqlclient | right, left, double |
-| DuckDB | db | duckdb | right, left, double |
-| Neo4j | db | neo4j | right, left, double |
-| MongoDB | db | pymongo | right, left, double |
-| CockroachDB | db | psycopg2 | right, left, double |
-| XSB Prolog | logic | subprocess | right, left, double |
-| Clingo (ASP) | logic | clingo_python | right, left, double |
-| Soufflé | logic | souffle_subprocess | right, left, double |
-| Alda (DistAlgo) | logic | alda_subprocess | right, left, double |
+| System          | Category | Protocol           | Modes               |
+| --------------- | -------- | ------------------ | ------------------- |
+| PostgreSQL      | db       | psycopg2           | right, left, double |
+| MariaDB         | db       | mysqlclient        | right, left, double |
+| DuckDB          | db       | duckdb             | right, left, double |
+| Neo4j           | db       | neo4j              | right, left, double |
+| MongoDB         | db       | pymongo            | right, left, double |
+| CockroachDB     | db       | psycopg2           | right, left, double |
+| XSB Prolog      | logic    | subprocess         | right, left, double |
+| Clingo (ASP)    | logic    | clingo_python      | right, left, double |
+| Soufflé         | logic    | souffle_subprocess | right, left, double |
+| Alda (DistAlgo) | logic    | alda_subprocess    | right, left, double |
 
 ---
 
@@ -351,6 +365,72 @@ python transitive.py --sizes 100 1001 100 --modes right_recursion left_recursion
 ```
 
 `--environments` is accepted as an alias for `--systems` in this version.
+
+---
+
+## Extensibility for Everyone
+
+**No Python knowledge required.** Trans-Bench is designed to be extended by anyone — database experts, domain researchers, or data engineers.
+
+### What you can add without touching Python code:
+
+| Extension Type     | Effort | Method                                                | Guide                                                              |
+| ------------------ | ------ | ----------------------------------------------------- | ------------------------------------------------------------------ |
+| New SQL database   | 5 min  | Copy descriptor, write SQL rules                      | [EXTENSION_GUIDE.md](EXTENSION_GUIDE.md#adding-a-new-system)       |
+| New graph topology | 15 min | Add Python generator method                           | [EXTENSION_GUIDE.md](EXTENSION_GUIDE.md#adding-a-new-graph-type)   |
+| New query domain   | 20 min | Create domain descriptor, write rules for each system | [EXTENSION_GUIDE.md](EXTENSION_GUIDE.md#adding-a-new-query-domain) |
+| Custom query rules | 10 min | Edit SQL/Cypher/Datalog files                         | [RULES.md](RULES.md)                                               |
+
+### Quick-start for extensions
+
+**Via CLI:**
+
+```sh
+# Bootstrap a new SQL system from template
+python transitive.py --bootstrap-system my_database --bootstrap-system-template descriptor_sql_database.yaml
+
+# Create a new query domain
+python transitive.py --bootstrap-domain my_domain
+
+# Validate rules before running
+python transitive.py --validate-rules my_system
+```
+
+**Via Web UI:**
+
+1. Launch the UI: `python transitive.py --ui`
+2. Navigate to **→ Systems** → **Add New System**
+3. Enter name, choose template, customize descriptor
+4. Add credentials and rule files
+5. Run experiments
+
+### Extension Documentation
+
+| Document                                     | Topic                                              | Audience          |
+| -------------------------------------------- | -------------------------------------------------- | ----------------- |
+| [**EXTENSION_GUIDE.md**](EXTENSION_GUIDE.md) | Complete how-to for all extension types            | Everyone          |
+| [**RULES.md**](RULES.md)                     | Query rule examples for SQL, Datalog, Cypher, etc. | Rule writers      |
+| [**COOKBOOK.md**](COOKBOOK.md)               | Step-by-step recipes (SQLite, shortest path, etc.) | Hands-on learners |
+| [**templates/**](templates/)                 | Ready-to-customize YAML and rule templates         | Quick starters    |
+
+### Bootstrap Templates
+
+Pre-built templates for common scenarios:
+
+```
+templates/
+├── descriptor_sql_database.yaml           # PostgreSQL, MySQL, CockroachDB
+├── descriptor_graph_database.yaml         # Neo4j, Memgraph
+├── descriptor_logic_engine.yaml           # XSB, Clingo, Soufflé
+├── rule_template_sql_right_recursion.sql
+├── rule_template_datalog_right_recursion.lp
+├── rule_template_cypher_right_recursion.cypher
+├── domain_shortest_path.yaml
+├── domain_reachability_with_avoidance.yaml
+└── README.md                              # Template usage guide
+```
+
+Copy, customize, and deploy — no Python edits required.
 
 ---
 

@@ -61,6 +61,7 @@ class SystemDescriptor:
         for phase in self.timing_phases:
             headers.append(f'{phase.label}RealTime')
             headers.append(f'{phase.label}CPUTime')
+            headers.append(f'{phase.label}MaxRAM_MB')
         return headers
 
     @property

@@ -33,10 +33,16 @@ _DEFAULT_SYSTEMS: dict[str, Any] = {
 class DataGenerator:
     """
     The implementations here follow what wass described in the paper: Performance Analysis and Comparison of Deductive Systems and SQL Databases (https://ceur-ws.org/Vol-2368/paper3.pdf) with some modifications and additional graph types.
+
+    Supports domain-specific graph generation:
+    - transitive_closure: Standard edge tuples (src, dst)
+    - shortest_path: Weighted edges as tuples (src, dst, weight)
+    - reachability: Similar to transitive_closure
     """
 
-    def __init__(self):
+    def __init__(self, domain: str = 'transitive_closure'):
         self.k = 10
+        self.domain = domain
 
     def generate_complete_graph(self, n: int) -> Generator[tuple[int, int], None, None]:
         """
@@ -210,18 +216,21 @@ class DataGenerator:
 class GraphGenerator:
     """
     This class is responsible for generating and saving graphs in different formats.
+    Supports domain-specific graph generation (e.g., weighted edges for shortest_path).
     """
 
-    def __init__(self, base_dir: str, config: dict[str, Any]):
+    def __init__(self, base_dir: str, config: dict[str, Any], domain: str = 'transitive_closure'):
         """
         The constructor for the GraphGenerator class.
 
         Args:
             `base_dir (str)`: The base directory where the generated graphs will be saved.
             `config (dict[str, Any])`: General system's configuration.
+            `domain (str)`: Domain for domain-specific generation (transitive_closure, shortest_path, etc.)
         """
         self.base_dir = Path(base_dir)
         self.config = config
+        self.domain = domain
 
     def save_for_alda(
         self, graph_generator_func: Callable[[int], Generator[tuple[int, int], None, None]], size: int, filename: Path
@@ -233,7 +242,7 @@ class GraphGenerator:
 
     def save_for_souffle(
         self,
-        graph_generator_func: Callable[[int], Generator[tuple[int, int], None, None]],
+        graph_generator_func: Callable[[int], Generator[tuple, None, None]],
         size: int,
         filename: Path,
         fact_name: str = 'edge',
@@ -241,8 +250,7 @@ class GraphGenerator:
         graph_generator = graph_generator_func(size)
         with open(filename, 'w') as file:
             for value in graph_generator:
-                first, second = value
-                file.write(f'{first}\t{second}\n')
+                file.write('\t'.join(map(str, value)) + '\n')
 
     def save_for_clingo_xsb(
         self,
@@ -254,15 +262,31 @@ class GraphGenerator:
         graph_generator = graph_generator_func(size)
         with open(filename, 'w') as file:
             for value in graph_generator:
-                file.write(f'{fact_name}' + str(value) + '.\n')
+                if isinstance(value, tuple) and len(value) == 3:
+                    # Weighted edge: (src, dst, weight)
+                    file.write(f'{fact_name}({value[0]},{value[1]},{value[2]}).\n')
+                else:
+                    # Standard edge: (src, dst)
+                    file.write(f'{fact_name}' + str(value) + '.\n')
 
     def generate_and_save_graphs(self, graph_type: str, size: int):
-        data_gen = DataGenerator()
-        generate_graph_method = getattr(data_gen, f'generate_{graph_type}_graph', None)
+        data_gen = DataGenerator(domain=self.domain)
 
-        if generate_graph_method is None:
-            logging.error(f"Graph type '{graph_type}' is not supported or method is missing.")
+        base_method = getattr(data_gen, f'generate_{graph_type}_graph', None)
+
+        if base_method is None:
+            logging.error(f"Graph type '{graph_type}' is not supported.")
             return
+
+        def generate_graph_method(s):
+            import random
+
+            random.seed(42)  # Consistent weights per size/type
+            for edge in base_method(s):
+                if self.domain == 'shortest_path':
+                    yield (*edge, random.randint(1, 100))
+                else:
+                    yield edge
 
         config = self.config.get('defaults', {}).get('systems', _DEFAULT_SYSTEMS)
 
@@ -277,11 +301,28 @@ class GraphGenerator:
             # Ensure the directory exists
             filename.parent.mkdir(parents=True, exist_ok=True)
 
-            # Handling different environments
+            # Save queries_{size}.csv
+            queries_file = filename.parent / f'queries_{size}.csv'
+            if not queries_file.exists():
+                import csv
+                import math
+                import random
+
+                with open(queries_file, 'w', newline='') as f:
+                    writer = csv.writer(f)
+                    writer.writerow(['X'])
+                    if 'grid' in graph_type:
+                        max_node = int(math.sqrt(size)) ** 2
+                    else:
+                        max_node = size
+                    max_node = max(1, max_node)
+                    writer.writerow([random.randint(1, max_node)])
+
+            # Handling different environments with domain-specific data
             if env == 'alda':
                 self.save_for_alda(generate_graph_method, size, filename)
             elif env in ['souffle']:
-                fact_name = 'edge'
+                fact_name = 'edge' if self.domain != 'shortest_path' else 'edge_weighted'
                 filename = self.base_dir / env / graph_type / f'{size}' / f'{fact_name}.facts'
                 filename.parent.mkdir(parents=True, exist_ok=True)
                 self.save_for_souffle(generate_graph_method, size, filename, fact_name)
@@ -307,6 +348,13 @@ class GraphGenerator:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', type=str, required=False, help='JSON string of the config')
+    # Specify domain for domain-specific graph generation
+    parser.add_argument(
+        '--domain',
+        type=str,
+        default='transitive_closure',
+        help='Domain for experiment (transitive_closure, shortest_path, etc.). Default is transitive_closure.',
+    )
     # Specify the start, stop, and step sizes for graph generation
     parser.add_argument(
         '--sizes',
@@ -348,8 +396,8 @@ def main():
     else:
         config = json.loads(args.config if args.config else '{}')
 
-    logging.info(f'Generating graphs for sizes {args.sizes} and types {args.graph_types}.')
-    generator = GraphGenerator('input', config)
+    logging.info(f'Generating graphs for domain={args.domain}, sizes {args.sizes} and types {args.graph_types}.')
+    generator = GraphGenerator('input', config, domain=args.domain)
     generator.generate_graphs(list(range(*args.sizes)), args.graph_types)
 
 

@@ -58,6 +58,10 @@ class Neo4jConnector(BaseConnector):
         cypher_script = cypher_script.replace('{data_file}', fact_file_name)
         cypher_script = cypher_script.replace('{output_file}', export_filename)
 
+        # Apply query binding substitutions
+        if query_bindings:
+            cypher_script = self._substitute_query_bindings(cypher_script, query_bindings)
+
         commands = [f'{cmd.strip()};' for cmd in cypher_script.split(';') if cmd.strip()]
         phases = descriptor.timing_phases
         measurements: list[tuple[float, float]] = [(0.0, 0.0)] * len(phases)

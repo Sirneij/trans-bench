@@ -1,0 +1,45 @@
+name: shortest_path
+display_name: Shortest Path Computation
+description: Find shortest/minimum-cost paths from source to all reachable destinations
+category: graph_optimization
+
+query_parameters:
+  - name: source_node
+    type: int
+    required: true
+    description: The starting node for path computation
+  - name: max_distance
+    type: int
+    required: false
+    default: 1000000
+    description: Maximum path length to explore (prevents infinite loops)
+  - name: edge_weight
+    type: float
+    required: false
+    default: 1.0
+    description: Default weight for unweighted edges
+
+output_schema:
+  - column: source
+    type: int
+    description: Starting node
+  - column: target
+    type: int
+    description: Destination node
+  - column: distance
+    type: float
+    description: Shortest path distance from source to target
+
+modes:
+  - iterative_deepening # BFS: layer-by-layer distance
+  - dijkstra_style # Priority queue simulation
+  - bellman_ford # Relaxation-based approach
+
+data_requirements:
+  requires_weighted_edges: true
+  allows_cycles: true
+  allows_negative_weights: false
+
+example_rules:
+  sql: "WITH RECURSIVE sp AS (SELECT x, y, weight AS dist FROM edge WHERE x = ?source UNION ALL SELECT sp.x, e.y, sp.dist + e.weight FROM sp JOIN edge e ON sp.y = e.x WHERE sp.dist + e.weight < ?max_distance) SELECT x, y, MIN(dist) FROM sp GROUP BY x, y;"
+  datalog: "sp(X,Y,D) :- edge(X,Y,W), D = W. sp(X,Z,D2) :- sp(X,Y,D1), edge(Y,Z,W), D2 = D1 + W, D2 < max_distance."

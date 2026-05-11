@@ -56,6 +56,10 @@ class DuckDBConnector(BaseConnector):
         sql_script = sql_script.replace('{data_file}', str(input_path))
         sql_script = sql_script.replace('{output_file}', str(results_path))
 
+        # Apply query binding substitutions
+        if query_bindings:
+            sql_script = self._substitute_query_bindings(sql_script, query_bindings)
+
         sql_commands = [f'{cmd.strip()};' for cmd in sql_script.split(';') if cmd.strip()]
         phases = descriptor.timing_phases
         measurements: list[tuple[float, float]] = [(0.0, 0.0)] * len(phases)

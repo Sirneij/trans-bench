@@ -1,0 +1,298 @@
+{% extends "base.html" %} {% block title %}Add Domain{% endblock %} {% block
+page_title %}Add New Query Domain{% endblock %} {% block content %}
+<style>
+  .bento-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+    margin-top: 10px;
+  }
+  .bento-title {
+    margin: 0;
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: white;
+    background: linear-gradient(to right, #fff, #94a3b8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .new-domain-bento {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 24px;
+  }
+  .bento-panel {
+    background: rgba(15, 23, 42, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(12px);
+    border-radius: calc(var(--radius) * 1.5);
+    padding: 32px;
+  }
+  .bento-form {
+    grid-column: span 8;
+  }
+  .bento-info {
+    grid-column: span 4;
+    background: linear-gradient(
+      135deg,
+      rgba(168, 85, 247, 0.05),
+      rgba(139, 92, 246, 0.1)
+    );
+    border-color: rgba(168, 85, 247, 0.2);
+  }
+
+  .form-group-large {
+    margin-bottom: 24px;
+  }
+  .form-label-large {
+    display: block;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: white;
+    margin-bottom: 12px;
+  }
+  .form-input-large {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius);
+    padding: 16px;
+    color: white;
+    font-size: 1.1rem;
+    transition: all 0.2s;
+  }
+  .form-input-large:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.2);
+  }
+  .form-hint-large {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text3);
+    margin-top: 8px;
+  }
+
+  .info-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .step-num {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(168, 85, 247, 0.2);
+    color: #a855f7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.9rem;
+  }
+  .step-text {
+    color: var(--text2);
+    font-size: 0.95rem;
+    line-height: 1.5;
+    padding-top: 4px;
+  }
+  .step-text code {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: #e9d5ff;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .domain-example {
+    background: rgba(0, 0, 0, 0.2);
+    border-left: 3px solid #a855f7;
+    padding: 12px;
+    margin: 12px 0;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.9rem;
+    color: #e9d5ff;
+  }
+
+  @media (max-width: 900px) {
+    .bento-form,
+    .bento-info {
+      grid-column: span 12;
+    }
+  }
+</style>
+
+<div class="breadcrumb" style="margin-bottom: 24px">
+  <a
+    href="{{ url_for('dashboard') }}"
+    style="color: var(--text2); text-decoration: none; font-weight: 600"
+    >Dashboard</a
+  >
+  <span style="color: var(--text3); margin: 0 8px">›</span>
+  <span style="color: white; font-weight: 700">Add New Domain</span>
+</div>
+
+<div class="bento-header">
+  <h1 class="bento-title">Create Query Domain</h1>
+</div>
+
+<div class="new-domain-bento">
+  <div class="bento-panel bento-form">
+    <div style="margin-bottom: 32px">
+      <p
+        style="
+          color: var(--text2);
+          font-size: 1.05rem;
+          line-height: 1.6;
+          margin: 0;
+        "
+      >
+        A query <strong>domain</strong> defines a category of recursive queries
+        (e.g., shortest_path, reachability_with_avoidance). You can benchmark
+        multiple domains across the same systems and graphs.
+      </p>
+    </div>
+
+    <div class="form-group-large">
+      <label class="form-label-large"
+        >Domain name <span style="color: #ef4444">*</span></label
+      >
+      <input
+        type="text"
+        id="domain-name"
+        class="form-input-large"
+        placeholder="e.g. shortest_path, same_generation"
+        pattern="[a-z0-9_]+"
+        title="Lowercase letters, numbers, underscores only"
+      />
+      <span class="form-hint-large"
+        >Used as directory name: <code>domains/&lt;name&gt;/</code></span
+      >
+    </div>
+
+    <div class="form-group-large">
+      <label class="form-label-large">Base on template</label>
+      <select id="template-select" class="form-input-large">
+        {% for t in domain_templates %}
+        <option value="{{ t }}">{{ t }}</option>
+        {% endfor %}
+      </select>
+      <span class="form-hint-large"
+        >Choose a template to get started. You'll customize it next.</span
+      >
+    </div>
+
+    <div style="margin-top: 40px; display: flex; gap: 16px">
+      <button
+        class="btn btn-primary"
+        onclick="createDomain()"
+        style="
+          font-size: 1.1rem;
+          padding: 16px 32px;
+          box-shadow: 0 4px 12px rgba(168, 85, 247, 0.3);
+        "
+      >
+        Create Domain →
+      </button>
+      <a
+        href="{{ url_for('dashboard') }}"
+        class="btn"
+        style="
+          font-size: 1.1rem;
+          padding: 16px 32px;
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+        "
+        >Cancel</a
+      >
+    </div>
+  </div>
+
+  <div class="bento-panel bento-info">
+    <h3
+      style="
+        color: white;
+        font-size: 1.2rem;
+        font-weight: 700;
+        margin: 0 0 24px 0;
+      "
+    >
+      What happens next?
+    </h3>
+    <div class="info-step">
+      <div class="step-num">1</div>
+      <div class="step-text">
+        A directory <code>domains/&lt;name&gt;/</code> is created with a
+        <code>descriptor.yaml</code>.
+      </div>
+    </div>
+    <div class="info-step">
+      <div class="step-num">2</div>
+      <div class="step-text">
+        The descriptor defines query parameters, output schema, and supported
+        execution modes.
+      </div>
+    </div>
+    <div class="info-step">
+      <div class="step-num">3</div>
+      <div class="step-text">
+        You'll add rule files to each system:
+        <code>systems/*/rules/{domain}_{mode}.sql</code>
+      </div>
+    </div>
+    <div class="info-step">
+      <div class="step-num">4</div>
+      <div class="step-text">
+        Run experiments: <code>python transitive.py --domains {domain}</code>
+      </div>
+    </div>
+
+    <h3
+      style="
+        color: #a855f7;
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin-top: 32px;
+        margin-bottom: 16px;
+      "
+    >
+      Examples
+    </h3>
+    <div class="domain-example">shortest_path</div>
+    <div class="domain-example">reachability_with_avoidance</div>
+    <div class="domain-example">same_generation</div>
+  </div>
+</div>
+
+<script>
+  async function createDomain() {
+    const name = document.getElementById("domain-name").value.trim();
+    const template = document.getElementById("template-select").value;
+
+    if (!name) {
+      alert("Please enter a domain name");
+      return;
+    }
+
+    try {
+      const resp = await fetch('{{ url_for("new_domain") }}', {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: `name=${encodeURIComponent(name)}&template=${encodeURIComponent(template)}`,
+      });
+
+      const data = await resp.json();
+      if (!data.ok) throw new Error(data.error || "Failed to create domain");
+
+      alert("Domain created! Next: Add rule files to each system.");
+      location.href = '{{ url_for("dashboard") }}';
+    } catch (err) {
+      alert("Error: " + err.message);
+    }
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,35 @@
+name: template_logic_engine
+display_name: Logic Programming Engine (Template)
+category: logic
+description: Template for logic programming systems (Clingo, XSB, Soufflé, etc.)
+
+protocol:
+  subprocess # For external CLI tools like XSB, Soufflé
+  # Change to: clingo_python | etc. for Python-bound engines
+
+timing_phases:
+  - id: load_facts
+    label: LoadFacts
+  - id: execute_query
+    label: ExecuteQuery
+  - id: write_result
+    label: WriteResult
+
+input_format: lp # lp = Datalog/ASP, facts = fact file, pickle
+modes:
+  - right_recursion
+  - left_recursion
+  - double_recursion
+
+rule_extension: .lp # Change to: .da (Alda) | .pl (Prolog) | etc.
+
+flags:
+  requires_credentials: false
+  # Subprocess systems often need an executable path
+
+execution:
+  # For subprocess systems, specify how to invoke the engine:
+  # executable: /path/to/xsb              # or 'clingo', 'soufflé', 'alda'
+  # timeout_seconds: 300
+  # environment_vars:
+  #   MY_VAR: value

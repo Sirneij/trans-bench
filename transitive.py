@@ -101,6 +101,12 @@ Examples:
         help='Benchmark domain to run. Default: transitive',
     )
     parser.add_argument(
+        '--query-mode',
+        default='full_materialization',
+        choices=['full_materialization', 'demand_driven'],
+        help='Query execution mode: full_materialization or demand_driven. Default: full_materialization',
+    )
+    parser.add_argument(
         '--num-runs',
         type=int,
         default=10,
@@ -130,9 +136,126 @@ Examples:
         help='Web UI port. Default: 5000',
     )
 
+    # ── Bootstrap & Extension commands ────────────────────────────────────
+    parser.add_argument(
+        '--bootstrap-system',
+        metavar='NAME',
+        help='Create a new system directory from a template. Specify system name.',
+    )
+    parser.add_argument(
+        '--bootstrap-system-template',
+        default='descriptor_sql_database.yaml',
+        help='Template to use for --bootstrap-system. Default: descriptor_sql_database.yaml',
+    )
+    parser.add_argument(
+        '--bootstrap-domain',
+        metavar='NAME',
+        help='Create a new domain descriptor from a template. Specify domain name.',
+    )
+    parser.add_argument(
+        '--bootstrap-domain-template',
+        default='domain_shortest_path.yaml',
+        help='Template to use for --bootstrap-domain. Default: domain_shortest_path.yaml',
+    )
+    parser.add_argument(
+        '--bootstrap-graph',
+        metavar='NAME',
+        help='Create a new graph type descriptor. Specify graph name.',
+    )
+    parser.add_argument(
+        '--bootstrap-graph-generator',
+        metavar='PATH',
+        help='Python dotted path to graph generator (e.g., engine.data_generator.DataGenerator.generate_my_graph).',
+    )
+    parser.add_argument(
+        '--bootstrap-graph-description',
+        default='',
+        help='Description for the new graph type.',
+    )
+    parser.add_argument(
+        '--list-templates',
+        action='store_true',
+        help='List all available bootstrap templates and exit.',
+    )
+    parser.add_argument(
+        '--validate-rules',
+        metavar='SYSTEM',
+        help='Validate all rule files for a given system.',
+    )
+    parser.add_argument(
+        '--test-rule',
+        metavar='RULE_FILE',
+        help='Test a single rule file against sample input data.',
+    )
+
     args = parser.parse_args()
 
+    # ── Bootstrap & Extension commands ────────────────────────────────────
+    from engine.bootstrap import BootstrapManager
+
+    bootstrap_mgr = BootstrapManager(BASE_DIR)
+
+    if args.list_templates:
+        templates = bootstrap_mgr.list_templates()
+        print('\n=== Available Bootstrap Templates ===\n')
+        print('System Descriptors:')
+        for t in templates['system_descriptors']:
+            print(f'  {t}')
+        print('\nDomain Templates:')
+        for t in templates['domain_templates']:
+            print(f'  {t}')
+        print('\nRule Templates:')
+        for t in templates['rule_templates']:
+            print(f'  {t}')
+        print()
+        sys.exit(0)
+
+    if args.bootstrap_system:
+        try:
+            bootstrap_mgr.bootstrap_system(args.bootstrap_system, args.bootstrap_system_template)
+            sys.exit(0)
+        except Exception as e:
+            log.error(f'Bootstrap failed: {e}')
+            sys.exit(1)
+
+    if args.bootstrap_domain:
+        try:
+            bootstrap_mgr.bootstrap_domain(args.bootstrap_domain, args.bootstrap_domain_template)
+            sys.exit(0)
+        except Exception as e:
+            log.error(f'Bootstrap failed: {e}')
+            sys.exit(1)
+
+    if args.bootstrap_graph:
+        if not args.bootstrap_graph_generator:
+            log.error('--bootstrap-graph requires --bootstrap-graph-generator')
+            sys.exit(1)
+        try:
+            bootstrap_mgr.bootstrap_graph(
+                args.bootstrap_graph, args.bootstrap_graph_generator, args.bootstrap_graph_description
+            )
+            sys.exit(0)
+        except Exception as e:
+            log.error(f'Bootstrap failed: {e}')
+            sys.exit(1)
+
+    if args.validate_rules:
+        from engine.validation import RuleValidator
+
+        try:
+            validator = RuleValidator(BASE_DIR)
+            is_valid = validator.validate_system(args.validate_rules)
+            sys.exit(0 if is_valid else 1)
+        except Exception as e:
+            log.error(f'Validation failed: {e}')
+            sys.exit(1)
+
+    if args.test_rule:
+        log.info(f'Rule testing not yet implemented: {args.test_rule}')
+        sys.exit(0)
+
     # ── Launch Web UI mode ────────────────────────────────────────────────
+
     if args.ui:
         from ui.app import create_app
 
@@ -173,10 +296,11 @@ Examples:
         num_runs=args.num_runs,
         modes=args.modes,
         domain=args.domain,
+        query_mode=args.query_mode,
     )
 
     log.info(
-        f'Starting experiment | domain={args.domain} | systems={[s.name for s in systems]} | '
+        f'Starting experiment | domain={args.domain} | query_mode={args.query_mode} | systems={[s.name for s in systems]} | '
         f'graphs={[g.name for g in graph_types]} | sizes={args.sizes} | '
         f'modes={args.modes} | runs={args.num_runs}'
     )

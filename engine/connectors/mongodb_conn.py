@@ -58,7 +58,12 @@ class MongoDBConnector(BaseConnector):
         rule_spec.loader.exec_module(rule_mod)
         OpClass = getattr(rule_mod, class_name)
 
-        ops = OpClass({}, self._db)
+        # Pass query_bindings via config
+        config_with_bindings = {}
+        if query_bindings:
+            config_with_bindings['query_bindings'] = query_bindings
+
+        ops = OpClass(config_with_bindings, self._db)
         results_path = output_folder / 'mongodb_results.csv'
         phases = descriptor.timing_phases
         measurements: list[tuple[float, float]] = [(0.0, 0.0)] * len(phases)

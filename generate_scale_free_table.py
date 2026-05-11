@@ -2,8 +2,6 @@ import csv
 import re
 from pathlib import Path
 
-import pandas as pd
-
 environments = ['xsb', 'clingo', 'souffle', 'postgres', 'mariadb', 'duckdb', 'neo4j', 'cockroachdb']
 env_names = {
     'xsb': 'XSB',

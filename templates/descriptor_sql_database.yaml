@@ -1,0 +1,36 @@
+name: template_sql_database
+display_name: SQL Database (Template)
+category: db
+description: Template for any SQL-based database system
+
+protocol: psycopg2 # Change to: mysqlclient | duckdb | etc.
+
+timing_phases:
+  - id: create_table
+    label: CreateTable
+  - id: load_data
+    label: LoadData
+  - id: create_index
+    label: CreateIndex
+  - id: analyze
+    label: Analyze
+  - id: execute_query
+    label: ExecuteQuery
+  - id: write_result
+    label: WriteResult
+
+input_format: tsv
+modes:
+  - right_recursion
+  - left_recursion
+  - double_recursion
+
+rule_extension: .sql # Typically .sql or .py for SQL databases
+
+flags:
+  requires_credentials: true
+  supports_analyze_step: true
+  class_prefix: TemplateSQL
+  module_prefix: template_sql_rules
+
+execution: {}

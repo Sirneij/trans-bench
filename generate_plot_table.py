@@ -191,13 +191,21 @@ class BaseTableAndPlotGenerator:
         for csv_file in self.timing_base_dir.glob('**/*_graph_*.csv'):
             try:
                 parts = csv_file.parts
-                env_name, graph_type = parts[-3], parts[-2]
+                # Handle new domain-based hierarchy: timing/{domain}/{system}/{graph}/...
+                # If structure is timing/{domain}/{system}/{graph}, use those parts
+                if len(parts) >= 5 and parts[-5] == 'timing':
+                    domain, env_name, graph_type = parts[-4], parts[-3], parts[-2]
+                else:
+                    # Legacy structure: timing/{system}/{graph}/...
+                    domain = 'default'
+                    env_name, graph_type = parts[-3], parts[-2]
+
                 mode, graph_size = re.match(self.pattern, csv_file.name).groups()
                 if mode in getattr(self, 'exclude_modes', ['double_recursion']):
                     continue
                 graph_size = int(graph_size)
 
-                key = (env_name, graph_type, mode)
+                key = (domain, env_name, graph_type, mode)
                 if key not in data:
                     data[key] = []
 
@@ -301,15 +309,18 @@ class BaseTableAndPlotGenerator:
         return {'Overall': elapsed_time}
 
     def __find_cpu_time(self, key: tuple[str, str, str], size: int, query_type: str) -> Union[float, None]:
-        if key in self.data:
-            for entry in self.data[key]:
-                if entry[0] == size:
-                    return entry[1][query_type][1]
+        # Search through all domains for matching (env_name, graph_type, mode)
+        env_name, graph_type, mode = key
+        for data_key in self.data:
+            if data_key[1] == env_name and data_key[2] == graph_type and data_key[3] == mode:
+                for entry in self.data[data_key]:
+                    if entry[0] == size:
+                        return entry[1][query_type][1]
         return None
 
     def __find_max_cpu_time_across_envs(self, graph_type: str, mode: str, max_x: int) -> float:
         max_cpu_time = 0
-        for (_, g_type, m), entries in self.data.items():
+        for (domain, env, g_type, m), entries in self.data.items():
             if g_type == graph_type and m == mode:
                 for entry in entries:
                     if max_x > 0 and entry[0] <= max_x:
@@ -320,17 +331,18 @@ class BaseTableAndPlotGenerator:
     def __find_max_real_time(self, env_name: str, graph_type: str, mode: str, max_x: int) -> float:
         max_real_time = 0
         num_of_allowed_entries = max_x // 100
-        key = (env_name, graph_type, mode)
-        if key in self.data:
-            for entry in self.data[key]:
-                real_times = [value[0] for value in entry[1].values()]
-                max_real_time = max(max_real_time, max(real_times[:num_of_allowed_entries]))
+        # Search through all domains for matching (env_name, graph_type, mode)
+        for data_key in self.data:
+            if data_key[1] == env_name and data_key[2] == graph_type and data_key[3] == mode:
+                for entry in self.data[data_key]:
+                    real_times = [value[0] for value in entry[1].values()]
+                    max_real_time = max(max_real_time, max(real_times[:num_of_allowed_entries]))
         return max_real_time
 
     def __find_max_real_time_across_envs(self, graph_type: str, mode: str, max_x: int) -> float:
         max_real_time = 0
         num_of_allowed_entries = max_x // 100
-        for (_, g_type, m), entries in self.data.items():
+        for (domain, env, g_type, m), entries in self.data.items():
             if g_type == graph_type and m == mode:
                 for entry in entries:
                     real_times = [value[0] for value in entry[1].values()]
@@ -693,19 +705,19 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
         ]
 
         for key, values in self.data.items():
-            if key[0] == env_name:
+            if key[1] == env_name:
                 # Sort values by graph size
                 values.sort(key=lambda x: x[0])
 
                 folder_dir = output_dir / env_name
                 folder_dir.mkdir(exist_ok=True, parents=True)
-                file_name = f'{key[1]}_{key[2]}.tex'
+                file_name = f'{key[2]}_{key[3]}.tex'
                 full_file_name = folder_dir / file_name
 
                 # Find the maximum real-time value for double_recursion
                 max_real_time = self._BaseTableAndPlotGenerator__adjust_ymax(
                     self._BaseTableAndPlotGenerator__find_max_real_time,
-                    (env_name, key[1], 'double_recursion'),
+                    (env_name, key[2], 'double_recursion'),
                 )
 
                 with open(full_file_name, 'w') as f:
@@ -724,14 +736,14 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
         file_dir = latex_file_dir / 'comparison' / 'tables'
         file_dir.mkdir(exist_ok=True, parents=True)
 
-        env_list = [key[0] for key in self.data if key[0] != 'alda']
+        env_list = [key[1] for key in self.data if key[1] != 'alda']
         preferred_order = ['xsb', 'clingo', 'souffle']
         environments = sorted(
             list(self._BaseTableAndPlotGenerator__list_to_ordered_set(env_list)),
             key=lambda x: (preferred_order.index(x.lower()) if x.lower() in preferred_order else 999, x.lower()),
         )
 
-        mds = [key[2] for key in self.data if key[0] in environments]
+        mds = [key[3] for key in self.data if key[1] in environments]
         modes = sorted(list(self._BaseTableAndPlotGenerator__list_to_ordered_set(mds)))
         sizes = sorted({entry[0] for entries in self.data.values() for entry in entries})
 
@@ -768,7 +780,7 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
                 latex_file.write('\\\\\n')
                 latex_file.write('\\midrule\n')
 
-                graph_types = set(key[1] for key in self.data if key[2] == mode and key[0] in environments)
+                graph_types = set(key[2] for key in self.data if key[3] == mode and key[1] in environments)
                 for graph_type in sorted(graph_types):
                     latex_file.write(f'{graph_type.replace("_", " ").title()} ')
                     for size in sizes:
@@ -801,7 +813,7 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
         file_dir = latex_file_dir / 'comparison' / 'charts' / env_name / f'{self.max_x}'
         file_dir.mkdir(exist_ok=True, parents=True)
 
-        mds = [key[2] for key in self.data if key[0] == env_name]
+        mds = [key[3] for key in self.data if key[1] == env_name]
         modes = sorted(list(self._BaseTableAndPlotGenerator__list_to_ordered_set(mds)))
         sizes = sorted(
             {
@@ -822,7 +834,7 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
             if compile_file_alone:
                 self._BaseTableAndPlotGenerator__compile_latex_to_pdf(file_dir / mode)
                 return
-            graph_types = set(key[1] for key in self.data if key[2] == mode and key[0] == env_name)
+            graph_types = set(key[2] for key in self.data if key[3] == mode and key[1] == env_name)
             for graph_type in sorted(graph_types):
                 ymax = self._BaseTableAndPlotGenerator__adjust_ymax(
                     self._BaseTableAndPlotGenerator__find_max_cpu_time_across_envs,
