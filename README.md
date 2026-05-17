@@ -27,10 +27,11 @@ The original suite required editing **6+ Python files** to add a new system. v2 
 ## Why Trans-Bench v2?
 
 ✨ **Zero-Python Extension** — Add systems, domains, and queries entirely via YAML + rule files  
-🎯 **Multi-Domain Benchmarking** — Compare implementations of transitive closure, shortest path, reachability, etc.  
-📊 **Hybrid Resource Profiling** — Track both runtime AND peak memory usage  
+🎯 **Multi-Domain Benchmarking** — Compare implementations of transitive closure, shortest path (with weighted graphs), reachability, etc.  
+⚡ **Demand-Driven Execution** — Built-in support for generating `queries.csv` to benchmark specific point-to-point queries.
+📊 **Hybrid Resource Profiling** — Track both runtime AND peak memory usage across distinct execution phases.
+🎨 **Modern Interactive Web UI** — System creation wizards, live progress monitoring, and an advanced **Trend Analysis** dashboard for stacked/line comparative charting.
 🧪 **Validation & Testing** — Built-in CLI commands to validate rules before benchmarking  
-🎨 **Interactive Web UI** — System creation wizards, live progress monitoring, result exploration  
 📚 **Comprehensive Docs** — EXTENSION_GUIDE, RULES reference, step-by-step COOKBOOK
 
 ---
@@ -55,6 +56,7 @@ trans-bench/
 ├── engine/                     ← Core framework (rarely needs editing)
 │   ├── loader.py               ← Reads descriptors at runtime
 │   ├── runner.py               ← Orchestrates experiments
+│   ├── data_generator.py       ← Generates graph facts and demand-driven queries (queries.csv)
 │   └── connectors/
 │       ├── base.py             ← Abstract connector interface
 │       ├── rdbms.py            ← PostgreSQL, MariaDB, CockroachDB
@@ -66,7 +68,7 @@ trans-bench/
 ├── ui/                         ← Flask Web UI (Phase 4)
 │   ├── app.py
 │   ├── templates/
-│   └── static/
+│   └── static/css/app.css      ← Modernized responsive styling
 │
 ├── config.yaml                 ← Global config (no credentials)
 └── transitive.py               ← CLI entrypoint (also launches UI)
@@ -137,7 +139,7 @@ python transitive.py --modes right_recursion left_recursion --num-runs 5
 | Add System     | `/systems/new`     | Clone a template to bootstrap a new system                |
 | New Experiment | `/experiment/new`  | Multi-step wizard: pick systems → graphs → settings → run |
 | Live Monitor   | `/experiment/live` | SSE-powered real-time progress + log stream               |
-| Results        | `/results`         | Browse timing CSVs, view data inline                      |
+| Results        | `/results`         | Full **Data Explorer**, **File Viewer**, and **Trend Analysis** charts (Stacked & Line comparisons) |
 
 ---
 
@@ -213,11 +215,15 @@ python transitive.py --systems my_new_db --graphs cycle path
 Add to `generate_db.py` → `DataGenerator`:
 
 ```python
-def generate_my_graph(self, n: int) -> Generator[tuple[int, int], None, None]:
+def generate_my_graph(self, n: int) -> Generator[tuple, None, None]:
     """My custom graph topology."""
     for i in range(1, n):
-        yield (i, i + 2)   # every node connects to node+2
+        # Yield (src, dst) for standard graphs
+        # Or (src, dst, weight) for weighted domains like shortest_path
+        yield (i, i + 2)
 ```
+
+To support **Demand-Driven Queries**, graph generators automatically integrate with the sampling engine to produce `queries.csv` for targeted node-to-node evaluation.
 
 ### Step B — Create the descriptor
 
