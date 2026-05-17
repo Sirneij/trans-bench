@@ -78,10 +78,7 @@ def _load_plugin_connectors(systems_dir: Path) -> None:
         descriptor_file = system_dir / 'descriptor.yaml'
 
         if not descriptor_file.exists():
-            log.warning(
-                f'Skipping drop-in connector {connector_file}: '
-                f'no descriptor.yaml found in {system_dir}'
-            )
+            log.warning(f'Skipping drop-in connector {connector_file}: ' f'no descriptor.yaml found in {system_dir}')
             continue
 
         try:
@@ -93,10 +90,7 @@ def _load_plugin_connectors(systems_dir: Path) -> None:
 
         protocol = descriptor_data.get('protocol', '')
         if not protocol:
-            log.warning(
-                f'Skipping drop-in connector {connector_file}: '
-                f'descriptor.yaml has no "protocol" field'
-            )
+            log.warning(f'Skipping drop-in connector {connector_file}: ' f'descriptor.yaml has no "protocol" field')
             continue
 
         if protocol in PROTOCOL_REGISTRY:
@@ -132,8 +126,7 @@ def _load_plugin_connectors(systems_dir: Path) -> None:
 
             PROTOCOL_REGISTRY[protocol] = cls
             log.info(
-                f'Registered drop-in connector: protocol="{protocol}" '
-                f'→ {cls.__name__} (from {connector_file})'
+                f'Registered drop-in connector: protocol="{protocol}" ' f'→ {cls.__name__} (from {connector_file})'
             )
 
         except Exception as e:

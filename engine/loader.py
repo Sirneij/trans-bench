@@ -10,16 +10,15 @@ No Python source edits required to add new systems — just drop a descriptor.
 
 from __future__ import annotations
 
+import importlib.metadata
 import json
 import logging
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
 import yaml
-
-import subprocess
-import importlib.metadata
 
 log = logging.getLogger(__name__)
 
@@ -35,9 +34,9 @@ def get_system_version(sys_name: str) -> str:
         'cockroachdb': ['cockroach', 'version'],
         'mongodb': ['mongod', '--version'],
         'neo4j': ['neo4j-admin', '--version'],
-        'alda': ['alda', '--version']
+        'alda': ['alda', '--version'],
     }
-    
+
     version = None
     if sys_name in cmd_map:
         try:
@@ -87,12 +86,18 @@ def get_system_version(sys_name: str) -> str:
         return version
 
     pkg = None
-    if sys_name == 'neo4j': pkg = 'neo4j'
-    elif sys_name in ('postgres', 'cockroachdb'): pkg = 'psycopg2'
-    elif sys_name == 'mongodb': pkg = 'pymongo'
-    elif sys_name == 'duckdb': pkg = 'duckdb'
-    elif sys_name == 'mariadb': pkg = 'mariadb'
-    elif sys_name == 'clingo': pkg = 'clingo'
+    if sys_name == 'neo4j':
+        pkg = 'neo4j'
+    elif sys_name in ('postgres', 'cockroachdb'):
+        pkg = 'psycopg2'
+    elif sys_name == 'mongodb':
+        pkg = 'pymongo'
+    elif sys_name == 'duckdb':
+        pkg = 'duckdb'
+    elif sys_name == 'mariadb':
+        pkg = 'mariadb'
+    elif sys_name == 'clingo':
+        pkg = 'clingo'
 
     if pkg:
         try:
@@ -443,10 +448,7 @@ class DescriptorLoader:
         raw_params = data.get('query_parameters', [])
         if isinstance(raw_params, dict):
             # Support old dict style: {source_node: int, ...}
-            params = [
-                QueryParameter(name=k, type=v if isinstance(v, str) else 'str')
-                for k, v in raw_params.items()
-            ]
+            params = [QueryParameter(name=k, type=v if isinstance(v, str) else 'str') for k, v in raw_params.items()]
         else:
             params = [
                 QueryParameter(

@@ -386,6 +386,7 @@ def create_app() -> Flask:
     @app.route('/api/validate/<system_name>')
     def api_validate(system_name: str):
         from engine.validation import RuleValidator
+
         try:
             validator = RuleValidator(BASE_DIR)
             is_valid = validator.validate_system(system_name)
@@ -397,6 +398,7 @@ def create_app() -> Flask:
     @app.route('/api/validate-domain/<domain_name>')
     def api_validate_domain(domain_name: str):
         from engine.validation import RuleValidator
+
         systems_filter = request.args.getlist('systems') or None
         try:
             validator = RuleValidator(BASE_DIR)
@@ -410,6 +412,7 @@ def create_app() -> Flask:
     @app.route('/api/test-rule', methods=['POST'])
     def api_test_rule():
         from engine.validation import RuleValidator
+
         data = request.get_json() or {}
         rule_path = data.get('rule_path', '')
         system_name = data.get('system_name')
@@ -425,12 +428,17 @@ def create_app() -> Flask:
     @app.route('/api/domains')
     def api_domains():
         domains = loader.load_domains()
-        return jsonify([{
-            'name': d.name,
-            'display_name': d.display_name,
-            'modes': d.modes,
-            'description': d.description,
-        } for d in domains])
+        return jsonify(
+            [
+                {
+                    'name': d.name,
+                    'display_name': d.display_name,
+                    'modes': d.modes,
+                    'description': d.description,
+                }
+                for d in domains
+            ]
+        )
 
     @app.route('/api/domains/<domain_name>/modes')
     def api_domain_modes(domain_name: str):
@@ -449,8 +457,13 @@ def create_app() -> Flask:
         config = _get_config()
         domains = loader.load_domains()
         # Build domain options: always include transitive as default
-        domain_options = [{'name': 'transitive', 'display_name': 'Transitive Closure (default)',
-                           'modes': ['right_recursion', 'left_recursion', 'double_recursion']}]
+        domain_options = [
+            {
+                'name': 'transitive',
+                'display_name': 'Transitive Closure (default)',
+                'modes': ['right_recursion', 'left_recursion', 'double_recursion'],
+            }
+        ]
         for d in domains:
             if d.name not in ('transitive', 'transitive_closure'):
                 domain_options.append({'name': d.name, 'display_name': d.display_name, 'modes': d.modes})

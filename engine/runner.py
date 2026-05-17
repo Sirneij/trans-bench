@@ -26,7 +26,12 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 from engine.connectors import get_connector
-from engine.loader import DescriptorLoader, DomainDescriptor, GraphTypeDescriptor, SystemDescriptor
+from engine.loader import (
+    DescriptorLoader,
+    DomainDescriptor,
+    GraphTypeDescriptor,
+    SystemDescriptor,
+)
 
 log = logging.getLogger(__name__)
 

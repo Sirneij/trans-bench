@@ -87,10 +87,7 @@ class RuleValidator:
 
         domain = self.loader.get_domain(domain_name)
         if domain is None:
-            log.error(
-                f'Domain "{domain_name}" not found. '
-                f'Expected: domains/{domain_name}/descriptor.yaml'
-            )
+            log.error(f'Domain "{domain_name}" not found. ' f'Expected: domains/{domain_name}/descriptor.yaml')
             return False
 
         log.info(f'  Domain modes: {domain.modes}')
