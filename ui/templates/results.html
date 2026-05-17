@@ -99,18 +99,11 @@ page_title %}Experiment Results{% endblock %} {% block head %}
 
     <!-- VIEW: TREND ANALYSIS (now contains Stacked & Line charts) -->
     <div id="view-trend" class="ide-content active">
-      <div style="margin-bottom: 16px">
-        <h2
-          style="
-            margin: 0 0 8px 0;
-            font-size: 1.5rem;
-            color: var(--text);
-            font-weight: 700;
-          "
-        >
+      <div class="trend-header-container">
+        <h2 class="trend-title">
           Scaling Performance Comparison
         </h2>
-        <p style="margin: 0; color: var(--text2); font-size: 0.95rem">
+        <p class="trend-subtitle">
           Compare execution times across different graph sizes and systems.
         </p>
       </div>
@@ -132,20 +125,11 @@ page_title %}Experiment Results{% endblock %} {% block head %}
         </button>
       </div>
 
-      <div
-        class="form-section"
-        style="
-          background: rgba(0, 0, 0, 0.2);
-          padding: 20px;
-          border-radius: var(--radius);
-          border: 1px solid rgba(255, 255, 255, 0.05);
-          margin-bottom: 24px;
-        "
-      >
+      <div class="trend-form-section">
         <div class="results-filter-grid">
           <div class="form-group">
             <label class="results-filter-label">Domain</label>
-            <select id="trend-domain" class="results-select" style="width:100%;">
+            <select id="trend-domain" class="results-select trend-select-full">
               {% for d in all_domains %}
               <option value="{{ d }}">{{ d }}</option>
               {% endfor %}
@@ -153,16 +137,16 @@ page_title %}Experiment Results{% endblock %} {% block head %}
           </div>
           <div class="form-group">
             <label class="results-filter-label">Graph Type</label>
-            <select id="trend-graph-type" class="results-select" style="width:100%;">
+            <select id="trend-graph-type" class="results-select trend-select-full">
               {% for g in all_graphs %}
               <option value="{{ g }}">{{ g }}</option>
               {% endfor %}
             </select>
           </div>
         </div>
-        <div class="form-group" style="margin-bottom: 16px;">
-          <label class="results-filter-label">Modes <span style="font-size:.8em;color:var(--text3);text-transform:none;letter-spacing:0;">(Multiple selection for stacked view)</span></label>
-          <div class="mode-checks" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:4px;">
+        <div class="form-group trend-form-group">
+          <label class="results-filter-label">Modes <span class="trend-filter-note">(Multiple selection for stacked view)</span></label>
+          <div class="mode-checks trend-mode-checks">
             {% for m in all_modes %}
             <label class="results-check-label">
               <input type="checkbox" class="trend-mode-check" value="{{ m }}" {% if loop.first %}checked{% endif %} />
@@ -174,11 +158,11 @@ page_title %}Experiment Results{% endblock %} {% block head %}
 
         <div
           id="phase-selector-container"
-          class="form-group"
-          style="margin-bottom: 16px; display: none"
+          class="form-group trend-form-group"
+          style="display: none"
         >
           <label class="results-filter-label">Phase to Plot</label>
-          <select id="trend-phase" class="results-select" style="width:100%;">
+          <select id="trend-phase" class="results-select trend-select-full">
             <option value="Query">Query / Execute / WriteResult</option>
             <option value="LoadFacts">Load Facts / Data</option>
             <option value="Total">Total Runtime</option>
@@ -186,14 +170,14 @@ page_title %}Experiment Results{% endblock %} {% block head %}
         </div>
 
         <div class="form-group">
-          <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;margin-bottom:8px;gap:10px;">
-            <label class="results-filter-label" style="margin:0;">Systems to Compare</label>
-            <label class="results-check-label" id="logic-systems-toggle-container" style="margin:0">
+          <div class="trend-systems-header">
+            <label class="results-filter-label trend-no-margin">Systems to Compare</label>
+            <label class="results-check-label trend-no-margin" id="logic-systems-toggle-container">
               <input type="checkbox" id="logic-systems-only" checked onchange="toggleLogicSystems()" />
-              <span style="color:var(--accent);font-weight:600;">Logic Systems Only</span>
+              <span class="trend-logic-toggle-text">Logic Systems Only</span>
             </label>
           </div>
-          <div class="mode-checks" style="display:flex;flex-wrap:wrap;gap:10px;">
+          <div class="mode-checks trend-mode-checks">
             {% for s in all_systems %}
             <label class="results-check-label sys-check-label" data-sys="{{ s }}">
               <input type="checkbox" class="trend-system-check" value="{{ s }}" checked />
@@ -204,49 +188,20 @@ page_title %}Experiment Results{% endblock %} {% block head %}
         </div>
       </div>
 
-        <div style="display: flex; justify-content: flex-end; margin-top: 16px; gap: 12px; align-items: center;">
-          <span id="compare-loading" style="display:none; color:var(--text2); font-size:.9rem;">⏳ Generating…</span>
-          <button onclick="generateTrendChart()" class="btn btn-primary" id="compare-btn">
-            Generate Comparison
-          </button>
-        </div>
+      <div class="trend-actions">
+        <span id="compare-loading" class="trend-loading-text" style="display:none;">⏳ Generating…</span>
+        <button onclick="generateTrendChart()" class="btn btn-primary" id="compare-btn">
+          Generate Comparison
+        </button>
       </div>
 
-      <div
-        id="trend-chart-container"
-        style="
-          display: none;
-          flex-direction: column;
-          gap: 16px;
-          margin-top: 8px;
-        "
-      >
-        <div
-          style="
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-          "
-        >
-          <h3
-            id="chart-title"
-            style="margin: 0; font-size: 1.1rem; color: var(--text)"
-          >
+      <div id="trend-chart-container" class="trend-chart-container" style="display: none;">
+        <div class="trend-chart-header">
+          <h3 id="chart-title" class="trend-chart-title">
             Performance Trend
           </h3>
-          <div
-            class="mode-checks"
-            style="
-              background: rgba(0, 0, 0, 0.3);
-              padding: 6px 16px;
-              border-radius: 20px;
-              border: 1px solid rgba(255, 255, 255, 0.05);
-            "
-          >
-            <label
-              class="check-inline"
-              style="margin-right: 16px; margin-bottom: 0"
-            >
+          <div class="mode-checks trend-metric-toggles">
+            <label class="check-inline trend-check-inline-item">
               <input
                 type="radio"
                 name="chart-metric"
@@ -256,10 +211,7 @@ page_title %}Experiment Results{% endblock %} {% block head %}
               />
               Real Time
             </label>
-            <label
-              class="check-inline"
-              style="margin-right: 16px; margin-bottom: 0"
-            >
+            <label class="check-inline trend-check-inline-item">
               <input
                 type="radio"
                 name="chart-metric"
@@ -268,7 +220,7 @@ page_title %}Experiment Results{% endblock %} {% block head %}
               />
               CPU Time
             </label>
-            <label class="check-inline" style="margin-bottom: 0">
+            <label class="check-inline trend-check-inline-last">
               <input
                 type="radio"
                 name="chart-metric"
@@ -280,73 +232,35 @@ page_title %}Experiment Results{% endblock %} {% block head %}
           </div>
         </div>
         <div id="trend-legend"></div>
-        <div
-          id="charts-wrapper"
-          style="display: flex; gap: 20px; flex-wrap: wrap; width: 100%"
-        >
+        <div id="charts-wrapper" class="trend-charts-wrapper">
           <!-- Canvases will be injected here -->
         </div>
       </div>
-    </div>
+    </div> <!-- END view-trend -->
 
     <!-- VIEW: FILE VIEWER -->
     <div id="view-file" class="ide-content">
-      <div
-        style="
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          margin-bottom: 24px;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-          padding-bottom: 16px;
-        "
-      >
-        <div class="glass-card" style="padding: 20px; border-radius: var(--radius-sm); border: 1px solid rgba(255, 255, 255, 0.05); background: rgba(0, 0, 0, 0.2);">
-          <h3
-            id="data-panel-title"
-            style="
-              margin: 0;
-              font-size: 1.3rem;
-              font-weight: 700;
-              color: var(--text);
-              font-family: var(--mono);
-            "
-          >
-            —
-          </h3>
-          <p
-            id="data-panel-subtitle"
-            style="margin: 6px 0 0 0; color: var(--accent); font-size: 0.95rem"
-          >
-            —
-          </p>
-        </div>
+      <div class="file-viewer-header">
+        <h3 id="data-panel-title" class="file-viewer-title">—</h3>
+        <p id="data-panel-subtitle" class="file-viewer-subtitle">—</p>
       </div>
 
-      <div
-        style="
-          margin-bottom: 24px;
-          background: rgba(0, 0, 0, 0.3);
-          padding: 20px;
-          border-radius: var(--radius);
-          border: 1px solid rgba(255, 255, 255, 0.05);
-        "
-      >
-        <div style="position: relative; height: 500px; width: 100%">
+      <div class="file-viewer-chart-box">
+        <div class="file-viewer-canvas-wrap">
           <canvas id="result-chart"></canvas>
         </div>
       </div>
 
-      <h4 style="margin: 0 0 12px 0; color: var(--text2)">Raw Data</h4>
-      <div class="table-scroll">
+      <h4 class="file-viewer-raw-title">Raw Data</h4>
+      <div class="table-scroll file-viewer-table-scroll">
         <table class="data-table" id="result-table">
           <thead id="result-thead"></thead>
           <tbody id="result-tbody"></tbody>
         </table>
       </div>
-    </div>
-  </div>
-</div>
+    </div> <!-- END view-file -->
+  </div> <!-- END ide-main -->
+</div> <!-- END ide-container -->
 {% else %}
 <div class="empty-state large" style="margin-top: 40px">
   <div class="empty-icon">◉</div>
@@ -661,17 +575,16 @@ page_title %}Experiment Results{% endblock %} {% block head %}
 
       // Build custom grouped HTML legend for stacked chart
       const legendContainer = document.getElementById("trend-legend");
-      let legendHTML =
-        '<div style="display: flex; gap: 32px; flex-wrap: wrap; justify-content: center; margin-bottom: 24px;">';
+      let legendHTML = '<div class="trend-legend-wrapper">';
       systems.forEach((sys) => {
-        legendHTML += `<div style="display: flex; flex-direction: column; gap: 6px; background: rgba(0,0,0,0.2); padding: 12px 24px; border-radius: var(--radius); border: 1px solid var(--border);">`;
-        legendHTML += `<strong style="color: var(--text); font-size: 1rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">${sys}</strong>`;
+        legendHTML += `<div class="trend-legend-sys-box">`;
+        legendHTML += `<strong class="trend-legend-sys-title">${sys}</strong>`;
 
         [...globalSysPhases[sys]].reverse().forEach((basePhase) => {
           const color = phaseColors[basePhase];
           legendHTML += `
-          <div style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--text2);">
-            <div style="width: 14px; height: 14px; background-color: ${color}; border-radius: 3px;"></div>
+          <div class="trend-legend-item">
+            <div class="trend-legend-color-box" style="background-color: ${color};"></div>
             <span>${basePhase}</span>
           </div>
         `;
@@ -901,11 +814,12 @@ page_title %}Experiment Results{% endblock %} {% block head %}
           )
           .join("");
 
-        // Render Chart
-        renderChart(keys, rows);
-
+        // Make active FIRST so container has dimensions
         document.getElementById("tab-file").disabled = false;
         switchView("file");
+
+        // Render Chart AFTER display block is set
+        renderChart(keys, rows);
       })
       .catch((err) => {
         showToast("Failed to load data.", "error");

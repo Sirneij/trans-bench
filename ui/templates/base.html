@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}?v={{ range(1, 1000000) | random }}"/>
   {% block head %}{% endblock %}
 </head>
 <body>

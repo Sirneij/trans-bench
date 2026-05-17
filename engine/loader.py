@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
@@ -47,13 +47,37 @@ def get_system_version(sys_name: str) -> str:
                 if not out:
                     out = res.stderr.strip()
                 lines = [l.strip() for l in out.split('\n') if l.strip()]
+                log.info(f"DEBUG: {sys_name} version output: {lines}")
                 if sys_name == 'souffle':
                     for l in lines:
                         if l.startswith('Version:'):
-                            version = l
+                            version = l.replace('Version:', '').strip()
                             break
-                    if not version:
-                        version = lines[0] if lines else 'Unknown'
+                elif sys_name == 'xsb':
+                    for l in lines:
+                        if l.startswith('XSB Version'):
+                            version = l.replace('XSB Version', '').strip()
+                            break
+                elif sys_name == 'postgres':
+                    for l in lines:
+                        if 'psql (PostgreSQL)' in l:
+                            version = l.replace('psql (PostgreSQL)', '').strip()
+                            break
+                elif sys_name == 'mariadb':
+                    for l in lines:
+                        if 'mariadb from' in l:
+                            version = l.split('from')[1].split(',')[0].strip()
+                            break
+                elif sys_name == 'cockroachdb':
+                    for l in lines:
+                        if l.startswith('Build Tag:'):
+                            version = l.replace('Build Tag:', '').strip()
+                            break
+                elif sys_name == 'mongodb':
+                    for l in lines:
+                        if l.startswith('db version'):
+                            version = l.replace('db version', '').strip()
+                            break
                 else:
                     version = lines[0] if lines else 'Unknown'
         except Exception:
@@ -72,7 +96,7 @@ def get_system_version(sys_name: str) -> str:
 
     if pkg:
         try:
-            return f'python-pkg: {importlib.metadata.version(pkg)}'
+            return importlib.metadata.version(pkg)
         except Exception:
             pass
 
