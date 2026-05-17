@@ -53,10 +53,10 @@ trans-bench/
 │   ├── barabasi_albert.yaml
 │   └── …
 │
+├── generate_db.py              ← Generates graph facts and demand-driven queries (queries_*.csv)
 ├── engine/                     ← Core framework (rarely needs editing)
 │   ├── loader.py               ← Reads descriptors at runtime
 │   ├── runner.py               ← Orchestrates experiments
-│   ├── data_generator.py       ← Generates graph facts and demand-driven queries (queries.csv)
 │   └── connectors/
 │       ├── base.py             ← Abstract connector interface
 │       ├── rdbms.py            ← PostgreSQL, MariaDB, CockroachDB
@@ -385,7 +385,7 @@ python transitive.py --sizes 100 1001 100 --modes right_recursion left_recursion
 | New SQL/graph database  | ❌ No   | 5 min   | Copy descriptor, write SQL/Cypher rules              | [EXTENSION_GUIDE.md](EXTENSION_GUIDE.md#adding-a-new-system)       |
 | New logic engine (CLI)  | ❌ No   | 5 min   | Descriptor with `protocol: subprocess`               | [EXTENSION_GUIDE.md](EXTENSION_GUIDE.md#adding-a-new-system)       |
 | New connector protocol  | ⚠️ Once | 20 min  | Drop `systems/<name>/connector.py` (auto-discovered) | [EXTENSION_GUIDE.md](EXTENSION_GUIDE.md#adding-a-new-protocol)     |
-| New graph topology      | ⚠️ Once | 15 min  | Add Python method in `engine/data_generator.py`      | [EXTENSION_GUIDE.md](EXTENSION_GUIDE.md#adding-a-new-graph-type)   |
+| New graph topology      | ⚠️ Once | 15 min  | Add Python method in `generate_db.py`                | [EXTENSION_GUIDE.md](EXTENSION_GUIDE.md#adding-a-new-graph-type)   |
 | New query domain        | ❌ No   | 20 min  | Create `domains/<name>/descriptor.yaml`, write rules | [EXTENSION_GUIDE.md](EXTENSION_GUIDE.md#adding-a-new-query-domain) |
 | Custom query rules      | ❌ No   | 10 min  | Edit SQL/Cypher/Datalog files                        | [RULES.md](RULES.md)                                               |
 
