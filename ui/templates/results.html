@@ -2,274 +2,6 @@
 page_title %}Experiment Results{% endblock %} {% block head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 {% endblock %} {% block content %}
-<style>
-  /* IDE-like Layout Styles */
-  .ide-container {
-    display: flex;
-    gap: 20px;
-    height: calc(100vh - 120px);
-    margin-top: 10px;
-    align-items: stretch;
-  }
-  .ide-sidebar {
-    width: 320px;
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    background: rgba(15, 23, 42, 0.4);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: var(--radius);
-    overflow: hidden;
-    backdrop-filter: blur(12px);
-  }
-  .ide-sidebar-header {
-    padding: 16px 20px;
-    background: rgba(0, 0, 0, 0.2);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    font-weight: 600;
-    font-size: 1.05rem;
-    color: var(--text);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .ide-sidebar-body {
-    flex: 1;
-    overflow-y: auto;
-    padding: 12px;
-  }
-  .ide-sidebar-body::-webkit-scrollbar {
-    width: 6px;
-  }
-  .ide-sidebar-body::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .ide-sidebar-body::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 3px;
-  }
-
-  .ide-main {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-  }
-  .ide-tabs {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 16px;
-    background: rgba(0, 0, 0, 0.2);
-    padding: 6px;
-    border-radius: var(--radius);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-  }
-  .ide-tab {
-    background: transparent;
-    border: none;
-    padding: 10px 20px;
-    color: var(--text2);
-    font-weight: 600;
-    font-size: 0.9rem;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .ide-tab:hover:not(:disabled) {
-    color: var(--text);
-    background: rgba(255, 255, 255, 0.05);
-  }
-  .ide-tab.active {
-    background: var(--accent);
-    color: white;
-    box-shadow: 0 4px 12px rgba(56, 189, 248, 0.2);
-  }
-  .ide-tab:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .sub-tabs {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 16px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    padding-bottom: 8px;
-  }
-  .sub-tab {
-    background: transparent;
-    border: none;
-    color: var(--text2);
-    padding: 6px 12px;
-    cursor: pointer;
-    border-radius: 4px;
-    transition: 0.2s;
-  }
-  .sub-tab:hover {
-    background: rgba(255, 255, 255, 0.05);
-    color: white;
-  }
-  .sub-tab.active {
-    background: rgba(56, 189, 248, 0.15);
-    color: #38bdf8;
-    font-weight: 600;
-  }
-
-  .ide-content {
-    flex: 1;
-    display: none;
-    flex-direction: column;
-    overflow-y: auto;
-    background: rgba(15, 23, 42, 0.4);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(12px);
-    border-radius: var(--radius);
-    padding: 24px;
-  }
-  .ide-content.active {
-    display: flex;
-  }
-  .ide-content::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-  .ide-content::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .ide-content::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 3px;
-  }
-
-  /* Tree view styling */
-  details.tree-system > summary {
-    list-style: none;
-    cursor: pointer;
-    padding: 8px 12px;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--text);
-    font-weight: 600;
-    transition: background 0.2s;
-  }
-  details.tree-system > summary::-webkit-details-marker {
-    display: none;
-  }
-  details.tree-system > summary:hover {
-    background: rgba(255, 255, 255, 0.04);
-  }
-
-  details.tree-graph {
-    margin-left: 12px;
-    margin-top: 4px;
-  }
-  details.tree-graph > summary {
-    list-style: none;
-    cursor: pointer;
-    padding: 6px 12px;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--text2);
-    font-size: 0.9rem;
-    transition: background 0.2s;
-  }
-  details.tree-graph > summary::-webkit-details-marker {
-    display: none;
-  }
-  details.tree-graph > summary:hover {
-    background: rgba(255, 255, 255, 0.04);
-    color: var(--text);
-  }
-
-  .tree-files {
-    margin-left: 20px;
-    margin-top: 4px;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  .tree-file-btn {
-    background: transparent;
-    border: 1px solid transparent;
-    color: var(--text3);
-    padding: 6px 10px 6px 20px;
-    border-radius: 6px;
-    text-align: left;
-    font-family: var(--mono);
-    font-size: 0.8rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    transition: all 0.2s;
-    position: relative;
-    width: 100%;
-  }
-  .tree-file-btn::before {
-    content: "";
-    position: absolute;
-    left: 8px;
-    top: -10px;
-    bottom: 50%;
-    width: 1px;
-    background: rgba(255, 255, 255, 0.1);
-  }
-  .tree-file-btn::after {
-    content: "";
-    position: absolute;
-    left: 8px;
-    top: 50%;
-    width: 8px;
-    height: 1px;
-    background: rgba(255, 255, 255, 0.1);
-  }
-  .tree-file-btn:hover {
-    background: rgba(56, 189, 248, 0.1);
-    color: var(--accent);
-    border-color: rgba(56, 189, 248, 0.2);
-  }
-  .tree-file-btn.active {
-    background: rgba(56, 189, 248, 0.15);
-    color: var(--accent);
-    border-color: rgba(56, 189, 248, 0.3);
-    font-weight: 600;
-  }
-  .tree-icon {
-    opacity: 0.8;
-    font-size: 0.95rem;
-    display: inline-block;
-    width: 16px;
-    text-align: center;
-    transition: transform 0.2s;
-  }
-  details[open] > summary > .tree-icon {
-    transform: rotate(90deg);
-    color: var(--accent);
-  }
-  .tree-badge {
-    font-size: 0.7rem;
-    background: rgba(255, 255, 255, 0.1);
-    padding: 2px 6px;
-    border-radius: 10px;
-    color: var(--text3);
-    margin-left: auto;
-  }
-
-  /* Override app.css form/card styles for this layout */
-  .glass-card {
-    margin-bottom: 0;
-  }
-  .toolbar {
-    display: none;
-  }
-</style>
 
 {% if tree %}
 <div class="ide-container">
@@ -359,6 +91,7 @@ page_title %}Experiment Results{% endblock %} {% block head %}
         id="tab-file"
         onclick="switchView('file')"
         disabled
+        title="Select a file from the Data Explorer to enable this view"
       >
         <span>📄</span> File Viewer
       </button>
@@ -400,7 +133,7 @@ page_title %}Experiment Results{% endblock %} {% block head %}
       </div>
 
       <div
-        class="form-grid"
+        class="form-section"
         style="
           background: rgba(0, 0, 0, 0.2);
           padding: 20px;
@@ -409,106 +142,71 @@ page_title %}Experiment Results{% endblock %} {% block head %}
           margin-bottom: 24px;
         "
       >
-        <div style="display: flex; gap: 16px; flex-wrap: wrap">
-          <div class="form-group" style="flex: 1; min-width: 150px">
-            <label class="form-label">Domain</label>
-            <select id="trend-domain" class="form-input">
+        <div class="results-filter-grid">
+          <div class="form-group">
+            <label class="results-filter-label">Domain</label>
+            <select id="trend-domain" class="results-select" style="width:100%;">
               {% for d in all_domains %}
               <option value="{{ d }}">{{ d }}</option>
               {% endfor %}
             </select>
           </div>
-          <div class="form-group" style="flex: 1; min-width: 150px">
-            <label class="form-label">Graph Type</label>
-            <select id="trend-graph-type" class="form-input">
+          <div class="form-group">
+            <label class="results-filter-label">Graph Type</label>
+            <select id="trend-graph-type" class="results-select" style="width:100%;">
               {% for g in all_graphs %}
               <option value="{{ g }}">{{ g }}</option>
               {% endfor %}
             </select>
           </div>
-          <div class="form-group" style="flex: 2; min-width: 300px">
-            <label class="form-label"
-              >Modes
-              <span style="font-size: 0.8em; color: var(--text3)"
-                >(Multiple selection supported for stacked view)</span
-              ></label
-            >
-            <div class="mode-checks">
-              {% for m in all_modes %}
-              <label class="check-inline">
-                <input
-                  type="checkbox"
-                  class="trend-mode-check"
-                  value="{{ m }}"
-                  {%
-                  if
-                  loop.first
-                  %}checked{%
-                  endif
-                  %}
-                />
-                {{ m }}
-              </label>
-              {% endfor %}
-            </div>
+        </div>
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label class="results-filter-label">Modes <span style="font-size:.8em;color:var(--text3);text-transform:none;letter-spacing:0;">(Multiple selection for stacked view)</span></label>
+          <div class="mode-checks" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:4px;">
+            {% for m in all_modes %}
+            <label class="results-check-label">
+              <input type="checkbox" class="trend-mode-check" value="{{ m }}" {% if loop.first %}checked{% endif %} />
+              {{ m }}
+            </label>
+            {% endfor %}
           </div>
         </div>
 
         <div
           id="phase-selector-container"
           class="form-group"
-          style="margin-top: 16px; display: none"
+          style="margin-bottom: 16px; display: none"
         >
-          <label class="form-label">Phase to Plot</label>
-          <select id="trend-phase" class="form-input">
+          <label class="results-filter-label">Phase to Plot</label>
+          <select id="trend-phase" class="results-select" style="width:100%;">
             <option value="Query">Query / Execute / WriteResult</option>
             <option value="LoadFacts">Load Facts / Data</option>
             <option value="Total">Total Runtime</option>
           </select>
         </div>
 
-        <div class="form-group" style="margin-top: 16px">
-          <div
-            style="
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-            "
-          >
-            <label class="form-label">Systems to Compare</label>
-            <label
-              class="check-inline"
-              id="logic-systems-toggle-container"
-              style="margin: 0"
-            >
-              <input
-                type="checkbox"
-                id="logic-systems-only"
-                checked
-                onchange="toggleLogicSystems()"
-              />
-              <span style="color: var(--accent); font-weight: 600"
-                >Logic Systems Only</span
-              >
+        <div class="form-group">
+          <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;margin-bottom:8px;gap:10px;">
+            <label class="results-filter-label" style="margin:0;">Systems to Compare</label>
+            <label class="results-check-label" id="logic-systems-toggle-container" style="margin:0">
+              <input type="checkbox" id="logic-systems-only" checked onchange="toggleLogicSystems()" />
+              <span style="color:var(--accent);font-weight:600;">Logic Systems Only</span>
             </label>
           </div>
-          <div class="mode-checks">
+          <div class="mode-checks" style="display:flex;flex-wrap:wrap;gap:10px;">
             {% for s in all_systems %}
-            <label class="check-inline sys-check-label" data-sys="{{ s }}">
-              <input
-                type="checkbox"
-                class="trend-system-check"
-                value="{{ s }}"
-                checked
-              />
+            <label class="results-check-label sys-check-label" data-sys="{{ s }}">
+              <input type="checkbox" class="trend-system-check" value="{{ s }}" checked />
               {{ s }}
             </label>
             {% endfor %}
           </div>
         </div>
+      </div>
 
-        <div style="display: flex; justify-content: flex-end; margin-top: 16px">
-          <button onclick="generateTrendChart()" class="btn btn-primary">
+        <div style="display: flex; justify-content: flex-end; margin-top: 16px; gap: 12px; align-items: center;">
+          <span id="compare-loading" style="display:none; color:var(--text2); font-size:.9rem;">⏳ Generating…</span>
+          <button onclick="generateTrendChart()" class="btn btn-primary" id="compare-btn">
             Generate Comparison
           </button>
         </div>
@@ -603,14 +301,14 @@ page_title %}Experiment Results{% endblock %} {% block head %}
           padding-bottom: 16px;
         "
       >
-        <div>
+        <div class="glass-card" style="padding: 20px; border-radius: var(--radius-sm); border: 1px solid rgba(255, 255, 255, 0.05); background: rgba(0, 0, 0, 0.2);">
           <h3
             id="data-panel-title"
             style="
               margin: 0;
               font-size: 1.3rem;
               font-weight: 700;
-              color: var(--accent);
+              color: var(--text);
               font-family: var(--mono);
             "
           >
@@ -618,7 +316,7 @@ page_title %}Experiment Results{% endblock %} {% block head %}
           </h3>
           <p
             id="data-panel-subtitle"
-            style="margin: 6px 0 0 0; color: var(--text2); font-size: 0.95rem"
+            style="margin: 6px 0 0 0; color: var(--accent); font-size: 0.95rem"
           >
             —
           </p>
@@ -634,19 +332,13 @@ page_title %}Experiment Results{% endblock %} {% block head %}
           border: 1px solid rgba(255, 255, 255, 0.05);
         "
       >
-        <div style="position: relative; height: 350px; width: 100%">
+        <div style="position: relative; height: 500px; width: 100%">
           <canvas id="result-chart"></canvas>
         </div>
       </div>
 
       <h4 style="margin: 0 0 12px 0; color: var(--text2)">Raw Data</h4>
-      <div
-        class="table-scroll"
-        style="
-          background: rgba(0, 0, 0, 0.2);
-          border-color: rgba(255, 255, 255, 0.05);
-        "
-      >
+      <div class="table-scroll">
         <table class="data-table" id="result-table">
           <thead id="result-thead"></thead>
           <tbody id="result-tbody"></tbody>
@@ -752,42 +444,37 @@ page_title %}Experiment Results{% endblock %} {% block head %}
       return idxA - idxB || a.localeCompare(b);
     });
 
-    if (!systems.length) {
-      showToast("Select at least one system", "warn");
-      return;
-    }
-    if (!modes.length) {
-      showToast("Select at least one mode", "warn");
-      return;
-    }
+    if (!systems.length) { showToast("Select at least one system", "warn"); return; }
+    if (!modes.length)   { showToast("Select at least one mode", "warn"); return; }
+
+    // Show loading state
+    const btn = document.getElementById("compare-btn");
+    const spinner = document.getElementById("compare-loading");
+    if (btn) { btn.disabled = true; btn.textContent = "Generating…"; }
+    if (spinner) spinner.style.display = "inline";
+
+    const done = () => {
+      if (btn) { btn.disabled = false; btn.textContent = "Generate Comparison"; }
+      if (spinner) spinner.style.display = "none";
+    };
 
     fetch("/api/compare/trends", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        domain: domain,
-        graph_type: graphType,
-        modes: modes,
-        systems: systems,
-      }),
+      body: JSON.stringify({ domain, graph_type: graphType, modes, systems }),
     })
       .then((r) => r.json())
       .then((data) => {
-        if (data.error) {
-          showToast(data.error, "error");
-          return;
-        }
-        if (!data.length) {
-          showToast("No data found for this configuration.", "warn");
-          return;
-        }
-
+        done();
+        if (data.error) { showToast(data.error, "error"); return; }
+        if (!data.length) { showToast("No data found for this configuration.", "warn"); return; }
         currentTrendData = data;
         currentTrendSystems = systems;
         currentTrendModes = modes;
         renderTrendChart();
       })
       .catch((err) => {
+        done();
         showToast("Failed to load trends", "error");
         console.error(err);
       });
@@ -1140,7 +827,7 @@ page_title %}Experiment Results{% endblock %} {% block head %}
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: { labels: { color: "#e2e8f0" } },
+          legend: { position: 'bottom', labels: { color: "#e2e8f0", boxWidth: 12, padding: 15 } },
         },
         scales: {
           x: {

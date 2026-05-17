@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 from engine.connectors import get_connector
-from engine.loader import DescriptorLoader, GraphTypeDescriptor, SystemDescriptor
+from engine.loader import DescriptorLoader, DomainDescriptor, GraphTypeDescriptor, SystemDescriptor
 
 log = logging.getLogger(__name__)
 
@@ -64,18 +64,45 @@ class ExperimentRunner:
         domain: str = 'transitive',
         query_mode: str = 'full_materialization',
         progress_cb: Optional[Callable[[dict], None]] = None,
+        domain_descriptor: Optional[DomainDescriptor] = None,
     ):
         self.config = config
         self.systems = systems
         self.graph_types = graph_types
         self.size_range = size_range
         self.num_runs = num_runs
-        self.modes = modes
         self.domain = domain
         self.query_mode = query_mode  # full_materialization or demand_driven
         self.progress_cb = progress_cb
         self.timing_dir = Path(config.get('timing_dir', 'timing'))
         self.base_dir = Path(__file__).parent.parent
+
+        # Resolve effective modes: if a domain descriptor is provided (or can be
+        # loaded from domains/<domain>/descriptor.yaml) and it declares its own
+        # modes, intersect with user-requested modes to avoid running invalid combos.
+        self.domain_descriptor: Optional[DomainDescriptor] = domain_descriptor
+        if self.domain_descriptor is None:
+            loader = DescriptorLoader(base_dir=self.base_dir)
+            self.domain_descriptor = loader.get_domain(domain)
+
+        effective_modes = modes
+        if self.domain_descriptor and self.domain_descriptor.modes:
+            domain_modes = set(self.domain_descriptor.modes)
+            effective_modes = [m for m in modes if m in domain_modes]
+            skipped = [m for m in modes if m not in domain_modes]
+            if skipped:
+                log.info(
+                    f'Domain "{domain}" declares modes {self.domain_descriptor.modes}; '
+                    f'skipping unsupported modes: {skipped}'
+                )
+            if not effective_modes:
+                log.warning(
+                    f'None of the requested modes {modes} are valid for domain "{domain}". '
+                    f'Valid modes: {self.domain_descriptor.modes}. '
+                    f'Falling back to all requested modes.'
+                )
+                effective_modes = modes
+        self.modes = effective_modes
 
     # ------------------------------------------------------------------
     # Public entry point

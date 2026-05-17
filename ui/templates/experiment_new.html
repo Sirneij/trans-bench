@@ -238,123 +238,65 @@ page_title %}Configure Experiment{% endblock %} {% block content %}
   </div>
 
   <!-- Step 1: Select systems -->
-  <div class="bento-wizard-panel active" id="step-1">
+  <div class="bento-wizard-panel active" id="step-1" data-step-label="Step 1 of 4: Systems">
     <h2 class="bento-heading-large">Which systems do you want to benchmark?</h2>
     <p class="bento-sub">
       Select one or more. Leave all unchecked to run all discovered systems.
     </p>
+    <div style="display:flex;gap:10px;margin-bottom:16px;">
+      <button type="button" class="btn" style="padding:6px 14px;font-size:.85rem;background:rgba(56,189,248,.1);border-color:rgba(56,189,248,.3);color:#38bdf8;" onclick="selectAll('systems-grid')">Select All</button>
+      <button type="button" class="btn" style="padding:6px 14px;font-size:.85rem;background:rgba(255,255,255,.05);" onclick="selectNone('systems-grid')">Clear</button>
+    </div>
     <div class="check-grid-bento" id="systems-grid">
       {% for system in systems %}
       <label class="check-card-bento" for="sys-{{ system.name }}">
-        <input
-          type="checkbox"
-          id="sys-{{ system.name }}"
-          name="systems"
-          value="{{ system.name }}"
-        />
-        <div style="flex: 1">
-          <div class="check-badge {{ system.category }}">
-            {{ system.category }}
-          </div>
-          <div
-            style="
-              font-weight: 700;
-              font-size: 1.1rem;
-              color: white;
-              margin-bottom: 4px;
-            "
-          >
-            {{ system.display_name }}
-          </div>
-          <div style="font-size: 0.85rem; color: var(--text2)">
-            {{ system.protocol }}
-          </div>
+        <input type="checkbox" id="sys-{{ system.name }}" name="systems" value="{{ system.name }}" />
+        <div class="card-check-indicator"></div>
+        <div class="check-card-meta">
+          <div class="check-card-category">{{ system.category }}</div>
+          <div class="check-card-name">{{ system.display_name }}</div>
+          <div class="check-card-slug">{{ system.protocol }}</div>
         </div>
-        <div class="check-mark-bento">✓</div>
       </label>
       {% endfor %}
     </div>
-    <div class="wizard-nav-bento">
+    <div class="wizard-footer">
       <span></span>
-      <button
-        class="btn btn-primary"
-        style="
-          padding: 12px 28px;
-          font-size: 1.1rem;
-          box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
-        "
-        onclick="nextStep()"
-      >
-        Next Step →
-      </button>
+      <button class="btn btn-primary" style="padding:12px 28px;font-size:1rem;" onclick="nextStep()">Next Step →</button>
     </div>
   </div>
 
   <!-- Step 2: Select graph types -->
-  <div class="bento-wizard-panel" id="step-2">
+  <div class="bento-wizard-panel" id="step-2" data-step-label="Step 2 of 4: Graphs">
     <h2 class="bento-heading-large">Which graph topologies?</h2>
     <p class="bento-sub">
       Leave all unchecked to test all discovered topologies.
     </p>
+    <div style="display:flex;gap:10px;margin-bottom:16px;">
+      <button type="button" class="btn" style="padding:6px 14px;font-size:.85rem;background:rgba(56,189,248,.1);border-color:rgba(56,189,248,.3);color:#38bdf8;" onclick="selectAll('graphs-grid')">Select All</button>
+      <button type="button" class="btn" style="padding:6px 14px;font-size:.85rem;background:rgba(255,255,255,.05);" onclick="selectNone('graphs-grid')">Clear</button>
+    </div>
     <div class="check-grid-bento" id="graphs-grid">
       {% for g in graph_types %}
       <label class="check-card-bento" for="g-{{ g.name }}">
-        <input
-          type="checkbox"
-          id="g-{{ g.name }}"
-          name="graphs"
-          value="{{ g.name }}"
-        />
-        <div style="flex: 1">
-          <div
-            style="
-              font-weight: 700;
-              font-size: 1.05rem;
-              color: white;
-              margin-bottom: 6px;
-            "
-          >
-            {{ g.display_name }}
-          </div>
-          <div
-            style="font-size: 0.85rem; color: var(--text2); line-height: 1.4"
-          >
-            {{ g.description[:70] }}{% if g.description|length > 70 %}…{% endif
-            %}
-          </div>
+        <input type="checkbox" id="g-{{ g.name }}" name="graphs" value="{{ g.name }}" />
+        <div class="card-check-indicator"></div>
+        <div class="check-card-meta">
+          <div class="check-card-name">{{ g.display_name }}</div>
+          <div class="check-card-slug" style="white-space:normal;line-height:1.4;">{{ g.description[:65] }}{% if g.description|length > 65 %}…{% endif %}</div>
         </div>
-        <div class="check-mark-bento">✓</div>
       </label>
       {% endfor %}
     </div>
-    <div class="wizard-nav-bento">
-      <button
-        class="btn"
-        style="
-          padding: 12px 28px;
-          font-size: 1.1rem;
-          background: rgba(255, 255, 255, 0.05);
-        "
-        onclick="prevStep()"
-      >
-        ← Back
-      </button>
-      <button
-        class="btn btn-primary"
-        style="
-          padding: 12px 28px;
-          font-size: 1.1rem;
-          box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
-        "
-        onclick="nextStep()"
-      >
-        Next Step →
-      </button>
+    <div class="wizard-footer">
+      <button class="btn" style="padding:12px 28px;font-size:1rem;" onclick="prevStep()">← Back</button>
+      <button class="btn btn-primary" style="padding:12px 28px;font-size:1rem;" onclick="nextStep()">Next Step →</button>
+    </div>
     </div>
   </div>
 
   <!-- Step 3: Settings -->
-  <div class="bento-wizard-panel" id="step-3">
+  <div class="bento-wizard-panel" id="step-3" data-step-label="Step 3 of 4: Settings">
     <h2 class="bento-heading-large">Experiment settings</h2>
 
     <div
@@ -371,72 +313,8 @@ page_title %}Configure Experiment{% endblock %} {% block content %}
           "
           >Recursion Modes</label
         >
-        <div
-          style="
-            display: flex;
-            gap: 24px;
-            background: rgba(0, 0, 0, 0.2);
-            padding: 20px;
-            border-radius: var(--radius);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-          "
-        >
-          <label
-            style="
-              display: flex;
-              align-items: center;
-              gap: 10px;
-              cursor: pointer;
-              color: white;
-              font-weight: 500;
-            "
-          >
-            <input
-              type="checkbox"
-              name="modes"
-              value="right_recursion"
-              checked
-              style="width: 18px; height: 18px; accent-color: #38bdf8"
-            />
-            Right recursion
-          </label>
-          <label
-            style="
-              display: flex;
-              align-items: center;
-              gap: 10px;
-              cursor: pointer;
-              color: white;
-              font-weight: 500;
-            "
-          >
-            <input
-              type="checkbox"
-              name="modes"
-              value="left_recursion"
-              checked
-              style="width: 18px; height: 18px; accent-color: #38bdf8"
-            />
-            Left recursion
-          </label>
-          <label
-            style="
-              display: flex;
-              align-items: center;
-              gap: 10px;
-              cursor: pointer;
-              color: white;
-              font-weight: 500;
-            "
-          >
-            <input
-              type="checkbox"
-              name="modes"
-              value="double_recursion"
-              style="width: 18px; height: 18px; accent-color: #38bdf8"
-            />
-            Double recursion
-          </label>
+        <div id="modes-container" style="display:flex;flex-wrap:wrap;gap:20px;background:rgba(0,0,0,.2);padding:20px;border-radius:var(--radius);border:1px solid rgba(255,255,255,.05);">
+          <!-- populated by JS based on selected domain -->
         </div>
       </div>
 
@@ -451,23 +329,11 @@ page_title %}Configure Experiment{% endblock %} {% block content %}
           "
           >Benchmark Domain</label
         >
-        <select
-          id="domain"
-          style="
-            background: rgba(0, 0, 0, 0.4);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            padding: 12px;
-            color: white;
-            width: 100%;
-            font-size: 1.1rem;
-          "
-        >
-          <option value="transitive_closure">
-            Transitive Closure (default)
-          </option>
-          <option value="shortest_path">Shortest Path</option>
-          <option value="reachability">Reachability</option>
+        <select id="domain" onchange="onDomainChange(this.value)"
+          style="background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:12px;color:white;width:100%;font-size:1.1rem;">
+          {% for d in domain_options %}
+          <option value="{{ d.name }}" data-modes="{{ d.modes | join(',') }}">{{ d.display_name }}</option>
+          {% endfor %}
         </select>
         <div style="margin-top: 8px; font-size: 0.85rem; color: var(--text3)">
           Controls the rule files and queries loaded (e.g.,
@@ -833,6 +699,51 @@ page_title %}Configure Experiment{% endblock %} {% block content %}
     if (el) el.addEventListener("input", updateSizePreview);
   });
   updateSizePreview();
+
+  // ── Select All / None ──────────────────────────────────────────
+  function selectAll(gridId) {
+    document.querySelectorAll(`#${gridId} input[type=checkbox]`).forEach(cb => cb.checked = true);
+  }
+  function selectNone(gridId) {
+    document.querySelectorAll(`#${gridId} input[type=checkbox]`).forEach(cb => cb.checked = false);
+  }
+
+  // ── Dynamic modes from domain ──────────────────────────────────
+  function renderModes(modes) {
+    const c = document.getElementById('modes-container');
+    c.innerHTML = modes.map((m, i) => `
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;color:white;font-weight:500;">
+        <input type="checkbox" name="modes" value="${m}" ${i < 2 ? 'checked' : ''}
+          style="width:18px;height:18px;accent-color:#38bdf8"/>
+        ${m.replace(/_/g,' ')}
+      </label>`).join('');
+  }
+
+  function onDomainChange(domainName) {
+    const sel = document.getElementById('domain');
+    const opt = sel.options[sel.selectedIndex];
+    const cached = opt.dataset.modes;
+    if (cached) { renderModes(cached.split(',').filter(Boolean)); return; }
+    fetch(`/api/domains/${encodeURIComponent(domainName)}/modes`)
+      .then(r => r.json())
+      .then(d => { opt.dataset.modes = d.modes.join(','); renderModes(d.modes); })
+      .catch(() => renderModes(['right_recursion','left_recursion','double_recursion']));
+  }
+
+  // Init modes for default domain on load
+  (function initModes() {
+    const sel = document.getElementById('domain');
+    if (sel) onDomainChange(sel.value);
+  })();
+
+  // ── Keyboard Navigation ────────────────────────────────────────
+  document.addEventListener('keydown', (e) => {
+    // Don't intercept when user is in an input/select/textarea
+    const tag = document.activeElement.tagName;
+    if (['INPUT','SELECT','TEXTAREA'].includes(tag)) return;
+    if (e.key === 'ArrowRight' || e.key === 'Enter') { e.preventDefault(); nextStep(); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); prevStep(); }
+  });
 
   function buildReview() {
     const systems = [

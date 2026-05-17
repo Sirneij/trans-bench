@@ -84,8 +84,14 @@ Examples:
         '--modes',
         nargs='+',
         default=['right_recursion', 'left_recursion', 'double_recursion'],
-        choices=['right_recursion', 'left_recursion', 'double_recursion'],
-        help='Recursion modes. Default: all three.',
+        metavar='MODE',
+        help=(
+            'Recursion modes to benchmark. Any string is accepted — the engine skips '
+            'modes that are not listed in a system\'s descriptor.yaml. '
+            'Standard modes: right_recursion, left_recursion, double_recursion. '
+            'Domain-specific modes (e.g. dijkstra_style) are also valid. '
+            'Default: right_recursion left_recursion double_recursion'
+        ),
     )
     parser.add_argument(
         '--sizes',
@@ -183,9 +189,25 @@ Examples:
         help='Validate all rule files for a given system.',
     )
     parser.add_argument(
+        '--validate-domain',
+        metavar='DOMAIN',
+        help=(
+            'Validate that every discovered system has rule files for all modes '
+            'declared in a domain descriptor (domains/<DOMAIN>/descriptor.yaml).'
+        ),
+    )
+    parser.add_argument(
         '--test-rule',
         metavar='RULE_FILE',
-        help='Test a single rule file against sample input data.',
+        help=(
+            'Run static syntax checks and an optional live dry-run on a single rule file. '
+            'Use --system to specify which system to use for the live dry-run.'
+        ),
+    )
+    parser.add_argument(
+        '--system',
+        metavar='SYSTEM',
+        help='System name to use for live dry-run with --test-rule.',
     )
 
     args = parser.parse_args()
@@ -250,9 +272,29 @@ Examples:
             log.error(f'Validation failed: {e}')
             sys.exit(1)
 
+    if args.validate_domain:
+        from engine.validation import RuleValidator
+
+        try:
+            validator = RuleValidator(BASE_DIR)
+            system_filter = args.systems if args.systems else None
+            is_valid = validator.validate_domain(args.validate_domain, system_names=system_filter)
+            sys.exit(0 if is_valid else 1)
+        except Exception as e:
+            log.error(f'Domain validation failed: {e}')
+            sys.exit(1)
+
     if args.test_rule:
-        log.info(f'Rule testing not yet implemented: {args.test_rule}')
-        sys.exit(0)
+        from engine.validation import RuleValidator
+
+        try:
+            validator = RuleValidator(BASE_DIR)
+            system_name = getattr(args, 'system', None)
+            is_valid = validator.test_rule_file(Path(args.test_rule), system_name=system_name)
+            sys.exit(0 if is_valid else 1)
+        except Exception as e:
+            log.error(f'Rule test failed: {e}')
+            sys.exit(1)
 
     # ── Launch Web UI mode ────────────────────────────────────────────────
 
@@ -288,6 +330,13 @@ Examples:
         sys.exit(1)
     log.info(f'Graph types: {[g.name for g in graph_types]}')
 
+    # Optionally load domain descriptor (domains/<name>/descriptor.yaml)
+    domain_descriptor = loader.get_domain(args.domain)
+    if domain_descriptor:
+        log.info(f'Domain descriptor loaded: {domain_descriptor.display_name} (modes: {domain_descriptor.modes})')
+    else:
+        log.info(f'No domain descriptor found for "{args.domain}" — using all requested modes')
+
     runner = ExperimentRunner(
         config=config,
         systems=systems,
@@ -297,12 +346,13 @@ Examples:
         modes=args.modes,
         domain=args.domain,
         query_mode=args.query_mode,
+        domain_descriptor=domain_descriptor,
     )
 
     log.info(
         f'Starting experiment | domain={args.domain} | query_mode={args.query_mode} | systems={[s.name for s in systems]} | '
         f'graphs={[g.name for g in graph_types]} | sizes={args.sizes} | '
-        f'modes={args.modes} | runs={args.num_runs}'
+        f'effective_modes={runner.modes} | runs={args.num_runs}'
     )
     runner.run()
 

@@ -18,7 +18,65 @@ from typing import Any, Optional
 
 import yaml
 
+import subprocess
+import importlib.metadata
+
 log = logging.getLogger(__name__)
+
+
+def get_system_version(sys_name: str) -> str:
+    cmd_map = {
+        'clingo': ['clingo', '--version'],
+        'souffle': ['souffle', '--version'],
+        'xsb': ['xsb', '--version'],
+        'mariadb': ['mariadb', '--version'],
+        'postgres': ['psql', '--version'],
+        'duckdb': ['duckdb', '--version'],
+        'cockroachdb': ['cockroach', 'version'],
+        'mongodb': ['mongod', '--version'],
+        'neo4j': ['neo4j-admin', '--version'],
+        'alda': ['alda', '--version']
+    }
+    
+    version = None
+    if sys_name in cmd_map:
+        try:
+            res = subprocess.run(cmd_map[sys_name], capture_output=True, text=True, timeout=2)
+            if res.returncode == 0:
+                out = res.stdout.strip()
+                if not out:
+                    out = res.stderr.strip()
+                lines = [l.strip() for l in out.split('\n') if l.strip()]
+                if sys_name == 'souffle':
+                    for l in lines:
+                        if l.startswith('Version:'):
+                            version = l
+                            break
+                    if not version:
+                        version = lines[0] if lines else 'Unknown'
+                else:
+                    version = lines[0] if lines else 'Unknown'
+        except Exception:
+            pass
+
+    if version and version != 'Unknown' and not version.startswith('---'):
+        return version
+
+    pkg = None
+    if sys_name == 'neo4j': pkg = 'neo4j'
+    elif sys_name in ('postgres', 'cockroachdb'): pkg = 'psycopg2'
+    elif sys_name == 'mongodb': pkg = 'pymongo'
+    elif sys_name == 'duckdb': pkg = 'duckdb'
+    elif sys_name == 'mariadb': pkg = 'mariadb'
+    elif sys_name == 'clingo': pkg = 'clingo'
+
+    if pkg:
+        try:
+            return f'python-pkg: {importlib.metadata.version(pkg)}'
+        except Exception:
+            pass
+
+    return 'Unknown'
 
 
 # ---------------------------------------------------------------------------
@@ -53,6 +111,7 @@ class SystemDescriptor:
     rules_dir: Path
     credentials: dict[str, Any]
     enabled: bool = True
+    version: str = "Unknown"
 
     @property
     def csv_headers(self) -> list[str]:
@@ -81,6 +140,7 @@ class SystemDescriptor:
             'flags': self.flags,
             'execution': self.execution,
             'enabled': self.enabled,
+            'version': self.version,
             'csv_headers': self.csv_headers,
         }
 
@@ -102,6 +162,65 @@ class GraphTypeDescriptor:
             'description': self.description,
             'generator': self.generator,
             'parameters': self.parameters,
+        }
+
+
+@dataclass
+class QueryParameter:
+    """A single query parameter declared in a domain descriptor."""
+
+    name: str
+    type: str  # int | float | str
+    required: bool = True
+    default: Any = None
+    description: str = ''
+
+
+@dataclass
+class DomainDescriptor:
+    """
+    Describes a query domain (e.g. transitive, shortest_path, reachability).
+
+    Loaded from  domains/<name>/descriptor.yaml  at runtime.
+    The engine uses this to:
+      - Validate that rule files exist for the declared modes
+      - Supply query parameter defaults
+      - Document data-generation requirements
+    """
+
+    name: str
+    display_name: str
+    description: str
+    category: str
+    modes: list[str]  # valid recursion modes for this domain
+    query_parameters: list[QueryParameter]
+    output_schema: list[dict[str, str]]
+    data_requirements: dict[str, Any]
+    descriptor_path: Path
+
+    @property
+    def domain_dir(self) -> Path:
+        return self.descriptor_path.parent
+
+    def to_dict(self) -> dict:
+        return {
+            'name': self.name,
+            'display_name': self.display_name,
+            'description': self.description,
+            'category': self.category,
+            'modes': self.modes,
+            'query_parameters': [
+                {
+                    'name': p.name,
+                    'type': p.type,
+                    'required': p.required,
+                    'default': p.default,
+                    'description': p.description,
+                }
+                for p in self.query_parameters
+            ],
+            'output_schema': self.output_schema,
+            'data_requirements': self.data_requirements,
         }
 
 
@@ -170,6 +289,34 @@ class DescriptorLoader:
                 log.error(f'Failed to load graph type {desc_file}: {e}')
 
         return descriptors
+
+    def load_domains(self, names: Optional[list[str]] = None) -> list[DomainDescriptor]:
+        """Load all (or specific) domain descriptors from domains/*/descriptor.yaml."""
+        domains_dir = self.base_dir / 'domains'
+        descriptors: list[DomainDescriptor] = []
+
+        if not domains_dir.exists():
+            log.debug(f'domains/ directory not found at {domains_dir} — no custom domains loaded')
+            return descriptors
+
+        for desc_file in sorted(domains_dir.glob('*/descriptor.yaml')):
+            try:
+                descriptor = self._parse_domain(desc_file)
+                if names and descriptor.name not in names:
+                    continue
+                descriptors.append(descriptor)
+                log.info(f'Loaded domain descriptor: {descriptor.name}')
+            except Exception as e:
+                log.error(f'Failed to load domain {desc_file}: {e}')
+
+        return descriptors
+
+    def get_domain(self, name: str) -> Optional[DomainDescriptor]:
+        """Load a single domain descriptor by name."""
+        desc_file = self.base_dir / 'domains' / name / 'descriptor.yaml'
+        if not desc_file.exists():
+            return None
+        return self._parse_domain(desc_file)
 
     def load_global_config(self) -> dict:
         """Load config.yaml (or config.json as fallback)."""
@@ -251,6 +398,7 @@ class DescriptorLoader:
             descriptor_path=path,
             rules_dir=rules_dir,
             credentials=credentials,
+            version=get_system_version(data['name']),
         )
 
     def _parse_graph_type(self, path: Path) -> GraphTypeDescriptor:
@@ -262,6 +410,41 @@ class DescriptorLoader:
             description=data.get('description', ''),
             generator=data.get('generator', ''),
             parameters=data.get('parameters', {}),
+        )
+
+    def _parse_domain(self, path: Path) -> DomainDescriptor:
+        with open(path) as f:
+            data = yaml.safe_load(f)
+
+        raw_params = data.get('query_parameters', [])
+        if isinstance(raw_params, dict):
+            # Support old dict style: {source_node: int, ...}
+            params = [
+                QueryParameter(name=k, type=v if isinstance(v, str) else 'str')
+                for k, v in raw_params.items()
+            ]
+        else:
+            params = [
+                QueryParameter(
+                    name=p['name'],
+                    type=p.get('type', 'str'),
+                    required=p.get('required', True),
+                    default=p.get('default'),
+                    description=p.get('description', ''),
+                )
+                for p in (raw_params or [])
+            ]
+
+        return DomainDescriptor(
+            name=data['name'],
+            display_name=data.get('display_name', data['name']),
+            description=data.get('description', ''),
+            category=data.get('category', 'general'),
+            modes=data.get('modes', []),
+            query_parameters=params,
+            output_schema=data.get('output_schema', []),
+            data_requirements=data.get('data_requirements', {}),
+            descriptor_path=path,
         )
 
     def _load_credentials(self, system_dir: Path, system_name: str) -> dict:

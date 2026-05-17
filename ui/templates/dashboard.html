@@ -2,226 +2,216 @@
 {% block title %}Dashboard{% endblock %}
 {% block page_title %}Dashboard{% endblock %}
 
-{% block content %}
+{% block head %}
 <style>
-  .dashboard-bento {
-    display: grid;
-    grid-template-columns: repeat(12, 1fr);
-    gap: 24px;
-    margin-bottom: 40px;
-    margin-top: 10px;
-  }
-  .bento-card {
-    background: rgba(15, 23, 42, 0.4);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(12px);
-    border-radius: calc(var(--radius) * 1.5);
-    padding: 32px;
-    position: relative;
-    overflow: hidden;
-    transition: transform 0.3s, box-shadow 0.3s, border-color 0.3s;
-  }
-  .bento-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
-    border-color: rgba(255, 255, 255, 0.1);
-  }
-  .bento-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0; height: 2px;
-    background: linear-gradient(90deg, transparent, var(--accent), transparent);
-    opacity: 0;
-    transition: opacity 0.3s;
-  }
-  .bento-card:hover::before { opacity: 1; }
-  
-  /* Specific Bento Cells */
-  .bento-welcome { grid-column: span 8; display: flex; flex-direction: column; justify-content: center; background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.05)); border-color: rgba(139, 92, 246, 0.2); }
-  .bento-stats { grid-column: span 4; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 24px; }
-  .bento-actions { grid-column: span 12; display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; padding: 0; background: transparent; border: none; backdrop-filter: none; }
-  .bento-systems { grid-column: span 8; }
-  .bento-env { grid-column: span 4; }
-  .bento-graphs { grid-column: span 12; }
+.dash-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:20px}
+.g-12{grid-column:span 12}
+.g-8{grid-column:span 8}
+.g-4{grid-column:span 4}
+.g-3{grid-column:span 3}
+@media(max-width:1100px){.g-8{grid-column:span 12}.g-4{grid-column:span 12}}
+@media(max-width:700px){.g-3{grid-column:span 6}}
+@media(max-width:480px){.g-3{grid-column:span 12}}
 
-  /* Welcome Card */
-  .welcome-title { font-size: 2.5rem; font-weight: 800; margin: 0 0 12px 0; background: linear-gradient(to right, #ffffff, #a5b4fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-  .welcome-subtitle { font-size: 1.15rem; color: #cbd5e1; margin: 0; line-height: 1.6; max-width: 90%; }
+/* Welcome hero */
+.hero-card{
+  grid-column:span 12;
+  background:linear-gradient(135deg,rgba(56,189,248,0.08) 0%,rgba(129,140,248,0.06) 50%,rgba(52,211,153,0.04) 100%);
+  border:1px solid rgba(56,189,248,0.15);border-radius:var(--radius);
+  padding:40px 48px;position:relative;overflow:hidden;
+}
+.hero-card::before{
+  content:'';position:absolute;top:-60px;right:-60px;
+  width:300px;height:300px;border-radius:50%;
+  background:radial-gradient(circle,rgba(56,189,248,0.12),transparent 70%);
+  pointer-events:none;
+}
+.hero-card::after{
+  content:'';position:absolute;bottom:-80px;left:30%;
+  width:200px;height:200px;border-radius:50%;
+  background:radial-gradient(circle,rgba(129,140,248,0.1),transparent 70%);
+  pointer-events:none;
+}
+.hero-title{
+  font-size:2.8rem;font-weight:800;letter-spacing:-.04em;line-height:1.1;
+  background:linear-gradient(135deg,#fff 0%,#a5b4fc 60%,#38bdf8 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;margin-bottom:12px;
+}
+.hero-sub{font-size:1.05rem;color:rgba(240,246,252,.65);line-height:1.6;max-width:600px;margin-bottom:28px}
+.hero-cta{
+  display:inline-flex;align-items:center;gap:10px;padding:13px 26px;
+  background:linear-gradient(135deg,rgba(56,189,248,.25),rgba(129,140,248,.18));
+  border:1px solid rgba(56,189,248,.4);border-radius:12px;
+  color:var(--accent);font-weight:700;font-size:.95rem;text-decoration:none;
+  transition:all .25s var(--ease);
+}
+.hero-cta:hover{background:linear-gradient(135deg,rgba(56,189,248,.38),rgba(129,140,248,.28));box-shadow:0 8px 28px rgba(56,189,248,.25);transform:translateY(-2px);color:#fff}
 
-  /* Mini Stats inside Bento Stats */
-  .mini-stat { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.03); border-radius: var(--radius); padding: 20px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
-  .mini-stat-val { font-size: 2.2rem; font-weight: 800; color: white; margin-bottom: 4px; font-family: var(--mono); text-shadow: 0 2px 10px rgba(0,0,0,0.5); }
-  .mini-stat-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text3); font-weight: 700; }
+/* Stat cards */
+.stat-card{
+  border-radius:var(--radius);padding:24px 20px;text-align:center;
+  background:rgba(13,17,23,.75);border:1px solid var(--border);
+  backdrop-filter:blur(16px);transition:all .25s var(--ease);position:relative;overflow:hidden;
+}
+.stat-card::before{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;opacity:0;transition:opacity .25s;background:var(--accent-line,var(--accent))}
+.stat-card:hover{transform:translateY(-3px);border-color:var(--border2);box-shadow:0 12px 32px rgba(0,0,0,.4)}
+.stat-card:hover::before{opacity:1}
+.stat-num{font-size:2.4rem;font-weight:800;letter-spacing:-.05em;line-height:1;font-family:var(--mono)}
+.stat-lbl{font-size:.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:.09em;font-weight:700;margin-top:8px}
 
-  /* Action Cards */
-  .action-btn { background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.05); border-radius: calc(var(--radius) * 1.5); padding: 28px; text-decoration: none; display: flex; flex-direction: column; gap: 16px; transition: all 0.3s; position: relative; overflow: hidden; backdrop-filter: blur(12px); }
-  .action-btn::after { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at top right, rgba(255,255,255,0.05), transparent 60%); opacity: 0; transition: opacity 0.3s; }
-  .action-btn:hover { transform: translateY(-6px); box-shadow: 0 20px 40px rgba(0,0,0,0.4); border-color: rgba(255,255,255,0.15); }
-  .action-btn:hover::after { opacity: 1; }
-  .action-btn.primary { background: linear-gradient(135deg, rgba(56, 189, 248, 0.15), rgba(59, 130, 246, 0.05)); border-color: rgba(56, 189, 248, 0.3); }
-  .action-btn.primary:hover { border-color: rgba(56, 189, 248, 0.6); box-shadow: 0 20px 40px rgba(56, 189, 248, 0.2); }
-  .action-icon { font-size: 2.2rem; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.3); border-radius: 16px; border: 1px solid rgba(255,255,255,0.05); }
-  .action-btn.primary .action-icon { background: rgba(56, 189, 248, 0.2); color: #38bdf8; border-color: rgba(56, 189, 248, 0.4); }
-  .action-title { font-size: 1.2rem; font-weight: 700; color: white; margin: 0; }
-  .action-desc { font-size: 0.9rem; color: var(--text2); line-height: 1.5; margin: 0; }
+/* Action cards */
+.action-card{
+  padding:26px 22px;border-radius:var(--radius);
+  background:rgba(13,17,23,.7);border:1px solid var(--border);
+  text-decoration:none;color:inherit;display:flex;flex-direction:column;
+  transition:all .25s var(--ease);position:relative;overflow:hidden;
+}
+.action-card::after{content:'';position:absolute;inset:0;border-radius:inherit;background:linear-gradient(135deg,rgba(255,255,255,.03),transparent);opacity:0;transition:opacity .25s}
+.action-card:hover{transform:translateY(-4px);border-color:var(--border2);box-shadow:0 20px 48px rgba(0,0,0,.5)}
+.action-card:hover::after{opacity:1}
+.acard-icon{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;font-size:1.6rem;margin-bottom:18px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.04);transition:transform .25s var(--spring)}
+.action-card:hover .acard-icon{transform:scale(1.1)}
+.acard-title{font-size:1rem;font-weight:700;color:var(--text);margin-bottom:6px}
+.acard-desc{font-size:.8rem;color:var(--text2);line-height:1.5}
 
-  /* Systems List Overlay */
-  .system-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; background: rgba(0,0,0,0.2); border-radius: 10px; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.02); transition: all 0.2s; text-decoration: none; }
-  .system-row:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.1); transform: translateX(4px); }
-  .sys-left { display: flex; align-items: center; gap: 16px; }
-  .sys-name { font-weight: 600; color: var(--text); font-size: 1.05rem; }
-  .sys-badge { font-size: 0.7rem; padding: 4px 10px; border-radius: 12px; font-weight: 700; text-transform: uppercase; background: rgba(255,255,255,0.1); color: var(--text2); border: 1px solid rgba(255,255,255,0.1); }
-  .sys-badge.datalog { background: rgba(139, 92, 246, 0.2); color: #c4b5fd; border-color: rgba(139, 92, 246, 0.3); }
-  .sys-badge.sql { background: rgba(56, 189, 248, 0.2); color: #bae6fd; border-color: rgba(56, 189, 248, 0.3); }
-  .sys-badge.graph { background: rgba(16, 185, 129, 0.2); color: #a7f3d0; border-color: rgba(16, 185, 129, 0.3); }
-  .sys-right { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-  .sys-phase { font-size: 0.75rem; background: rgba(0,0,0,0.3); padding: 4px 10px; border-radius: 6px; color: var(--text2); border: 1px solid rgba(255,255,255,0.05); }
+/* Graph chips */
+.graph-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.graph-chip{display:inline-flex;align-items:center;gap:7px;padding:7px 13px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:99px;font-size:.8rem;font-weight:500;color:var(--text2);text-decoration:none;transition:all .2s var(--ease)}
+.graph-chip:hover{background:rgba(56,189,248,.1);border-color:rgba(56,189,248,.25);color:var(--accent);transform:translateY(-1px)}
 
-  /* Env Grid */
-  .env-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 24px; }
-  .env-item { background: rgba(0,0,0,0.3); padding: 16px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.03); }
-  .env-label { font-size: 0.75rem; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; font-weight: 700; }
-  .env-val { font-size: 1.1rem; font-weight: 600; color: var(--text); font-family: var(--mono); }
-  
-  /* Graph Topologies marquee / grid */
-  .graph-chips { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 20px; }
-  .graph-chip { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); padding: 12px 20px; border-radius: 30px; display: flex; align-items: center; gap: 10px; transition: all 0.2s; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-decoration: none; }
-  .graph-chip:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.2); transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.2); }
-  .graph-icon { color: var(--accent); font-size: 1.1rem; }
-  .graph-name-text { font-weight: 600; font-size: 0.95rem; color: var(--text); }
+/* Section headings */
+.section-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.section-title{font-size:1rem;font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px}
+.panel{background:rgba(13,17,23,.75);border:1px solid var(--border);border-radius:var(--radius);padding:24px;backdrop-filter:blur(16px)}
 
-  /* Section Headers */
-  .bento-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-  .bento-title { margin: 0; font-size: 1.3rem; font-weight: 700; color: white; display: flex; align-items: center; gap: 10px; }
-  .bento-link { color: var(--accent); text-decoration: none; font-size: 0.9rem; font-weight: 600; padding: 6px 12px; background: rgba(56, 189, 248, 0.1); border-radius: 20px; transition: all 0.2s; }
-  .bento-link:hover { background: rgba(56, 189, 248, 0.2); color: white; }
+/* Env rows */
+.env-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.03);font-size:.85rem}
+.env-key{color:var(--text3);font-weight:600}
+.env-val{color:var(--text);font-family:var(--mono);font-size:.82rem}
 
-  @media (max-width: 1024px) {
-    .bento-welcome, .bento-systems { grid-column: span 12; }
-    .bento-stats, .bento-env { grid-column: span 12; display: flex; flex-direction: row; flex-wrap: wrap; }
-    .bento-stats .mini-stat { flex: 1; min-width: 140px; }
-    .bento-actions { grid-template-columns: repeat(2, 1fr); }
-  }
-  @media (max-width: 600px) {
-    .bento-actions { grid-template-columns: 1fr; }
-  }
+/* Counter animation */
+@keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.stat-num{animation:countUp .6s var(--ease) both}
 </style>
+{% endblock %}
 
-<div class="dashboard-bento">
-  
-  <!-- Welcome / Overview -->
-  <div class="bento-card bento-welcome">
-    <h1 class="welcome-title">Trans-Bench Engine</h1>
-    <p class="welcome-subtitle">Your central hub for executing, tracking, and analyzing transitive closure queries across modern evaluation systems.</p>
-  </div>
+{% block content %}
 
-  <!-- Key Metrics -->
-  <div class="bento-card bento-stats">
-    <div class="mini-stat">
-      <div class="mini-stat-val">{{ systems|length }}</div>
-      <div class="mini-stat-label">Systems</div>
-    </div>
-    <div class="mini-stat">
-      <div class="mini-stat-val" style="color: #38bdf8;">{{ graph_types|length }}</div>
-      <div class="mini-stat-label">Topologies</div>
-    </div>
-    <div class="mini-stat">
-      <div class="mini-stat-val" style="color: #34d399;">{{ csv_count }}</div>
-      <div class="mini-stat-label">Result Files</div>
-    </div>
-    <div class="mini-stat">
-      <div class="mini-stat-val" style="color: #fbbf24;">{{ benchmarked_systems|length }}</div>
-      <div class="mini-stat-label">Benchmarked</div>
-    </div>
-  </div>
-
-  <!-- Quick Actions -->
-  <div class="bento-actions">
-    <a href="{{ url_for('experiment_new') }}" class="action-btn primary">
-      <div class="action-icon">🚀</div>
-      <h3 class="action-title">Launch Experiment</h3>
-      <p class="action-desc">Configure parameters and run a live benchmark.</p>
+<!-- Hero -->
+<div class="hero-card" style="margin-bottom:20px;">
+  <h1 class="hero-title">Trans-Bench Engine</h1>
+  <p class="hero-sub">Plugin-driven benchmarking for transitive closure, shortest-path, reachability and beyond. Zero Python required to extend.</p>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+    <a href="{{ url_for('experiment_new') }}" class="hero-cta">
+      <i data-lucide="play" style="width:17px;height:17px;"></i> Launch Experiment
     </a>
-    <a href="{{ url_for('results') }}" class="action-btn">
-      <div class="action-icon">📈</div>
-      <h3 class="action-title">Trend Analysis</h3>
-      <p class="action-desc">Visualize scaling performance across systems.</p>
+    {% if experiment_running %}
+    <a href="{{ url_for('experiment_live') }}" class="btn" style="padding:13px 22px;border-color:rgba(245,158,11,.3);color:#fbbf24;background:rgba(245,158,11,.08);">
+      <i data-lucide="activity" style="width:15px;height:15px;"></i> Live Monitor
     </a>
-    <a href="{{ url_for('systems_list') }}" class="action-btn">
-      <div class="action-icon">⚙️</div>
-      <h3 class="action-title">Manage Systems</h3>
-      <p class="action-desc">Configure Datalog, SQL, and Graph engines.</p>
-    </a>
-    <a href="{{ url_for('new_system') }}" class="action-btn">
-      <div class="action-icon">➕</div>
-      <h3 class="action-title">Add Target</h3>
-      <p class="action-desc">Integrate a new logic or database system.</p>
-    </a>
+    {% endif %}
   </div>
-
-  <!-- Registered Systems -->
-  <div class="bento-card bento-systems">
-    <div class="bento-header">
-      <h2 class="bento-title"><span>◈</span> Active Systems</h2>
-      <a href="{{ url_for('systems_list') }}" class="bento-link">View All →</a>
-    </div>
-    
-    <div style="display: flex; flex-direction: column;">
-      {% for system in systems %}
-      <a href="{{ url_for('system_detail', name=system.name) }}" class="system-row">
-        <div class="sys-left">
-          <span class="sys-name">{{ system.display_name }}</span>
-          <span class="sys-badge {{ system.category|lower }}">{{ system.category }}</span>
-        </div>
-        <div class="sys-right">
-          {% for phase in system.timing_phases %}
-            <span class="sys-phase">{{ phase.label }}</span>
-          {% endfor %}
-        </div>
-      </a>
-      {% endfor %}
-    </div>
-  </div>
-
-  <!-- Host Environment -->
-  <div class="bento-card bento-env">
-    <div class="bento-header" style="margin-bottom: 16px;">
-      <h2 class="bento-title"><span>💻</span> Environment</h2>
-    </div>
-    <div class="env-grid">
-      <div class="env-item">
-        <div class="env-label">OS</div>
-        <div class="env-val">{{ machine_info.os }}</div>
-      </div>
-      <div class="env-item">
-        <div class="env-label">Architecture</div>
-        <div class="env-val">{{ machine_info.arch }}</div>
-      </div>
-      <div class="env-item">
-        <div class="env-label">CPU Cores</div>
-        <div class="env-val">{{ machine_info.cpu_count }} vCPU</div>
-      </div>
-      <div class="env-item">
-        <div class="env-label">Python</div>
-        <div class="env-val">v{{ machine_info.python_version }}</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Graph Topologies -->
-  <div class="bento-card bento-graphs">
-    <div class="bento-header" style="margin-bottom: 16px;">
-      <h2 class="bento-title"><span>⬡</span> Graph Topologies</h2>
-    </div>
-    <div class="graph-chips">
-      {% for g in graph_types %}
-      <a href="{{ url_for('graph_detail', name=g.name) }}" class="graph-chip" title="{{ g.description }}">
-        <span class="graph-icon">⬡</span>
-        <span class="graph-name-text">{{ g.display_name }}</span>
-      </a>
-      {% endfor %}
-    </div>
-  </div>
-
 </div>
+
+<!-- Stats row -->
+<div class="dash-grid" style="margin-bottom:20px;">
+  <div class="stat-card g-3" style="--accent-line:#38bdf8;">
+    <div class="stat-num" style="color:#38bdf8;">{{ systems|length }}</div>
+    <div class="stat-lbl">Systems</div>
+  </div>
+  <div class="stat-card g-3" style="--accent-line:#818cf8;">
+    <div class="stat-num" style="color:#818cf8;">{{ graph_types|length }}</div>
+    <div class="stat-lbl">Topologies</div>
+  </div>
+  <div class="stat-card g-3" style="--accent-line:#34d399;">
+    <div class="stat-num" style="color:#34d399;">{{ csv_count }}</div>
+    <div class="stat-lbl">Result Files</div>
+  </div>
+  <div class="stat-card g-3" style="--accent-line:#f59e0b;">
+    <div class="stat-num" style="color:#f59e0b;">{{ benchmarked_systems|length }}</div>
+    <div class="stat-lbl">Benchmarked</div>
+  </div>
+</div>
+
+<!-- Action cards -->
+<div class="dash-grid" style="margin-bottom:20px;">
+  <a href="{{ url_for('experiment_new') }}" class="action-card g-3" style="border-color:rgba(56,189,248,.15);">
+    <div class="acard-icon" style="background:rgba(56,189,248,.12);border-color:rgba(56,189,248,.2);">🚀</div>
+    <div class="acard-title">Launch Experiment</div>
+    <div class="acard-desc">Configure systems, graphs, modes and run a live benchmark.</div>
+  </a>
+  <a href="{{ url_for('results') }}" class="action-card g-3" style="border-color:rgba(129,140,248,.15);">
+    <div class="acard-icon" style="background:rgba(129,140,248,.12);border-color:rgba(129,140,248,.2);">📈</div>
+    <div class="acard-title">Trend Analysis</div>
+    <div class="acard-desc">Visualize scaling performance across systems and graph sizes.</div>
+  </a>
+  <a href="{{ url_for('systems_list') }}" class="action-card g-3" style="border-color:rgba(52,211,153,.15);">
+    <div class="acard-icon" style="background:rgba(52,211,153,.12);border-color:rgba(52,211,153,.2);">⚙️</div>
+    <div class="acard-title">Manage Systems</div>
+    <div class="acard-desc">Configure Datalog, SQL, and graph engines and credentials.</div>
+  </a>
+  <a href="{{ url_for('new_system') }}" class="action-card g-3" style="border-color:rgba(245,158,11,.15);">
+    <div class="acard-icon" style="background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.2);">➕</div>
+    <div class="acard-title">Add Target</div>
+    <div class="acard-desc">Integrate a new logic or database system as a benchmark target.</div>
+  </a>
+</div>
+
+<!-- Systems + Environment -->
+<div class="dash-grid" style="margin-bottom:20px;">
+  <div class="panel g-8">
+    <div class="section-head">
+      <div class="section-title"><i data-lucide="server" style="width:16px;height:16px;color:var(--accent);"></i> Active Systems</div>
+      <a href="{{ url_for('systems_list') }}" class="btn" style="padding:6px 14px;font-size:.8rem;">View all</a>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+    {% for system in systems[:6] %}
+      <a href="{{ url_for('system_detail', name=system.name) }}" style="display:flex;align-items:center;gap:14px;padding:12px 14px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;text-decoration:none;transition:all .2s var(--ease);" onmouseover="this.style.borderColor='var(--border2)';this.style.background='rgba(255,255,255,.05)'" onmouseout="this.style.borderColor='var(--border)';this.style.background='rgba(255,255,255,.03)'">
+        <div style="width:36px;height:36px;border-radius:8px;background:{% if system.category|lower in ('sql','db','rdbms') %}rgba(56,189,248,.12){% else %}rgba(129,140,248,.12){% endif %};display:grid;place-items:center;font-size:.85rem;font-family:var(--mono);font-weight:700;color:{% if system.category|lower in ('sql','db','rdbms') %}#38bdf8{% else %}#818cf8{% endif %};">{{ system.name[:2].upper() }}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:600;color:var(--text);font-size:.88rem;">{{ system.display_name }}</div>
+          <div style="font-size:.75rem;color:var(--text3);font-family:var(--mono);">{{ system.protocol }} <span style="opacity:0.5;margin:0 4px;">|</span> {{ system.version | truncate(25) }}</div>
+        </div>
+        <div class="badge {% if system.category|lower in ('sql','db','rdbms') %}badge-db{% else %}badge-logic{% endif %}">{{ system.category }}</div>
+      </a>
+    {% endfor %}
+    </div>
+  </div>
+  <div class="panel g-4">
+    <div class="section-head">
+      <div class="section-title"><i data-lucide="monitor" style="width:16px;height:16px;color:var(--accent3);"></i> Environment</div>
+    </div>
+    <div>
+      <div class="env-row"><span class="env-key">OS</span><span class="env-val">{{ machine_info.os }}</span></div>
+      <div class="env-row"><span class="env-key">Arch</span><span class="env-val">{{ machine_info.arch }}</span></div>
+      <div class="env-row"><span class="env-key">CPUs</span><span class="env-val">{{ machine_info.cpu_count }}</span></div>
+      <div class="env-row" style="border:none;"><span class="env-key">Python</span><span class="env-val">{{ machine_info.python_version }}</span></div>
+    </div>
+    {% if experiment_running %}
+    <div style="margin-top:20px;padding:14px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:10px;display:flex;align-items:center;gap:10px;">
+      <div style="width:8px;height:8px;border-radius:50%;background:#f59e0b;animation:pulse 1.5s ease-in-out infinite;flex-shrink:0;"></div>
+      <div style="font-size:.82rem;color:#fbbf24;font-weight:600;">Experiment in progress</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Graph topologies -->
+<div class="panel">
+  <div class="section-head">
+    <div class="section-title"><i data-lucide="share-2" style="width:16px;height:16px;color:var(--accent2);"></i> Graph Topologies</div>
+    <span style="font-size:.8rem;color:var(--text3);">{{ graph_types|length }} types registered</span>
+  </div>
+  {% set topo_icons = {'cycle': '○', 'binary_tree': '🌲', 'complete': '◉', 'path': '→', 'grid': '⊞', 'star': '✦', 'barabasi_albert': '🕸', 'scale_free': '🕸', 'multi_path': '⇉', 'max_acyclic': '△', 'cycle_with_shortcuts': '⊙', 'reverse_binary_tree': '🌲', 'w': 'W', 'x': 'X', 'y': 'Y'} %}
+  <div class="graph-chips">
+  {% for g in graph_types %}
+    <a href="{{ url_for('graph_detail', name=g.name) }}" class="graph-chip" title="{{ g.description }}">
+      <span>{{ topo_icons.get(g.name, '⬡') }}</span>
+      <span>{{ g.display_name }}</span>
+    </a>
+  {% endfor %}
+  </div>
+</div>
+
 {% endblock %}

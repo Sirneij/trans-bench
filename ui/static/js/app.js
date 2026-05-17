@@ -8,9 +8,10 @@ function showToast(msg, type = 'info') {
   const c = document.getElementById('toast-container');
   const t = document.createElement('div');
   t.className = `toast ${type}`;
-  t.textContent = msg;
+  const icons = { success: '✓', error: '✗', warn: '⚠', info: 'ℹ' };
+  t.innerHTML = `<span class="toast-icon">${icons[type] || 'ℹ'}</span><span>${msg}</span>`;
   c.appendChild(t);
-  setTimeout(() => t.remove(), 4000);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateY(10px)'; setTimeout(() => t.remove(), 300); }, 4000);
 }
 
 // Close sidebar on outside click (mobile)
@@ -20,4 +21,9 @@ document.addEventListener('click', (e) => {
   if (sb && sb.classList.contains('open') && !sb.contains(e.target) && e.target !== btn) {
     sb.classList.remove('open');
   }
+});
+
+// Initialise Lucide icons after DOM ready
+document.addEventListener('DOMContentLoaded', () => {
+  if (window.lucide) lucide.createIcons();
 });

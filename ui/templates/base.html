@@ -6,7 +6,8 @@
   <title>{% block title %}trans-bench{% endblock %} · Benchmark Suite</title>
   <meta name="description" content="Plugin-driven transitive closure benchmarking for logic and database systems"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}"/>
   {% block head %}{% endblock %}
 </head>
@@ -15,7 +16,9 @@
 <!-- Sidebar Navigation -->
 <nav class="sidebar" id="sidebar">
   <div class="sidebar-brand">
-    <div class="brand-icon">⧖</div>
+    <div class="brand-icon">
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="13" stroke="url(#bg)" stroke-width="2"/><path d="M8 14 L14 8 L20 14 L14 20 Z" fill="url(#bg)" opacity="0.8"/><defs><linearGradient id="bg" x1="0" y1="0" x2="28" y2="28"><stop offset="0%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#8b5cf6"/></linearGradient></defs></svg>
+    </div>
     <div class="brand-text">
       <span class="brand-name">trans-bench</span>
       <span class="brand-tag">v2.0 · plugin-driven</span>
@@ -23,35 +26,42 @@
   </div>
 
   <ul class="nav-list">
-    <li class="nav-item {% if request.endpoint == 'dashboard' %}active{% endif %}">
+    {% set ep = request.endpoint %}
+    <li class="nav-item {% if ep == 'dashboard' %}active{% endif %}">
       <a href="{{ url_for('dashboard') }}" class="nav-link">
-        <span class="nav-icon">⊞</span>
+        <i data-lucide="layout-dashboard" class="nav-icon-svg"></i>
         <span>Dashboard</span>
       </a>
     </li>
-    <li class="nav-item {% if 'system' in request.endpoint %}active{% endif %}">
+    <li class="nav-item {% if 'system' in (ep or '') %}active{% endif %}">
       <a href="{{ url_for('systems_list') }}" class="nav-link">
-        <span class="nav-icon">◈</span>
+        <i data-lucide="server" class="nav-icon-svg"></i>
         <span>Systems</span>
       </a>
     </li>
-    <li class="nav-item {% if 'experiment' in request.endpoint %}active{% endif %}">
+    <li class="nav-item {% if 'experiment' in (ep or '') %}active{% endif %}">
       <a href="{{ url_for('experiment_new') }}" class="nav-link">
-        <span class="nav-icon">▷</span>
+        <i data-lucide="play-circle" class="nav-icon-svg"></i>
         <span>Run Experiment</span>
       </a>
     </li>
-    <li class="nav-item {% if request.endpoint == 'results' %}active{% endif %}">
+    <li class="nav-item {% if ep == 'results' %}active{% endif %}">
       <a href="{{ url_for('results') }}" class="nav-link">
-        <span class="nav-icon">◉</span>
+        <i data-lucide="bar-chart-2" class="nav-icon-svg"></i>
         <span>Results</span>
+      </a>
+    </li>
+    <li class="nav-item {% if ep in ('new_domain', 'new_system', 'new_graph') %}active{% endif %}">
+      <a href="{{ url_for('new_system') }}" class="nav-link">
+        <i data-lucide="plus-circle" class="nav-icon-svg"></i>
+        <span>Add System</span>
       </a>
     </li>
   </ul>
 
   <div class="nav-footer">
     <a href="https://github.com/Sirneij/trans-bench" target="_blank" class="nav-link">
-      <span class="nav-icon">↗</span>
+      <i data-lucide="github" class="nav-icon-svg"></i>
       <span>GitHub</span>
     </a>
   </div>

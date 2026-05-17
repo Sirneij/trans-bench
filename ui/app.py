@@ -386,7 +386,6 @@ def create_app() -> Flask:
     @app.route('/api/validate/<system_name>')
     def api_validate(system_name: str):
         from engine.validation import RuleValidator
-
         try:
             validator = RuleValidator(BASE_DIR)
             is_valid = validator.validate_system(system_name)
@@ -395,6 +394,52 @@ def create_app() -> Flask:
             log.error(f'Validation error: {e}')
             return jsonify({'valid': False, 'error': str(e)}), 400
 
+    @app.route('/api/validate-domain/<domain_name>')
+    def api_validate_domain(domain_name: str):
+        from engine.validation import RuleValidator
+        systems_filter = request.args.getlist('systems') or None
+        try:
+            validator = RuleValidator(BASE_DIR)
+            results = validator.validate_domain(domain_name, system_names=systems_filter)
+            all_ok = all(r.get('ok', False) for r in results.values())
+            return jsonify({'valid': all_ok, 'domain': domain_name, 'results': results})
+        except Exception as e:
+            log.error(f'Domain validation error: {e}')
+            return jsonify({'valid': False, 'error': str(e)}), 400
+
+    @app.route('/api/test-rule', methods=['POST'])
+    def api_test_rule():
+        from engine.validation import RuleValidator
+        data = request.get_json() or {}
+        rule_path = data.get('rule_path', '')
+        system_name = data.get('system_name')
+        if not rule_path:
+            return jsonify({'ok': False, 'error': 'rule_path required'}), 400
+        try:
+            validator = RuleValidator(BASE_DIR)
+            ok = validator.test_rule_file(Path(rule_path), system_name=system_name)
+            return jsonify({'ok': ok})
+        except Exception as e:
+            return jsonify({'ok': False, 'error': str(e)}), 400
+
+    @app.route('/api/domains')
+    def api_domains():
+        domains = loader.load_domains()
+        return jsonify([{
+            'name': d.name,
+            'display_name': d.display_name,
+            'modes': d.modes,
+            'description': d.description,
+        } for d in domains])
+
+    @app.route('/api/domains/<domain_name>/modes')
+    def api_domain_modes(domain_name: str):
+        domain = loader.get_domain(domain_name)
+        if domain:
+            return jsonify({'domain': domain_name, 'modes': domain.modes})
+        # Fallback: standard transitive modes
+        return jsonify({'domain': domain_name, 'modes': ['right_recursion', 'left_recursion', 'double_recursion']})
+
     # ── Experiment ───────────────────────────────────────────────────────────
 
     @app.route('/experiment/new')
@@ -402,11 +447,19 @@ def create_app() -> Flask:
         systems = _get_systems()
         graph_types = _get_graph_types()
         config = _get_config()
+        domains = loader.load_domains()
+        # Build domain options: always include transitive as default
+        domain_options = [{'name': 'transitive', 'display_name': 'Transitive Closure (default)',
+                           'modes': ['right_recursion', 'left_recursion', 'double_recursion']}]
+        for d in domains:
+            if d.name not in ('transitive', 'transitive_closure'):
+                domain_options.append({'name': d.name, 'display_name': d.display_name, 'modes': d.modes})
         return render_template(
             'experiment_new.html',
             systems=systems,
             graph_types=graph_types,
             config=config,
+            domain_options=domain_options,
         )
 
     @app.route('/experiment/start', methods=['POST'])

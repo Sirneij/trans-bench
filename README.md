@@ -374,12 +374,16 @@ python transitive.py --sizes 100 1001 100 --modes right_recursion left_recursion
 
 ### What you can add without touching Python code:
 
-| Extension Type     | Effort | Method                                                | Guide                                                              |
-| ------------------ | ------ | ----------------------------------------------------- | ------------------------------------------------------------------ |
-| New SQL database   | 5 min  | Copy descriptor, write SQL rules                      | [EXTENSION_GUIDE.md](EXTENSION_GUIDE.md#adding-a-new-system)       |
-| New graph topology | 15 min | Add Python generator method                           | [EXTENSION_GUIDE.md](EXTENSION_GUIDE.md#adding-a-new-graph-type)   |
-| New query domain   | 20 min | Create domain descriptor, write rules for each system | [EXTENSION_GUIDE.md](EXTENSION_GUIDE.md#adding-a-new-query-domain) |
-| Custom query rules | 10 min | Edit SQL/Cypher/Datalog files                         | [RULES.md](RULES.md)                                               |
+| Extension Type          | Python? | Effort  | Method                                               | Guide                                                              |
+| ----------------------- | ------- | ------- | ---------------------------------------------------- | ------------------------------------------------------------------ |
+| New SQL/graph database  | ❌ No   | 5 min   | Copy descriptor, write SQL/Cypher rules              | [EXTENSION_GUIDE.md](EXTENSION_GUIDE.md#adding-a-new-system)       |
+| New logic engine (CLI)  | ❌ No   | 5 min   | Descriptor with `protocol: subprocess`               | [EXTENSION_GUIDE.md](EXTENSION_GUIDE.md#adding-a-new-system)       |
+| New connector protocol  | ⚠️ Once | 20 min  | Drop `systems/<name>/connector.py` (auto-discovered) | [EXTENSION_GUIDE.md](EXTENSION_GUIDE.md#adding-a-new-protocol)     |
+| New graph topology      | ⚠️ Once | 15 min  | Add Python method in `engine/data_generator.py`      | [EXTENSION_GUIDE.md](EXTENSION_GUIDE.md#adding-a-new-graph-type)   |
+| New query domain        | ❌ No   | 20 min  | Create `domains/<name>/descriptor.yaml`, write rules | [EXTENSION_GUIDE.md](EXTENSION_GUIDE.md#adding-a-new-query-domain) |
+| Custom query rules      | ❌ No   | 10 min  | Edit SQL/Cypher/Datalog files                        | [RULES.md](RULES.md)                                               |
+
+> **Note on graph topologies**: The YAML descriptor still needs a Python generator method as its backing implementation. The method is a ~5-line function that yields `(src, dst)` tuples — minimal Python, but honest about the requirement.
 
 ### Quick-start for extensions
 
@@ -392,8 +396,23 @@ python transitive.py --bootstrap-system my_database --bootstrap-system-template 
 # Create a new query domain
 python transitive.py --bootstrap-domain my_domain
 
-# Validate rules before running
+# Validate all rule files for a system
 python transitive.py --validate-rules my_system
+
+# Validate a domain against all systems (checks every system has the right rule files)
+python transitive.py --validate-domain shortest_path
+
+# Validate a domain against specific systems only
+python transitive.py --validate-domain shortest_path --systems postgres clingo
+
+# Test a single rule file (static syntax check)
+python transitive.py --test-rule systems/postgres/rules/transitive_right_recursion.sql
+
+# Test a rule file with live dry-run against a connected system
+python transitive.py --test-rule systems/postgres/rules/transitive_right_recursion.sql --system postgres
+
+# Run with domain-specific modes (any mode string accepted — invalid modes skipped per system)
+python transitive.py --domain shortest_path --modes dijkstra_style iterative_deepening
 ```
 
 **Via Web UI:**

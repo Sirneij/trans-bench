@@ -23,9 +23,10 @@ The **entire** Trans-Bench framework is driven by **YAML configuration files** a
 ### What can you extend without Python?
 
 ✅ **Add new systems** (PostGIS, Memgraph, Cassandra, etc.) — just YAML + rule files  
-✅ **Add new domains** (shortest_path, reachability_with_avoidance, etc.) — YAML + rule templates  
-✅ **Add new graph types** (hexagonal grids, random walks, etc.) — simple Python generator  
-✅ **Add custom rules** for any system — SQL, Cypher, Datalog, Prolog
+✅ **Add new domains** (shortest_path, reachability_with_avoidance, etc.) — YAML + rule files  
+✅ **Add new query rules** for any system — SQL, Cypher, Datalog, Prolog  
+✅ **Add a new connector protocol** — drop `connector.py` into any system folder (auto-discovered)  
+⚠️ **Add new graph topologies** — requires one small Python generator method (~5 lines)
 
 ### Core principle
 
@@ -375,23 +376,38 @@ def compute_transitive_closure():
 ### Before running experiments, validate your rules
 
 ```sh
+# Check descriptor + rule file existence for one system
 python transitive.py --validate-rules my_new_db
+
+# Check that all systems have rules for every mode in a domain
+python transitive.py --validate-domain shortest_path
+
+# Check domain against specific systems only
+python transitive.py --validate-domain shortest_path --systems postgres clingo
 ```
 
-This checks:
+These checks verify:
 
-- ✅ Rule files exist for all modes
+- ✅ Rule files exist for all declared modes
 - ✅ YAML syntax is valid
-- ✅ Required columns present in descriptors
-- ✅ Credentials can load
+- ✅ Required fields present in descriptors
+- ✅ Credentials can load (for systems that require them)
 
-### Test a single rule
+### Test a single rule file
 
 ```sh
+# Static syntax check only
+python transitive.py --test-rule systems/postgres/rules/transitive_right_recursion.sql
+
+# Static check + live dry-run (EXPLAIN) against the connected system
 python transitive.py --test-rule systems/postgres/rules/transitive_right_recursion.sql \
-  --input input/postgres/cycle_100.tsv \
   --system postgres
 ```
+
+The tester checks:
+- Balanced parentheses/brackets
+- Language-specific rules (SELECT in SQL, :- in Datalog, MATCH in Cypher, etc.)
+- For PostgreSQL/DuckDB: live `EXPLAIN` parse without executing any writes
 
 ### Run a quick smoke test
 
@@ -415,6 +431,32 @@ When choosing a **protocol** in your descriptor, use one of these **built-in con
 | `subprocess`      | XSB, Soufflé, any CLI tool | `executable: /path/to/binary`    | `.lp` or `.dl`  |
 | `clingo_python`   | Clingo                     | None (Python binding)            | `.lp`           |
 | `alda_subprocess` | Alda (DistAlgo)            | `executable: alda`               | `.da`           |
+
+### Adding a new protocol without editing engine code
+
+If none of the built-in protocols fit your system, you can add your own by dropping a single file into the system folder — **no edits to engine source required**:
+
+```python
+# systems/my_new_system/connector.py
+from engine.connectors.base import BaseConnector
+
+class MySystemConnector(BaseConnector):
+    def connect(self, credentials, descriptor):
+        import my_driver
+        self._conn = my_driver.connect(**credentials)
+
+    def run_experiment(self, rule_path, input_path, output_folder, descriptor, config, query_bindings=None):
+        phases = descriptor.timing_phases
+        measurements = []
+        # ... time each phase ...
+        return self.build_timing_row(phases, measurements)
+
+    def close(self):
+        if self._conn:
+            self._conn.close()
+```
+
+Then set `protocol: my_system` in `systems/my_new_system/descriptor.yaml`. The engine auto-discovers `connector.py` at startup and registers it. This is a one-time addition per driver family — no further source edits needed.
 
 ---
 
