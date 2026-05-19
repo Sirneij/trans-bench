@@ -191,7 +191,7 @@ class BootstrapManager:
         """List all available templates by category."""
         descriptors = [f.name for f in self.templates_dir.glob('descriptor_*.yaml')]
         domains = [f.name for f in self.templates_dir.glob('domain_*.yaml')]
-        rules = [f.name for f in self.templates_dir.glob('rule_template_*.{sql,lp,cypher,da}')]
+        rules = [f.name for f in self.templates_dir.glob('rule_template_*.*')]
 
         return {
             'system_descriptors': descriptors,

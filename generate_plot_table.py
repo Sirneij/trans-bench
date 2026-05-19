@@ -717,7 +717,7 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
                 # Find the maximum real-time value for double_recursion
                 max_real_time = self._BaseTableAndPlotGenerator__adjust_ymax(
                     self._BaseTableAndPlotGenerator__find_max_real_time,
-                    (env_name, key[2], 'double_recursion'),
+                    (env_name, key[2], 'double_recursion', self.max_x),
                 )
 
                 with open(full_file_name, 'w') as f:
