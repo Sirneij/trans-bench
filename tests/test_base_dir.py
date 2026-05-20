@@ -5,10 +5,8 @@ Unit tests for base directory Python modules.
 Tests analyze.py, transitive.py, generate_db.py, common.py, and related utilities.
 """
 
-import json
 import logging
-from pathlib import Path
-from unittest.mock import MagicMock, patch, mock_open, call
+from unittest.mock import  patch, mock_open
 
 import pytest
 
