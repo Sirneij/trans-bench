@@ -462,8 +462,10 @@ query_parameters:
         assert dom.query_parameters[0].name == 'src'
         assert dom.query_parameters[1].type == 'int'
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 from engine.loader import get_system_version
+
 
 def test_get_system_version_cmd_outputs():
     with patch('subprocess.run') as mock_run:

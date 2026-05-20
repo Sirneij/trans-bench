@@ -38,10 +38,17 @@ def generate():
         if not match:
             continue
 
-        mode = match.group(1)
+        mode = match.group(1).removeprefix('timing_')
         size = int(match.group(2))
-        # Path: timing/{domain}/{env}/{graph_type}/{mode}_graph_{size}.csv
-        env = file.parts[2]
+
+        env = None
+        for idx, part in enumerate(file.parts):
+            if 'scale_free' in part:
+                if idx > 0:
+                    env = file.parts[idx - 1]
+                break
+        if not env:
+            env = file.parts[2] if len(file.parts) > 2 else file.parts[0]
 
         if env not in environments:
             continue

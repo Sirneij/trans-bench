@@ -1,10 +1,12 @@
-import sys
 import json
-import pytest
+import sys
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 import transitive
+
 
 def test_load_legacy_config(tmp_path):
     conf = tmp_path / "config.json"

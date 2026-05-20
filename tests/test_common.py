@@ -1,11 +1,13 @@
 import os
 import subprocess
+import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-import tempfile
+
 import pytest
 
-from common import Base, AnalyzeSystems
+from common import AnalyzeSystems, Base
+
 
 class TestCommonBase:
     def test_init(self):

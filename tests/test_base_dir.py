@@ -6,7 +6,7 @@ Tests analyze.py, transitive.py, generate_db.py, common.py, and related utilitie
 """
 
 import logging
-from unittest.mock import  patch, mock_open
+from unittest.mock import mock_open, patch
 
 import pytest
 
@@ -58,7 +58,7 @@ class TestTransitiveModule:
     def test_transitive_main_function_exists(self):
         """Test that transitive module has necessary functions."""
         import transitive
-        
+
         # Check for required functions or main entry point
         assert hasattr(transitive, '__file__')
 
@@ -66,7 +66,7 @@ class TestTransitiveModule:
     def test_transitive_help_argument(self):
         """Test that transitive.py supports --help argument."""
         import argparse
-        
+
         # The module should have argument parsing
         # This tests that the module imports without errors
         assert True
@@ -237,7 +237,7 @@ class TestLoggingSetup:
     def test_logging_is_configured(self):
         """Test that logging is configured in modules."""
         import analyze
-        
+
         # Check that logging is set up
         logger = logging.getLogger('analyze')
         assert isinstance(logger, logging.Logger)
@@ -245,7 +245,7 @@ class TestLoggingSetup:
     def test_analyze_logging_format(self):
         """Test that analyze module uses consistent logging format."""
         import analyze
-        
+
         # The module should have logging setup
         assert True
 
@@ -271,7 +271,7 @@ class TestIntegrationScenarios:
     def test_analyze_workflow(self):
         """Test typical analyze workflow."""
         from analyze import ENVIRONMENT_MAPPINGS, extract_records
-        
+
         # Create sample data
         data = {
             ('xsb', 'cycle', 'right_recursion'): [

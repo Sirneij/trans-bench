@@ -156,7 +156,18 @@ class ExperimentRunner:
 
         max_x = list(range(*self.size_range))[-1] if self.size_range else 1000
         config_str = json.dumps(self.config)
-        subprocess.run(['python', 'generate_plot_table.py', '--config', config_str, '--max-x-axis', str(max_x)])
+        subprocess.run(
+            [
+                'python',
+                'generate_plot_table.py',
+                '--config',
+                config_str,
+                '--domain',
+                self.domain,
+                '--max-x-axis',
+                str(max_x),
+            ]
+        )
 
     # ------------------------------------------------------------------
     # Private helpers

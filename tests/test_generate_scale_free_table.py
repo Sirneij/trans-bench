@@ -1,8 +1,10 @@
-import pytest
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 import generate_scale_free_table
+
 
 def test_get_query_time():
     headers = ['a', 'WriteResultRealTime', 'ExecuteQueryRealTime', 'QueryRealTime']

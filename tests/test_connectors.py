@@ -9,12 +9,16 @@ from engine.connectors.base import BaseConnector
 from engine.connectors.duckdb_conn import DuckDBConnector
 from engine.connectors.mongodb_conn import MongoDBConnector
 from engine.connectors.neo4j_conn import Neo4jConnector
-from engine.connectors.rdbms import PostgreSQLConnector, MariaDBConnector, CockroachDBConnector
+from engine.connectors.rdbms import (
+    CockroachDBConnector,
+    MariaDBConnector,
+    PostgreSQLConnector,
+)
 from engine.connectors.subprocess_conn import (
+    AldaConnector,
     ClingoConnector,
     SouffleConnector,
     XSBConnector,
-    AldaConnector,
 )
 from engine.loader import SystemDescriptor, TimingPhase
 
@@ -446,14 +450,14 @@ class TestPluginLoading:
     def test_load_plugin_connectors_no_systems_dir(self):
         """Test _load_plugin_connectors handles missing systems directory."""
         from engine.connectors import _load_plugin_connectors
-        
+
         # Should not raise exception
         _load_plugin_connectors(Path('/nonexistent/path'))
 
     def test_load_plugin_connectors_valid_plugin(self, tmp_path):
         """Test _load_plugin_connectors successfully loads drop-in connector."""
-        from engine.connectors import _load_plugin_connectors, PROTOCOL_REGISTRY
-        
+        from engine.connectors import PROTOCOL_REGISTRY, _load_plugin_connectors
+
         # Create a drop-in connector
         system_dir = tmp_path / 'test_system'
         system_dir.mkdir()
@@ -498,7 +502,7 @@ class TestSystemConnector(BaseConnector):
 
     def test_load_plugin_connectors_missing_descriptor(self, tmp_path):
         """Test _load_plugin_connectors skips connector without descriptor."""
-        from engine.connectors import _load_plugin_connectors, PROTOCOL_REGISTRY
+        from engine.connectors import PROTOCOL_REGISTRY, _load_plugin_connectors
         
         system_dir = tmp_path / 'no_desc_system'
         system_dir.mkdir()
@@ -523,7 +527,7 @@ class NoDescConnector(BaseConnector):
 
     def test_load_plugin_connectors_missing_protocol_field(self, tmp_path):
         """Test _load_plugin_connectors skips connector without protocol field."""
-        from engine.connectors import _load_plugin_connectors, PROTOCOL_REGISTRY
+        from engine.connectors import PROTOCOL_REGISTRY, _load_plugin_connectors
         
         system_dir = tmp_path / 'no_protocol_system'
         system_dir.mkdir()
@@ -553,7 +557,7 @@ class NoProtocolConnector(BaseConnector):
 
     def test_load_plugin_connectors_duplicate_protocol(self, tmp_path):
         """Test _load_plugin_connectors skips when protocol already registered."""
-        from engine.connectors import _load_plugin_connectors, PROTOCOL_REGISTRY
+        from engine.connectors import PROTOCOL_REGISTRY, _load_plugin_connectors
         
         system_dir = tmp_path / 'duplicate_system'
         system_dir.mkdir()
@@ -585,7 +589,7 @@ class DuplicateConnector(BaseConnector):
 
     def test_load_plugin_connectors_malformed_descriptor(self, tmp_path):
         """Test _load_plugin_connectors handles invalid YAML gracefully."""
-        from engine.connectors import _load_plugin_connectors, PROTOCOL_REGISTRY
+        from engine.connectors import PROTOCOL_REGISTRY, _load_plugin_connectors
         
         system_dir = tmp_path / 'malformed_system'
         system_dir.mkdir()
@@ -612,7 +616,7 @@ class MalformedConnector(BaseConnector):
 
     def test_load_plugin_connectors_no_connector_class(self, tmp_path):
         """Test _load_plugin_connectors handles connector without proper class."""
-        from engine.connectors import _load_plugin_connectors, PROTOCOL_REGISTRY
+        from engine.connectors import PROTOCOL_REGISTRY, _load_plugin_connectors
         
         system_dir = tmp_path / 'no_class_system'
         system_dir.mkdir()
@@ -641,7 +645,7 @@ class NotAConnector:
 
     def test_load_plugin_connectors_import_error(self, tmp_path):
         """Test _load_plugin_connectors handles import errors gracefully."""
-        from engine.connectors import _load_plugin_connectors, PROTOCOL_REGISTRY
+        from engine.connectors import PROTOCOL_REGISTRY, _load_plugin_connectors
         
         system_dir = tmp_path / 'error_system'
         system_dir.mkdir()
@@ -1022,7 +1026,7 @@ class TestRDBMSAdvanced:
     def test_rdbms_dynamic_import_success(self, mock_spec, tmp_path):
         """Test successful dynamic import of RDBMS operation classes."""
         from engine.connectors.rdbms import _dynamic_import_class
-        
+
         # Create a test class file
         test_file = tmp_path / 'ops.py'
         test_file.write_text('''
@@ -1079,7 +1083,7 @@ class PostgreSQLRightRecursion:
     def test_postgres_run_experiment_with_ops_class(self, mock_pg_connect, tmp_path):
         """Test PostgreSQL run_experiment with mocked operation class."""
         from engine.connectors.rdbms import PostgreSQLConnector
-        
+
         # Create descriptor path in a subdirectory
         system_dir = tmp_path / 'postgres'
         system_dir.mkdir()
@@ -1151,7 +1155,7 @@ class PostgreSQLRightRecursion:
     def test_postgres_run_experiment_exception_handling(self, mock_pg_connect, tmp_path):
         """Test PostgreSQL run_experiment exception handling."""
         from engine.connectors.rdbms import PostgreSQLConnector
-        
+
         # Create descriptor path in a subdirectory
         system_dir = tmp_path / 'postgres'
         system_dir.mkdir()
@@ -1203,7 +1207,7 @@ class PostgreSQLRightRecursion:
     def test_dynamic_import_class(self, tmp_path):
         """Test _dynamic_import_class function."""
         from engine.connectors.rdbms import _dynamic_import_class
-        
+
         # Create a test module with a class
         test_file = tmp_path / 'test_ops.py'
         test_file.write_text('''
@@ -1230,7 +1234,7 @@ class TestOperations:
     def test_postgres_run_experiment_with_query_bindings(self, mock_pg_connect, tmp_path):
         """Test PostgreSQL run_experiment with query bindings."""
         from engine.connectors.rdbms import PostgreSQLConnector
-        
+
         # Create descriptor path
         system_dir = tmp_path / 'postgres'
         system_dir.mkdir()

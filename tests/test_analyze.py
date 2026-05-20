@@ -1,11 +1,13 @@
-import os
 import ast
+import os
 from pathlib import Path
-from unittest.mock import patch, MagicMock
-import pytest
+from unittest.mock import MagicMock, patch
+
 import pandas as pd
+import pytest
 
 import analyze
+
 
 def test_load_data(tmp_path):
     f = tmp_path / "data.txt"

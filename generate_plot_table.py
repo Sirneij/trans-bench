@@ -12,10 +12,11 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s: %(m
 
 
 class BaseTableAndPlotGenerator:
-    def __init__(self, timing_base_dir: Path, pattern: str, latex_file_dir: Path):
+    def __init__(self, timing_base_dir: Path, pattern: str, latex_file_dir: Path, domain: str = 'all'):
         self.timing_base_dir = timing_base_dir
         self.pattern = pattern
         self.latex_file_dir = latex_file_dir
+        self.domain = domain
         self.data = None
         self.components = self.__initialize_components()
         self.component_colors = self.__initialize_component_colors()
@@ -192,8 +193,7 @@ class BaseTableAndPlotGenerator:
             try:
                 parts = csv_file.parts
                 # Handle new domain-based hierarchy: timing/{domain}/{system}/{graph}/...
-                # If structure is timing/{domain}/{system}/{graph}, use those parts
-                if len(parts) >= 5 and parts[-5] == 'timing':
+                if len(parts) >= 5 and (parts[-5] == 'timing' or parts[-5] == self.timing_base_dir.name):
                     domain, env_name, graph_type = parts[-4], parts[-3], parts[-2]
                 else:
                     # Legacy structure: timing/{system}/{graph}/...
@@ -201,8 +201,17 @@ class BaseTableAndPlotGenerator:
                     env_name, graph_type = parts[-3], parts[-2]
 
                 mode, graph_size = re.match(self.pattern, csv_file.name).groups()
+                mode = mode.removeprefix('timing_')
                 if mode in getattr(self, 'exclude_modes', ['double_recursion']):
                     continue
+
+                # Filter by domain
+                effective_target = self.domain if hasattr(self, 'domain') else 'transitive'
+                if domain == 'default' and effective_target == 'transitive':
+                    pass
+                elif domain != effective_target and effective_target != 'all':
+                    continue
+
                 graph_size = int(graph_size)
 
                 key = (domain, env_name, graph_type, mode)
@@ -213,25 +222,14 @@ class BaseTableAndPlotGenerator:
                     lines = file.readlines()
                     last_line = lines[-1].strip().split(',')
 
-                    if env_name == 'clingo':
-                        data[key].append((graph_size, self.__process_clingo_data(last_line)))
-                    elif env_name == 'xsb':
-                        data[key].append((graph_size, self.__process_xsb_data(last_line)))
-                    elif env_name == 'souffle':
-                        data[key].append((graph_size, self.__process_souffle_data(last_line)))
-                    elif env_name in [
-                        'postgres',
-                        'mariadb',
-                        'duckdb',
-                        'cockroachdb',
-                    ]:
-                        data[key].append((graph_size, self.__process_sql_data(last_line)))
-                    elif env_name == 'mongodb':
-                        data[key].append((graph_size, self.__process_mongo_data(last_line)))
-                    elif env_name == 'neo4j':
-                        data[key].append((graph_size, self.__process_neo4j_data(last_line)))
-                    elif env_name == 'alda':
-                        data[key].append((graph_size, self.__process_alda_data(last_line)))
+                    sql_envs = {'postgres', 'mariadb', 'duckdb', 'cockroachdb'}
+                    handler_suffix = 'sql' if env_name in sql_envs else env_name
+                    handler_name = f'_BaseTableAndPlotGenerator__process_{handler_suffix}_data'
+                    handler = getattr(self, handler_name, None)
+                    if handler:
+                        data[key].append((graph_size, handler(last_line)))
+                    else:
+                        logging.warning(f"No processor found for environment: {env_name}")
             except Exception as e:
                 logging.error(f"Error processing file {csv_file}: {e}")
         self.data = data
@@ -309,10 +307,18 @@ class BaseTableAndPlotGenerator:
         return {'Overall': elapsed_time}
 
     def __find_cpu_time(self, key: tuple[str, str, str], size: int, query_type: str) -> Union[float, None]:
-        # Search through all domains for matching (env_name, graph_type, mode)
+        # Search through matching (domain, env_name, graph_type, mode)
         env_name, graph_type, mode = key
+        effective_domain = self.domain if hasattr(self, 'domain') else 'transitive'
         for data_key in self.data:
-            if data_key[1] == env_name and data_key[2] == graph_type and data_key[3] == mode:
+            key_domain = data_key[0]
+            # Handle transitive/default equivalence
+            domain_matches = (
+                (key_domain == effective_domain)
+                or (key_domain == 'default' and effective_domain == 'transitive')
+                or (key_domain == 'transitive' and effective_domain == 'default')
+            )
+            if domain_matches and data_key[1] == env_name and data_key[2] == graph_type and data_key[3] == mode:
                 for entry in self.data[data_key]:
                     if entry[0] == size:
                         return entry[1][query_type][1]
@@ -320,8 +326,14 @@ class BaseTableAndPlotGenerator:
 
     def __find_max_cpu_time_across_envs(self, graph_type: str, mode: str, max_x: int) -> float:
         max_cpu_time = 0
+        effective_domain = self.domain if hasattr(self, 'domain') else 'transitive'
         for (domain, env, g_type, m), entries in self.data.items():
-            if g_type == graph_type and m == mode:
+            domain_matches = (
+                (domain == effective_domain)
+                or (domain == 'default' and effective_domain == 'transitive')
+                or (domain == 'transitive' and effective_domain == 'default')
+            )
+            if domain_matches and g_type == graph_type and m == mode:
                 for entry in entries:
                     if max_x > 0 and entry[0] <= max_x:
                         cpu_times = [value[1] for value in entry[1].values()]
@@ -430,7 +442,7 @@ class BaseTableAndPlotGenerator:
                     r'\\begin{axis}\[',
                     rf'\\begin{{axis}}[bar shift={chart_metrics["barShift"][tool]}pt, ',
                     axis_content,
-                    1,
+                    count=1,
                 )
             elif tool in ['clingo', 'souffle']:
                 if tool == 'clingo':
@@ -438,14 +450,14 @@ class BaseTableAndPlotGenerator:
                         r'\\begin{axis}\[',
                         rf'\\begin{{axis}}[bar shift={chart_metrics["barShift"][tool]}pt, ',
                         axis_content,
-                        1,
+                        count=1,
                     )
                 elif tool == 'souffle':
                     axis_content = re.sub(
                         r'\\begin{axis}\[',
                         rf'\\begin{{axis}}[bar shift={chart_metrics["barShift"][tool]}pt, ',
                         axis_content,
-                        1,
+                        count=1,
                     )
 
                 axis_content = re.sub(r'(axis x line\*=)[^,]*', r'\1none', axis_content)
@@ -469,7 +481,7 @@ class BaseTableAndPlotGenerator:
             r'\\begin{axis}\[',
             rf'\\begin{{axis}}[bar shift={-25 + 3.7 * environments.index(tool)}pt, ',
             axis_content,
-            1,
+            count=1,
         )
 
         axis_content = re.sub(r'(axis x line\*=)[^,]*', r'\1none', axis_content)
@@ -527,8 +539,9 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
         config: dict[str, Any] | None = None,
         envs: list[str] | None = None,
         max_x: int = 0,
+        domain: str = 'all',
     ):
-        super().__init__(timing_base_dir, pattern, latex_file_dir)
+        super().__init__(timing_base_dir, pattern, latex_file_dir, domain)
         self.config = config
         self.environments = config.get('environmentsToCombine', []) if config else envs
         self.max_x = max_x
@@ -963,24 +976,8 @@ class TableAndPlotGenerator(BaseTableAndPlotGenerator):
 
         The function first creates a directory for the combined LaTeX files if it doesn't exist. It then iterates over the modes and calls the combine_files function for each mode. The combined axis content is written to a new LaTeX file. If the compile_file_alone flag is set, the function compiles the LaTeX files to PDFs using the compile_latex_to_pdf function.
         """
-        graph_types = [
-            'barabasi_albert',
-            'scale_free',
-            'binary_tree',
-            'complete',
-            'cycle',
-            'cycle_with_shortcuts',
-            'max_acyclic',
-            'multi_path',
-            'path',
-            'grid',
-            'reverse_binary_tree',
-            'star',
-            'w',
-            'x',
-            'y',
-        ]
-        modes = ['left_recursion', 'right_recursion', 'double_recursion']
+        graph_types = sorted(list({key[2] for key in self.data}))
+        modes = sorted(list({key[3] for key in self.data}))
         anchor_x = self.charts_metrics[str(self.max_x)]['anchor']['x']
         anchor_y = self.charts_metrics[str(self.max_x)]['anchor']['y']
 
@@ -1056,7 +1053,9 @@ def main():
     parser.add_argument('--config', type=str, required=False, help='JSON string of the config')
     parser.add_argument(
         '--environments',
+        '--systems',
         nargs='+',
+        dest='environments',
         default=[
             'xsb',
             'clingo',
@@ -1095,6 +1094,12 @@ def main():
         default=[],
         help='Modes to exclude from processing',
     )
+    parser.add_argument(
+        '--domain',
+        type=str,
+        default='all',
+        help='The domain of the experiments to process',
+    )
     args = parser.parse_args()
 
     if args.config and os.path.isfile(args.config):
@@ -1104,11 +1109,17 @@ def main():
     else:
         config = json.loads(args.config if args.config else '{}')
 
+    domain = args.domain
+    if config.get('domain'):
+        domain = config.get('domain')
+
     timing_dir = config.get('timing_dir', args.timing_base_dir)
     timing_base_dir = Path(timing_dir)
     pattern = r'^(.*?)_graph_(\d+)\.csv$'
     latex_file_dir = Path(f'output_{timing_dir.split("_")[1]}' if len(timing_dir.split("_")) > 1 else 'output')
-    latex_file_dir.mkdir(exist_ok=True)
+    if domain and domain != 'default':
+        latex_file_dir = latex_file_dir / domain
+    latex_file_dir.mkdir(parents=True, exist_ok=True)
 
     table_plot_generator = TableAndPlotGenerator(
         timing_base_dir,
@@ -1117,6 +1128,7 @@ def main():
         config,
         args.environments,
         args.max_x_axis,
+        domain,
     )
     table_plot_generator.exclude_modes = args.exclude_modes  # Add this attribute
     table_plot_generator.generate_plot_table(args.compile_latex)

@@ -1,10 +1,12 @@
-import os
 import json
-import pytest
+import os
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 import generate_db
+
 
 def test_data_generator():
     dg = generate_db.DataGenerator()
