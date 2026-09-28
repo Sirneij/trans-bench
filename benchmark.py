@@ -20,6 +20,12 @@ one when results must be trustworthy:
 The driver can be interrupted and restarted with the same arguments: configurations that already
 have records in runs.jsonl are not run again.
 
+When it finishes, the driver analyzes the whole campaign directory (the parent of --out, which
+holds one directory per series) with analyze_verified.py: summary.csv, verification.json, LaTeX
+table rows, and every figure both as matplotlib PDF (analysis/figures/) and as a standalone
+pgfplots/TikZ document compiled to PDF (analysis/figures_tex/). Use --no-analysis to skip this,
+e.g. when a script runs the driver many times and analyzes once at the end.
+
 Example (one system; start its server first, see docs/SYSTEMS.md):
 
     python benchmark.py --systems duckdb --graphs cycle path --modes left_recursion right_recursion \\
@@ -178,6 +184,23 @@ def run_campaign(a: argparse.Namespace) -> None:
                             break
 
 
+def analyze_campaign(out: Path, runs: int, compile_latex: bool = True) -> int:
+    """Run analyze_verified.py on the campaign directory that contains `out`; returns its exit code."""
+    campaign = out.parent
+    loader = DescriptorLoader(base_dir=BASE_DIR, detect_versions=False)
+    names = {s.name for s in loader.load_systems()}
+    if not any(out.name == n or out.name.startswith(n + '_') for n in names):
+        print(f'# not analyzed: {out.name!r} is not a series name (<system>[_suffix]); run '
+              f'analyze_verified.py yourself', flush=True)
+        return 0
+    cmd = [sys.executable, str(BASE_DIR / 'analyze_verified.py'), str(campaign), '--out', str(campaign / 'analysis')]
+    cmd += ['--runs', str(runs)]
+    if not compile_latex:
+        cmd.append('--no-compile')
+    print(f'# analysis: {" ".join(cmd)}', flush=True)
+    return subprocess.run(cmd, cwd=BASE_DIR).returncode
+
+
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--systems', nargs='+', required=True)
@@ -198,15 +221,27 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument('--expected-cache', default=str(verify.DEFAULT_CACHE),
                     help='cache of expected closures (default input/expected_closures.json)')
     ap.add_argument('--keep-results', action='store_true', help='do not delete result files after checking')
+    ap.add_argument('--no-analysis', action='store_true',
+                    help='do not analyze the campaign (tables, matplotlib and LaTeX figures) at the end')
+    ap.add_argument('--no-latex-compile', action='store_true',
+                    help='write the LaTeX figures but do not compile them to PDF')
     a = ap.parse_args(argv)
     if a.sizes != sorted(a.sizes):
         ap.error('--sizes must be increasing')
+    # <out> is one series (<system>[_suffix]); analyze_verified.py reads its runs with that system's columns
+    names = {d.name for d in DescriptorLoader(base_dir=BASE_DIR, detect_versions=False).load_systems()}
+    series_of = [n for n in names if Path(a.out).name == n or Path(a.out).name.startswith(n + '_')]
+    if series_of and set(a.systems) != {max(series_of, key=len)}:
+        ap.error(f'--out {a.out} is the series of {max(series_of, key=len)!r}; run each system into its own '
+                 f'directory (e.g. results/my_run/<system>)')
     # inputs, rules and the expected-closure cache are addressed relative to the repository
     a.out = str(Path(a.out).resolve())
     a.config_file = str(Path(a.config_file).resolve())
     a.expected_cache = str(Path(a.expected_cache).resolve())
     os.chdir(BASE_DIR)
     run_campaign(a)
+    if not a.no_analysis and analyze_campaign(Path(a.out), a.runs, compile_latex=not a.no_latex_compile) != 0:
+        sys.exit('analysis failed (see above); the runs themselves are recorded in runs.jsonl')
 
 
 if __name__ == '__main__':

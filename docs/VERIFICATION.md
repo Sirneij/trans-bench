@@ -97,12 +97,14 @@ timing rows have no `MaxRAM_MB` columns. Otherwise the schema is the same, and
   | `ERR` | any other error |
   | `†` | a completed but incorrect result |
 
-  In the figures, a hollow marker at 600 s marks the first size that failed.
+  In the figures, a hollow marker at 600 s marks the first size that failed. Every figure is
+  written as a matplotlib PDF (`figures/`) and as a standalone pgfplots/TikZ document
+  (`figures_tex/`), which transcribes the matplotlib figure (`engine/figures_tex.py`).
 * **`verification.json`** contains:
   * the counts of runs by status;
   * the configurations with incorrect results, as `<series>/<mode>: [graphs]`;
   * the cross-system agreement on the large graphs.
 
 `tests/test_verified_pipeline.py::TestAnalysis` checks that re-analyzing
-`results/verified_2026` reproduces the published tables, `summary.csv` and `verification.json`
-byte for byte.
+`results/verified_2026` reproduces the published tables, `summary.csv`, `verification.json` and the
+28 LaTeX figure sources byte for byte.

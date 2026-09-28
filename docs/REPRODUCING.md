@@ -113,10 +113,34 @@ scripts/run_investigation.sh results/my_run/mariadb_investigation.jsonl
 
 ### 5. Analyze and compare
 
+The analysis runs automatically: `benchmark.py` analyzes the campaign directory when it finishes, and
+`scripts/run_all.sh` does it once at the end. It writes `results/my_run/analysis/`:
+
+* `summary.csv` and `verification.json`;
+* `table_*.tex` (the rows of the paper's tables);
+* every figure twice, with the same content and layout:
+  * `figures/<graph>_{elapsed,cpu}.pdf` (matplotlib);
+  * `figures_tex/<graph>_{elapsed,cpu}.tex`, a standalone pgfplots/TikZ document, compiled to
+    `figures_tex/<name>.pdf`.
+
+The LaTeX version is a transcription of the matplotlib figure made by `engine/figures_tex.py`: the
+same page size, axes, limits, ticks, data, markers, dashes, colours and legend, and every text at
+the position matplotlib draws it, in the same font (DejaVu Sans). It is compiled with the first
+engine found among tectonic, lualatex, xelatex and pdflatex. Without one, the `.tex` files are
+still written and can be compiled later (`--no-latex-compile` does the same on purpose).
+
+To run the analysis by hand, or to compare with the published campaign:
+
 ```sh
-./virtualenv/bin/python analyze_verified.py results/my_run --out results/my_run/analysis
+./virtualenv/bin/python analyze_verified.py results/my_run --out results/my_run/analysis   # --runs N if not 5
 ./virtualenv/bin/python scripts/compare_results.py results/my_run    # against results/verified_2026
 ```
+
+To use a LaTeX figure in a paper, include its compiled PDF
+(`\includegraphics[width=\textwidth]{figures_tex/cycle_elapsed.pdf}`), exactly like the matplotlib
+PDF. Don't `\input` the `.tex` file: its preamble sets the figure's own fonts, marker shapes and
+colours. The `.tex` file is the editable source; change the plotting code in `analyze_verified.py`,
+or edit the `.tex` directly for a one-off change.
 
 `compare_results.py` checks that every completed run returned the **same result** (count and
 hash) as in the published campaign; this must match on any machine. It lists the configurations

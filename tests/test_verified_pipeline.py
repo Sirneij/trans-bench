@@ -355,7 +355,7 @@ class TestBenchmarkDriver:
         out = tmp_path / 'duckdb'
         p = _run([PY, 'benchmark.py', '--systems', 'duckdb', '--graphs', 'path', '--modes', 'left_recursion',
                   'double_recursion', 'doublerecurring_recursion', '--sizes', '100', '--runs', '2', '--timeout', '120',
-                  '--out', str(out), '--expected-cache', str(tmp_path / 'cache.json')])
+                  '--out', str(out), '--expected-cache', str(tmp_path / 'cache.json'), '--no-analysis'])
         assert p.returncode == 0, p.stderr
         recs = self._records(out)
         assert [(r['mode'], r['run'], r['status']) for r in recs] == [
@@ -369,14 +369,32 @@ class TestBenchmarkDriver:
 
         # restarting with the same arguments runs nothing again
         p = _run([PY, 'benchmark.py', '--systems', 'duckdb', '--graphs', 'path', '--modes', 'left_recursion',
-                  '--sizes', '100', '--runs', '2', '--out', str(out), '--expected-cache', str(tmp_path / 'cache.json')])
+                  '--sizes', '100', '--runs', '2', '--out', str(out), '--expected-cache', str(tmp_path / 'cache.json'),
+                  '--no-analysis'])
         assert len(self._records(out)) == len(recs)
+
+    def test_campaign_is_analyzed_at_the_end(self, tmp_path):
+        """benchmark.py analyzes the campaign directory: tables, matplotlib and LaTeX figures."""
+        out = tmp_path / 'campaign' / 'duckdb'
+        p = _run([PY, 'benchmark.py', '--systems', 'duckdb', '--graphs', 'cycle', '--modes', 'left_recursion',
+                  'right_recursion', '--sizes', '100', '200', '--runs', '2', '--out', str(out),
+                  '--expected-cache', str(tmp_path / 'cache.json'), '--no-latex-compile'])
+        assert p.returncode == 0, p.stdout + p.stderr
+        analysis = tmp_path / 'campaign' / 'analysis'
+        assert (analysis / 'summary.csv').exists() and (analysis / 'figures' / 'cycle_elapsed.pdf').exists()
+        tex = (analysis / 'figures_tex' / 'cycle_elapsed.tex').read_text()
+        assert tex.startswith('\\documentclass') and 'DuckDB' in tex and 'ymode=log' in tex
+
+    def test_one_series_per_output_directory(self, tmp_path):
+        p = _run([PY, 'benchmark.py', '--systems', 'duckdb', 'xsb', '--graphs', 'cycle', '--sizes', '100',
+                  '--out', str(tmp_path / 'duckdb')])
+        assert p.returncode == 2 and 'its own directory' in p.stderr
 
     def test_timeout_kills_and_skips_larger_sizes(self, tmp_path):
         out = tmp_path / 'to'
         p = _run([PY, 'benchmark.py', '--systems', 'duckdb', '--graphs', 'cycle', '--modes', 'left_recursion',
                   '--sizes', '100', '200', '--runs', '3', '--timeout', '0.01', '--out', str(out),
-                  '--expected-cache', str(tmp_path / 'cache.json')])
+                  '--expected-cache', str(tmp_path / 'cache.json'), '--no-analysis'])
         assert p.returncode == 0, p.stderr
         recs = self._records(out)
         assert [(r['n'], r['run'], r['status']) for r in recs] == [(100, 1, 'timeout'), (200, None, 'skipped')]
@@ -390,7 +408,7 @@ class TestBenchmarkDriver:
         out = tmp_path / 's2'
         p = _run([PY, 'benchmark.py', '--systems', 'singlestore', '--graphs', 'path', '--modes', 'left_recursion',
                   '--sizes', '100', '200', '--runs', '5', '--timeout', '60', '--out', str(out), '--config-file', str(cfg),
-                  '--expected-cache', str(tmp_path / 'cache.json')])
+                  '--expected-cache', str(tmp_path / 'cache.json'), '--no-analysis'])
         assert p.returncode == 0, p.stderr
         recs = self._records(out)
         assert [(r['n'], r['run'], r['status']) for r in recs] == [(100, 1, 'error'), (200, None, 'skipped')]
@@ -415,13 +433,17 @@ class TestAnalysis:
     @pytest.mark.skipif(not VERIFIED.exists(), reason='results/verified_2026 not present')
     def test_reanalysis_reproduces_published_tables(self, tmp_path):
         """Tables, summary and verification of the paper are regenerated exactly from runs.jsonl + logs."""
-        p = _run([PY, 'analyze_verified.py', str(VERIFIED), '--out', str(tmp_path)])
+        p = _run([PY, 'analyze_verified.py', str(VERIFIED), '--out', str(tmp_path), '--no-compile'])
         assert p.returncode == 0, p.stderr
         published = VERIFIED / 'analysis'
         names = [f.name for f in published.glob('table_*.tex')] + ['summary.csv', 'verification.json']
         assert len(names) == 10
         for name in names:
             assert (tmp_path / name).read_text() == (published / name).read_text(), name
+        tex_figures = sorted(f.name for f in (published / 'figures_tex').glob('*.tex'))
+        assert len(tex_figures) == 28
+        for name in tex_figures:  # the pgfplots transcription is deterministic
+            assert (tmp_path / 'figures_tex' / name).read_text() == (published / 'figures_tex' / name).read_text(), name
         v = json.loads((tmp_path / 'verification.json').read_text())
         assert v['incorrect_results'] == {
             'duckdb/double_recursion': ['binary_tree', 'cycle', 'grid', 'multi_path', 'path', 'reverse_binary_tree', 'y'],

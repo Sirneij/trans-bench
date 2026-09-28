@@ -43,7 +43,9 @@ mariadb_investigation.jsonl  MariaDB missing pairs vs settings (scripts/run_inve
 run_all.log.gz               driver output of the whole campaign (phase start/end times)
 versions.txt, pip_freeze.txt machine and software versions
 analysis/                    output of analyze_verified.py: summary.csv, verification.json,
-                             table_*.tex (rows of the paper's tables), figures/*.pdf
+                             table_*.tex (rows of the paper's tables), figures/*.pdf (matplotlib,
+                             the files in the paper), figures_tex/*.tex + .pdf (the same figures
+                             as standalone pgfplots/TikZ documents)
 harness/                     the 2026 harness changes as patches (see harness/README.md)
 ```
 
@@ -53,7 +55,7 @@ by `'<config JSON>'`. The timing CSVs inside `timing.tar.gz` are named
 `timing/<system>/<graph>/timing_<mode>_graph_<n>.csv`. `analyze_verified.py` reads this layout as
 well as the current one.
 
-Regenerate `analysis/` (identical except for the PDF metadata of the figures):
+Regenerate `analysis/`. Everything is identical except for the creation dates embedded in the PDFs:
 
 ```sh
 python analyze_verified.py results/verified_2026 --out results/verified_2026/analysis

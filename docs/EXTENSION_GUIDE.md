@@ -530,7 +530,10 @@ of the following. Each point comes from a problem found in the 2026 campaign
    the system in a campaign, add a phase to `scripts/run_all.sh`. `analyze_verified.py` puts every
    series into `summary.csv` and `verification.json`; its figures and LaTeX tables list the
    paper's systems explicitly (`SYS`, `SNAME`, `STYLE`, and the `table_*` functions), so add the
-   system there to plot it.
+   system there to plot it. The LaTeX version of each figure follows automatically:
+   `engine/figures_tex.py` transcribes whatever the matplotlib code draws (lines and markers,
+   log or linear axes, text, legends). It refuses artists it cannot transcribe, such as bars,
+   instead of dropping them.
 
 ---
 

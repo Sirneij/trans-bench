@@ -45,7 +45,7 @@ There are two ways to run experiments:
 | Time limit | none | per trial; process group killed and the server-side query cancelled |
 | Failures | logged | recorded per run (`error`/`timeout`); larger sizes skipped |
 | Correctness | not checked | every result checked against an independent closure (count + 64-bit hash) |
-| Output | `timing/…` CSVs | `runs.jsonl` + logs + timing CSVs, analyzed by `analyze_verified.py` |
+| Output | `timing/…` CSVs; `generate_plot_table.py` charts | `runs.jsonl` + logs + timing CSVs; at the end the campaign is analyzed automatically (`analyze_verified.py`): tables, and every figure as matplotlib PDF and as LaTeX (pgfplots/TikZ, compiled to PDF) |
 
 * [docs/REPRODUCING.md](docs/REPRODUCING.md): verify the published data, or re-run the campaign (exact commands, incidents).
 * [docs/SYSTEMS.md](docs/SYSTEMS.md): installation, configuration and pitfalls for each system (e.g. Neo4j's lazy results, CockroachDB's export chunks and schema-change jobs, MariaDB's silently incomplete results, SingleStore's `UNION ALL`-only recursion, DuckDB's `recurring`).
@@ -89,6 +89,7 @@ trans-bench/
 │   ├── runner.py               ← Orchestrates experiments
 │   ├── run_one.py              ← Runs ONE trial in its own process (used by benchmark.py)
 │   ├── verify.py               ← Independent correctness check (count + order-independent hash)
+│   ├── figures_tex.py          ← matplotlib figure → standalone pgfplots/TikZ document (+ compilation)
 │   └── connectors/
 │       ├── base.py             ← Abstract connector interface (errors, cancel_running)
 │       ├── rdbms.py            ← PostgreSQL, MariaDB, CockroachDB, SingleStore
@@ -105,7 +106,7 @@ trans-bench/
 ├── config.yaml                 ← Global config (no credentials)
 ├── transitive.py               ← CLI entrypoint (also launches UI)
 ├── benchmark.py                ← Verified driver: time limit, isolation, per-run correctness check
-├── analyze_verified.py         ← Summary, verification, figures and LaTeX tables of a campaign
+├── analyze_verified.py         ← Summary, verification, figures (PDF + pgfplots/TikZ) and LaTeX tables
 ├── scripts/                    ← Campaign scripts (run_all.sh, capture_versions.sh, verify_inputs.py,
 │                                 compare_results.py, MariaDB investigation)
 ├── results/verified_2026/      ← The published campaign (per-run records, logs, analysis)

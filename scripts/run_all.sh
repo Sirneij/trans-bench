@@ -25,7 +25,7 @@ N12="100 200 300 400 500 600 700 800 900 1000"
 NSF="10000 20000 30000 40000 50000 60000 70000 80000 90000"
 NBA="10000 20000 30000 40000 50000 60000 70000 80000 90000 100000"
 LR="left_recursion right_recursion"
-bench() { $PY benchmark.py --runs 5 --timeout 600 --config-file "$CONFIG" "$@"; }
+bench() { $PY benchmark.py --runs 5 --timeout 600 --config-file "$CONFIG" --no-analysis "$@"; }  # analyzed once, at the end
 suite() {  # $1 system, $2 modes for the 12 graphs, $3 out-dir suffix, $4 modes for the large graphs
   bench --systems $1 --graphs $G12 --modes $2 --sizes $N12 --out $R/$1$3
   bench --systems $1 --graphs scale_free --modes ${4:-$LR} --sizes $NSF --out $R/$1$3
@@ -82,3 +82,5 @@ for ph in $PHASES; do
   esac
   echo "=== phase $ph end $(date -u +%FT%TZ)"
 done
+# tables, summary, verification, and every figure as matplotlib PDF and as compiled pgfplots/TikZ
+$PY analyze_verified.py $R --out $R/analysis

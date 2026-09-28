@@ -13,14 +13,18 @@ ExecuteQueryRealTime for the SQL systems and MongoDB (the statement that compute
 closure), QueryRealTime for XSB (query without writing) and for Neo4j (the count of the distinct
 pairs, fetched). CPU time uses the corresponding *CPUTime column and is shown only for XSB and
 DuckDB, whose query runs inside the measured process. A configuration's value is the mean over its
-5 runs, reported only if all 5 runs completed; medians, standard deviations, minima and maxima are
-in summary.csv. Figures and tables are laid out for the paper (graph families, system order and
+runs (5 in the campaign, --runs), reported only if all of them completed; medians, standard deviations, minima and maxima are
+in summary.csv. Every figure is written twice: figures/<name>.pdf (matplotlib) and
+figures_tex/<name>.tex (the same figure as a standalone pgfplots/TikZ document, compiled to
+figures_tex/<name>.pdf if a LaTeX engine is installed; see engine/figures_tex.py). Figures and
+tables are laid out for the paper (graph families, system order and
 LaTeX macros such as \\gname are those of the paper).
 """
 import argparse
 import csv
 import json
 import statistics
+import sys
 import tarfile
 from collections import defaultdict
 from functools import lru_cache
@@ -31,6 +35,8 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt  # noqa: E402
 import matplotlib.ticker  # noqa: E402
+
+from engine.figures_tex import compile_tex, figure_to_tex, find_engine  # noqa: E402
 
 GRAPHS = ['complete', 'max_acyclic', 'cycle', 'cycle_with_shortcuts', 'path', 'multi_path',
           'grid', 'binary_tree', 'reverse_binary_tree', 'x', 'y', 'w']
@@ -52,6 +58,7 @@ STYLE = {'xsb': ('k', 'x', '-'), 'postgres': ('tab:blue', 's', '-'), 'mariadb': 
          'mongodb': ('tab:green', 'o', '--'), 'neo4j': ('tab:cyan', 'P', '--'), 'singlestore': ('tab:brown', '*', ':'),
          'mariadb_tuned': ('salmon', 'v', ':')}
 RESULTS = Path('.')
+RUNS = 5  # runs per configuration; a mean is reported only if all of them completed (--runs)
 BASE_DIR = Path(__file__).resolve().parent
 
 
@@ -129,11 +136,11 @@ def summarize(runs):
                 if i >= 0:
                     err = ' '.join(text[i + 10:].split())
         rows[key] = dict(series=series, graph=key[1], mode=key[2], n=key[3], status=status, runs=len(ok),
-                         mean=statistics.mean(t) if len(t) == 5 and status == 'ok' else None,
+                         mean=statistics.mean(t) if len(t) == RUNS and status == 'ok' else None,
                          median=statistics.median(t) if t else None,
                          sd=statistics.stdev(t) if len(t) > 1 else None, min=min(t) if t else None,
                          max=max(t) if t else None,
-                         cpu_mean=statistics.mean(c) if len(c) == 5 and status == 'ok' else None,
+                         cpu_mean=statistics.mean(c) if len(c) == RUNS and status == 'ok' else None,
                          all_correct=(None if all(x is None for x in correct) else all(x is True for x in correct)) if correct else None,
                          any_incorrect=any(x is False for x in correct),
                          unverified=sum(1 for x in correct if x is None),
@@ -196,7 +203,10 @@ def val(rows, s, g, m, n):
     return r['mean'] if r and r['status'] == 'ok' and r['all_correct'] is not False else None
 
 
-def plot_graph(rows, g, sizes, out: Path, cpu=False):
+def plot_graph(rows, g, sizes, out: Path, cpu=False, formats=('pdf', 'tex')):
+    """One figure (left and right recursion side by side). Written as out/figures/<name>.pdf
+    (matplotlib) and/or out/figures_tex/<name>.tex (the same figure transcribed to pgfplots by
+    engine/figures_tex.py); returns the .tex path, if written."""
     fig, axes = plt.subplots(1, 2, figsize=(7.2, 2.9), sharey=True)
     for ax, m in zip(axes, ['left_recursion', 'right_recursion']):
         series = ['xsb', 'duckdb'] if cpu else ['xsb', 'postgres', 'mariadb', 'duckdb', 'cockroachdb', 'neo4j', 'mongodb']
@@ -241,8 +251,17 @@ def plot_graph(rows, g, sizes, out: Path, cpu=False):
     fig.legend(h, lab, loc='lower center', ncol=4 if len(lab) > 4 else len(lab), fontsize=7, frameon=False,
                bbox_to_anchor=(0.5, -0.02))
     fig.tight_layout(rect=(0, 0.1 if len(lab) > 4 else 0.06, 1, 1))
-    fig.savefig(out / f"{g}_{'cpu' if cpu else 'elapsed'}.pdf")
+    name = f"{g}_{'cpu' if cpu else 'elapsed'}"
+    tex = None
+    if 'pdf' in formats:
+        (out / 'figures').mkdir(parents=True, exist_ok=True)
+        fig.savefig(out / 'figures' / f'{name}.pdf')
+    if 'tex' in formats:
+        (out / 'figures_tex').mkdir(parents=True, exist_ok=True)
+        tex = out / 'figures_tex' / f'{name}.tex'
+        tex.write_text(figure_to_tex(fig))
     plt.close(fig)
+    return tex
 
 
 def fmt(v):
@@ -316,33 +335,58 @@ def table_large(rows, g, sizes, mode, out: Path):
     (out / f'table_{g}_{mode}.tex').write_text('\n'.join(lines) + '\n')
 
 
-def main():
-    ap = argparse.ArgumentParser()
+def main(argv=None):
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('results')
-    ap.add_argument('--out', default=None)
-    a = ap.parse_args()
-    global RESULTS
+    ap.add_argument('--out', default=None, help='output directory (default: <results>/analysis)')
+    ap.add_argument('--figures', nargs='*', choices=['pdf', 'tex'], default=['pdf', 'tex'],
+                    help='figure formats: pdf = matplotlib (figures/), tex = pgfplots/TikZ (figures_tex/); '
+                         'default both; none: --figures with no value')
+    ap.add_argument('--runs', type=int, default=5,
+                    help='runs per configuration of the campaign (default 5); a configuration is reported only '
+                         'if all of them completed')
+    ap.add_argument('--no-compile', action='store_true',
+                    help='write the LaTeX figures without compiling them to PDF')
+    ap.add_argument('--latex-engine', choices=['tectonic', 'lualatex', 'xelatex', 'pdflatex'],
+                    help='default: the first one found in this order')
+    a = ap.parse_args(argv)
+    global RESULTS, RUNS
+    RUNS = a.runs
     results = Path(a.results)
     RESULTS = results
     out = Path(a.out) if a.out else results / 'analysis'
-    (out / 'figures').mkdir(parents=True, exist_ok=True)
+    out.mkdir(parents=True, exist_ok=True)
     runs = load(results)
     rows = summarize(runs)
     apply_agreement(rows)
     write_summary(rows, out)
     v = verification(runs, rows, out)
     print(json.dumps(v['counts']), json.dumps(v['incorrect_results']))
+    texs = []
     for g in GRAPHS:
-        plot_graph(rows, g, list(range(100, 1001, 100)), out / 'figures')
-        plot_graph(rows, g, list(range(100, 1001, 100)), out / 'figures', cpu=True)
+        texs.append(plot_graph(rows, g, list(range(100, 1001, 100)), out, formats=a.figures))
+        texs.append(plot_graph(rows, g, list(range(100, 1001, 100)), out, cpu=True, formats=a.figures))
     for g, sizes in (('scale_free', range(10000, 90001, 10000)), ('barabasi_albert', range(10000, 100001, 10000))):
-        plot_graph(rows, g, list(sizes), out / 'figures')
-        plot_graph(rows, g, list(sizes), out / 'figures', cpu=True)
+        texs.append(plot_graph(rows, g, list(sizes), out, formats=a.figures))
+        texs.append(plot_graph(rows, g, list(sizes), out, cpu=True, formats=a.figures))
         for m in ('left_recursion', 'right_recursion'):
             table_large(rows, g, list(sizes), m, out)
     for n in (500, 1000):
         table_linear(rows, n, out)
         table_double(rows, n, out)
+    texs = [t for t in texs if t]
+    if texs and not a.no_compile:
+        engine = a.latex_engine or find_engine()
+        if engine is None:
+            print('no LaTeX engine found (tectonic, lualatex, xelatex, pdflatex): '
+                  f'{len(texs)} LaTeX figures written to {out / "figures_tex"} but not compiled')
+        else:
+            failed = {t: e for t, e in compile_tex(texs, engine).items() if e}
+            print(f'LaTeX figures: {len(texs) - len(failed)} of {len(texs)} compiled with {engine} in {out / "figures_tex"}')
+            for t, e in failed.items():
+                print(f'  FAILED {t.name}: {e}')
+            if failed:
+                sys.exit(1)
 
 
 if __name__ == '__main__':
