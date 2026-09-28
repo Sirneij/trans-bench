@@ -1,0 +1,67 @@
+From 6b1dd05585c2c9d8544aed823ac0d6acbd5e1b81 Mon Sep 17 00:00:00 2001
+From: John Idogun <sirneij@gmail.com>
+Date: Sun, 27 Sep 2026 15:29:04 -0700
+Subject: [PATCH 11/17] Neo4j: timed query computes the distinct pairs on the
+ server and returns their count
+
+Fetching all rows through the Python driver costs about 8 us per row (1.36 s
+for Path_500 vs 0.11 s to compute it), which would measure client transfer
+rather than evaluation. Same plan: VarLengthExpand(Pruning,BFS,All) + Distinct.
+The APOC export still writes (and the driver verifies) the full result.
+---
+ neo4j_rules/transitive_double_recursion.cypher | 5 +++--
+ neo4j_rules/transitive_left_recursion.cypher   | 5 +++--
+ neo4j_rules/transitive_right_recursion.cypher  | 5 +++--
+ 3 files changed, 9 insertions(+), 6 deletions(-)
+
+diff --git a/neo4j_rules/transitive_double_recursion.cypher b/neo4j_rules/transitive_double_recursion.cypher
+index 01971e70..e4db8b86 100644
+--- a/neo4j_rules/transitive_double_recursion.cypher
++++ b/neo4j_rules/transitive_double_recursion.cypher
+@@ -7,8 +7,9 @@ CREATE (a)-[:EDGE]->(b);
+ 
+ CREATE INDEX IF NOT EXISTS FOR (n:Node) ON (n.id);
+ 
+-MATCH (start:Node)-[:EDGE*1..]->(end:Node) 
+-RETURN DISTINCT start.id AS x, end.id AS y;
++MATCH (start:Node)-[:EDGE*1..]->(end:Node)
++WITH DISTINCT start.id AS x, end.id AS y
++RETURN count(*) AS pairs;
+ 
+ CALL apoc.export.csv.query(
+     "MATCH (start:Node)-[:EDGE*1..]->(end:Node) RETURN DISTINCT start.id AS x, end.id AS y",
+diff --git a/neo4j_rules/transitive_left_recursion.cypher b/neo4j_rules/transitive_left_recursion.cypher
+index 01971e70..e4db8b86 100644
+--- a/neo4j_rules/transitive_left_recursion.cypher
++++ b/neo4j_rules/transitive_left_recursion.cypher
+@@ -7,8 +7,9 @@ CREATE (a)-[:EDGE]->(b);
+ 
+ CREATE INDEX IF NOT EXISTS FOR (n:Node) ON (n.id);
+ 
+-MATCH (start:Node)-[:EDGE*1..]->(end:Node) 
+-RETURN DISTINCT start.id AS x, end.id AS y;
++MATCH (start:Node)-[:EDGE*1..]->(end:Node)
++WITH DISTINCT start.id AS x, end.id AS y
++RETURN count(*) AS pairs;
+ 
+ CALL apoc.export.csv.query(
+     "MATCH (start:Node)-[:EDGE*1..]->(end:Node) RETURN DISTINCT start.id AS x, end.id AS y",
+diff --git a/neo4j_rules/transitive_right_recursion.cypher b/neo4j_rules/transitive_right_recursion.cypher
+index 01971e70..e4db8b86 100644
+--- a/neo4j_rules/transitive_right_recursion.cypher
++++ b/neo4j_rules/transitive_right_recursion.cypher
+@@ -7,8 +7,9 @@ CREATE (a)-[:EDGE]->(b);
+ 
+ CREATE INDEX IF NOT EXISTS FOR (n:Node) ON (n.id);
+ 
+-MATCH (start:Node)-[:EDGE*1..]->(end:Node) 
+-RETURN DISTINCT start.id AS x, end.id AS y;
++MATCH (start:Node)-[:EDGE*1..]->(end:Node)
++WITH DISTINCT start.id AS x, end.id AS y
++RETURN count(*) AS pairs;
+ 
+ CALL apoc.export.csv.query(
+     "MATCH (start:Node)-[:EDGE*1..]->(end:Node) RETURN DISTINCT start.id AS x, end.id AS y",
+-- 
+2.55.0
+

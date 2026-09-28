@@ -25,3 +25,6 @@ config.yaml
 engine/__pycache__/
 engine/connectors/__pycache__/
 ui/__pycache__/
+
+# DuckDB per-run database file (removed after each run)
+systems/duckdb/rules/duckdb/

@@ -1,0 +1,30 @@
+From 78b204b806b2a9285122af29320f6dc2a64f0d18 Mon Sep 17 00:00:00 2001
+From: John Idogun <sirneij@gmail.com>
+Date: Sun, 27 Sep 2026 20:04:50 -0700
+Subject: [PATCH 15/17] Add run_investigation.sh
+
+---
+ run_investigation.sh | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+ create mode 100755 run_investigation.sh
+
+diff --git a/run_investigation.sh b/run_investigation.sh
+new file mode 100755
+index 00000000..8cf3e426
+--- /dev/null
++++ b/run_investigation.sh
+@@ -0,0 +1,11 @@
++#!/bin/bash
++# Re-runs the MariaDB wrong-result cases with default settings, standard-compliant CTEs, and 4 GB
++# in-memory temporary tables; one JSON line per case (preceded by a header line) in $1.
++O=$1; : > $O
++for args in "barabasi_albert 100000 left" "scale_free 20000 right"; do
++  for cfg in "STD_CTE=0" "STD_CTE=1" "TMP_BYTES=4294967296"; do
++    echo "{\"env\": \"$cfg\", \"args\": \"$args\", \"started\": \"$(date -u +%FT%TZ)\"}" >> $O
++    env $cfg python investigate_mariadb.py $args 2>&1 | tail -1 >> $O
++  done
++done
++echo INVESTIGATION_DONE >> $O
+-- 
+2.55.0
+

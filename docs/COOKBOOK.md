@@ -232,16 +232,16 @@ timing/
 
 ```bash
 python transitive.py --bootstrap-graph weighted_random_dag \
-  --bootstrap-graph-generator engine.data_generator.DataGenerator.generate_weighted_random_dag \
+  --bootstrap-graph-generator engine.data_generator.DataGenerator.generate_weighted_random_dag_graph \
   --bootstrap-graph-description "Random directed acyclic graph with edge weights"
 ```
 
 ### Step 2: Implement the generator
 
-Edit `engine/data_generator.py` and add:
+Add to the `DataGenerator` class in `generate_db.py` (re-exported by `engine/data_generator.py`; `generate_db.py --graph-types weighted_random_dag` calls `generate_weighted_random_dag_graph`, so name the method accordingly):
 
 ```python
-def generate_weighted_random_dag(self, n: int) -> Generator[tuple[int, int, float], None, None]:
+def generate_weighted_random_dag_graph(self, n: int) -> Generator[tuple[int, int, float], None, None]:
     """
     Generate a random DAG with n nodes and weighted edges.
 

@@ -173,6 +173,34 @@ class ExperimentRunner:
     # Private helpers
     # ------------------------------------------------------------------
 
+    def run_trial(self, system: SystemDescriptor, graph: GraphTypeDescriptor, size: int, mode: str) -> dict:
+        """
+        Run exactly one trial of (system, graph, size, mode) and return its outcome (see
+        _run_single). Unlike run(), this neither generates missing input nor skips existing
+        timing files: engine/run_one.py uses it to run one trial per process for benchmark.py.
+        """
+        if mode not in system.modes:
+            return {'timing': None, 'errors': [f'{system.name} does not declare mode {mode}']}
+        rule_path = self._resolve_rule_path(system, mode)
+        if rule_path is None:
+            return {'timing': None, 'errors': [f'no rule file for {system.name}/{self.domain}_{mode}']}
+        input_path = self._resolve_input_path(system, graph, size)
+        if not input_path.exists():
+            return {
+                'timing': None,
+                'errors': [f'input {input_path} not found; create it with generate_db.py (see docs/REPRODUCING.md)'],
+            }
+        output_folder = self._prepare_output_folder(system, graph, size, mode)
+        timing_path = self._timing_path(system, graph, size, mode)
+        outcome = self._run_single(system, rule_path, input_path, output_folder, timing_path, size)
+        outcome.update(
+            rule_path=str(rule_path),
+            input_path=str(input_path),
+            timing_path=str(timing_path),
+            result_path=str(output_folder / system.result_file) if system.result_file else None,
+        )
+        return outcome
+
     def _run_single(
         self,
         system: SystemDescriptor,
@@ -181,9 +209,17 @@ class ExperimentRunner:
         output_folder: Path,
         timing_path: Path,
         size: int,
-    ) -> None:
+    ) -> dict:
+        """
+        Connect, run one trial, append its timing row, disconnect.
+
+        Returns {'timing': <row dict or None>, 'errors': [...]}. A trial whose connector recorded
+        errors still gets its timing row (the phases that ran are measured; the others are 0), but
+        callers must treat it as failed. If connecting fails, no row is written.
+        """
         ConnectorClass = get_connector(system.protocol)
         connector = ConnectorClass()
+        outcome: dict = {'timing': None, 'errors': []}
         try:
             connector.connect(system.credentials, system)
 
@@ -206,13 +242,22 @@ class ExperimentRunner:
                 rule_path, input_path, output_folder, system, config_with_mode, query_bindings=query_bindings
             )
             self._write_timing(timing_path, system.csv_headers, timing)
+            outcome['timing'] = timing
         except Exception as e:
             msg = f'Experiment failed ({system.name}): {e}'
             log.error(msg)
             self._emit_log(msg, level='error')
+            outcome['errors'].append(msg)
         finally:
-            connector.close()
+            outcome['errors'] = list(getattr(connector, 'errors', [])) + outcome['errors']
+            for msg in getattr(connector, 'errors', []):
+                self._emit_log(f'{system.name}: {msg}', level='error')
+            try:
+                connector.close()
+            except Exception as e:
+                log.warning(f'close() failed ({system.name}): {e}')
             gc.collect()
+        return outcome
 
     def _resolve_rule_path(self, system: SystemDescriptor, mode: str) -> Optional[Path]:
         """Find rule file for this system+mode for the current domain."""

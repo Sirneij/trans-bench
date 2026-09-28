@@ -1,0 +1,36 @@
+From bdc0ab6abb7aaf921da8e19f4200003f0be7a18d Mon Sep 17 00:00:00 2001
+From: John Idogun <sirneij@gmail.com>
+Date: Sat, 26 Sep 2026 06:36:27 -0700
+Subject: [PATCH 04/17] DuckDB: add double recursion over the RECURRING table
+ (DuckDB >= 1.5)
+
+Plain double recursion in DuckDB joins only the previous iteration's rows
+with each other and returns incomplete closures; recurring.tc refers to all
+rows accumulated so far (duckdb/duckdb#20707).
+---
+ .../transitive_doublerecurring_recursion.sql         | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+ create mode 100644 duckdb_rules/transitive_doublerecurring_recursion.sql
+
+diff --git a/duckdb_rules/transitive_doublerecurring_recursion.sql b/duckdb_rules/transitive_doublerecurring_recursion.sql
+new file mode 100644
+index 00000000..64b3d186
+--- /dev/null
++++ b/duckdb_rules/transitive_doublerecurring_recursion.sql
+@@ -0,0 +1,12 @@
++CREATE TABLE edge (x INTEGER, y INTEGER);
++COPY edge FROM '{data_file}' (DELIMITER '\t');
++CREATE INDEX edge_yx ON edge (y, x);
++ANALYZE;
++CREATE TABLE tc_result AS
++WITH RECURSIVE tc AS (
++    SELECT x, y FROM edge
++    UNION
++    SELECT tc1.x, tc2.y FROM recurring.tc AS tc1, recurring.tc AS tc2 WHERE tc1.y = tc2.x
++)
++SELECT * FROM tc;
++COPY (SELECT * FROM tc_result) TO '{output_file}' WITH (HEADER, DELIMITER ',');
+\ No newline at end of file
+-- 
+2.55.0
+

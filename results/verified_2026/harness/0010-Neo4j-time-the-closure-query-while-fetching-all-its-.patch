@@ -1,0 +1,43 @@
+From 443e4e728a6ee573c96371c047fd13011a36fc44 Mon Sep 17 00:00:00 2001
+From: John Idogun <sirneij@gmail.com>
+Date: Sun, 27 Sep 2026 15:27:00 -0700
+Subject: [PATCH 10/17] Neo4j: time the closure query while fetching all its
+ rows
+
+consume() discards the result stream, and Neo4j then does not compute the
+rows (0.04 s for Cmpl_900, whose export took 27 s). The query is now timed
+with list(session.run(q)), i.e. including transfer of the rows to the client.
+---
+ analyze_dbs.py | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/analyze_dbs.py b/analyze_dbs.py
+index 96fdc1bb..85e3da79 100755
+--- a/analyze_dbs.py
++++ b/analyze_dbs.py
+@@ -270,8 +270,11 @@ class AnalyzeDBs(AnalyzeSystems):
+         session = self.driver.session()
+ 
+         # session.run() is lazy: it returns before the query has been executed, and the
+-        # unconsumed result is then executed as part of the *next* statement. Consume every
+-        # result inside the timed call so each timing covers exactly its own statement.
++        # unconsumed result is then executed as part of the *next* statement. Every result is
++        # therefore finished inside its own timed call. consume() suffices for the update
++        # statements (DELETE, LOAD CSV, CREATE INDEX), which are executed even when their
++        # (empty) result is discarded; the transitive-closure query is timed while fetching all
++        # of its rows, because discarding its stream lets Neo4j skip computing them.
+         def run_consumed(cypher: str):
+             return session.run(cypher).consume()
+ 
+@@ -296,7 +299,7 @@ class AnalyzeDBs(AnalyzeSystems):
+                     timing_results[self.headers_neo4j[-4]],
+                     timing_results[self.headers_neo4j[-3]],
+                     _,
+-                ) = self.execute_with_timing(run_consumed, query)
++                ) = self.execute_with_timing(run_fetched, query)
+                 logging.info(f'Query executed: {query}')
+             except Exception as e:
+                 logging.error(f'Penultimate Neo4J query error: {e}, Query: {query}')
+-- 
+2.55.0
+

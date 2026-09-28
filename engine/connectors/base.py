@@ -34,10 +34,22 @@ class BaseConnector(ABC):
         connector.connect(credentials, descriptor)
         timing = connector.run_experiment(rule_path, input_path, output_folder, descriptor, config)
         connector.close()
+
+    Error reporting:
+        A failing step must not be hidden behind a timing row of zeros. Connectors catch
+        exceptions so that the remaining cleanup still runs, but record every failure with
+        ``self._record_error(msg)``. Callers (engine/run_one.py, the Web UI) read
+        ``connector.errors`` after ``run_experiment`` and treat a non-empty list as a failed run.
     """
 
     def __init__(self):
         self._connection = None
+        self.errors: list[str] = []
+
+    def _record_error(self, message: str) -> None:
+        """Log an error and keep it in ``self.errors`` so the caller can mark the run as failed."""
+        logging.getLogger(type(self).__module__).error(message)
+        self.errors.append(message)
 
     def _substitute_query_bindings(self, rule_content: str, query_bindings: dict[str, Any] | None) -> str:
         """
@@ -91,8 +103,27 @@ class BaseConnector(ABC):
         """Release all resources."""
 
     # ------------------------------------------------------------------
+    # May override
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def cancel_running(cls, credentials: dict[str, Any], descriptor: 'SystemDescriptor') -> None:
+        """
+        Stop work that is still running inside the server after the client process was killed
+        (benchmark.py calls this when a run exceeds its time limit). Killing the client alone is
+        not enough for client/server systems: the server keeps executing the statement and the
+        next run then measures a loaded machine, or fails on tables that are still in use.
+        The default does nothing, which is right for in-process and subprocess systems.
+        """
+
+    # ------------------------------------------------------------------
     # Shared utilities
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def result_path(output_folder: Path, descriptor: 'SystemDescriptor', default: str) -> Path:
+        """Where the run's query result goes: descriptor.result_file, or the connector's default name."""
+        return Path(output_folder) / (getattr(descriptor, 'result_file', '') or default)
 
     @staticmethod
     def timed(fn, *args, **kwargs) -> tuple[float, float, Any]:

@@ -1,0 +1,292 @@
+From ffd9cb699b0595e200c937058c10e5932c7fa519 Mon Sep 17 00:00:00 2001
+From: John Idogun <sirneij@gmail.com>
+Date: Sat, 26 Sep 2026 06:36:19 -0700
+Subject: [PATCH 03/17] Add SingleStore support (singlestore_rules,
+ solve_with_singlestore)
+
+SingleStore requires UNION ALL between base and recursive term and forbids
+DISTINCT/UNION in the recursive term, so the closure is computed as
+SELECT DISTINCT over all paths, with max_recursive_cte_iterations raised
+from 32 to 10000. Results are fetched through the client because
+INTO OUTFILE writes inside the server container.
+---
+ analyze_dbs.py                                | 51 ++++++++++++++++
+ common.py                                     | 12 ++++
+ config.json                                   | 15 ++++-
+ singlestore_rules/__init__.py                 | 58 +++++++++++++++++++
+ .../transitive_double_recursion.py            | 17 ++++++
+ .../transitive_left_recursion.py              | 17 ++++++
+ .../transitive_right_recursion.py             | 17 ++++++
+ 7 files changed, 184 insertions(+), 3 deletions(-)
+ create mode 100644 singlestore_rules/__init__.py
+ create mode 100644 singlestore_rules/transitive_double_recursion.py
+ create mode 100644 singlestore_rules/transitive_left_recursion.py
+ create mode 100644 singlestore_rules/transitive_right_recursion.py
+
+diff --git a/analyze_dbs.py b/analyze_dbs.py
+index cffea92d..96fdc1bb 100755
+--- a/analyze_dbs.py
++++ b/analyze_dbs.py
+@@ -159,6 +159,57 @@ class AnalyzeDBs(AnalyzeSystems):
+                 remove = f'rm -rf /tmp/mariadb_results.csv'
+         self.run_pexpect_command(remove, machine_user_password)
+ 
++    def solve_with_singlestore(self) -> None:
++        conn = self.connect_db(self.environment)
++        module_name = self.rule_path.stem
++        class_name = f'SingleStore{module_name.split("_")[1].capitalize()}Recursion'
++        logging.info(f'Executing for SingleStore. Module: {module_name}, class: {class_name}')
++
++        SingleStoreRecursionClass = self.dynamic_import(f'singlestore_rules.{module_name}', class_name)
++        s2_operations = SingleStoreRecursionClass(self.config, conn)
++
++        results_path = self.output_folder / 'singlestore_results.csv'
++        timing_results = {header: 0 for header in self.headers_rdbms}
++
++        try:
++            s2_operations.drop_tc_path_tc_result_tables()
++            s2_operations.set_iteration_limit()
++            (
++                timing_results['CreateTableRealTime'],
++                timing_results['CreateTableCPUTime'],
++                _,
++            ) = self.execute_with_timing(s2_operations.create_tc_path_table)
++            timing_results['LoadDataRealTime'], timing_results['LoadDataCPUTime'], _ = self.execute_with_timing(
++                s2_operations.import_data_from_file,
++                'edge',
++                f'{self.input_path}',
++            )
++            (
++                timing_results['CreateIndexRealTime'],
++                timing_results['CreateIndexCPUTime'],
++                _,
++            ) = self.execute_with_timing(s2_operations.create_tc_path_index)
++            timing_results['AnalyzeRealTime'], timing_results['AnalyzeCPUTime'], _ = self.execute_with_timing(
++                s2_operations.analyze_tc_path_table
++            )
++            (
++                timing_results['ExecuteQueryRealTime'],
++                timing_results['ExecuteQueryCPUTime'],
++                _,
++            ) = self.execute_with_timing(s2_operations.run_recursive_query)
++            (
++                timing_results['WriteResultRealTime'],
++                timing_results['WriteResultCPUTime'],
++                _,
++            ) = self.execute_with_timing(s2_operations.export_data_to_file, results_path)
++            s2_operations.drop_tc_path_tc_result_tables()
++        except Exception as e:
++            logging.error(f'SingleStore error: {e}')
++        finally:
++            conn.close()
++
++        self.write_timing_results(timing_results, self.headers_rdbms)
++
+     def solve_with_duckdb(self) -> None:
+         conn = self.connect_db(self.environment, self.rule_path)
+         with open(self.rule_path, 'r') as f:
+diff --git a/common.py b/common.py
+index c77b73d3..17b8200c 100755
+--- a/common.py
++++ b/common.py
+@@ -78,6 +78,7 @@ class Base:
+             'cockroachdb': self._connect_psycopg2,
+             'postgres': self._connect_psycopg2,
+             'mariadb': self._connect_mariadb,
++            'singlestore': self._connect_singlestore,
+         }
+ 
+         if env_name not in connection_methods:
+@@ -115,6 +116,17 @@ class Base:
+             local_infile=1,  # Enable LOAD DATA LOCAL INFILE
+         )
+ 
++    def _connect_singlestore(self, env_name: str, rule_path: Optional[str] = None) -> MySQLdb.Connection:
++        # SingleStore speaks the MySQL wire protocol; the same client library as MariaDB is used.
++        return MySQLdb.connect(
++            db=self.config.get(env_name, {}).get('database', ''),
++            user=self.config.get(env_name, {}).get('user', ''),
++            passwd=self.config.get(env_name, {}).get('password', ''),
++            host=self.config.get(env_name, {}).get('host', ''),
++            port=self.config.get(env_name, {}).get('port', ''),
++            local_infile=1,
++        )
++
+     def close(self) -> None:
+         if self.driver:
+             self.driver.close()
+diff --git a/config.json b/config.json
+index f5ec14b8..0e26081a 100644
+--- a/config.json
++++ b/config.json
+@@ -40,7 +40,8 @@
+                 "duckdb",
+                 "mongodb",
+                 "neo4j",
+-                "cockroachdb"
++                "cockroachdb",
++                "singlestore"
+             ],
+             "environmentExtensions": {
+                 "clingo": ".lp",
+@@ -51,7 +52,8 @@
+                 "duckdb": ".sql",
+                 "neo4j": ".cypher",
+                 "mongodb": ".py",
+-                "cockroachdb": ".py"
++                "cockroachdb": ".py",
++                "singlestore": ".py"
+             }
+         }
+     },
+@@ -65,5 +67,12 @@
+         "cockroachdb"
+     ],
+     "queries": "[[query1, path(X, Y)]]",
+-    "timing_dir": "timing"
++    "timing_dir": "timing",
++    "singlestore": {
++        "host": "127.0.0.1",
++        "user": "root",
++        "password": "<singlestore_root_password>",
++        "database": "benchmark",
++        "port": 3307
++    }
+ }
+\ No newline at end of file
+diff --git a/singlestore_rules/__init__.py b/singlestore_rules/__init__.py
+new file mode 100644
+index 00000000..00510237
+--- /dev/null
++++ b/singlestore_rules/__init__.py
+@@ -0,0 +1,58 @@
++import csv
++from typing import Any
++
++import MySQLdb
++
++from common import Base
++
++# SingleStore only accepts `UNION ALL` between the base and the recursive term and rejects
++# DISTINCT/UNION/GROUP BY inside the recursive term, so duplicates cannot be removed between
++# iterations. The transitive closure is therefore computed as the set of pairs connected by a
++# path, `SELECT DISTINCT` over all paths (bag semantics), which terminates only on acyclic
++# graphs. The iteration limit (default 32) is raised so that paths of up to 10,000 edges can be
++# followed; on cyclic graphs the query then fails with error 2741 (iteration limit exceeded).
++MAX_RECURSIVE_CTE_ITERATIONS = 10000
++
++
++class SingleStoreOperations(Base):
++    def __init__(self, config: dict[str, Any], conn: MySQLdb.Connection) -> None:
++        self.config = config
++        self.conn = conn
++        self.conn.autocommit(True)
++
++    def execute_query(self, query: str, params: Any = None) -> None:
++        cursor = self.conn.cursor()
++        cursor.execute(query, params)
++        cursor.fetchall()
++
++    def set_iteration_limit(self) -> None:
++        self.execute_query(f'SET SESSION max_recursive_cte_iterations = {MAX_RECURSIVE_CTE_ITERATIONS};')
++
++    def create_tc_path_table(self) -> None:
++        self.execute_query('CREATE TABLE edge (x INT NOT NULL, y INT NOT NULL);')
++
++    def import_data_from_file(self, table_name: str, file_path: str, delimiter: str = '\t') -> None:
++        self.execute_query(
++            f"LOAD DATA LOCAL INFILE '{file_path}' INTO TABLE {table_name} "
++            f"FIELDS TERMINATED BY '{delimiter}' LINES TERMINATED BY '\\n' (x, y);"
++        )
++
++    def create_tc_path_index(self) -> None:
++        self.execute_query('CREATE INDEX edge_yx ON edge (y, x);')
++
++    def analyze_tc_path_table(self) -> None:
++        self.execute_query('ANALYZE TABLE edge;')
++
++    def drop_tc_path_tc_result_tables(self) -> None:
++        self.execute_query('DROP TABLE IF EXISTS tc_result;')
++        self.execute_query('DROP TABLE IF EXISTS edge;')
++
++    def export_data_to_file(self, output_file) -> None:
++        # SELECT ... INTO OUTFILE would write inside the server container, so the result is
++        # fetched through the client connection and written locally.
++        cursor = self.conn.cursor()
++        cursor.execute('SELECT x, y FROM tc_result;')
++        with open(output_file, 'w', newline='') as f:
++            writer = csv.writer(f)
++            writer.writerow(['x', 'y'])
++            writer.writerows(cursor.fetchall())
+diff --git a/singlestore_rules/transitive_double_recursion.py b/singlestore_rules/transitive_double_recursion.py
+new file mode 100644
+index 00000000..7f017091
+--- /dev/null
++++ b/singlestore_rules/transitive_double_recursion.py
+@@ -0,0 +1,17 @@
++from singlestore_rules import SingleStoreOperations
++
++
++class SingleStoreDoubleRecursion(SingleStoreOperations):
++    def run_recursive_query(self) -> None:
++        """Transitive closure with double recursion (UNION ALL + outer DISTINCT; see __init__.py)."""
++        self.execute_query(
++            """
++        CREATE TABLE tc_result AS
++        WITH RECURSIVE tc AS (
++            SELECT x, y FROM edge
++            UNION ALL
++            SELECT tc1.x, tc2.y FROM tc AS tc1, tc AS tc2 WHERE tc1.y = tc2.x
++        )
++        SELECT DISTINCT x, y FROM tc;
++        """
++        )
+diff --git a/singlestore_rules/transitive_left_recursion.py b/singlestore_rules/transitive_left_recursion.py
+new file mode 100644
+index 00000000..7aa6a369
+--- /dev/null
++++ b/singlestore_rules/transitive_left_recursion.py
+@@ -0,0 +1,17 @@
++from singlestore_rules import SingleStoreOperations
++
++
++class SingleStoreLeftRecursion(SingleStoreOperations):
++    def run_recursive_query(self) -> None:
++        """Transitive closure with left recursion (UNION ALL + outer DISTINCT; see __init__.py)."""
++        self.execute_query(
++            """
++        CREATE TABLE tc_result AS
++        WITH RECURSIVE tc AS (
++            SELECT x, y FROM edge
++            UNION ALL
++            SELECT tc.x, edge.y FROM tc JOIN edge ON tc.y = edge.x
++        )
++        SELECT DISTINCT x, y FROM tc;
++        """
++        )
+diff --git a/singlestore_rules/transitive_right_recursion.py b/singlestore_rules/transitive_right_recursion.py
+new file mode 100644
+index 00000000..49dfcca4
+--- /dev/null
++++ b/singlestore_rules/transitive_right_recursion.py
+@@ -0,0 +1,17 @@
++from singlestore_rules import SingleStoreOperations
++
++
++class SingleStoreRightRecursion(SingleStoreOperations):
++    def run_recursive_query(self) -> None:
++        """Transitive closure with right recursion (UNION ALL + outer DISTINCT; see __init__.py)."""
++        self.execute_query(
++            """
++        CREATE TABLE tc_result AS
++        WITH RECURSIVE tc AS (
++            SELECT x, y FROM edge
++            UNION ALL
++            SELECT edge.x, tc.y FROM edge JOIN tc ON edge.y = tc.x
++        )
++        SELECT DISTINCT x, y FROM tc;
++        """
++        )
+-- 
+2.55.0
+

@@ -43,12 +43,15 @@ class DuckDBConnector(BaseConnector):
         config: dict[str, Any],
         query_bindings: dict[str, Any] | None = None,
     ) -> dict[str, float]:
-        # Per-run db file to avoid cross-contamination
+        # Per-run db file to avoid cross-contamination. A run that was killed leaves the file (and
+        # its WAL) behind; the next run would then fail on CREATE TABLE edge, so remove them first.
         self._db_path = rule_path.parent / 'duckdb' / 'duckdb_file.db'
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
+        for stale in self._db_path.parent.glob(f'{self._db_path.name}*'):
+            stale.unlink()
 
         conn = duckdb.connect(database=str(self._db_path))
-        results_path = output_folder / 'duckdb_results.csv'
+        results_path = self.result_path(output_folder, descriptor, 'duckdb_results.csv')
 
         with open(rule_path) as f:
             sql_script = f.read()
@@ -72,9 +75,9 @@ class DuckDBConnector(BaseConnector):
                     real, cpu, _ = self.timed(conn.execute, command)
                     measurements[i] = (real, cpu)
                 except Exception as e:
-                    log.error(f'DuckDB command {i} error: {e}\nSQL: {command}')
+                    self._record_error(f'DuckDB command {i} error: {e}\nSQL: {command}')
         except Exception as e:
-            log.error(f'DuckDB experiment error: {e}')
+            self._record_error(f'DuckDB experiment error: {e}')
         finally:
             conn.close()
             self._cleanup()
@@ -85,9 +88,12 @@ class DuckDBConnector(BaseConnector):
         self._cleanup()
 
     def _cleanup(self) -> None:
-        if self._db_path and self._db_path.exists():
-            try:
-                self._db_path.unlink()
-            except Exception as e:
-                log.warning(f'DuckDB cleanup: {e}')
+        if self._db_path:
+            # the database file and its write-ahead log (duckdb_file.db.wal)
+            for f in [self._db_path, *self._db_path.parent.glob(f'{self._db_path.name}.*')]:
+                if f.exists():
+                    try:
+                        f.unlink()
+                    except Exception as e:
+                        log.warning(f'DuckDB cleanup: {e}')
             self._db_path = None

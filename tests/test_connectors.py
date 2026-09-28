@@ -970,7 +970,7 @@ class MariaDBMode1Recursion:
         """Test CockroachDB connector."""
         conn = CockroachDBConnector()
         desc = SystemDescriptor(
-            name="cockroachdb", display_name="CockroachDB", category="db", protocol="psycopg2",
+            name="cockroachdb", display_name="CockroachDB", category="db", protocol="cockroachdb",
             timing_phases=[
                 TimingPhase("create", "Create"),
                 TimingPhase("import", "Import"),
@@ -980,7 +980,7 @@ class MariaDBMode1Recursion:
                 TimingPhase("write", "Write")
             ],
             input_format="tsv", modes=["mode1"], rule_extension=".py", flags={}, execution={},
-            descriptor_path=Path("dummy"), rules_dir=Path("dummy"), credentials={"externalDirectory": "/tmp/"}, version="0.1"
+            descriptor_path=Path("dummy"), rules_dir=Path("dummy"), credentials={"externalDirectory": f"{tmp_path}/extern/"}, version="0.1"
         )
         
         db_conn = MagicMock()
@@ -1006,17 +1006,30 @@ class CockroachDBMode1Recursion:
     def run_recursive_query(self):
         pass
     def export_transitive_closure_results(self, path):
-        pass
+        # EXPORT INTO CSV writes several chunks into <externalDirectory>/tmp/
+        import os
+        d = os.path.join(os.environ["CRDB_TEST_EXTERN"], "tmp")
+        os.makedirs(d, exist_ok=True)
+        open(os.path.join(d, "n1.0.csv"), "w").write("1,2\\n")
+        open(os.path.join(d, "n1.1.csv"), "w").write("2,3\\n")
 ''')
         
         input_file = tmp_path / "data.tsv"
         input_file.write_text("1\t2\n")
         
-        with patch('sys.path', [str(tmp_path)] + sys.path):
-            results = conn.run_experiment(rule_file, input_file, tmp_path, desc, {})
+        out = tmp_path / "out"
+        out.mkdir()
+        with patch('sys.path', [str(tmp_path)] + sys.path), patch.dict(
+            'os.environ', {"CRDB_TEST_EXTERN": str(tmp_path / "extern")}
+        ):
+            results = conn.run_experiment(rule_file, input_file, out, desc, {})
             expected_phases = ['Create', 'Import', 'Index', 'Analyze', 'Query', 'Write']
             for phase in expected_phases:
                 assert f'{phase}RealTime' in results or f'{phase}CPUTime' in results
+        # all chunks are concatenated in name order, and the export directory is removed
+        assert conn.errors == []
+        assert (out / "cockroachdb_results.csv").read_text() == "1,2\n2,3\n"
+        assert not (tmp_path / "extern" / "tmp").exists()
 
 
 class TestRDBMSAdvanced:

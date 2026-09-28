@@ -1,0 +1,498 @@
+{
+ "input/souffle/barabasi_albert/10000/edge.facts": {
+  "count": 355238,
+  "hash": "e307b21aedc1a72e"
+ },
+ "input/souffle/barabasi_albert/20000/edge.facts": {
+  "count": 894453,
+  "hash": "fd03f02e09526027"
+ },
+ "input/souffle/binary_tree/100/edge.facts": {
+  "count": 258,
+  "hash": "1a912b4fd39a2791"
+ },
+ "input/souffle/binary_tree/1000/edge.facts": {
+  "count": 3586,
+  "hash": "2a58ee7c7cacb1d0"
+ },
+ "input/souffle/binary_tree/200/edge.facts": {
+  "count": 642,
+  "hash": "0c36bcfa4526316b"
+ },
+ "input/souffle/binary_tree/300/edge.facts": {
+  "count": 1538,
+  "hash": "02d1d7517c1b03b4"
+ },
+ "input/souffle/binary_tree/400/edge.facts": {
+  "count": 1538,
+  "hash": "02d1d7517c1b03b4"
+ },
+ "input/souffle/binary_tree/500/edge.facts": {
+  "count": 1538,
+  "hash": "02d1d7517c1b03b4"
+ },
+ "input/souffle/binary_tree/600/edge.facts": {
+  "count": 3586,
+  "hash": "2a58ee7c7cacb1d0"
+ },
+ "input/souffle/binary_tree/700/edge.facts": {
+  "count": 3586,
+  "hash": "2a58ee7c7cacb1d0"
+ },
+ "input/souffle/binary_tree/800/edge.facts": {
+  "count": 3586,
+  "hash": "2a58ee7c7cacb1d0"
+ },
+ "input/souffle/binary_tree/900/edge.facts": {
+  "count": 3586,
+  "hash": "2a58ee7c7cacb1d0"
+ },
+ "input/souffle/complete/100/edge.facts": {
+  "count": 10000,
+  "hash": "e0a288f2f6749da9"
+ },
+ "input/souffle/complete/1000/edge.facts": {
+  "count": 1000000,
+  "hash": "2fcf6224273528cc"
+ },
+ "input/souffle/complete/200/edge.facts": {
+  "count": 40000,
+  "hash": "bbb214bc03c232b7"
+ },
+ "input/souffle/complete/300/edge.facts": {
+  "count": 90000,
+  "hash": "b5b5b51896d4b62d"
+ },
+ "input/souffle/complete/400/edge.facts": {
+  "count": 160000,
+  "hash": "4d9bced6f27e7f9c"
+ },
+ "input/souffle/complete/500/edge.facts": {
+  "count": 250000,
+  "hash": "7e26c3e9cd7dbac5"
+ },
+ "input/souffle/complete/600/edge.facts": {
+  "count": 360000,
+  "hash": "4da7f1a05167c6b0"
+ },
+ "input/souffle/complete/700/edge.facts": {
+  "count": 490000,
+  "hash": "a7f9da894270fd3d"
+ },
+ "input/souffle/complete/800/edge.facts": {
+  "count": 640000,
+  "hash": "dcf1aaf7db0e9558"
+ },
+ "input/souffle/complete/900/edge.facts": {
+  "count": 810000,
+  "hash": "1a3ebe19b12729fb"
+ },
+ "input/souffle/cycle/100/edge.facts": {
+  "count": 10000,
+  "hash": "e0a288f2f6749da9"
+ },
+ "input/souffle/cycle/1000/edge.facts": {
+  "count": 1000000,
+  "hash": "2fcf6224273528cc"
+ },
+ "input/souffle/cycle/200/edge.facts": {
+  "count": 40000,
+  "hash": "bbb214bc03c232b7"
+ },
+ "input/souffle/cycle/300/edge.facts": {
+  "count": 90000,
+  "hash": "b5b5b51896d4b62d"
+ },
+ "input/souffle/cycle/400/edge.facts": {
+  "count": 160000,
+  "hash": "4d9bced6f27e7f9c"
+ },
+ "input/souffle/cycle/500/edge.facts": {
+  "count": 250000,
+  "hash": "7e26c3e9cd7dbac5"
+ },
+ "input/souffle/cycle/600/edge.facts": {
+  "count": 360000,
+  "hash": "4da7f1a05167c6b0"
+ },
+ "input/souffle/cycle/700/edge.facts": {
+  "count": 490000,
+  "hash": "a7f9da894270fd3d"
+ },
+ "input/souffle/cycle/800/edge.facts": {
+  "count": 640000,
+  "hash": "dcf1aaf7db0e9558"
+ },
+ "input/souffle/cycle/900/edge.facts": {
+  "count": 810000,
+  "hash": "1a3ebe19b12729fb"
+ },
+ "input/souffle/cycle_with_shortcuts/100/edge.facts": {
+  "count": 10000,
+  "hash": "e0a288f2f6749da9"
+ },
+ "input/souffle/cycle_with_shortcuts/1000/edge.facts": {
+  "count": 1000000,
+  "hash": "2fcf6224273528cc"
+ },
+ "input/souffle/cycle_with_shortcuts/200/edge.facts": {
+  "count": 40000,
+  "hash": "bbb214bc03c232b7"
+ },
+ "input/souffle/cycle_with_shortcuts/300/edge.facts": {
+  "count": 90000,
+  "hash": "b5b5b51896d4b62d"
+ },
+ "input/souffle/cycle_with_shortcuts/400/edge.facts": {
+  "count": 160000,
+  "hash": "4d9bced6f27e7f9c"
+ },
+ "input/souffle/cycle_with_shortcuts/500/edge.facts": {
+  "count": 250000,
+  "hash": "7e26c3e9cd7dbac5"
+ },
+ "input/souffle/cycle_with_shortcuts/600/edge.facts": {
+  "count": 360000,
+  "hash": "4da7f1a05167c6b0"
+ },
+ "input/souffle/cycle_with_shortcuts/700/edge.facts": {
+  "count": 490000,
+  "hash": "a7f9da894270fd3d"
+ },
+ "input/souffle/cycle_with_shortcuts/800/edge.facts": {
+  "count": 640000,
+  "hash": "dcf1aaf7db0e9558"
+ },
+ "input/souffle/cycle_with_shortcuts/900/edge.facts": {
+  "count": 810000,
+  "hash": "1a3ebe19b12729fb"
+ },
+ "input/souffle/grid/100/edge.facts": {
+  "count": 2925,
+  "hash": "1753012abb752d68"
+ },
+ "input/souffle/grid/1000/edge.facts": {
+  "count": 245055,
+  "hash": "5e3e69f41acd3b0f"
+ },
+ "input/souffle/grid/200/edge.facts": {
+  "count": 10829,
+  "hash": "559054a23c5023e4"
+ },
+ "input/souffle/grid/300/edge.facts": {
+  "count": 23120,
+  "hash": "fe31859aa5e79486"
+ },
+ "input/souffle/grid/400/edge.facts": {
+  "count": 43700,
+  "hash": "bb7d1a6664b387f7"
+ },
+ "input/souffle/grid/500/edge.facts": {
+  "count": 63525,
+  "hash": "815b9bd640c69ece"
+ },
+ "input/souffle/grid/600/edge.facts": {
+  "count": 89424,
+  "hash": "798bc9fa8c7987cd"
+ },
+ "input/souffle/grid/700/edge.facts": {
+  "count": 122525,
+  "hash": "08c83c085644a15a"
+ },
+ "input/souffle/grid/800/edge.facts": {
+  "count": 164052,
+  "hash": "7b45cca21475c376"
+ },
+ "input/souffle/grid/900/edge.facts": {
+  "count": 215325,
+  "hash": "cc84bee0c4595605"
+ },
+ "input/souffle/max_acyclic/100/edge.facts": {
+  "count": 4950,
+  "hash": "b0bd3f8fe2bf07e0"
+ },
+ "input/souffle/max_acyclic/1000/edge.facts": {
+  "count": 499500,
+  "hash": "d3b4948c628ce73a"
+ },
+ "input/souffle/max_acyclic/200/edge.facts": {
+  "count": 19900,
+  "hash": "5d0e7e61f45969a5"
+ },
+ "input/souffle/max_acyclic/300/edge.facts": {
+  "count": 44850,
+  "hash": "a0c3583e3580e757"
+ },
+ "input/souffle/max_acyclic/400/edge.facts": {
+  "count": 79800,
+  "hash": "9e8bf71d88a7b28c"
+ },
+ "input/souffle/max_acyclic/500/edge.facts": {
+  "count": 124750,
+  "hash": "f93cb4054e09537e"
+ },
+ "input/souffle/max_acyclic/600/edge.facts": {
+  "count": 179700,
+  "hash": "d23f53703ac1b2b6"
+ },
+ "input/souffle/max_acyclic/700/edge.facts": {
+  "count": 244650,
+  "hash": "9837c3eb4808c33d"
+ },
+ "input/souffle/max_acyclic/800/edge.facts": {
+  "count": 319600,
+  "hash": "854c0bd3caea2053"
+ },
+ "input/souffle/max_acyclic/900/edge.facts": {
+  "count": 404550,
+  "hash": "eb229b2b508e121c"
+ },
+ "input/souffle/multi_path/100/edge.facts": {
+  "count": 49500,
+  "hash": "5fde24d48d477913"
+ },
+ "input/souffle/multi_path/1000/edge.facts": {
+  "count": 4995000,
+  "hash": "5fe05f1da29b6936"
+ },
+ "input/souffle/multi_path/200/edge.facts": {
+  "count": 199000,
+  "hash": "263e15c9eaa7ef59"
+ },
+ "input/souffle/multi_path/300/edge.facts": {
+  "count": 448500,
+  "hash": "e0cacd933b17eac1"
+ },
+ "input/souffle/multi_path/400/edge.facts": {
+  "count": 798000,
+  "hash": "3bfbaf9577937baf"
+ },
+ "input/souffle/multi_path/500/edge.facts": {
+  "count": 1247500,
+  "hash": "e3e870ad07a0d103"
+ },
+ "input/souffle/multi_path/600/edge.facts": {
+  "count": 1797000,
+  "hash": "4525105fc6db99db"
+ },
+ "input/souffle/multi_path/700/edge.facts": {
+  "count": 2446500,
+  "hash": "766aee21a0ae0595"
+ },
+ "input/souffle/multi_path/800/edge.facts": {
+  "count": 3196000,
+  "hash": "a3696b7f2e078596"
+ },
+ "input/souffle/multi_path/900/edge.facts": {
+  "count": 4045500,
+  "hash": "a7c9979469e7d4fd"
+ },
+ "input/souffle/path/100/edge.facts": {
+  "count": 4950,
+  "hash": "86230f20bf207037"
+ },
+ "input/souffle/path/1000/edge.facts": {
+  "count": 499500,
+  "hash": "39a773ec8e113151"
+ },
+ "input/souffle/path/200/edge.facts": {
+  "count": 19900,
+  "hash": "9d630e280affb967"
+ },
+ "input/souffle/path/300/edge.facts": {
+  "count": 44850,
+  "hash": "59efddc7eda843fc"
+ },
+ "input/souffle/path/400/edge.facts": {
+  "count": 79800,
+  "hash": "65c3ebe480701477"
+ },
+ "input/souffle/path/500/edge.facts": {
+  "count": 124750,
+  "hash": "a5db6e0a2e827134"
+ },
+ "input/souffle/path/600/edge.facts": {
+  "count": 179700,
+  "hash": "5244b5aee9636d63"
+ },
+ "input/souffle/path/700/edge.facts": {
+  "count": 244650,
+  "hash": "a50fa68d0d7933a7"
+ },
+ "input/souffle/path/800/edge.facts": {
+  "count": 319600,
+  "hash": "6ae17b11a78da7a5"
+ },
+ "input/souffle/path/900/edge.facts": {
+  "count": 404550,
+  "hash": "af6b89b413bebf8b"
+ },
+ "input/souffle/reverse_binary_tree/100/edge.facts": {
+  "count": 258,
+  "hash": "b2aaac43f500a3aa"
+ },
+ "input/souffle/reverse_binary_tree/1000/edge.facts": {
+  "count": 3586,
+  "hash": "9ee1ce6baf69fca2"
+ },
+ "input/souffle/reverse_binary_tree/200/edge.facts": {
+  "count": 642,
+  "hash": "7d9f89bba6b542b5"
+ },
+ "input/souffle/reverse_binary_tree/300/edge.facts": {
+  "count": 1538,
+  "hash": "c3394d7befaabf63"
+ },
+ "input/souffle/reverse_binary_tree/400/edge.facts": {
+  "count": 1538,
+  "hash": "c3394d7befaabf63"
+ },
+ "input/souffle/reverse_binary_tree/500/edge.facts": {
+  "count": 1538,
+  "hash": "c3394d7befaabf63"
+ },
+ "input/souffle/reverse_binary_tree/600/edge.facts": {
+  "count": 3586,
+  "hash": "9ee1ce6baf69fca2"
+ },
+ "input/souffle/reverse_binary_tree/700/edge.facts": {
+  "count": 3586,
+  "hash": "9ee1ce6baf69fca2"
+ },
+ "input/souffle/reverse_binary_tree/800/edge.facts": {
+  "count": 3586,
+  "hash": "9ee1ce6baf69fca2"
+ },
+ "input/souffle/reverse_binary_tree/900/edge.facts": {
+  "count": 3586,
+  "hash": "9ee1ce6baf69fca2"
+ },
+ "input/souffle/scale_free/10000/edge.facts": {
+  "count": 4993626,
+  "hash": "13916e11b29f66c8"
+ },
+ "input/souffle/scale_free/20000/edge.facts": {
+  "count": 19108900,
+  "hash": "d41b466bebaa545a"
+ },
+ "input/souffle/w/100/edge.facts": {
+  "count": 1000,
+  "hash": "0a5b5d72c1468c59"
+ },
+ "input/souffle/w/1000/edge.facts": {
+  "count": 10000,
+  "hash": "d688026cf9060e27"
+ },
+ "input/souffle/w/200/edge.facts": {
+  "count": 2000,
+  "hash": "8f51ff94b31fcff1"
+ },
+ "input/souffle/w/300/edge.facts": {
+  "count": 3000,
+  "hash": "fd66945ab2f0c034"
+ },
+ "input/souffle/w/400/edge.facts": {
+  "count": 4000,
+  "hash": "91c0013c0f337fe4"
+ },
+ "input/souffle/w/500/edge.facts": {
+  "count": 5000,
+  "hash": "ff288221c4714dc6"
+ },
+ "input/souffle/w/600/edge.facts": {
+  "count": 6000,
+  "hash": "2c32c1b698d6aa2f"
+ },
+ "input/souffle/w/700/edge.facts": {
+  "count": 7000,
+  "hash": "1ab2e8e109004171"
+ },
+ "input/souffle/w/800/edge.facts": {
+  "count": 8000,
+  "hash": "0d66f005c3d83103"
+ },
+ "input/souffle/w/900/edge.facts": {
+  "count": 9000,
+  "hash": "783abbea12cfae25"
+ },
+ "input/souffle/x/100/edge.facts": {
+  "count": 1110,
+  "hash": "9e641f7baba61712"
+ },
+ "input/souffle/x/1000/edge.facts": {
+  "count": 11010,
+  "hash": "f3bbf3e5663f8a9a"
+ },
+ "input/souffle/x/200/edge.facts": {
+  "count": 2210,
+  "hash": "584ce1ed9bd54380"
+ },
+ "input/souffle/x/300/edge.facts": {
+  "count": 3310,
+  "hash": "595cb6155155249b"
+ },
+ "input/souffle/x/400/edge.facts": {
+  "count": 4410,
+  "hash": "65d8bd1f325e4562"
+ },
+ "input/souffle/x/500/edge.facts": {
+  "count": 5510,
+  "hash": "f8bf6ed53b04fdc9"
+ },
+ "input/souffle/x/600/edge.facts": {
+  "count": 6610,
+  "hash": "b015369c51b7a19f"
+ },
+ "input/souffle/x/700/edge.facts": {
+  "count": 7710,
+  "hash": "3d81050b3296c5b0"
+ },
+ "input/souffle/x/800/edge.facts": {
+  "count": 8810,
+  "hash": "a2e1494b2ed4fdcf"
+ },
+ "input/souffle/x/900/edge.facts": {
+  "count": 9910,
+  "hash": "c1d6839582aaa906"
+ },
+ "input/souffle/y/100/edge.facts": {
+  "count": 1045,
+  "hash": "5cef4dc6cec79370"
+ },
+ "input/souffle/y/1000/edge.facts": {
+  "count": 10045,
+  "hash": "41fa975951cadbe9"
+ },
+ "input/souffle/y/200/edge.facts": {
+  "count": 2045,
+  "hash": "555cd409b43eeba1"
+ },
+ "input/souffle/y/300/edge.facts": {
+  "count": 3045,
+  "hash": "57452c9d3eb59ceb"
+ },
+ "input/souffle/y/400/edge.facts": {
+  "count": 4045,
+  "hash": "097b5aea96945894"
+ },
+ "input/souffle/y/500/edge.facts": {
+  "count": 5045,
+  "hash": "f6f151f2831bd84c"
+ },
+ "input/souffle/y/600/edge.facts": {
+  "count": 6045,
+  "hash": "50e341e3d36adb63"
+ },
+ "input/souffle/y/700/edge.facts": {
+  "count": 7045,
+  "hash": "70c2e6eb3517d3a0"
+ },
+ "input/souffle/y/800/edge.facts": {
+  "count": 8045,
+  "hash": "07970b1255f40f58"
+ },
+ "input/souffle/y/900/edge.facts": {
+  "count": 9045,
+  "hash": "cf1dcfd6b5942606"
+ }
+}

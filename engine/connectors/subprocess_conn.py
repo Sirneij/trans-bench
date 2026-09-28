@@ -60,7 +60,7 @@ class XSBConnector(BaseConnector):
     ) -> dict[str, float]:
         queries = config.get('queries', '[[query1, path(X, Y)]]')
         xsb_export_path = rule_path.parent / 'xsb_export'
-        results_path = output_folder / 'xsb_results.txt'
+        results_path = self.result_path(output_folder, descriptor, 'xsb_results.txt')
 
         base_args = [
             'xsb',
@@ -79,8 +79,14 @@ class XSBConnector(BaseConnector):
             f"extfilequery:external_file_query('{rule_path}','{input_path}',{queries},'{results_path}').",
         ]
 
+        # XSB evaluates the query twice: once without writing (query time) and once with writing
+        # the result (write time = difference). Timings are printed by xsb_export/extfilequery.P.
         real1, cpu1, mem1, out1 = self.timed_subprocess(cmd1)
         real2, cpu2, mem2, out2 = self.timed_subprocess(cmd2)
+        for label, out, key in (('query only', out1, 'QueryOnlyTime'), ('query and write', out2, 'QueryAndWriteTime')):
+            if out.returncode != 0 or f'{key}:' not in (out.stdout or ''):
+                tail = ' '.join(((out.stderr or '') + (out.stdout or '')).split())[-500:]
+                self._record_error(f'XSB {label} run failed (exit code {out.returncode}): {tail}')
 
         def t(key, text):
             return _extract(rf'{key}:\s+(-?\d+\.?\d*(?:e[+-]?\d+)?)', text)

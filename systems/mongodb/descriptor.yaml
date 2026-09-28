@@ -20,6 +20,8 @@ modes:
   - right_recursion
   - left_recursion
   - double_recursion
+query_phase: execute_query
+result_file: mongodb_results.csv
 rule_extension: .py
 
 flags:

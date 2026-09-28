@@ -18,6 +18,7 @@ modes:
   - right_recursion
   - left_recursion
   - double_recursion
+query_phase: query
 rule_extension: .da
 
 execution:

@@ -22,6 +22,12 @@ modes:
   - right_recursion
   - left_recursion
   - double_recursion
+  # double recursion over recurring.tc (DuckDB >= 1.5): each self-reference reads all rows
+  # accumulated so far instead of only the previous iteration's rows; the plain
+  # double_recursion is incomplete on 7 of the 12 graph families (see docs/SYSTEMS.md)
+  - doublerecurring_recursion
+query_phase: execute_query
+result_file: duckdb_results.csv
 rule_extension: .sql
 
 flags:

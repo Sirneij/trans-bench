@@ -1,0 +1,436 @@
+From 6e647478634db09b7181902614d7fa3ec71d4ee6 Mon Sep 17 00:00:00 2001
+From: John Idogun <sirneij@gmail.com>
+Date: Sat, 26 Sep 2026 06:40:00 -0700
+Subject: [PATCH 05/17] Add per-run verified benchmark driver
+ (run_benchmark.py) and closure checker (verify.py)
+
+---
+ .gitignore                |   4 +-
+ config_rerun.example.json |  78 +++++++++++++++
+ run_benchmark.py          | 206 ++++++++++++++++++++++++++++++++++++++
+ verify.py                 | 101 +++++++++++++++++++
+ 4 files changed, 388 insertions(+), 1 deletion(-)
+ create mode 100644 config_rerun.example.json
+ create mode 100644 run_benchmark.py
+ create mode 100644 verify.py
+
+diff --git a/.gitignore b/.gitignore
+index 1ef9b35e..2f6ba0e5 100755
+--- a/.gitignore
++++ b/.gitignore
+@@ -16,4 +16,6 @@ __pycache__
+ */*/*/*/*/*/*/*/*DS_Store
+ */*/*/*/*/*/*/*/*/*DS_Store
+ cockroach-data
+-coverage
+\ No newline at end of file
++coverageconfig_rerun.json
++expected_closures.json
++results_*/
+diff --git a/config_rerun.example.json b/config_rerun.example.json
+new file mode 100644
+index 00000000..b43ba51f
+--- /dev/null
++++ b/config_rerun.example.json
+@@ -0,0 +1,78 @@
++{
++  "postgres": {
++    "dbURL": "postgres://localhost:5432/benchmarkdb"
++  },
++  "mariadb": {
++    "host": "localhost",
++    "user": "johnidogun",
++    "password": "",
++    "database": "benchmark",
++    "port": 3306
++  },
++  "neo4j": {
++    "uri": "neo4j://localhost:7687",
++    "user": "neo4j",
++    "password": "<neo4j_password>",
++    "import_directory": "<neo4j server.directories.import>"
++  },
++  "mongodb": {
++    "uri": "mongodb://127.0.0.1:27027/",
++    "database": "transbench"
++  },
++  "cockroachdb": {
++    "dbURL": "postgresql://root@localhost:26257/defaultdb?sslmode=disable",
++    "externalDirectory": "<cockroach --external-io-dir>/"
++  },
++  "machineUserPassword": "",
++  "defaults": {
++    "systems": {
++      "alda": [
++        "alda"
++      ],
++      "otherLogicSystems": [
++        "xsb",
++        "clingo",
++        "souffle"
++      ],
++      "dbSystems": [
++        "postgres",
++        "mariadb",
++        "duckdb",
++        "mongodb",
++        "neo4j",
++        "cockroachdb",
++        "singlestore"
++      ],
++      "environmentExtensions": {
++        "clingo": ".lp",
++        "xsb": ".P",
++        "souffle": ".dl",
++        "postgres": ".py",
++        "mariadb": ".py",
++        "duckdb": ".sql",
++        "neo4j": ".cypher",
++        "mongodb": ".py",
++        "cockroachdb": ".py",
++        "singlestore": ".py"
++      }
++    }
++  },
++  "environmentsToCombine": [
++    "xsb",
++    "postgres",
++    "mariadb",
++    "duckdb",
++    "mongodb",
++    "neo4j",
++    "cockroachdb"
++  ],
++  "queries": "[[query1, path(X, Y)]]",
++  "timing_dir": "timing",
++  "singlestore": {
++    "host": "127.0.0.1",
++    "user": "root",
++    "password": "<singlestore_root_password>",
++    "database": "benchmark",
++    "port": 3307
++  }
++}
+\ No newline at end of file
+diff --git a/run_benchmark.py b/run_benchmark.py
+new file mode 100644
+index 00000000..85ee1994
+--- /dev/null
++++ b/run_benchmark.py
+@@ -0,0 +1,206 @@
++"""Runs the trans-bench experiments with a per-run time limit and verifies every run.
++
++For every (system, graph, recursion variant, n) the unmodified per-run programs of the harness
++(analyze_dbs.py / analyze_logic_systems.py, one process per run, exactly as transitive.py calls
++them) are executed `--runs` times. For each run the driver records, in <out>/runs.jsonl:
++  * the exact command line, start/end time, wall time, exit status, and ERROR lines logged by the
++    harness (full stdout/stderr go to <out>/logs/),
++  * the timing row that the harness appended to its CSV for this run,
++  * a correctness check of the exported result against the transitive closure computed
++    independently from the same edge file (verify.py): row count and a 64-bit order-independent
++    hash of all pairs.
++A run that exceeds `--timeout` seconds is killed (whole process group) and the server-side query
++is cancelled; it is recorded as a timeout, the remaining runs are skipped, and larger n of the
++same (system, graph, variant) are recorded as skipped. A run that fails with an error is handled
++the same way. Result files are deleted after they have been checked, to save disk space.
++"""
++import argparse
++import csv
++import getpass
++import json
++import os
++import re
++import signal
++import subprocess
++import sys
++import time
++from datetime import datetime, timezone
++from pathlib import Path
++
++import verify
++
++GRAPHS = ['complete', 'max_acyclic', 'cycle', 'cycle_with_shortcuts', 'path', 'multi_path',
++          'grid', 'binary_tree', 'reverse_binary_tree', 'x', 'y', 'w']
++LOGIC = {'xsb'}
++RESULT_FILE = {'postgres': 'postgres_results.csv', 'mariadb': 'mariadb_results.csv',
++               'duckdb': 'duckdb_results.csv', 'cockroachdb': 'cockroachdb_results.csv',
++               'xsb': 'xsb_results.txt', 'mongodb': 'mongodb_results.csv',
++               'neo4j': 'neo4j_results.csv', 'singlestore': 'singlestore_results.csv'}
++
++
++def now():
++    return datetime.now(timezone.utc).isoformat(timespec='seconds')
++
++
++def cancel_server_side(system, cfg):
++    """Stops a query that is still running on the server after the client was killed."""
++    try:
++        if system in ('postgres', 'cockroachdb'):
++            import psycopg2
++            c = psycopg2.connect(cfg[system]['dbURL'])
++            c.autocommit = True
++            cur = c.cursor()
++            if system == 'postgres':
++                cur.execute('SELECT pg_terminate_backend(pid) FROM pg_stat_activity '
++                            'WHERE datname = current_database() AND pid <> pg_backend_pid()')
++            else:
++                cur.execute("SELECT query_id FROM [SHOW CLUSTER QUERIES] WHERE query NOT LIKE '%CLUSTER QUERIES%'")
++                for (qid,) in cur.fetchall():
++                    cur.execute(f"CANCEL QUERY '{qid}'")
++            c.close()
++        elif system in ('mariadb', 'singlestore'):
++            import MySQLdb
++            m = cfg[system]
++            c = MySQLdb.connect(host=m['host'], port=m['port'], user=m['user'], passwd=m['password'])
++            cur = c.cursor()
++            cur.execute("SELECT id FROM information_schema.processlist WHERE db = %s AND id <> CONNECTION_ID()",
++                        (m['database'],))
++            for (pid,) in cur.fetchall():
++                try:
++                    cur.execute(f'KILL {"QUERY " if system == "singlestore" else ""}{pid}')
++                except Exception:
++                    pass
++            c.close()
++        elif system == 'neo4j':
++            from neo4j import GraphDatabase
++            n = cfg['neo4j']
++            d = GraphDatabase.driver(n['uri'], auth=(n['user'], n['password']))
++            with d.session() as s:
++                ids = [r['transactionId'] for r in s.run(
++                    'SHOW TRANSACTIONS YIELD transactionId, currentQuery '
++                    "WHERE NOT currentQuery STARTS WITH 'SHOW TRANSACTIONS' RETURN transactionId")]
++                if ids:
++                    s.run('TERMINATE TRANSACTIONS $ids', ids=ids).consume()
++            d.close()
++        elif system == 'mongodb':
++            from pymongo import MongoClient
++            m = cfg['mongodb']
++            cl = MongoClient(m['uri'])
++            for op in cl.admin.aggregate([{'$currentOp': {}}]):
++                if op.get('ns', '').startswith(m['database'] + '.') and op.get('op') in ('command', 'getmore'):
++                    cl.admin.command('killOp', op=op['opid'])
++            cl.close()
++    except Exception as e:
++        print(f'[cancel {system}] {e}', file=sys.stderr, flush=True)
++
++
++def csv_rows(path):
++    if not path.exists():
++        return []
++    with open(path, newline='') as f:
++        return [r for r in csv.DictReader(f) if r]
++
++
++def main():
++    ap = argparse.ArgumentParser()
++    ap.add_argument('--systems', nargs='+', required=True)
++    ap.add_argument('--graphs', nargs='+', default=GRAPHS)
++    ap.add_argument('--modes', nargs='+', default=['left_recursion', 'right_recursion'])
++    ap.add_argument('--sizes', nargs='+', type=int, default=list(range(100, 1001, 100)))
++    ap.add_argument('--runs', type=int, default=5)
++    ap.add_argument('--timeout', type=int, default=600)
++    ap.add_argument('--config', default='config_rerun.json')
++    ap.add_argument('--out', required=True, help='output directory (timing CSVs, runs.jsonl, logs)')
++    ap.add_argument('--label', default='', help='free-text label stored with every run (e.g. a setting)')
++    a = ap.parse_args()
++
++    cfg = json.load(open(a.config))
++    out = Path(a.out)
++    cfg['timing_dir'] = str(out / 'timing')
++    cfg_str = json.dumps(cfg)
++    (out / 'logs').mkdir(parents=True, exist_ok=True)
++    runs_file = out / 'runs.jsonl'
++    done = set()
++    if runs_file.exists():
++        for line in runs_file.read_text().splitlines():
++            r = json.loads(line)
++            done.add((r['system'], r['graph'], r['mode'], r['n']))
++
++    def record(rec):
++        with runs_file.open('a') as f:
++            f.write(json.dumps(rec) + '\n')
++        print(json.dumps({k: v for k, v in rec.items() if k not in ('command',)}), flush=True)
++
++    for system in a.systems:
++        for graph in a.graphs:
++            for mode in a.modes:
++                stop = False
++                for n in a.sizes:
++                    key = (system, graph, mode, n)
++                    if key in done:
++                        continue
++                    base = dict(system=system, graph=graph, mode=mode, n=n, label=a.label)
++                    if stop:
++                        record({**base, 'run': None, 'status': 'skipped'})
++                        continue
++                    edge_file = Path('input') / 'souffle' / graph / str(n) / 'edge.facts'
++                    if system in LOGIC:
++                        cmd = ['python', 'analyze_logic_systems.py', '--config', cfg_str, '--environment', system,
++                               '--size', str(n), '--mode', mode, '--graph-type', graph, '--souffle-include-dir', '.']
++                    else:
++                        cmd = ['python', 'analyze_dbs.py', '--config', cfg_str, '--environment', system,
++                               '--size', str(n), '--mode', mode, '--graph-type', graph]
++                    timing_csv = Path(cfg['timing_dir']) / system / graph / f'timing_{mode}_graph_{n}.csv'
++                    result_file = Path(cfg['timing_dir']) / system / graph / mode / str(n) / RESULT_FILE[system]
++                    exp = verify.cached_expected(edge_file) if graph in GRAPHS or n <= 20000 else None
++                    for i in range(1, a.runs + 1):
++                        for stale in Path('duckdb_rules/duckdb').glob('duckdb_file.db*'):
++                            stale.unlink()
++                        if result_file.exists():
++                            result_file.unlink()
++                        if system == 'mariadb' and Path('/tmp/mariadb_results.csv').exists():
++                            Path('/tmp/mariadb_results.csv').unlink()
++                        before = len(csv_rows(timing_csv))
++                        log = out / 'logs' / f'{system}_{graph}_{mode}_{n}_run{i}.log'
++                        t0, start = time.perf_counter(), now()
++                        rec = {**base, 'run': i, 'start': start,
++                               'command': ' '.join(c if c != cfg_str else "'<config JSON>'" for c in cmd)}
++                        with open(log, 'wb') as lf:
++                            p = subprocess.Popen(cmd, stdout=lf, stderr=subprocess.STDOUT, start_new_session=True)
++                            try:
++                                p.wait(timeout=a.timeout)
++                                rec['status'] = 'ok'
++                                rec['exit_code'] = p.returncode
++                            except subprocess.TimeoutExpired:
++                                os.killpg(p.pid, signal.SIGKILL)
++                                p.wait()
++                                rec['status'] = 'timeout'
++                                cancel_server_side(system, cfg)
++                                time.sleep(5)
++                        rec['wall_s'] = round(time.perf_counter() - t0, 3)
++                        rec['end'] = now()
++                        text = log.read_text(errors='replace')
++                        errors = [ln.split(' - ERROR: ', 1)[1][:500] for ln in text.splitlines() if ' - ERROR: ' in ln]
++                        rows = csv_rows(timing_csv)
++                        rec['timing_row'] = rows[-1] if len(rows) > before else None
++                        if rec['status'] == 'ok':
++                            if result_file.exists() and result_file.stat().st_size > 0:
++                                c, h = verify.summarize_file(result_file)
++                                rec['result'] = {'count': c, 'hash': f'{h:016x}'}
++                                rec['expected'] = exp
++                                rec['correct'] = (rec['result'] == exp) if exp else None
++                                result_file.unlink()
++                            else:
++                                rec['result'] = None
++                                rec['correct'] = False
++                            if errors or rec['timing_row'] is None:
++                                rec['status'] = 'error'
++                        rec['errors'] = errors
++                        record(rec)
++                        if rec['status'] != 'ok':
++                            stop = True
++                            break
++
++
++if __name__ == '__main__':
++    main()
+diff --git a/verify.py b/verify.py
+new file mode 100644
+index 00000000..f74c6a09
+--- /dev/null
++++ b/verify.py
+@@ -0,0 +1,101 @@
++"""Independent correctness check for transitive-closure outputs.
++
++A result is summarized by (number of pairs, order-independent 64-bit hash of the pairs), where the
++hash is the sum modulo 2^64 of splitmix64((x << 32) | y) over all output lines. Duplicated,
++missing, or wrong pairs change the count or the hash. The expected summary is computed from the
++edge file with a plain breadth-first search in Python, independent of every system under test.
++"""
++import json
++import re
++import sys
++from collections import defaultdict
++from pathlib import Path
++
++import numpy as np
++
++MASK = np.uint64(0xFFFFFFFFFFFFFFFF)
++
++
++def splitmix64(v: np.ndarray) -> np.ndarray:
++    with np.errstate(over='ignore'):
++        z = v + np.uint64(0x9E3779B97F4A7C15)
++        z = (z ^ (z >> np.uint64(30))) * np.uint64(0xBF58476D1CE4E5B9)
++        z = (z ^ (z >> np.uint64(27))) * np.uint64(0x94D049BB133111EB)
++        return z ^ (z >> np.uint64(31))
++
++
++def summarize_pairs(xs: np.ndarray, ys: np.ndarray) -> tuple[int, int]:
++    keys = (xs.astype(np.uint64) << np.uint64(32)) | ys.astype(np.uint64)
++    with np.errstate(over='ignore'):
++        h = int(np.sum(splitmix64(keys), dtype=np.uint64))
++    return int(len(keys)), h
++
++
++_DROP = bytes.maketrans(b',\t"', b'   ')
++
++
++def summarize_file(path: Path, chunk_bytes: int = 64 << 20) -> tuple[int, int]:
++    """Streams a result file (CSV/TSV/XSB text, optional header line) into (count, hash)."""
++    count, total = 0, 0
++    with open(path, 'rb') as f:
++        first = f.readline()
++        pending = b'' if re.search(rb'[A-Za-z]', first) else first  # skip a header line
++        while True:
++            block = f.read(chunk_bytes)
++            data = pending + block
++            if not block:
++                pending = b''
++            else:
++                cut = data.rfind(b'\n') + 1
++                data, pending = data[:cut], data[cut:]
++            if data.strip():
++                nums = np.array(data.translate(_DROP).split(), dtype=np.int64)
++                if len(nums) % 2:
++                    raise ValueError(f'odd number of integers in {path}')
++                c, h = summarize_pairs(nums[0::2], nums[1::2])
++                count += c
++                total = (total + h) & 0xFFFFFFFFFFFFFFFF
++            if not block:
++                break
++    return count, total
++
++
++def read_edges(edge_file: Path) -> np.ndarray:
++    return np.loadtxt(edge_file, dtype=np.int64, ndmin=2)
++
++
++def expected_summary(edge_file: Path) -> tuple[int, int]:
++    adj = defaultdict(set)
++    for a, b in read_edges(edge_file).tolist():
++        adj[a].add(b)
++    count, total = 0, 0
++    for s in list(adj):
++        seen, stack = set(), list(adj[s])
++        while stack:
++            v = stack.pop()
++            if v not in seen:
++                seen.add(v)
++                stack.extend(adj.get(v, ()))
++        ys = np.fromiter(seen, dtype=np.int64, count=len(seen))
++        c, h = summarize_pairs(np.full(len(ys), s, dtype=np.int64), ys)
++        count += c
++        total = (total + h) & 0xFFFFFFFFFFFFFFFF
++    return count, total
++
++
++def cached_expected(edge_file: Path, cache_file: Path = Path('expected_closures.json')) -> dict:
++    cache = json.loads(cache_file.read_text()) if cache_file.exists() else {}
++    key = str(edge_file)
++    if key not in cache:
++        c, h = expected_summary(edge_file)
++        cache[key] = {'count': c, 'hash': f'{h:016x}'}
++        cache_file.write_text(json.dumps(cache, indent=1, sort_keys=True))
++    return cache[key]
++
++
++if __name__ == '__main__':
++    # usage: python verify.py <edge.facts> <result file>
++    exp = cached_expected(Path(sys.argv[1]))
++    c, h = summarize_file(Path(sys.argv[2]))
++    got = {'count': c, 'hash': f'{h:016x}'}
++    print(json.dumps({'expected': exp, 'got': got, 'correct': exp == got}))
+-- 
+2.55.0
+

@@ -1,0 +1,40 @@
+From 1af79aea39efbad5967b7244d4cff1c4b828541c Mon Sep 17 00:00:00 2001
+From: John Idogun <sirneij@gmail.com>
+Date: Sun, 27 Sep 2026 15:29:20 -0700
+Subject: [PATCH 12/17] run_all.sh: Neo4j runs its single query once per large
+ graph (not under both labels)
+
+---
+ run_all.sh | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/run_all.sh b/run_all.sh
+index 72d2d2a1..82ed1fcb 100755
+--- a/run_all.sh
++++ b/run_all.sh
+@@ -15,10 +15,10 @@ NSF="10000 20000 30000 40000 50000 60000 70000 80000 90000"
+ NBA="10000 20000 30000 40000 50000 60000 70000 80000 90000 100000"
+ LR="left_recursion right_recursion"
+ bench() { python run_benchmark.py --runs 5 --timeout 600 --config config_rerun.json "$@"; }
+-suite() {  # $1 system, $2 modes for the 12 graphs, $3 out-dir suffix
++suite() {  # $1 system, $2 modes for the 12 graphs, $3 out-dir suffix, $4 modes for the large graphs
+   bench --systems $1 --graphs $G12 --modes $2 --sizes $N12 --out $R/$1$3
+-  bench --systems $1 --graphs scale_free --modes $LR --sizes $NSF --out $R/$1$3
+-  bench --systems $1 --graphs barabasi_albert --modes $LR --sizes $NBA --out $R/$1$3
++  bench --systems $1 --graphs scale_free --modes ${4:-$LR} --sizes $NSF --out $R/$1$3
++  bench --systems $1 --graphs barabasi_albert --modes ${4:-$LR} --sizes $NBA --out $R/$1$3
+ }
+ stop_all() {
+   $MARIADB/mariadb-admin -u "$(whoami)" shutdown 2>/dev/null
+@@ -60,7 +60,7 @@ for ph in $PHASES; do
+                  suite mongodb "left_recursion" ""   # $graphLookup has a single, fixed formulation
+                  stop_all ;;
+     neo4j)       $NEO4J start >/dev/null 2>&1; wait_port 7687; sleep 10
+-                 suite neo4j "left_recursion" ""     # the Cypher query has a single formulation
++                 suite neo4j "left_recursion" "" left_recursion  # the Cypher query has a single formulation
+                  stop_all ;;
+     singlestore) colima start --cpu 8 --memory 10 --disk 40 --vm-type vz --vz-rosetta >/dev/null 2>&1
+                  docker start singlestoredb-dev >/dev/null; wait_port 3307
+-- 
+2.55.0
+

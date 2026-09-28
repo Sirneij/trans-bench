@@ -155,7 +155,7 @@ class BootstrapManager:
 
         log.info(f'✓ Created graph descriptor at {graph_file}')
         log.info(f'  Next steps:')
-        log.info(f'    1. Implement the generator in engine/data_generator.py')
+        log.info(f'    1. Implement DataGenerator.generate_{graph_name}_graph in generate_db.py')
         log.info(f'    2. Test: python transitive.py --graphs {graph_name} --systems postgres --sizes 10 11 1')
 
         return graph_file

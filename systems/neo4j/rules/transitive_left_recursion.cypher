@@ -7,8 +7,9 @@ CREATE (a)-[:EDGE]->(b);
 
 CREATE INDEX IF NOT EXISTS FOR (n:Node) ON (n.id);
 
-MATCH (start:Node)-[:EDGE*1..]->(end:Node) 
-RETURN DISTINCT start.id AS x, end.id AS y;
+MATCH (start:Node)-[:EDGE*1..]->(end:Node)
+WITH DISTINCT start.id AS x, end.id AS y
+RETURN count(*) AS pairs;
 
 CALL apoc.export.csv.query(
     "MATCH (start:Node)-[:EDGE*1..]->(end:Node) RETURN DISTINCT start.id AS x, end.id AS y",

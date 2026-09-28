@@ -208,7 +208,7 @@ class DataGenerator:
 
         logging.info(f'Generating scale-free graph for n={n}')
         G = nx.scale_free_graph(n, seed=42)
-        # using set to remove multigraph duplicate edges
+        # a MultiDiGraph: parallel edges are yielded once per edge (see save_for_clingo_xsb)
         for u, v in G.edges():
             yield (u + 1, v + 1)
 
@@ -259,9 +259,15 @@ class GraphGenerator:
         filename: Path,
         fact_name: str = 'edge',
     ):
-        graph_generator = graph_generator_func(size)
+        values = list(graph_generator_func(size))
+        # Multigraph generators (networkx.scale_free_graph) yield parallel edges. The database
+        # systems load the TSV file as generated (a table with duplicate rows; the closure is the
+        # same), but for the logic systems every fact is written once, sorted, so that they do not
+        # re-derive identical facts. Duplicate-free generators are written in generation order.
+        if len(values) != len(set(values)) and all(len(v) == 2 for v in values):
+            values = sorted(set(values))
         with open(filename, 'w') as file:
-            for value in graph_generator:
+            for value in values:
                 if isinstance(value, tuple) and len(value) == 3:
                     # Weighted edge: (src, dst, weight)
                     file.write(f'{fact_name}({value[0]},{value[1]},{value[2]}).\n')

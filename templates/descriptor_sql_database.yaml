@@ -25,6 +25,9 @@ modes:
   - left_recursion
   - double_recursion
 
+# For verified runs with benchmark.py (docs/EXTENSION_GUIDE.md#making-a-system-ready-for-verified-runs):
+query_phase: execute_query  # id of the timing phase that is the query itself
+# result_file: <name>_results.csv  # file the connector writes the result to (checked after every run)
 rule_extension: .sql # Typically .sql or .py for SQL databases
 
 flags:

@@ -94,8 +94,8 @@ def get_system_version(sys_name: str) -> str:
         pkg = 'pymongo'
     elif sys_name == 'duckdb':
         pkg = 'duckdb'
-    elif sys_name == 'mariadb':
-        pkg = 'mariadb'
+    elif sys_name in ('mariadb', 'singlestore'):
+        pkg = 'mysqlclient'
     elif sys_name == 'clingo':
         pkg = 'clingo'
 
@@ -141,6 +141,11 @@ class SystemDescriptor:
     credentials: dict[str, Any]
     enabled: bool = True
     version: str = "Unknown"
+    # Name of the file (in the run's output folder) that holds the query result; benchmark.py
+    # verifies it after every run. Empty = unknown (the run is then not verified).
+    result_file: str = ''
+    # id of the timing phase that is the query itself (what the paper reports), e.g. execute_query.
+    query_phase: str = ''
 
     @property
     def csv_headers(self) -> list[str]:
@@ -171,7 +176,17 @@ class SystemDescriptor:
             'enabled': self.enabled,
             'version': self.version,
             'csv_headers': self.csv_headers,
+            'result_file': self.result_file,
+            'query_phase': self.query_phase,
         }
+
+    @property
+    def query_columns(self) -> tuple[str, str]:
+        """(real, cpu) CSV columns of the query phase, e.g. ('ExecuteQueryRealTime', 'ExecuteQueryCPUTime')."""
+        for phase in self.timing_phases:
+            if phase.id == self.query_phase:
+                return f'{phase.label}RealTime', f'{phase.label}CPUTime'
+        raise ValueError(f'{self.name}: query_phase {self.query_phase!r} is not one of its timing_phases')
 
 
 @dataclass
@@ -268,10 +283,14 @@ class DescriptorLoader:
         <base_dir>/graph_types/<graph_name>.yaml
     """
 
-    def __init__(self, base_dir: Optional[Path] = None, config_path: Optional[Path] = None):
+    def __init__(
+        self, base_dir: Optional[Path] = None, config_path: Optional[Path] = None, detect_versions: bool = True
+    ):
         self.base_dir = Path(base_dir) if base_dir else Path(__file__).parent.parent
         self.config_path = config_path or (self.base_dir / 'config.yaml')
         self._global_config: Optional[dict] = None
+        # get_system_version() starts one subprocess per system; engine/run_one.py turns it off
+        self.detect_versions = detect_versions
 
     # ------------------------------------------------------------------
     # Public API
@@ -352,9 +371,12 @@ class DescriptorLoader:
         if self._global_config is not None:
             return self._global_config
 
-        if self.config_path.exists() and self.config_path.suffix == '.yaml':
+        if self.config_path.exists() and self.config_path.suffix in ('.yaml', '.yml'):
             with open(self.config_path) as f:
                 self._global_config = yaml.safe_load(f) or {}
+        elif self.config_path.exists() and self.config_path.suffix == '.json':
+            with open(self.config_path) as f:
+                self._global_config = json.load(f)
         else:
             # Fallback: legacy config.json
             legacy_path = self.base_dir / 'config.json'
@@ -394,6 +416,10 @@ class DescriptorLoader:
             'flags': descriptor.flags,
             'execution': descriptor.execution,
         }
+        if descriptor.result_file:
+            data['result_file'] = descriptor.result_file
+        if descriptor.query_phase:
+            data['query_phase'] = descriptor.query_phase
         with open(descriptor.descriptor_path, 'w') as f:
             yaml.dump(data, f, default_flow_style=False, sort_keys=False)
         log.info(f'Saved descriptor for {descriptor.name}')
@@ -427,7 +453,9 @@ class DescriptorLoader:
             descriptor_path=path,
             rules_dir=rules_dir,
             credentials=credentials,
-            version=get_system_version(data['name']),
+            version=get_system_version(data['name']) if self.detect_versions else 'Unknown',
+            result_file=data.get('result_file', ''),
+            query_phase=data.get('query_phase', ''),
         )
 
     def _parse_graph_type(self, path: Path) -> GraphTypeDescriptor:

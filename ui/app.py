@@ -81,6 +81,13 @@ def create_app() -> Flask:
     def _get_config():
         return loader.load_global_config()
 
+    def _transitive_modes():
+        """The standard modes plus system-specific ones (e.g. DuckDB's doublerecurring_recursion)."""
+        modes = ['right_recursion', 'left_recursion', 'double_recursion']
+        for s in _get_systems():
+            modes += [m for m in s.modes if m not in modes]
+        return modes
+
     # ── Dashboard ────────────────────────────────────────────────────────────
 
     @app.route('/')
@@ -446,7 +453,7 @@ def create_app() -> Flask:
         if domain:
             return jsonify({'domain': domain_name, 'modes': domain.modes})
         # Fallback: standard transitive modes
-        return jsonify({'domain': domain_name, 'modes': ['right_recursion', 'left_recursion', 'double_recursion']})
+        return jsonify({'domain': domain_name, 'modes': _transitive_modes()})
 
     # ── Experiment ───────────────────────────────────────────────────────────
 
@@ -461,7 +468,7 @@ def create_app() -> Flask:
             {
                 'name': 'transitive',
                 'display_name': 'Transitive Closure (default)',
-                'modes': ['right_recursion', 'left_recursion', 'double_recursion'],
+                'modes': _transitive_modes(),
             }
         ]
         for d in domains:

@@ -20,6 +20,8 @@ modes:
   - right_recursion
   - left_recursion
   - double_recursion
+query_phase: query
+result_file: clingo_results.txt
 rule_extension: .lp
 
 flags:

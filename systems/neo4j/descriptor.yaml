@@ -22,6 +22,8 @@ modes:
   - right_recursion
   - left_recursion
   - double_recursion
+query_phase: query
+result_file: neo4j_results.csv
 rule_extension: .cypher
 
 flags:

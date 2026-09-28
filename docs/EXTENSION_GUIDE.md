@@ -12,7 +12,8 @@
 4. [Adding a New Graph Type](#adding-a-new-graph-type)
 5. [Adding Custom Query Rules](#adding-custom-query-rules)
 6. [Validation & Testing](#validation--testing)
-7. [Troubleshooting](#troubleshooting)
+7. [Making a System Ready for Verified Runs](#making-a-system-ready-for-verified-runs)
+8. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -231,10 +232,10 @@ A **graph type** is a topology generator (e.g., cycle, star, binary tree).
 
 ### Option 1: Use a simple Python generator (minimal Python required)
 
-Edit `engine/data_generator.py` and add your method to the `DataGenerator` class:
+Add your method to the `DataGenerator` class in `generate_db.py` (the class that generates every benchmark input; `engine/data_generator.py` only re-exports it so that the dotted `generator:` paths resolve). The method name must be `generate_<graph type name>_graph`, because `generate_db.py --graph-types <name>` looks it up by that name:
 
 ```python
-def generate_hexagonal_grid(self, n: int) -> Generator[tuple[int, int], None, None]:
+def generate_hexagonal_grid_graph(self, n: int) -> Generator[tuple[int, int], None, None]:
     """Generate a hexagonal grid of approximately n nodes."""
     rows = int(n ** 0.5)
     cols = rows
@@ -257,12 +258,12 @@ def generate_hexagonal_grid(self, n: int) -> Generator[tuple[int, int], None, No
 Create `graph_types/my_graph.yaml`:
 
 ```yaml
-name: my_hexagon_grid
+name: hexagonal_grid
 display_name: Hexagonal Grid
 description: A hexagonal grid where each cell connects to 3-6 neighbors
 
 # This points to the Python generator above
-generator: engine.data_generator.DataGenerator.generate_hexagonal_grid
+generator: engine.data_generator.DataGenerator.generate_hexagonal_grid_graph
 
 # Optional parameters the user can adjust
 parameters:
@@ -272,7 +273,7 @@ parameters:
 ### Step 3: Test it
 
 ```sh
-python transitive.py --graphs my_hexagon_grid --systems postgres --sizes 100 1001 100
+python transitive.py --graphs hexagonal_grid --systems postgres --sizes 100 1001 100
 ```
 
 ---
@@ -315,21 +316,34 @@ SELECT COUNT(*) AS reachable_pairs FROM tc_result;
 
 ### Cypher Rules (Neo4j)
 
-Create `systems/neo4j/rules/transitive_right_recursion.cypher`:
+A Cypher rule file is a script of statements separated by `;`, run by `Neo4jConnector` in this
+order: all statements but the last two are setup (each timed with `consume()`), the second-to-last
+is the timed query, and the last one exports the result (both fetched completely inside their
+timed calls, because `session.run()` is lazy; see [SYSTEMS.md](SYSTEMS.md#neo4j)). `{data_file}` and
+`{output_file}` are replaced by the input file name (copied into Neo4j's import directory) and the
+export file name. The shipped `systems/neo4j/rules/transitive_left_recursion.cypher`:
 
 ```cypher
-// Right recursion: breadth-first traversal
-// rule_id: transitive_right_recursion
-// domain: transitive_closure
+MATCH (n) DETACH DELETE n;
 
-MATCH (n)
-CALL {
-  MATCH (start)-[:EDGE*..100]->(end)
-  WHERE start = n
-  RETURN start, end
-}
-RETURN DISTINCT start, end
-ORDER BY start, end;
+LOAD CSV FROM "file:///{data_file}" AS line FIELDTERMINATOR '\t'
+MERGE (a:Node {id: toInteger(line[0])})
+MERGE (b:Node {id: toInteger(trim(line[1]))})
+CREATE (a)-[:EDGE]->(b);
+
+CREATE INDEX IF NOT EXISTS FOR (n:Node) ON (n.id);
+
+MATCH (start:Node)-[:EDGE*1..]->(end:Node)
+WITH DISTINCT start.id AS x, end.id AS y
+RETURN count(*) AS pairs;
+
+CALL apoc.export.csv.query(
+    "MATCH (start:Node)-[:EDGE*1..]->(end:Node) RETURN DISTINCT start.id AS x, end.id AS y",
+    "{output_file}",
+    {}
+)
+YIELD file, nodes, relationships, properties, time, rows, batchSize, batches, done, data
+RETURN file, rows;
 ```
 
 ### Datalog Rules (Clingo, XSB, Soufflé)
@@ -423,14 +437,23 @@ When choosing a **protocol** in your descriptor, use one of these **built-in con
 
 | Protocol          | Systems                    | Credentials Required             | Extension       |
 | ----------------- | -------------------------- | -------------------------------- | --------------- |
-| `psycopg2`        | PostgreSQL, CockroachDB    | `dbURL: postgres://...`          | `.sql` or `.py` |
-| `mysqlclient`     | MariaDB                    | `host, user, password, database` | `.py`           |
-| `duckdb`          | DuckDB                     | `database: /path/to/db.duckdb`   | `.sql`          |
-| `neo4j`           | Neo4j                      | `uri, user, password`            | `.cypher`       |
-| `pymongo`         | MongoDB                    | `uri, database`                  | `.js`           |
-| `subprocess`      | XSB, Soufflé, any CLI tool | `executable: /path/to/binary`    | `.lp` or `.dl`  |
-| `clingo_python`   | Clingo                     | None (Python binding)            | `.lp`           |
-| `alda_subprocess` | Alda (DistAlgo)            | `executable: alda`               | `.da`           |
+| `psycopg2`           | PostgreSQL                 | `dbURL: postgres://...`                     | `.py`     |
+| `cockroachdb`        | CockroachDB                | `dbURL`, `externalDirectory`                | `.py`     |
+| `mysqlclient`        | MariaDB                    | `host, port, user, password, database`      | `.py`     |
+| `singlestore`        | SingleStore                | `host, port, user, password, database`      | `.py`     |
+| `duckdb`             | DuckDB                     | None (in-process)                           | `.sql`    |
+| `neo4j`              | Neo4j                      | `uri, user, password, import_directory`     | `.cypher` |
+| `pymongo`            | MongoDB                    | `uri, database`                             | `.py`     |
+| `subprocess`         | XSB                        | None (`xsb` on `PATH`)                      | `.P`      |
+| `souffle_subprocess` | Soufflé                    | None (`souffle` on `PATH`)                  | `.dl`     |
+| `clingo_python`      | Clingo                     | None (Python binding)                       | `.lp`     |
+| `alda_subprocess`    | Alda (DistAlgo)            | None                                        | `.da`     |
+
+The `.py` rule files of the SQL systems define a class `<class_prefix><Mode>Recursion` (e.g.
+`MariaDBLeftRecursion` in `rules/transitive_left_recursion.py`) that extends the operations class
+of the system's `__init__.py`, which the rule imports as `<module_prefix>` (e.g. `mariadb_rules`);
+both prefixes are `flags` in `descriptor.yaml`. Every server system has a
+`credentials.example.yaml`; installation and pitfalls are in [SYSTEMS.md](SYSTEMS.md).
 
 ### Adding a new protocol without editing engine code
 
@@ -447,9 +470,17 @@ class MySystemConnector(BaseConnector):
 
     def run_experiment(self, rule_path, input_path, output_folder, descriptor, config, query_bindings=None):
         phases = descriptor.timing_phases
-        measurements = []
-        # ... time each phase ...
+        measurements = [(0.0, 0.0)] * len(phases)
+        results_path = self.result_path(output_folder, descriptor, 'my_system_results.csv')
+        try:
+            ...  # measurements[i] = self.timed(step_i, ...)[:2]
+        except Exception as e:
+            self._record_error(f'MySystem experiment error: {e}')
         return self.build_timing_row(phases, measurements)
+
+    @classmethod
+    def cancel_running(cls, credentials, descriptor):
+        ...  # stop the statement the server is still running (called by benchmark.py after a timeout)
 
     def close(self):
         if self._conn:
@@ -457,6 +488,49 @@ class MySystemConnector(BaseConnector):
 ```
 
 Then set `protocol: my_system` in `systems/my_new_system/descriptor.yaml`. The engine auto-discovers `connector.py` at startup and registers it. This is a one-time addition per driver family — no further source edits needed.
+
+---
+
+## Making a System Ready for Verified Runs
+
+`transitive.py` only needs the steps above. To measure a system with `benchmark.py` (time limit,
+one process per trial, correctness check; see [VERIFICATION.md](VERIFICATION.md)), also make sure
+of the following. Each point comes from a problem found in the 2026 campaign
+([SYSTEMS.md](SYSTEMS.md)).
+
+1. **Declare `query_phase` and `result_file`** in `descriptor.yaml`. `query_phase` is the `id` of
+   the timing phase that is the recursive query itself; `result_file` is the name of the file the
+   connector writes the result to (use `self.result_path(output_folder, descriptor, default)`).
+   The result must contain one pair per line, two integers separated by a comma, tab or space,
+   optionally with a header line (quotes are ignored).
+2. **Report failures.** Catch exceptions only to clean up, and record them with
+   `self._record_error(...)`. `run_one` then exits with code 1 and the run is recorded as
+   `error`. A timing row of zeros must never look like a successful run.
+3. **Time complete work.** A timed call must return only when the step has been fully executed.
+   Lazy drivers (Neo4j's `session.run()`) return early and run the statement later; fetch the
+   results inside the timed call. A driver that streams rows must be drained.
+4. **Start clean.** A trial killed at the time limit leaves tables, files or server-side jobs
+   behind. Drop tables and remove output files at the *start* of every trial (see the MariaDB,
+   DuckDB and CockroachDB connectors).
+5. **Implement `cancel_running()`** for client/server systems: killing the client does not stop
+   the query in the server, and the next trial would then run on a loaded machine or fail. Check
+   that it really stops the work (CockroachDB, for example, needs its schema-change jobs cancelled
+   one by one).
+6. **Declare only modes that are real formulations.** If a system has one fixed formulation
+   (MongoDB, Neo4j), run only one mode in `scripts/run_all.sh`; a mode the server rejects
+   (double recursion in PostgreSQL) is still worth declaring, because the rejection is recorded.
+7. **Check it.** Run a few configurations and confirm `"correct": true` in `runs.jsonl`, and a
+   timeout and error path (`--timeout 0.01`, wrong credentials):
+
+   ```sh
+   python benchmark.py --systems my_system --graphs cycle path --sizes 100 200 --runs 2 --out /tmp/check/my_system
+   ```
+
+   Add a mocked connector test to `tests/` (see `tests/test_verified_pipeline.py`). To include
+   the system in a campaign, add a phase to `scripts/run_all.sh`. `analyze_verified.py` puts every
+   series into `summary.csv` and `verification.json`; its figures and LaTeX tables list the
+   paper's systems explicitly (`SYS`, `SNAME`, `STYLE`, and the `table_*` functions), so add the
+   system there to plot it.
 
 ---
 

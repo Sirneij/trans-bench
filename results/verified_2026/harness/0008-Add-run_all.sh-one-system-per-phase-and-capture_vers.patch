@@ -1,0 +1,117 @@
+From 15d040e1458a83d57c6ae4ef403e52cd059c0975 Mon Sep 17 00:00:00 2001
+From: John Idogun <sirneij@gmail.com>
+Date: Sat, 26 Sep 2026 06:41:40 -0700
+Subject: [PATCH 08/17] Add run_all.sh (one system per phase) and
+ capture_versions.sh
+
+---
+ capture_versions.sh | 17 +++++++++++
+ run_all.sh          | 72 +++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 89 insertions(+)
+ create mode 100755 capture_versions.sh
+ create mode 100755 run_all.sh
+
+diff --git a/capture_versions.sh b/capture_versions.sh
+new file mode 100755
+index 00000000..a9e1821a
+--- /dev/null
++++ b/capture_versions.sh
+@@ -0,0 +1,17 @@
++#!/bin/bash
++# Records hardware and software versions used for the re-run.
++S=${SCRATCH:?}; export PATH=$S/venv/bin:$S/XSB/bin:/opt/homebrew/bin:$PATH
++echo "date: $(date -u +%FT%TZ)"
++echo "machine: $(sysctl -n machdep.cpu.brand_string), $(sysctl -n hw.ncpu) cores, $(( $(sysctl -n hw.memsize) / 1073741824 )) GB"
++echo "os: $(sw_vers -productName) $(sw_vers -productVersion) ($(sw_vers -buildVersion))"
++echo "python: $(python --version 2>&1)"
++python -c "import duckdb,psycopg2,MySQLdb,pymongo,neo4j,numpy,networkx; print('duckdb', duckdb.__version__); print('psycopg2', psycopg2.__version__); print('mysqlclient', '.'.join(map(str, MySQLdb.version_info[:3]))); print('pymongo', pymongo.__version__); print('neo4j-driver', neo4j.__version__); print('numpy', numpy.__version__); print('networkx', networkx.__version__)"
++echo "xsb: $(echo 'halt.' | xsb --version 2>&1 | head -1)"
++echo "postgresql: $(psql -d postgres -Atc 'select version()' 2>&1)"
++echo "mariadb: $(/opt/homebrew/opt/mariadb/bin/mariadbd --version 2>&1)"
++echo "cockroachdb: $(/opt/homebrew/opt/cockroach/bin/cockroach version --build-tag 2>&1)"
++echo "mongodb: $(mongod --version | head -1)"
++echo "neo4j: $(/opt/homebrew/opt/neo4j/libexec/bin/neo4j --version 2>&1 | tail -1), APOC: $(ls $S/neo4j/plugins)"
++echo "java: $($JAVA_HOME/bin/java -version 2>&1 | head -1)"
++echo "singlestore image: ghcr.io/singlestore-labs/singlestoredb-dev:0.2.62 ($(docker image inspect ghcr.io/singlestore-labs/singlestoredb-dev:0.2.62 --format '{{index .RepoDigests 0}}' 2>/dev/null)), SingleStore 9.0.9, linux/amd64 under colima $(colima version 2>/dev/null | head -1 | awk '{print $3}') (vz + Rosetta)"
++echo "trans-bench commit: $(git rev-parse HEAD)"
+diff --git a/run_all.sh b/run_all.sh
+new file mode 100755
+index 00000000..72d2d2a1
+--- /dev/null
++++ b/run_all.sh
+@@ -0,0 +1,72 @@
++#!/bin/bash
++# Full re-run (September 2026). One system at a time: only the server of the system being measured
++# is running during its phase (the machine's own PostgreSQL service stays up throughout).
++# Usage: ./run_all.sh <results dir> [phase ...]     phases default to all, in the order below.
++set -u
++R=${1:?results dir}; shift
++PHASES=${*:-"duckdb xsb postgres cockroachdb mariadb mariadb_tuned mongodb neo4j singlestore"}
++S=${SCRATCH:?set SCRATCH to the directory holding XSB, the venv and server data}
++export PATH=$S/venv/bin:$S/XSB/bin:/opt/homebrew/bin:$PATH
++export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home NEO4J_CONF=$S/neo4j/conf
++MARIADB=/opt/homebrew/opt/mariadb/bin; CRDB=/opt/homebrew/opt/cockroach/bin/cockroach; NEO4J=/opt/homebrew/opt/neo4j/libexec/bin/neo4j
++G12="complete max_acyclic cycle cycle_with_shortcuts path multi_path grid binary_tree reverse_binary_tree x y w"
++N12="100 200 300 400 500 600 700 800 900 1000"
++NSF="10000 20000 30000 40000 50000 60000 70000 80000 90000"
++NBA="10000 20000 30000 40000 50000 60000 70000 80000 90000 100000"
++LR="left_recursion right_recursion"
++bench() { python run_benchmark.py --runs 5 --timeout 600 --config config_rerun.json "$@"; }
++suite() {  # $1 system, $2 modes for the 12 graphs, $3 out-dir suffix
++  bench --systems $1 --graphs $G12 --modes $2 --sizes $N12 --out $R/$1$3
++  bench --systems $1 --graphs scale_free --modes $LR --sizes $NSF --out $R/$1$3
++  bench --systems $1 --graphs barabasi_albert --modes $LR --sizes $NBA --out $R/$1$3
++}
++stop_all() {
++  $MARIADB/mariadb-admin -u "$(whoami)" shutdown 2>/dev/null
++  $CRDB node drain --self --shutdown --insecure --host=localhost:26257 >/dev/null 2>&1
++  pkill -f "mongod --dbpath $S/mongo-data" 2>/dev/null
++  $NEO4J stop >/dev/null 2>&1
++  docker stop singlestoredb-dev >/dev/null 2>&1; colima stop >/dev/null 2>&1
++  sleep 5
++}
++wait_port() { for i in $(seq 1 90); do lsof -iTCP:$1 -sTCP:LISTEN >/dev/null 2>&1 && return 0; sleep 2; done; echo "port $1 not up"; return 1; }
++
++stop_all
++for ph in $PHASES; do
++  echo "=== phase $ph start $(date -u +%FT%TZ)"
++  case $ph in
++    duckdb)      suite duckdb "left_recursion right_recursion double_recursion doublerecurring_recursion" "" ;;
++    xsb)         suite xsb "left_recursion right_recursion double_recursion" "" ;;
++    postgres)    suite postgres "left_recursion right_recursion double_recursion" "" ;;
++    cockroachdb) mkdir -p $S/crdb-extern
++                 nohup $CRDB start-single-node --store=$S/crdb-data --external-io-dir=$S/crdb-extern --http-port=26256 \
++                   --insecure --listen-addr=localhost:26257 > $S/crdb.out 2>&1 &
++                 wait_port 26257; sleep 5
++                 suite cockroachdb "left_recursion right_recursion double_recursion" ""
++                 stop_all ;;
++    mariadb|mariadb_tuned)
++                 nohup $MARIADB/mariadbd-safe --datadir=/opt/homebrew/var/mysql > $S/mariadb.out 2>&1 &
++                 wait_port 3306; sleep 3
++                 if [ $ph = mariadb ]; then
++                   suite mariadb "left_recursion right_recursion double_recursion" ""
++                 else  # in-memory temporary tables raised from the 16 MB defaults to 4 GB
++                   $MARIADB/mariadb -u "$(whoami)" -e "SET GLOBAL tmp_table_size=4294967296; SET GLOBAL max_heap_table_size=4294967296;"
++                   bench --systems mariadb --graphs $G12 --modes $LR --sizes $N12 --out $R/mariadb_tuned --label tmp_table_size=4G
++                   $MARIADB/mariadb -u "$(whoami)" -e "SET GLOBAL tmp_table_size=16777216; SET GLOBAL max_heap_table_size=16777216;"
++                 fi
++                 stop_all ;;
++    mongodb)     mkdir -p $S/mongo-data
++                 nohup mongod --dbpath $S/mongo-data --port 27027 --bind_ip 127.0.0.1 --logpath $S/mongod.log >/dev/null 2>&1 &
++                 wait_port 27027; sleep 3
++                 suite mongodb "left_recursion" ""   # $graphLookup has a single, fixed formulation
++                 stop_all ;;
++    neo4j)       $NEO4J start >/dev/null 2>&1; wait_port 7687; sleep 10
++                 suite neo4j "left_recursion" ""     # the Cypher query has a single formulation
++                 stop_all ;;
++    singlestore) colima start --cpu 8 --memory 10 --disk 40 --vm-type vz --vz-rosetta >/dev/null 2>&1
++                 docker start singlestoredb-dev >/dev/null; wait_port 3307
++                 for i in $(seq 1 60); do docker inspect --format '{{.State.Health.Status}}' singlestoredb-dev | grep -q '^healthy' && break; sleep 5; done
++                 suite singlestore "left_recursion right_recursion double_recursion" ""
++                 stop_all ;;
++  esac
++  echo "=== phase $ph end $(date -u +%FT%TZ)"
++done
+-- 
+2.55.0
+

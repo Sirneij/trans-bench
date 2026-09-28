@@ -1,0 +1,39 @@
+From ad14a66b34304dea7182eacea4ba52cbee280836 Mon Sep 17 00:00:00 2001
+From: John Idogun <sirneij@gmail.com>
+Date: Sun, 27 Sep 2026 00:42:14 -0700
+Subject: [PATCH 09/17] run_benchmark: after a CockroachDB timeout, cancel the
+ leftover schema-change job and wait until tables can be dropped
+
+---
+ run_benchmark.py | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/run_benchmark.py b/run_benchmark.py
+index 85ee1994..486da574 100644
+--- a/run_benchmark.py
++++ b/run_benchmark.py
+@@ -57,6 +57,21 @@ def cancel_server_side(system, cfg):
+                 cur.execute("SELECT query_id FROM [SHOW CLUSTER QUERIES] WHERE query NOT LIKE '%CLUSTER QUERIES%'")
+                 for (qid,) in cur.fetchall():
+                     cur.execute(f"CANCEL QUERY '{qid}'")
++                # A cancelled CREATE TABLE ... AS leaves a schema-change job behind and the table in
++                # the state "being added"; cancel such jobs and wait until the tables can be dropped,
++                # otherwise the next run fails when it drops them.
++                deadline = time.time() + 600
++                while time.time() < deadline:
++                    try:
++                        cur.execute("CANCEL JOBS (SELECT job_id FROM [SHOW JOBS] WHERE status IN "
++                                    "('running', 'pending', 'paused') AND job_type LIKE '%SCHEMA CHANGE%')")
++                    except Exception:
++                        pass
++                    try:
++                        cur.execute('DROP TABLE IF EXISTS tc_result, edge')
++                        break
++                    except Exception:
++                        time.sleep(5)
+             c.close()
+         elif system in ('mariadb', 'singlestore'):
+             import MySQLdb
+-- 
+2.55.0
+

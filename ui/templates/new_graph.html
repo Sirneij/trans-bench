@@ -88,7 +88,7 @@
     </div>
     <div class="info-step">
       <div class="step-num">2</div>
-      <div class="step-text">Implement a generator method in <code>engine/data_generator.py</code></div>
+      <div class="step-text">Implement <code>DataGenerator.generate_&lt;name&gt;_graph</code> in <code>generate_db.py</code></div>
     </div>
     <div class="info-step">
       <div class="step-num">3</div>
@@ -130,7 +130,7 @@ async function createGraph() {
     const data = await resp.json();
     if (!data.ok) throw new Error(data.error || 'Failed to create graph');
     
-    alert('Graph descriptor created!\n\nNext: Implement the generator method in engine/data_generator.py');
+    alert('Graph descriptor created!\n\nNext: Implement DataGenerator.generate_<name>_graph in generate_db.py');
     location.href = '{{ url_for("dashboard") }}';
   } catch (err) {
     alert('Error: ' + err.message);

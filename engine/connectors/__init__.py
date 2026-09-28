@@ -29,6 +29,7 @@ from engine.connectors.rdbms import (
     CockroachDBConnector,
     MariaDBConnector,
     PostgreSQLConnector,
+    SingleStoreConnector,
 )
 from engine.connectors.subprocess_conn import (
     AldaConnector,
@@ -43,6 +44,7 @@ PROTOCOL_REGISTRY: dict[str, type[BaseConnector]] = {
     'psycopg2': PostgreSQLConnector,
     'mysqlclient': MariaDBConnector,
     'cockroachdb': CockroachDBConnector,
+    'singlestore': SingleStoreConnector,
     'duckdb': DuckDBConnector,
     'neo4j': Neo4jConnector,
     'pymongo': MongoDBConnector,

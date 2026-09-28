@@ -1,0 +1,175 @@
+From 0cd233267816a555b07920a41cf9a2aeee40f197 Mon Sep 17 00:00:00 2001
+From: John Idogun <sirneij@gmail.com>
+Date: Sun, 27 Sep 2026 22:45:51 -0700
+Subject: [PATCH 17/17] Add REPRODUCE.md
+
+---
+ REPRODUCE.md | 156 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 156 insertions(+)
+ create mode 100644 REPRODUCE.md
+
+diff --git a/REPRODUCE.md b/REPRODUCE.md
+new file mode 100644
+index 00000000..ece45ad5
+--- /dev/null
++++ b/REPRODUCE.md
+@@ -0,0 +1,156 @@
++# Reproducing the September 2026 measurements
++
++This file lists everything that was installed, configured, changed, and run to produce the
++measurements reported in *Database System Performance on Recursive Queries* (Section 4), in the
++order it was done. All times in logs are UTC.
++
++## 1. Machine
++
++Apple M3 Pro, 11 cores, 18 GB, macOS 27.0 (26A428). Exact versions of every component are in
++`results/versions.txt`; Python packages in `results/pip_freeze.txt`.
++
++## 2. Software
++
++```bash
++# already installed on the machine: postgresql@17 (17.11, running as a brew service) and
++# mongodb-community (8.3.11; brew tap mongodb/brew && brew install mongodb-community)
++brew install mariadb                     # 13.0.2
++brew install cockroachdb/tap/cockroach   # 26.3.2
++brew install python@3.12 pkgconf
++brew install neo4j colima docker         # neo4j 2026.09.0 (brings openjdk@21), colima 0.10.3
++brew install tectonic                    # only to compile the paper
++
++# XSB 5.0.0 from source
++curl -L -o XSB-5.0.tar.gz "https://downloads.sourceforge.net/project/xsb/xsb/5.0%20%28Green%20Tea%29/XSB-5.0.tar.gz"
++tar xzf XSB-5.0.tar.gz          # reports one harmless error for the Windows helper build/MSVC.sh
++cd XSB/build && ./configure && ./makexsb && cd ../..
++export PATH=$PWD/XSB/bin:$PATH
++
++# Python environment
++/opt/homebrew/bin/python3.12 -m venv venv
++./venv/bin/pip install duckdb==1.5.5 psycopg2-binary pymongo pexpect networkx pandas neo4j clingo \
++    singlestoredb matplotlib numpy pypdf
++PKG_CONFIG_PATH=/opt/homebrew/opt/mariadb/lib/pkgconfig ./venv/bin/pip install mysqlclient
++```
++
++## 3. Servers (one system at a time; `run_all.sh` starts and stops them per phase)
++
++```bash
++S=<scratch directory holding XSB/, venv/, and the server data below>
++
++# PostgreSQL 17 (brew service, default configuration)
++psql -d postgres -c "create database benchmarkdb"
++
++# MariaDB 13.0.2 (default configuration; standard_compliant_cte is set to 0 by the harness)
++/opt/homebrew/opt/mariadb/bin/mariadbd-safe --datadir=/opt/homebrew/var/mysql &
++/opt/homebrew/opt/mariadb/bin/mariadb -u "$(whoami)" -e "create database if not exists benchmark"
++
++# CockroachDB 26.3.2, single node
++cockroach start-single-node --store=$S/crdb-data --external-io-dir=$S/crdb-extern \
++  --http-port=26256 --insecure --listen-addr=localhost:26257 &
++
++# MongoDB 8.3.11, a separate server on port 27027 (default configuration)
++mongod --dbpath $S/mongo-data --port 27027 --bind_ip 127.0.0.1 --logpath $S/mongod.log &
++
++# Neo4j 2026.09.0 Community, isolated instance (default memory settings)
++N=$S/neo4j; H=/opt/homebrew/opt/neo4j/libexec
++mkdir -p $N/{conf,data,plugins,import,logs,run}
++cp $H/conf/* $N/conf/ && cp $H/labs/apoc-2026.09.0-core.jar $N/plugins/
++# in $N/conf/neo4j.conf, comment out the Homebrew lines for server.directories.import/data/logs and
++# server.https.enabled, and append:
++#   server.directories.data=$N/data   server.directories.plugins=$N/plugins
++#   server.directories.import=$N/import   server.directories.logs=$N/logs   server.directories.run=$N/run
++#   server.bolt.listen_address=localhost:7687   server.http.listen_address=localhost:7474
++#   server.https.enabled=false   dbms.security.procedures.unrestricted=apoc.*
++printf "apoc.export.file.enabled=true\napoc.import.file.use_neo4j_config=true\n" > $N/conf/apoc.conf
++export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home NEO4J_CONF=$N/conf
++$H/bin/neo4j-admin dbms set-initial-password '<neo4j password>'
++$H/bin/neo4j start
++
++# SingleStore 9.0.9 (dev image 0.2.62; newer images require AVX2, which Rosetta does not provide)
++colima start --cpu 8 --memory 10 --disk 40 --vm-type vz --vz-rosetta
++docker pull --platform linux/amd64 ghcr.io/singlestore-labs/singlestoredb-dev:0.2.62
++#   digest sha256:2d48d273e138a5fce30e48b8353a3a4c132eabf9f42aff838694bbae2291439c
++docker run -d --name singlestoredb-dev --platform linux/amd64 -p 3307:3306 -p 8080:8080 \
++  -e ROOT_PASSWORD='<singlestore password>' ghcr.io/singlestore-labs/singlestoredb-dev:0.2.62
++# lower maximum_memory from 8930 to 6000 MB on both nodes, so that a query exhausting memory fails
++# with SingleStore's error 1712 instead of the VM's OOM killer terminating the leaf (which happened
++# with the default and left the database unrecoverable):
++docker exec singlestoredb-dev bash -c 'for id in $(memsqlctl -j list-nodes | python3 -c "import sys,json;[print(n[\"memsqlId\"]) for n in json.load(sys.stdin)[\"nodes\"]]"); do
++  memsqlctl -y update-config --memsql-id $id --key maximum_memory --value 6000
++  memsqlctl -y query --memsql-id $id --sql "SET GLOBAL maximum_memory = 6000"; done'
++# the harness raises max_recursive_cte_iterations from 32 to 10000 per session (singlestore_rules)
++```
++
++## 4. Harness
++
++```bash
++git clone https://github.com/Sirneij/trans-bench.git && cd trans-bench
++git checkout -b rerun-2026 92ecc775        # upstream main at the time of the runs
++git am ../patches/*.patch                  # or fetch the rerun-2026 branch from the bundle
++cp config_rerun.example.json config_rerun.json   # fill in passwords, paths, ports
++```
++
++Changes to the harness (one commit each; `git log 92ecc775..rerun-2026`):
++
++| commit | change | effect on measurements |
++|---|---|---|
++| 085be459 | CockroachDB: concatenate all `EXPORT` chunks, clean the export directory | none on times; result files complete |
++| 013f8231, 443e4e72, 6b1dd055 | Neo4j: finish every result inside its timed call; the timed query computes the distinct pairs and returns their count (same plan) | Neo4j query time is now the query (was ~0, work billed to the export) |
++| ffd9cb69 | SingleStore support (`singlestore_rules/`, `solve_with_singlestore`) | new system |
++| bdc0ab6a | DuckDB double recursion over `recurring.tc` | new variant |
++| 6e647478 | `run_benchmark.py` (per-run limit, cancellation, per-run verification) and `verify.py` | driver |
++| ef67c8ee, 551ac62b | scale-free/BA inputs from the `barabasi` branch; XSB facts deduplicated | XSB gets the same edge set as the DB systems |
++| 15d040e1 | `run_all.sh`, `capture_versions.sh` | driver |
++| ad14a66b, 3fe8df8e | after a CockroachDB timeout, cancel its schema-change job and wait until tables can be dropped | cleanup |
++| 1af79aea | Neo4j runs its single query once per large graph | fewer duplicate runs |
++| 95233a7f, 78b204b8 | `investigate_mariadb.py`, `run_investigation.sh` | MariaDB wrong-result analysis |
++| c1d758cb | `analyze_rerun.py` | analysis |
++
++Input files: all 120 inputs of the twelve families equal the output of `generate_db.py`, and all
++scale-free/BA inputs equal `networkx.scale_free_graph(n, seed=42)` and
++`networkx.barabasi_albert_graph(n, 2, seed=42)` (networkx 3.7, edges shifted by +1); checked
++before the runs.
++
++## 5. Runs (as executed)
++
++```bash
++export SCRATCH=$S
++./capture_versions.sh > results/versions.txt; ./venv/bin/pip freeze > results/pip_freeze.txt
++./run_all.sh results      # phases duckdb xsb postgres cockroachdb mariadb mariadb_tuned mongodb neo4j singlestore
++```
++
++Per configuration: 5 runs; n = 100..1000 (step 100) for the twelve families, 10k..90k scale-free,
++10k..100k Barabási-Albert; limit 600 s per run (whole harness run); after a timeout or error the
++remaining runs and larger n are skipped. `run_benchmark.py` records every run in
++`results/<system>/runs.jsonl` (command, start/end, wall time, harness timing row, result count and
++hash, expected count and hash, correctness, errors) and keeps the harness output in `logs/`.
++
++Incidents and re-runs (all invalid records are kept, with a README, in `results_invalid/` or
++`results/cockroachdb/runs_invalid_cleanup_bug.jsonl`):
++
++1. **Neo4j, 2026-09-27 22:18Z**: the first Neo4j phase timed the query with `consume()`, which lets
++   Neo4j skip computing the rows (0.04 s vs 27 s for the export). Stopped, harness fixed
++   (443e4e72, 6b1dd055), Neo4j re-run: `./run_all.sh results neo4j singlestore cockroachdb`.
++2. **SingleStore, 2026-09-27 23:27Z**: the first query (Cmpl_100) made the VM's OOM killer terminate
++   the leaf node; all later queries failed ("Failed to find a master partition"). `maximum_memory`
++   lowered to 6000 MB (Section 3), phase re-run 2026-09-28 03:08Z: `./run_all.sh results singlestore`.
++3. **CockroachDB**: after the timeout of scale_free/left/20000, the cancelled `CREATE TABLE ... AS`
++   kept running as a schema-change job, and the following scale_free/right and BA runs failed
++   ('table "tc_result" is being added'). Driver fixed (ad14a66b, 3fe8df8e), the stuck jobs cancelled
++   manually (`CANCEL JOB 1213804023738073089`, `CANCEL JOB 1214007923699646465`), and the affected
++   configurations re-run: `./run_all.sh results cockroachdb` (2026-09-27 23:46Z and 2026-09-28 01:09Z).
++
++## 6. Analysis and checks
++
++```bash
++python analyze_rerun.py results --out analysis    # summary.csv, verification.json, figures/, table_*.tex
++python verify.py input/souffle/<graph>/<n>/edge.facts <result file>   # check any single result
++
++# MariaDB wrong results (Section 4.4 of the paper): MariaDB alone, then
++./run_investigation.sh results/mariadb_investigation.jsonl
++```
++
++Earlier, smaller checks cited in Section 3 of the paper (DuckDB 1.0.0/1.4.1/1.5.5 double recursion
++on n = 20, 50, 100; recursion support of PostgreSQL, CockroachDB, MariaDB) are in `extra_checks/`
++with their scripts (`check_correctness.py`, `check_correctness_rec.py`, `check_sql_systems.py`).
+-- 
+2.55.0
+

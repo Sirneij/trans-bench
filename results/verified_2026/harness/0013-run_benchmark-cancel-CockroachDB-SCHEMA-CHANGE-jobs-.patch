@@ -1,0 +1,38 @@
+From 3fe8df8e4a9f09bb17af715f24200b625fc19da7 Mon Sep 17 00:00:00 2001
+From: John Idogun <sirneij@gmail.com>
+Date: Sun, 27 Sep 2026 18:08:32 -0700
+Subject: [PATCH 13/17] run_benchmark: cancel CockroachDB SCHEMA CHANGE jobs
+ individually (bulk CANCEL JOBS failed on GC jobs)
+
+---
+ run_benchmark.py | 14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
+
+diff --git a/run_benchmark.py b/run_benchmark.py
+index 486da574..ca0a2f2c 100644
+--- a/run_benchmark.py
++++ b/run_benchmark.py
+@@ -62,11 +62,15 @@ def cancel_server_side(system, cfg):
+                 # otherwise the next run fails when it drops them.
+                 deadline = time.time() + 600
+                 while time.time() < deadline:
+-                    try:
+-                        cur.execute("CANCEL JOBS (SELECT job_id FROM [SHOW JOBS] WHERE status IN "
+-                                    "('running', 'pending', 'paused') AND job_type LIKE '%SCHEMA CHANGE%')")
+-                    except Exception:
+-                        pass
++                    # only plain SCHEMA CHANGE jobs are cancelable (a bulk CANCEL JOBS that also
++                    # selects SCHEMA CHANGE GC jobs fails as a whole), so cancel them one by one
++                    cur.execute("SELECT job_id FROM [SHOW JOBS] WHERE status IN ('running', 'pending', 'paused') "
++                                "AND job_type = 'SCHEMA CHANGE'")
++                    for (job,) in cur.fetchall():
++                        try:
++                            cur.execute(f'CANCEL JOB {job}')
++                        except Exception:
++                            pass
+                     try:
+                         cur.execute('DROP TABLE IF EXISTS tc_result, edge')
+                         break
+-- 
+2.55.0
+

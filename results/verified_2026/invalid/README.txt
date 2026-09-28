@@ -1,0 +1,2 @@
+Neo4j runs of 2026-09-27 22:18Z-: invalid timing (QueryRealTime measured with consume(), which discards the stream without computing it); results verified but timings not used.
+SingleStore runs of 2026-09-27T23:27Z-23:44Z: the server crashed on the first query ('Received malformed packet') and was unavailable afterwards ('Failed to find a master partition'); not results of SingleStore's query processing. Re-run after investigation.

@@ -64,7 +64,7 @@ class MongoDBConnector(BaseConnector):
             config_with_bindings['query_bindings'] = query_bindings
 
         ops = OpClass(config_with_bindings, self._db)
-        results_path = output_folder / 'mongodb_results.csv'
+        results_path = self.result_path(output_folder, descriptor, 'mongodb_results.csv')
         phases = descriptor.timing_phases
         measurements: list[tuple[float, float]] = [(0.0, 0.0)] * len(phases)
 
@@ -75,9 +75,23 @@ class MongoDBConnector(BaseConnector):
             measurements[3] = self.timed(ops.recursive_query, 'edge', 'tc_result')[:2]
             measurements[4] = self.timed(ops.export_to_csv, 'tc_result', results_path)[:2]
         except Exception as e:
-            log.error(f'MongoDB experiment error: {e}')
+            self._record_error(f'MongoDB experiment error: {e}')
 
         return self.build_timing_row(phases, measurements)
+
+    @classmethod
+    def cancel_running(cls, credentials: dict[str, Any], descriptor: 'SystemDescriptor') -> None:
+        """Kill the operations on the benchmark database (the $graphLookup aggregation)."""
+        from pymongo import MongoClient
+
+        database = credentials.get('database', 'test')
+        client = MongoClient(credentials.get('uri', 'mongodb://127.0.0.1:27017/'))
+        try:
+            for op in client.admin.aggregate([{'$currentOp': {}}]):
+                if op.get('ns', '').startswith(database + '.') and op.get('op') in ('command', 'getmore'):
+                    client.admin.command('killOp', op=op['opid'])
+        finally:
+            client.close()
 
     def close(self) -> None:
         if hasattr(self, '_client') and self._client:

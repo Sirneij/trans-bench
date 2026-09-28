@@ -1,0 +1,13 @@
+{"env": "STD_CTE=0", "args": "barabasi_albert 100000 left", "started": "2026-09-28T05:17:04Z"}
+{"graph": "barabasi_albert", "n": 100000, "mode": "left", "settings": {"max_recursive_iterations": 1000, "standard_compliant_cte": 0, "tmp_table_size": 16777216}, "query_s": 150.8, "warnings": [], "mariadb_rows": 7768407, "reference_rows": 7768408, "missing": [[63, 94224, 6]], "n_missing": 1, "n_extra": 0, "duplicate_rows": 0}
+{"env": "STD_CTE=1", "args": "barabasi_albert 100000 left", "started": "2026-09-28T05:19:38Z"}
+{"graph": "barabasi_albert", "n": 100000, "mode": "left", "settings": {"max_recursive_iterations": 1000, "standard_compliant_cte": 1, "tmp_table_size": 16777216}, "query_s": 148.4, "warnings": [], "mariadb_rows": 7768407, "reference_rows": 7768408, "missing": [[63, 94224, 6]], "n_missing": 1, "n_extra": 0, "duplicate_rows": 0}
+{"env": "TMP_BYTES=4294967296", "args": "barabasi_albert 100000 left", "started": "2026-09-28T05:22:10Z"}
+{"graph": "barabasi_albert", "n": 100000, "mode": "left", "settings": {"max_recursive_iterations": 1000, "standard_compliant_cte": 0, "tmp_table_size": 4294967296}, "query_s": 10.2, "warnings": [], "mariadb_rows": 7768408, "reference_rows": 7768408, "missing": [], "n_missing": 0, "n_extra": 0, "duplicate_rows": 0}
+{"env": "STD_CTE=0", "args": "scale_free 20000 right", "started": "2026-09-28T05:22:24Z"}
+{"graph": "scale_free", "n": 20000, "mode": "right", "settings": {"max_recursive_iterations": 1000, "standard_compliant_cte": 0, "tmp_table_size": 16777216}, "query_s": 450.3, "warnings": [], "mariadb_rows": 19108898, "reference_rows": 19108900, "missing": [[6814, 5751, 4], [18031, 5751, 4]], "n_missing": 2, "n_extra": 0, "duplicate_rows": 0}
+{"env": "STD_CTE=1", "args": "scale_free 20000 right", "started": "2026-09-28T05:30:02Z"}
+{"graph": "scale_free", "n": 20000, "mode": "right", "settings": {"max_recursive_iterations": 1000, "standard_compliant_cte": 1, "tmp_table_size": 16777216}, "query_s": 449.9, "warnings": [], "mariadb_rows": 19108898, "reference_rows": 19108900, "missing": [[6814, 5751, 4], [18031, 5751, 4]], "n_missing": 2, "n_extra": 0, "duplicate_rows": 0}
+{"env": "TMP_BYTES=4294967296", "args": "scale_free 20000 right", "started": "2026-09-28T05:37:40Z"}
+{"graph": "scale_free", "n": 20000, "mode": "right", "settings": {"max_recursive_iterations": 1000, "standard_compliant_cte": 0, "tmp_table_size": 4294967296}, "query_s": 27.1, "warnings": [], "mariadb_rows": 19108900, "reference_rows": 19108900, "missing": [], "n_missing": 0, "n_extra": 0, "duplicate_rows": 0}
+INVESTIGATION_DONE

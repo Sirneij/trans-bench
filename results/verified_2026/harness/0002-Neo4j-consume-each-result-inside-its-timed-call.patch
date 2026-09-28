@@ -1,0 +1,63 @@
+From 013f823116636106b191dde2f66ef655610e72ff Mon Sep 17 00:00:00 2001
+From: John Idogun <sirneij@gmail.com>
+Date: Sat, 26 Sep 2026 06:35:21 -0700
+Subject: [PATCH 02/17] Neo4j: consume each result inside its timed call
+
+session.run() returns before the query runs; the unconsumed result was
+executed during the next statement, so the 'query' time was ~0 and its
+cost was added to the export statement's time.
+---
+ analyze_dbs.py | 16 +++++++++++++---
+ 1 file changed, 13 insertions(+), 3 deletions(-)
+
+diff --git a/analyze_dbs.py b/analyze_dbs.py
+index 51ed192c..cffea92d 100755
+--- a/analyze_dbs.py
++++ b/analyze_dbs.py
+@@ -217,6 +217,16 @@ class AnalyzeDBs(AnalyzeSystems):
+         timing_results = {header: 0 for header in self.headers_neo4j}
+ 
+         session = self.driver.session()
++
++        # session.run() is lazy: it returns before the query has been executed, and the
++        # unconsumed result is then executed as part of the *next* statement. Consume every
++        # result inside the timed call so each timing covers exactly its own statement.
++        def run_consumed(cypher: str):
++            return session.run(cypher).consume()
++
++        def run_fetched(cypher: str):
++            return list(session.run(cypher))
++
+         try:
+             # Execute setup commands (DELETE, LOAD CSV, CREATE INDEX)
+             for i, command in enumerate(commands[:-2]):
+@@ -224,7 +234,7 @@ class AnalyzeDBs(AnalyzeSystems):
+                     timing_results[self.headers_neo4j[2 * i]],
+                     timing_results[self.headers_neo4j[2 * i + 1]],
+                     _,
+-                ) = self.execute_with_timing(session.run, command)
++                ) = self.execute_with_timing(run_consumed, command)
+ 
+                 logging.info(f'Command: {command}. Time: {self.headers_neo4j[2 * i]}, {self.headers_neo4j[2 * i + 1]}')
+ 
+@@ -235,7 +245,7 @@ class AnalyzeDBs(AnalyzeSystems):
+                     timing_results[self.headers_neo4j[-4]],
+                     timing_results[self.headers_neo4j[-3]],
+                     _,
+-                ) = self.execute_with_timing(session.run, query)
++                ) = self.execute_with_timing(run_consumed, query)
+                 logging.info(f'Query executed: {query}')
+             except Exception as e:
+                 logging.error(f'Penultimate Neo4J query error: {e}, Query: {query}')
+@@ -247,7 +257,7 @@ class AnalyzeDBs(AnalyzeSystems):
+                     timing_results[self.headers_neo4j[-2]],
+                     timing_results[self.headers_neo4j[-1]],
+                     result,
+-                ) = self.execute_with_timing(session.run, export_command)
++                ) = self.execute_with_timing(run_fetched, export_command)
+ 
+                 logging.info(f'Command and Result Neo4J: {result} from query: {export_command}')
+                 for rec in result:
+-- 
+2.55.0
+
