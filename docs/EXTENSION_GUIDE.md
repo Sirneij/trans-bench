@@ -529,8 +529,12 @@ of the following. Each point comes from a problem found in the 2026 campaign
    Add a mocked connector test to `tests/` (see `tests/test_verified_pipeline.py`). To include
    the system in a campaign, add a phase to `scripts/run_all.sh`. `analyze_verified.py` puts every
    series into `summary.csv` and `verification.json`; its figures and LaTeX tables list the
-   paper's systems explicitly (`SYS`, `SNAME`, `STYLE`, and the `table_*` functions), so add the
-   system there to plot it. The LaTeX version of each figure follows automatically:
+   paper's systems explicitly (the `series` lists in `plot_graph` and the `table_*` functions), so
+   add the system there to plot it. Give the system its own entry in `engine/plot_style.py`
+   (`SYSTEM_STYLE`): a label, a colour and a marker that no other system uses, since the marker is
+   what tells systems apart in black-and-white print. `tests/test_plot_style.py` checks that
+   markers are unique and that every figure uses them and orders its legends by the curves'
+   last points. The LaTeX version of each figure follows automatically:
    `engine/figures_tex.py` transcribes whatever the matplotlib code draws (lines and markers,
    log or linear axes, text, legends). It refuses artists it cannot transcribe, such as bars,
    instead of dropping them.

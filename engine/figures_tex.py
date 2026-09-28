@@ -10,7 +10,7 @@ the figure once through a recording PDF renderer), in the same font (DejaVu Sans
 default) and size; math text (e.g. 10^{-3} tick labels) glyph by glyph, as laid out by mathtext. The LaTeX figure is therefore not a second plotting script that has
 to be kept in sync: whatever the matplotlib code draws is what the LaTeX file draws.
 
-Supported: 2-D axes with linear or log scales, Line2D artists (lines and/or markers o s ^ v D x + P *),
+Supported: 2-D axes with linear or log scales, Line2D artists (lines and/or markers o s ^ v < > D x + P * p h),
 text, and figure/axes legends with line handles. That is what analyze_verified.py draws; other
 artists (bars, patches, images) raise NotImplementedError instead of being silently dropped.
 
@@ -57,7 +57,10 @@ PREAMBLE = r"""\documentclass[border=0pt]{standalone}
 \frenchspacing  % matplotlib puts a normal space after punctuation
 \usepackage{pgfplots}
 \pgfplotsset{compat=1.18}
-% matplotlib marker shapes; \pgfplotmarksize = half the matplotlib marker size
+"""
+
+# matplotlib marker shapes as pgfplots marks (also used by analyze.py)
+MARK_DEFINITIONS = r"""% matplotlib marker shapes; \pgfplotmarksize = half the matplotlib marker size
 \pgfdeclareplotmark{mpl-o}{\pgfpathcircle{\pgfpointorigin}{\pgfplotmarksize}\pgfusepathqfillstroke}
 \pgfdeclareplotmark{mpl-o-open}{\pgfpathcircle{\pgfpointorigin}{\pgfplotmarksize}\pgfusepathqstroke}
 \pgfdeclareplotmark{mpl-s}{\pgfpathrectangle{\pgfpoint{-\pgfplotmarksize}{-\pgfplotmarksize}}{\pgfpoint{2\pgfplotmarksize}{2\pgfplotmarksize}}\pgfusepathqfillstroke}
@@ -80,9 +83,21 @@ PREAMBLE = r"""\documentclass[border=0pt]{standalone}
   \pgfpathlineto{\pgfpointpolar{54}{0.381966\pgfplotmarksize}}\pgfpathclose}
 \pgfdeclareplotmark{mpl-*}{\mplstar\pgfusepathqfillstroke}
 \pgfdeclareplotmark{mpl-*-open}{\mplstar\pgfusepathqstroke}
+\def\mpltriside#1{\pgfpathmoveto{\pgfpoint{#1\pgfplotmarksize}{0pt}}\pgfpathlineto{\pgfpoint{-#1\pgfplotmarksize}{\pgfplotmarksize}}\pgfpathlineto{\pgfpoint{-#1\pgfplotmarksize}{-\pgfplotmarksize}}\pgfpathclose}
+\pgfdeclareplotmark{mpl-<}{\mpltriside{-}\pgfusepathqfillstroke}
+\pgfdeclareplotmark{mpl-<-open}{\mpltriside{-}\pgfusepathqstroke}
+\pgfdeclareplotmark{mpl->}{\mpltriside{}\pgfusepathqfillstroke}
+\pgfdeclareplotmark{mpl->-open}{\mpltriside{}\pgfusepathqstroke}
+\def\mplpolygon#1{\pgfpathmoveto{\pgfpointpolar{90}{\pgfplotmarksize}}\foreach \i in {1,...,#1} {\pgfpathlineto{\pgfpointpolar{90+360/#1*\i}{\pgfplotmarksize}}}\pgfpathclose}
+\pgfdeclareplotmark{mpl-p}{\mplpolygon{5}\pgfusepathqfillstroke}
+\pgfdeclareplotmark{mpl-p-open}{\mplpolygon{5}\pgfusepathqstroke}
+\pgfdeclareplotmark{mpl-h}{\mplpolygon{6}\pgfusepathqfillstroke}
+\pgfdeclareplotmark{mpl-h-open}{\mplpolygon{6}\pgfusepathqstroke}
 """
+PREAMBLE += MARK_DEFINITIONS
 
-FILLED_MARKERS = {'o', 's', '^', 'v', 'D', 'P', '*'}
+
+FILLED_MARKERS = {'o', 's', '^', 'v', '<', '>', 'D', 'P', '*', 'p', 'h'}
 LINE_MARKERS = {'x', '+'}
 
 
@@ -331,6 +346,7 @@ def find_engine() -> str | None:
 
 
 def _compile_one(engine: str, tex: Path) -> tuple[Path, str | None]:
+    tex = Path(tex).resolve()  # the engine runs in the figure's directory; relative paths would break
     if engine == 'tectonic':
         cmd = [engine, '-X', 'compile', '--outdir', str(tex.parent), str(tex)]
     else:
@@ -349,4 +365,4 @@ def compile_tex(paths: list[Path], engine: str | None = None, jobs: int = 4) -> 
     if engine is None:
         raise RuntimeError(f'no LaTeX engine found (tried {", ".join(ENGINES)})')
     with ThreadPoolExecutor(max_workers=jobs) as pool:
-        return dict(pool.map(lambda p: _compile_one(engine, Path(p)), paths))
+        return dict(zip(paths, (err for _, err in pool.map(lambda p: _compile_one(engine, Path(p)), paths))))

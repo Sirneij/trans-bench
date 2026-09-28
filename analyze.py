@@ -7,17 +7,17 @@ from pathlib import Path
 from typing import Any, Union
 
 import pandas as pd
+from matplotlib.colors import to_hex
+
+from engine.figures_tex import MARK_DEFINITIONS, _dash
+from engine.plot_style import legend_order, style
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s')
 
+# systems plotted, with their legend label and colour; marker and line style come from
+# engine/plot_style.py, so each system looks the same in every figure of the suite
 ENVIRONMENT_MAPPINGS = {
-    'xsb': ('XSB', 'DarkSlateGray'),
-    'postgres': ('PostgreSQL', 'RoyalBlue'),
-    'mariadb': ('MariaDB', 'MediumSeaGreen'),
-    'duckdb': ('DuckDB', 'Gold'),
-    'neo4j': ('Neo4J', 'DeepSkyBlue'),
-    'cockroachdb': ('CockroachDB', 'MediumPurple'),
-    # 'mongodb': ('MongoDB', 'ForestGreen'),
+    env: (style(env)[0], style(env)[1]) for env in ('xsb', 'postgres', 'mariadb', 'duckdb', 'neo4j', 'cockroachdb')
 }
 
 
@@ -393,18 +393,23 @@ def generate_pgfplots(
 
         if env_key in data['environment'].unique():
             env_data = data[data['environment'] == env_key].sort_values(by='size')
-            # Calculate average performance for sorting (you can also use max, min, or final value)
-            avg_performance = env_data[time_type].mean()
-            env_performance.append((env_key, env_name, color, env_data, avg_performance))
+            last = (float(env_data['size'].iloc[-1]), float(env_data[time_type].iloc[-1]))
+            env_performance.append((env_key, env_name, color, env_data, last))
 
-    # Sort by performance (fastest first - lower times are better)
-    env_performance.sort(key=lambda x: x[4], reverse=True)
+    # Legend (= plot) order: the order of the systems' last data points, top to bottom
+    order = legend_order({e[0]: e[4] for e in env_performance})
+    env_performance.sort(key=lambda e: order.index(e[0]))
 
-    # Generate plot lines in performance order
+    # One fixed colour, marker and line style per system (engine/plot_style.py)
     plot_lines = ''
     for env_key, env_name, color, env_data, _ in env_performance:
+        _, _, marker, linestyle = style(env_key)
+        rgb = to_hex(color)[1:].upper()
+        dash = _dash(linestyle, 1.1)
         coordinates = " ".join(f"({size},{y})" for size, y in zip(env_data['size'], env_data[time_type]))
-        plot_lines += f"\\addplot+[{color}, mark options={{color={color}}}] coordinates {{{coordinates}}};\n"
+        plot_lines += (f"\\addplot[color={{rgb,255:red,{int(rgb[0:2], 16)};green,{int(rgb[2:4], 16)};blue,{int(rgb[4:6], 16)}}}, "
+                       f"line width=1.1bp, {'dash pattern=' + dash if dash else 'solid'}, mark=mpl-{marker}, mark size=1.75bp, "
+                       f"mark options={{solid, fill=.}}] coordinates {{{coordinates}}};\n")
         plot_lines += f"\\addlegendentry{{{env_name}}}\n"
 
     tex_code = f"""
@@ -412,6 +417,7 @@ def generate_pgfplots(
 \\usepackage[svgnames]{{xcolor}}
 \\usepackage{{pgfplots}}
 \\pgfplotsset{{compat=newest}}
+{MARK_DEFINITIONS}
 \\usepackage[sfdefault]{{FiraSans}}
 \\usepackage{{FiraMono}}
 \\renewcommand*\\familydefault{{\\sfdefault}}

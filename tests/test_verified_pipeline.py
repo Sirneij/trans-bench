@@ -364,6 +364,7 @@ class TestBenchmarkDriver:
         # DuckDB's plain double recursion is incomplete on Path; with recurring.tc it is correct
         assert correct == {'left_recursion': True, 'double_recursion': False, 'doublerecurring_recursion': True}
         assert all(r['timing_row'] and r['errors'] == [] for r in recs)
+        assert all(r['timeout_s'] == 120 for r in recs)  # the limit is stored with every run
         assert not list((out / 'timing').rglob('duckdb_results.csv')), 'result files are deleted after checking'
         assert (out / 'logs' / 'duckdb_path_left_recursion_100_run1.log').exists()
 

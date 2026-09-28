@@ -37,6 +37,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 import matplotlib.ticker  # noqa: E402
 
 from engine.figures_tex import compile_tex, figure_to_tex, find_engine  # noqa: E402
+from engine.plot_style import legend_order, style  # noqa: E402
 
 GRAPHS = ['complete', 'max_acyclic', 'cycle', 'cycle_with_shortcuts', 'path', 'multi_path',
           'grid', 'binary_tree', 'reverse_binary_tree', 'x', 'y', 'w']
@@ -49,15 +50,9 @@ TITLE = {'complete': 'Cmpl', 'max_acyclic': 'MaxAcyc', 'cycle': 'Cyc', 'cycle_wi
          'path': 'Path', 'multi_path': 'PathDisj', 'grid': 'Grid', 'binary_tree': 'BinTree',
          'reverse_binary_tree': 'BinTreeRev', 'x': 'X', 'y': 'Y', 'w': 'W', 'scale_free': 'Scale-free',
          'barabasi_albert': 'Barabási-Albert'}
-SYS = ['xsb', 'postgres', 'mariadb', 'duckdb', 'cockroachdb', 'mongodb', 'neo4j', 'singlestore', 'mariadb_tuned']
-SNAME = {'xsb': 'XSB', 'postgres': 'PostgreSQL', 'mariadb': 'MariaDB', 'duckdb': 'DuckDB',
-         'cockroachdb': 'CockroachDB', 'mongodb': 'MongoDB', 'neo4j': 'Neo4j', 'singlestore': 'SingleStore',
-         'mariadb_tuned': 'MariaDB (4 GB tmp)'}
-STYLE = {'xsb': ('k', 'x', '-'), 'postgres': ('tab:blue', 's', '-'), 'mariadb': ('tab:red', 'v', '-'),
-         'duckdb': ('goldenrod', '^', '-'), 'cockroachdb': ('tab:purple', 'D', '-'),
-         'mongodb': ('tab:green', 'o', '--'), 'neo4j': ('tab:cyan', 'P', '--'), 'singlestore': ('tab:brown', '*', ':'),
-         'mariadb_tuned': ('salmon', 'v', ':')}
 RESULTS = Path('.')
+# time limit of a run in seconds, for records written before benchmark.py stored it (the 2026 campaign)
+DEFAULT_LIMIT_S = 600
 RUNS = 5  # runs per configuration; a mean is reported only if all of them completed (--runs)
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -135,7 +130,8 @@ def summarize(runs):
                 i = text.find(' - ERROR: ')
                 if i >= 0:
                     err = ' '.join(text[i + 10:].split())
-        rows[key] = dict(series=series, graph=key[1], mode=key[2], n=key[3], status=status, runs=len(ok),
+        limit = max((r.get('timeout_s') or DEFAULT_LIMIT_S) for r in rs)
+        rows[key] = dict(series=series, graph=key[1], mode=key[2], n=key[3], status=status, runs=len(ok), limit=limit,
                          mean=statistics.mean(t) if len(t) == RUNS and status == 'ok' else None,
                          median=statistics.median(t) if t else None,
                          sd=statistics.stdev(t) if len(t) > 1 else None, min=min(t) if t else None,
@@ -162,6 +158,18 @@ def apply_agreement(rows):
                 rows[k]['all_correct'] = v in others
                 rows[k]['any_incorrect'] = v not in others
                 rows[k]['checked_by'] = 'agreement'
+
+
+def warn_near_limit(rows, fraction: float = 0.5) -> list:
+    """Reported times above `fraction` of the time limit. A time limit should be clearly larger than
+    every reported time, otherwise "TO" and the slowest reported times are hard to tell apart; the
+    remedy is a campaign with a larger benchmark.py --timeout."""
+    near = sorted(((r['mean'], r['limit'], k) for k, r in rows.items()
+                   if r['mean'] is not None and r['mean'] > fraction * r['limit']), reverse=True)
+    if near:
+        print(f'WARNING: {len(near)} reported times exceed {fraction:.0%} of the time limit, e.g. '
+              + '; '.join(f'{"/".join(map(str, k))}: {m:.0f} s of {lim:.0f} s' for m, lim, k in near[:3]))
+    return near
 
 
 def write_summary(rows, out: Path):
@@ -204,15 +212,19 @@ def val(rows, s, g, m, n):
 
 
 def plot_graph(rows, g, sizes, out: Path, cpu=False, formats=('pdf', 'tex')):
-    """One figure (left and right recursion side by side). Written as out/figures/<name>.pdf
-    (matplotlib) and/or out/figures_tex/<name>.tex (the same figure transcribed to pgfplots by
-    engine/figures_tex.py); returns the .tex path, if written."""
+    """One figure: (a) left and (b) right recursion side by side. Every system is drawn in its own
+    style from engine/plot_style.py (same marker in every figure), and each panel has its own
+    legend, listing the systems in the order of their last data points. Written as
+    out/figures/<name>.pdf (matplotlib) and/or out/figures_tex/<name>.tex (the same figure
+    transcribed to pgfplots by engine/figures_tex.py); returns the .tex path, if written."""
     fig, axes = plt.subplots(1, 2, figsize=(7.2, 2.9), sharey=True)
-    for ax, m in zip(axes, ['left_recursion', 'right_recursion']):
+    drawn_any = False
+    for i, (ax, m) in enumerate(zip(axes, ['left_recursion', 'right_recursion'])):
         series = ['xsb', 'duckdb'] if cpu else ['xsb', 'postgres', 'mariadb', 'duckdb', 'cockroachdb', 'neo4j', 'mongodb']
+        handles, last = {}, {}
         for s in series:
             mm = 'left_recursion' if s in ('neo4j', 'mongodb') else m
-            xs, ys, to_x = [], [], None
+            xs, ys, to_x, limit = [], [], None, DEFAULT_LIMIT_S
             for n in sizes:
                 r = rows.get((s, g, mm, n))
                 if r is None:
@@ -223,34 +235,34 @@ def plot_graph(rows, g, sizes, out: Path, cpu=False, formats=('pdf', 'tex')):
                         xs.append(n)
                         ys.append(max(y, 1e-5))
                 elif r['status'] in ('timeout', 'error') and to_x is None:
-                    to_x = n
+                    to_x, limit = n, r['limit']
             if not xs and to_x is None:
                 continue
-            col, mk, ls = STYLE[s]
-            label = SNAME[s] + (' (single query)' if s in ('neo4j', 'mongodb') else '')
-            ax.plot(xs, ys, color=col, marker=mk, linestyle=ls, markersize=3.5, linewidth=1.1, label=label)
-            if to_x is not None:  # first size that exceeded the limit / failed
-                ax.plot([to_x], [600], color=col, marker=mk, markersize=6, markerfacecolor='none', linestyle='')
+            label, col, mk, ls = style(s)
+            handles[s] = ax.plot(xs, ys, color=col, marker=mk, linestyle=ls, markersize=3.5, linewidth=1.1,
+                                 label=label)[0]
+            if xs:
+                last[s] = (xs[-1], ys[-1])
+            if to_x is not None:  # first size that exceeded the time limit or failed: hollow marker at the limit
+                ax.plot([to_x], [limit], color=col, marker=mk, markersize=6, markerfacecolor='none', linestyle='')
+                last[s] = (to_x, limit)
+        if handles:
+            drawn_any = True
+            order = legend_order(last)
+            ax.legend([handles[s] for s in order], [handles[s].get_label() for s in order], loc='center left',
+                      bbox_to_anchor=(1.0, 0.5), fontsize=6.5, frameon=False, handlelength=2.0, borderaxespad=0.4)
         ax.set_yscale('log')
-        ax.set_title(f"{TITLE[g]}: {'left' if m.startswith('left') else 'right'} recursion", fontsize=9)
+        ax.set_title(f"({'ab'[i]}) {TITLE[g]}: {'left' if m.startswith('left') else 'right'} recursion", fontsize=9)
         ax.set_xlabel('n' if g not in ('scale_free', 'barabasi_albert') else 'number of nodes', fontsize=8)
         ax.tick_params(labelsize=7)
         if g in ('scale_free', 'barabasi_albert'):
             ax.xaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: f'{int(v / 1000)}k'))
         ax.grid(True, which='major', linewidth=0.3)
     axes[0].set_ylabel(('CPU' if cpu else 'Elapsed') + ' time (s, log scale)', fontsize=8)
-    h, lab = axes[0].get_legend_handles_labels()
-    h2, lab2 = axes[1].get_legend_handles_labels()
-    for hh, ll in zip(h2, lab2):
-        if ll not in lab:
-            h.append(hh)
-            lab.append(ll)
-    if not lab:
+    if not drawn_any:
         plt.close(fig)
-        return
-    fig.legend(h, lab, loc='lower center', ncol=4 if len(lab) > 4 else len(lab), fontsize=7, frameon=False,
-               bbox_to_anchor=(0.5, -0.02))
-    fig.tight_layout(rect=(0, 0.1 if len(lab) > 4 else 0.06, 1, 1))
+        return None
+    fig.tight_layout(w_pad=0.6)
     name = f"{g}_{'cpu' if cpu else 'elapsed'}"
     tex = None
     if 'pdf' in formats:
@@ -362,6 +374,7 @@ def main(argv=None):
     write_summary(rows, out)
     v = verification(runs, rows, out)
     print(json.dumps(v['counts']), json.dumps(v['incorrect_results']))
+    warn_near_limit(rows)
     texs = []
     for g in GRAPHS:
         texs.append(plot_graph(rows, g, list(range(100, 1001, 100)), out, formats=a.figures))

@@ -1,6 +1,7 @@
 """Tests for engine/figures_tex.py (matplotlib figure -> standalone pgfplots/TikZ document)."""
 
 import re
+from pathlib import Path
 
 import matplotlib
 
@@ -61,5 +62,15 @@ def test_compiles_to_a_page_of_the_figure_size(tmp_path):
     tex.write_text(figure_to_tex(fig))
     plt.close(fig)
     assert compile_tex([tex]) == {tex: None}
+    # a relative path (analyze_verified.py --out results/...) compiles too
+    import os
+    cwd = os.getcwd()
+    try:
+        os.chdir(tmp_path.parent)
+        rel = Path(tmp_path.name) / 'fig.tex'
+        (tmp_path / 'fig.pdf').unlink()
+        assert compile_tex([rel]) == {rel: None} and (tmp_path / 'fig.pdf').exists()
+    finally:
+        os.chdir(cwd)
     box = PdfReader(tmp_path / 'fig.pdf').pages[0].mediabox
     assert (round(float(box.width) / 72, 2), round(float(box.height) / 72, 2)) == (7.2, 2.9)

@@ -173,7 +173,8 @@ def test_generate_pgfplots():
     assert 'MariaDB' not in res
 
 @patch('analyze.compile_latex_to_pdf')
-def test_create_overall_latex_plots(mock_compile):
+def test_create_overall_latex_plots(mock_compile, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)  # writes analysis/overall/charts/ relative to the working directory
     unique_result = {
         ('complete', 'left_recursion'): {
             'sorted_by_real_time': pd.DataFrame({'environment': ['unknown'], 'real_time': [1.0], 'size': [10]}),
@@ -182,6 +183,7 @@ def test_create_overall_latex_plots(mock_compile):
     }
     analyze.create_overall_latex_plots(unique_result, [10])
     mock_compile.assert_called()
+    assert (tmp_path / 'analysis/overall/charts/complete/left_recursion').exists()
 
 @patch('analyze.load_data')
 @patch('analyze.create_overall_latex_plots')

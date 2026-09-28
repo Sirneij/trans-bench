@@ -122,7 +122,7 @@ def run_campaign(a: argparse.Namespace) -> None:
                     key = (system_name, graph, mode, n)
                     if key in done:
                         continue
-                    base = dict(system=system_name, graph=graph, mode=mode, n=n, label=a.label)
+                    base = dict(system=system_name, graph=graph, mode=mode, n=n, label=a.label, timeout_s=a.timeout)
                     if stop:
                         record({**base, 'run': None, 'status': 'skipped'})
                         continue

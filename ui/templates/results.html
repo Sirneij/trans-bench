@@ -482,7 +482,10 @@ page_title %}Experiment Results{% endblock %} {% block head %}
         "#a855f7",
       ];
 
+      // one colour and point shape per system, the same in every chart (engine/plot_style.py)
+      const plotStyles = {{ plot_styles | tojson }};
       systems.forEach((sys, i) => {
+        const st = plotStyles[sys] || { color: colors[i % colors.length], pointStyle: "circle", rotation: 0, dashed: false };
         const phaseData = data.map((d) => {
           if (d.modes[modeToUse] && d.modes[modeToUse][sys]) {
             return findPhaseValue(
@@ -496,15 +499,22 @@ page_title %}Experiment Results{% endblock %} {% block head %}
         });
 
         datasets.push({
-          label: `${sys} (${selectedPhase})`,
+          label: `${(plotStyles[sys] || {}).label || sys} (${selectedPhase})`,
           data: phaseData,
-          borderColor: colors[i % colors.length],
-          backgroundColor: colors[i % colors.length] + "33",
+          borderColor: st.color,
+          backgroundColor: st.color,
+          borderDash: st.dashed ? [6, 3] : [],
+          pointStyle: st.pointStyle,
+          rotation: st.rotation,
+          pointRadius: 4,
           borderWidth: 2,
           tension: 0.3,
           fill: false,
         });
       });
+      // legend order = order of the last data points, top to bottom (engine/plot_style.py)
+      const lastValue = (ds) => { for (let k = ds.data.length - 1; k >= 0; k--) if (ds.data[k]) return ds.data[k]; return 0; };
+      datasets.sort((a, b) => lastValue(b) - lastValue(a));
 
       const chart = new Chart(ctx, {
         type: "line",
@@ -514,7 +524,7 @@ page_title %}Experiment Results{% endblock %} {% block head %}
           maintainAspectRatio: false,
           interaction: { mode: "index", intersect: false },
           plugins: {
-            legend: { labels: { color: "#e2e8f0" } },
+            legend: { labels: { color: "#e2e8f0", usePointStyle: true } },
             tooltip: {
               callbacks: {
                 label: (ctx) => `${ctx.dataset.label}: ${ctx.raw.toFixed(4)} s`,

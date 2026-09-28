@@ -81,6 +81,20 @@ def create_app() -> Flask:
     def _get_config():
         return loader.load_global_config()
 
+    def _plot_styles():
+        """Per-system colour and point shape for the charts (engine/plot_style.py), as Chart.js options."""
+        from matplotlib.colors import to_hex
+
+        from engine.plot_style import SYSTEM_STYLE
+
+        # matplotlib marker -> (Chart.js pointStyle, rotation)
+        shapes = {'x': ('crossRot', 0), 's': ('rect', 0), 'v': ('triangle', 180), '^': ('triangle', 0),
+                  '<': ('triangle', 270), '>': ('triangle', 90), 'D': ('rectRot', 0), 'o': ('circle', 0),
+                  'P': ('cross', 0), '*': ('star', 0), 'p': ('rectRounded', 0), 'h': ('dash', 0)}
+        return {name: {'label': label, 'color': to_hex(color), 'pointStyle': shapes[marker][0],
+                       'rotation': shapes[marker][1], 'dashed': linestyle != '-'}
+                for name, (label, color, marker, linestyle) in SYSTEM_STYLE.items()}
+
     def _transitive_modes():
         """The standard modes plus system-specific ones (e.g. DuckDB's doublerecurring_recursion)."""
         modes = ['right_recursion', 'left_recursion', 'double_recursion']
@@ -717,6 +731,7 @@ def create_app() -> Flask:
             all_systems=sorted_systems,
             all_graphs=sorted(list(all_graphs)),
             all_modes=sorted(list(all_modes)),
+            plot_styles=_plot_styles(),
         )
 
     @app.route('/results/data/<domain>/<system>/<graph>/<filename>')

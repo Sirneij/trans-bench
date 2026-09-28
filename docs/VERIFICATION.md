@@ -62,6 +62,7 @@ One JSON object per line.
 | --- | --- |
 | `system`, `graph`, `mode`, `n` | the configuration |
 | `label` | free text from `--label` (e.g. `tmp_table_size=4G` for `mariadb_tuned`) |
+| `timeout_s` | the time limit of the run (`--timeout`); absent in the 2026 records, whose limit was 600 s |
 | `run` | 1…runs; `null` for `skipped` records |
 | `status` | `ok`, `error`, `timeout`, or `skipped` |
 | `start`, `end` | UTC timestamps (ISO 8601) |
@@ -97,7 +98,11 @@ timing rows have no `MaxRAM_MB` columns. Otherwise the schema is the same, and
   | `ERR` | any other error |
   | `†` | a completed but incorrect result |
 
-  In the figures, a hollow marker at 600 s marks the first size that failed. Every figure is
+  In the figures, panel (a) shows left and panel (b) right recursion. Each system has the same
+  colour and marker in every figure (`engine/plot_style.py`). Each panel's legend lists the
+  systems in the order in which their curves end, from top to bottom. A hollow marker at the time
+  limit marks the first size that failed. The analysis warns when a reported time exceeds half the
+  time limit, because the limit should be clearly larger than every reported time. Every figure is
   written as a matplotlib PDF (`figures/`) and as a standalone pgfplots/TikZ document
   (`figures_tex/`), which transcribes the matplotlib figure (`engine/figures_tex.py`).
 * **`verification.json`** contains:
