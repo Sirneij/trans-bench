@@ -1,128 +1,117 @@
 {% extends "base.html" %}
-{% block title %}{{ graph.display_name }} Topology{% endblock %}
-{% block page_title %}Graph Topology Details{% endblock %}
+{% import '_macros.html' as m %}
+{% block title %}{{ graph.display_name }}{% endblock %}
+{% block crumbs %}<a href="{{ url_for('graphs_list') }}">Topologies</a><span class="sep">/</span><span aria-current="page">{{ graph.display_name }}</span>{% endblock %}
 
 {% block head %}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css" crossorigin="anonymous">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
+<style>
+  .playground { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
+  .playground .stage { min-height: 380px; border-right: 1px solid var(--line); border-radius: var(--radius-lg) 0 0 var(--radius-lg); }
+  .playground .stage .gdiag { width: min(100%, 520px); max-height: 440px; }
+  .stat-line { display: flex; align-items: baseline; justify-content: space-between; padding: 10px 0; border-bottom: 1px dashed var(--line); font-size: var(--fs-md); }
+  .stat-line:last-child { border-bottom: 0; }
+  .stat-line b { font-family: var(--font-display); font-size: 1.35rem; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .range { width: 100%; accent-color: var(--accent); }
+  .katex { font-size: 1.08em; color: var(--ink); }
+  @media (max-width: 900px) {
+    .playground { grid-template-columns: minmax(0, 1fr); }
+    .playground .stage { border-right: 0; border-bottom: 1px solid var(--line); border-radius: var(--radius-lg) var(--radius-lg) 0 0; min-height: 280px; }
+  }
+</style>
 {% endblock %}
 
 {% block content %}
-<style>
-/* Bento Graph Detail Styles */
-.graph-detail-bento {
-  display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  gap: 24px;
-}
-.bento-panel {
-  background: rgba(15, 23, 42, 0.4);
-  border: 1px solid rgba(255,255,255,0.05);
-  backdrop-filter: blur(12px);
-  border-radius: calc(var(--radius) * 1.5);
-  padding: 32px;
-}
-.panel-hero { grid-column: span 12; background: linear-gradient(135deg, rgba(15, 23, 42, 0.7), rgba(30, 41, 59, 0.4)); }
-.panel-math { grid-column: span 5; }
-.panel-code { grid-column: span 7; }
+{% call m.page_head(graph.display_name, graph.description, 'Topology · ' ~ graph.name, 'share-2') %}
+  <a class="btn btn-primary" href="{{ url_for('experiment_new', graphs=graph.name) }}"><i data-lucide="play"></i>Benchmark this topology</a>
+{% endcall %}
 
-.graph-title { font-size: 2.5rem; font-weight: 800; color: white; margin-bottom: 12px; }
-.graph-desc { font-size: 1.1rem; color: var(--text2); line-height: 1.6; max-width: 800px; margin: 0; }
-
-.bento-heading { font-size: 1.3rem; font-weight: 700; color: white; margin-bottom: 24px; display: flex; align-items: center; gap: 10px; }
-
-.math-box {
-  background: rgba(0,0,0,0.3);
-  border: 1px solid rgba(255,255,255,0.05);
-  border-radius: var(--radius);
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.math-row {
-  display: flex; flex-direction: column; gap: 12px;
-}
-.math-label { font-size: 0.85rem; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; }
-.math-content { font-size: 1.25rem; color: #38bdf8; overflow-x: auto; padding-bottom: 8px;}
-
-.code-wrapper {
-  background: #0d1117;
-  border-radius: var(--radius);
-  border: 1px solid rgba(255,255,255,0.05);
-  overflow: hidden;
-}
-.code-header {
-  background: rgba(255,255,255,0.03);
-  padding: 12px 20px;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
-  font-family: var(--mono);
-  font-size: 0.85rem;
-  color: var(--text2);
-}
-.code-wrapper pre { margin: 0; padding: 20px; overflow-x: auto; }
-.code-wrapper code { font-family: var(--mono); font-size: 0.9rem; line-height: 1.5; background: none; border: none; padding: 0; }
-
-@media (max-width: 1024px) {
-  .panel-math, .panel-code { grid-column: span 12; }
-}
-</style>
-
-<div class="breadcrumb" style="margin-bottom: 24px;">
-  <a href="{{ url_for('dashboard') }}" style="color: var(--text2); text-decoration: none; font-weight: 600;">Dashboard</a>
-  <span style="color: var(--text3); margin: 0 8px;">›</span>
-  <span style="color: white; font-weight: 700;">{{ graph.display_name }}</span>
-</div>
-
-<div class="graph-detail-bento">
-
-  <div class="bento-panel panel-hero">
-    <h1 class="graph-title">{{ graph.display_name }} Topology</h1>
-    <p class="graph-desc">{{ graph.description }}</p>
-  </div>
-
-  <div class="bento-panel panel-math">
-    <h2 class="bento-heading"><span style="color: #8b5cf6;">∑</span> Mathematical Definition</h2>
-    <div class="math-box">
-      <div class="math-row">
-        <span class="math-label">Symbolic Name</span>
-        <span class="math-content" id="math-symbol">\({{ math_info.symbol }}\)</span>
+<section class="card playground reveal" aria-label="Interactive example">
+  <div class="stage gdiag-wrap" id="stage">{{ m.graph_svg(preview, graph.name) }}</div>
+  <div class="card-body stack" style="gap:18px">
+    <div>
+      <div class="cluster" style="justify-content:space-between">
+        <label class="label" for="n-range">Size parameter <span class="mono">n</span></label>
+        <output class="mono chip chip-accent" id="n-out" for="n-range">{{ preview_range[1] }}</output>
       </div>
-      <div class="math-row" style="margin-top: 12px;">
-        <span class="math-label">Edge Definition</span>
-        <span class="math-content" id="math-def">\({{ math_info.definition }}\)</span>
-      </div>
+      <input class="range mt-2" type="range" id="n-range" min="{{ preview_range[0] }}" max="{{ preview_range[2] }}" value="{{ preview_range[1] }}" step="1">
+      <p class="hint mt-2">The benchmark uses the same generator with n from 100 upwards; this is a small instance to look at.</p>
+    </div>
+    <label class="switch"><input type="checkbox" id="show-tc"> Show the pairs the transitive closure adds</label>
+    <div>
+      <div class="stat-line"><span class="ink-2">Nodes</span><b id="s-nodes">{{ preview.node_count if preview else '—' }}</b></div>
+      <div class="stat-line"><span class="ink-2">Edges</span><b id="s-edges">{{ preview.edge_count if preview else '—' }}</b></div>
+      <div class="stat-line"><span class="ink-2">Closure size <span class="muted small">|TC|</span></span><b id="s-tc">{{ preview.closure_count if preview else '—' }}</b></div>
+      <div class="stat-line"><span class="ink-2">Closure / edges</span><b id="s-ratio">{% if preview and preview.edge_count %}{{ '%.1f' % (preview.closure_count / preview.edge_count) }}×{% else %}—{% endif %}</b></div>
     </div>
   </div>
+</section>
 
-  <div class="bento-panel panel-code">
-    <h2 class="bento-heading"><span style="color: #38bdf8;">&lt;/&gt;</span> Implementation</h2>
-    <div class="code-wrapper">
-      <div class="code-header">generate_db.py</div>
-      <pre><code class="language-python">{{ code_impl }}</code></pre>
+<div class="split split-rev mt-4">
+  <section class="card reveal" style="--i:1">
+    <div class="card-head"><h3><i data-lucide="sigma"></i>Definition</h3></div>
+    <div class="card-body stack">
+      <div class="small muted">Symbol</div>
+      <div class="math-block" data-tex="{{ math_info.symbol }}">{{ math_info.symbol }}</div>
+      <div class="small muted mt-2">Edges</div>
+      <div class="math-block" data-tex="{{ math_info.definition }}" data-display>{{ math_info.definition }}</div>
     </div>
-  </div>
-
+  </section>
+  <section class="card reveal" style="--i:2">
+    <div class="card-head"><h3><i data-lucide="code-xml"></i>Generator</h3><span class="mono small muted">{{ graph.generator }}</span></div>
+    <div class="card-body">
+      <div class="codeblock">
+        <div class="codeblock-head">generate_db.py<span class="spacer"></span><button class="btn btn-ghost btn-sm btn-icon" type="button" data-copy="#gen-code" aria-label="Copy code"><i data-lucide="copy"></i></button></div>
+        <pre><code class="language-python" id="gen-code">{{ code_impl }}</code></pre>
+      </div>
+    </div>
+  </section>
 </div>
-
 {% endblock %}
 
 {% block scripts %}
-<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js" crossorigin="anonymous"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/python.min.js"></script>
 <script>
-  document.addEventListener("DOMContentLoaded", function() {
-    renderMathInElement(document.body, {
-      delimiters: [
-        {left: '$$', right: '$$', display: true},
-        {left: '\\(', right: '\\)', display: false}
-      ],
-      throwOnError : false
-    });
-    hljs.highlightAll();
+(() => {
+  TB.$$('[data-tex]').forEach((el) => {
+    try { katex.render(el.dataset.tex, el, { throwOnError: false, displayMode: el.hasAttribute('data-display') }); } catch { /* raw TeX stays visible */ }
   });
+  if (window.hljs) hljs.highlightElement(TB.$('#gen-code'));
+
+  const name = {{ graph.name | tojson }};
+  const stage = TB.$('#stage');
+  const range = TB.$('#n-range');
+  const tc = TB.$('#show-tc');
+  let current = {{ preview | tojson }};
+  let seq = 0;
+  const draw = (animate) => {
+    stage.innerHTML = TB.graphSvg(current, { closure: tc.checked, animate });
+    if (!current) return;
+    TB.$('#s-nodes').textContent = current.node_count;
+    TB.$('#s-edges').textContent = current.edge_count;
+    TB.$('#s-tc').textContent = current.closure_count;
+    TB.$('#s-ratio').textContent = current.edge_count ? `${(current.closure_count / current.edge_count).toFixed(1)}×` : '—';
+  };
+  let timer;
+  range.addEventListener('input', () => {
+    TB.$('#n-out').textContent = range.value;
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      const mine = ++seq;
+      const r = await fetch(`/api/graphs/${name}/preview?n=${range.value}`);
+      if (mine !== seq) return;
+      if (!r.ok) { TB.toast('No drawing for this size', 'warn', 2000); return; }
+      current = await r.json();
+      draw(true);
+    }, 120);
+  });
+  tc.addEventListener('change', () => draw(false));
+  if (current) {
+    // re-render client side so the closure toggle and size slider share one drawing
+    draw(true);
+  }
+})();
 </script>
 {% endblock %}

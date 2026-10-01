@@ -18,6 +18,9 @@ GET  /experiment/stream      SSE stream of live progress
 GET  /experiment/status      JSON status of current experiment
 POST /experiment/stop        Stop running experiment
 GET  /results                Browse timing results
+GET  /campaigns              Verified campaigns (results/<campaign>/)
+GET  /campaigns/<name>       One campaign: outcomes, matrix, figures, failures, files
+GET  /graphs                 Graph topologies with diagrams of small instances
 GET  /api/systems            JSON: all system descriptors
 GET  /api/graph-types        JSON: all graph type descriptors
 """
@@ -26,8 +29,8 @@ from __future__ import annotations
 
 import json
 import logging
-import queue
 import threading
+import time
 from pathlib import Path
 from typing import Any, Optional
 
@@ -35,13 +38,17 @@ import yaml
 from flask import (
     Flask,
     Response,
+    abort,
     jsonify,
     redirect,
     render_template,
     request,
+    send_from_directory,
     stream_with_context,
     url_for,
 )
+
+from ui import data as uidata
 
 BASE_DIR = Path(__file__).parent.parent
 log = logging.getLogger(__name__)
@@ -53,8 +60,45 @@ _experiment_state: dict[str, Any] = {
     'progress': {},
     'log_lines': [],
     'error': None,
+    'started': None,
+    'finished': None,
+    'stop_requested': False,
 }
-_progress_queue: queue.Queue = queue.Queue(maxsize=500)
+
+
+class _EventLog:
+    """Events of the current experiment, kept for every listener of /experiment/stream.
+
+    Each event has an increasing id; a listener keeps its own position (the SSE Last-Event-ID), so any number of
+    pages can follow a run, a page opened late replays it from the start, and a reconnect resumes where it stopped.
+    """
+
+    def __init__(self, keep: int = 5000):
+        self.keep = keep
+        self.events: list[tuple[int, str]] = []
+        self.last_id = 0
+        self.cond = threading.Condition()
+
+    def reset(self) -> None:
+        with self.cond:
+            self.events = []  # ids keep increasing, so a listener of the previous run sees nothing old
+            self.cond.notify_all()
+
+    def publish(self, payload: dict) -> None:
+        with self.cond:
+            self.last_id += 1
+            self.events.append((self.last_id, json.dumps(payload)))
+            del self.events[: -self.keep]
+            self.cond.notify_all()
+
+    def after(self, cursor: int, timeout: float) -> list[tuple[int, str]]:
+        """Events with an id above `cursor`, waiting up to `timeout` seconds for one."""
+        with self.cond:
+            self.cond.wait_for(lambda: self.events and self.events[-1][0] > cursor, timeout=timeout)
+            return [e for e in self.events if e[0] > cursor]
+
+
+_events = _EventLog()
 _experiment_thread: Optional[threading.Thread] = None
 
 
@@ -68,12 +112,35 @@ def create_app() -> Flask:
 
     from engine.loader import DescriptorLoader
 
-    loader = DescriptorLoader(base_dir=BASE_DIR)
+    # versions are detected once, in the background (ui/data.py VersionCache), not per request
+    loader = DescriptorLoader(base_dir=BASE_DIR, detect_versions=False)
+    versions = uidata.VersionCache()
 
     # ── Helpers ─────────────────────────────────────────────────────────────
 
     def _get_systems():
-        return loader.load_systems()
+        systems = loader.load_systems()
+        try:
+            versions.start([s.name for s in systems])
+            for s in systems:
+                s.version = versions.get(s.name) or 'detecting…'
+        except Exception:  # descriptors without a name (tests use mocks)
+            pass
+        return systems
+
+    def _system_ui(systems):
+        """name -> {label, color, marker} for identity marks (the paper's plot style)."""
+        styles = _plot_styles()
+        return {s.name: styles.get(s.name, {'label': s.display_name, 'color': None, 'pointStyle': 'circle'})
+                for s in systems if isinstance(getattr(s, 'name', None), str)}
+
+    @app.context_processor
+    def inject_globals():
+        with _experiment_lock:
+            running = _experiment_state['running']
+        static = Path(app.static_folder)
+        version = max(int((static / f).stat().st_mtime) for f in ('css/app.css', 'js/app.js'))
+        return {'experiment_running': running, 'asset_version': version}
 
     def _get_graph_types():
         return loader.load_graph_types()
@@ -91,8 +158,10 @@ def create_app() -> Flask:
         shapes = {'x': ('crossRot', 0), 's': ('rect', 0), 'v': ('triangle', 180), '^': ('triangle', 0),
                   '<': ('triangle', 270), '>': ('triangle', 90), 'D': ('rectRot', 0), 'o': ('circle', 0),
                   'P': ('cross', 0), '*': ('star', 0), 'p': ('rectRounded', 0), 'h': ('dash', 0)}
-        return {name: {'label': label, 'color': to_hex(color), 'pointStyle': shapes[marker][0],
-                       'rotation': shapes[marker][1], 'dashed': linestyle != '-'}
+        # black (XSB) is drawn in the theme's ink colour, which works on light and dark backgrounds
+        return {name: {'label': label, 'color': None if to_hex(color) == '#000000' else to_hex(color),
+                       'pointStyle': shapes[marker][0], 'rotation': shapes[marker][1], 'dashed': linestyle != '-',
+                       'marker': marker}
                 for name, (label, color, marker, linestyle) in SYSTEM_STYLE.items()}
 
     def _transitive_modes():
@@ -124,14 +193,17 @@ def create_app() -> Flask:
             'python_version': platform.python_version(),
         }
 
+        campaigns = [uidata.campaign_info(d) for d in uidata.campaign_dirs(BASE_DIR)]
         return render_template(
             'dashboard.html',
             systems=systems,
             graph_types=graph_types,
             csv_count=csv_count,
             benchmarked_systems=system_dirs,
-            experiment_running=_experiment_state['running'],
             machine_info=machine_info,
+            campaigns=campaigns,
+            system_ui=_system_ui(systems),
+            previews={g.name: uidata.graph_preview(str(BASE_DIR), g.name) for g in graph_types[:6]},
         )
 
     def _get_math_info(name: str):
@@ -203,14 +275,38 @@ def create_app() -> Flask:
             code_impl = f"# Error loading implementation: {e}"
 
         math_info = _get_math_info(name)
-        return render_template('graph_detail.html', graph=graph, code_impl=code_impl, math_info=math_info)
+        return render_template('graph_detail.html', graph=graph, code_impl=code_impl, math_info=math_info,
+                               preview=uidata.graph_preview(str(BASE_DIR), name),
+                               preview_range=uidata.preview_range(name))
+
+    @app.route('/api/graphs/<name>/preview')
+    def api_graph_preview(name: str):
+        """A drawable instance of a topology for size parameter n (bounded, see ui/data.py preview_range)."""
+        if name not in {g.name for g in _get_graph_types()}:
+            return jsonify({'error': 'Unknown graph type'}), 404
+        lo, default, hi = uidata.preview_range(name)
+        try:
+            n = min(hi, max(lo, int(request.args.get('n', default))))
+        except ValueError:
+            return jsonify({'error': 'n must be an integer'}), 400
+        preview = uidata.graph_preview(str(BASE_DIR), name, n)
+        if preview is None:
+            return jsonify({'error': 'No preview for this size'}), 422
+        return jsonify(preview)
+
+    @app.route('/graphs')
+    def graphs_list():
+        graph_types = _get_graph_types()
+        return render_template('graphs.html', graph_types=graph_types,
+                               previews={g.name: uidata.graph_preview(str(BASE_DIR), g.name) for g in graph_types},
+                               math={g.name: _get_math_info(g.name) for g in graph_types})
 
     # ── Systems ──────────────────────────────────────────────────────────────
 
     @app.route('/systems')
     def systems_list():
         systems = _get_systems()
-        return render_template('systems.html', systems=systems)
+        return render_template('systems.html', systems=systems, system_ui=_system_ui(systems))
 
     @app.route('/systems/<name>')
     def system_detail(name: str):
@@ -229,12 +325,15 @@ def create_app() -> Flask:
         # Gather existing rule files
         rule_files = sorted(system.rules_dir.glob(f'*{system.rule_extension}')) if system.rules_dir.exists() else []
 
+        system.version = versions.get(system.name) or 'detecting…'
         return render_template(
             'system_detail.html',
             system=system,
             descriptor_yaml=descriptor_yaml,
             cred_yaml=cred_yaml,
             rule_files=[r.name for r in rule_files],
+            system_ui=_system_ui([system]),
+            has_example=(system.system_dir / 'credentials.example.yaml').exists(),
         )
 
     @app.route('/systems/<name>/save', methods=['POST'])
@@ -310,6 +409,12 @@ def create_app() -> Flask:
             new_name = request.form.get('name', '').strip().lower().replace(' ', '_')
             if not new_name:
                 return jsonify({'ok': False, 'error': 'Name required'}), 400
+            import re
+
+            if not re.fullmatch(r'[a-z][a-z0-9_]*', new_name):
+                return jsonify({'ok': False, 'error': 'Use lowercase letters, digits and underscores, starting with a letter'}), 400
+            if (BASE_DIR / 'systems' / new_name).exists():
+                return jsonify({'ok': False, 'error': f'A system named {new_name} already exists'}), 409
 
             try:
                 bootstrap_mgr = BootstrapManager(BASE_DIR)
@@ -372,9 +477,17 @@ def create_app() -> Flask:
 
         bootstrap_mgr = BootstrapManager(BASE_DIR)
         templates = bootstrap_mgr.list_templates()
+        info = {}
+        for t in templates.get('domain_templates', []):
+            try:
+                info[t] = yaml.safe_load((bootstrap_mgr.templates_dir / t).read_text()) or {}
+            except Exception:
+                info[t] = {}
         return render_template(
             'new_domain.html',
             domain_templates=templates.get('domain_templates', []),
+            template_info=info,
+            domains=loader.load_domains(),
         )
 
     @app.route('/graphs/new', methods=['GET', 'POST'])
@@ -488,12 +601,19 @@ def create_app() -> Flask:
         for d in domains:
             if d.name not in ('transitive', 'transitive_closure'):
                 domain_options.append({'name': d.name, 'display_name': d.display_name, 'modes': d.modes})
+        preselect = {
+            'systems': [x for x in request.args.get('systems', '').split(',') if x],
+            'graphs': [x for x in request.args.get('graphs', '').split(',') if x],
+        }
         return render_template(
             'experiment_new.html',
             systems=systems,
             graph_types=graph_types,
             config=config,
             domain_options=domain_options,
+            system_ui=_system_ui(systems),
+            preselect=preselect,
+            previews={g.name: uidata.graph_preview(str(BASE_DIR), g.name) for g in graph_types},
         )
 
     @app.route('/experiment/start', methods=['POST'])
@@ -565,8 +685,10 @@ def create_app() -> Flask:
             _experiment_state['progress'] = {}
             _experiment_state['log_lines'] = []
             _experiment_state['error'] = None
-        while not _progress_queue.empty():
-            _progress_queue.get_nowait()
+            _experiment_state['started'] = time.time()
+            _experiment_state['finished'] = None
+            _experiment_state['stop_requested'] = False
+        _events.reset()
 
         def progress_cb(evt: dict):
             evt_type = evt.get('type', 'progress')
@@ -579,10 +701,7 @@ def create_app() -> Flask:
                     _experiment_state['log_lines'] = _experiment_state['log_lines'][-500:]
                     if level == 'error':
                         _experiment_state['error'] = msg
-                try:
-                    _progress_queue.put_nowait(json.dumps({'type': 'log', 'message': msg, 'level': level}))
-                except queue.Full:
-                    pass
+                _events.publish({'type': 'log', 'message': msg, 'level': level})
             else:
                 # Progress update
                 msg = (
@@ -593,10 +712,7 @@ def create_app() -> Flask:
                     _experiment_state['progress'] = evt
                     _experiment_state['log_lines'].append(msg)
                     _experiment_state['log_lines'] = _experiment_state['log_lines'][-500:]
-                try:
-                    _progress_queue.put_nowait(json.dumps(evt))
-                except queue.Full:
-                    pass
+                _events.publish(evt)
 
         def run_in_thread():
             try:
@@ -610,6 +726,7 @@ def create_app() -> Flask:
                     domain=domain,
                     query_mode=query_mode,
                     progress_cb=progress_cb,
+                    should_stop=lambda: _experiment_state['stop_requested'],
                 )
                 runner.run()
             except Exception as e:
@@ -619,10 +736,8 @@ def create_app() -> Flask:
             finally:
                 with _experiment_lock:
                     _experiment_state['running'] = False
-                try:
-                    _progress_queue.put_nowait(json.dumps({'status': '__done__'}))
-                except queue.Full:
-                    pass
+                    _experiment_state['finished'] = time.time()
+                _events.publish({'status': '__done__'})
 
         _experiment_thread = threading.Thread(target=run_in_thread, daemon=True)
         _experiment_thread.start()
@@ -631,16 +746,24 @@ def create_app() -> Flask:
 
     @app.route('/experiment/stream')
     def experiment_stream():
-        def generate():
+        # resume after the last event this page saw (EventSource sends Last-Event-ID when it reconnects)
+        try:
+            cursor = int(request.headers.get('Last-Event-ID') or request.args.get('after') or 0)
+        except ValueError:
+            cursor = 0
+
+        def generate(cursor=cursor):
             yield 'data: {"status": "connected"}\n\n'
             while True:
-                try:
-                    msg = _progress_queue.get(timeout=30)
-                    yield f'data: {msg}\n\n'
-                    if json.loads(msg).get('status') == '__done__':
-                        break
-                except queue.Empty:
+                batch = _events.after(cursor, timeout=15)
+                if not batch:
                     yield 'data: {"status": "heartbeat"}\n\n'
+                    continue
+                for event_id, msg in batch:
+                    cursor = event_id
+                    yield f'id: {event_id}\ndata: {msg}\n\n'
+                    if '"__done__"' in msg:
+                        return
 
         return Response(
             stream_with_context(generate()),
@@ -661,19 +784,112 @@ def create_app() -> Flask:
                     'progress': _experiment_state['progress'],
                     'recent_logs': _experiment_state['log_lines'][-50:],
                     'error': _experiment_state['error'],
+                    'started': _experiment_state['started'],
+                    'finished': _experiment_state['finished'],
+                    'stop_requested': _experiment_state['stop_requested'],
+                    'now': time.time(),
                 }
             )
 
     @app.route('/experiment/stop', methods=['POST'])
     def experiment_stop():
-        # Signal is best-effort; thread will finish current step
+        # the runner checks this between configurations; the one that is running finishes first
+        # `running` stays true until the thread has ended, so no second experiment starts alongside this one
         with _experiment_lock:
-            _experiment_state['running'] = False
+            if not _experiment_state['running']:
+                return jsonify({'ok': False, 'error': 'No experiment is running'}), 409
+            _experiment_state['stop_requested'] = True
         return jsonify({'ok': True})
 
     @app.route('/experiment/live')
     def experiment_live():
-        return render_template('experiment_live.html')
+        return render_template('experiment_live.html', plot_styles=_plot_styles())
+
+    # ── Verified campaigns ───────────────────────────────────────────────────
+
+    @app.route('/campaigns')
+    def campaigns_list():
+        campaigns = [uidata.campaign_info(d) for d in uidata.campaign_dirs(BASE_DIR)]
+        return render_template('campaigns.html', campaigns=campaigns)
+
+    @app.route('/campaigns/<name>')
+    def campaign_detail(name: str):
+        directory = uidata.campaign_dir(BASE_DIR, name)
+        if directory is None:
+            abort(404)
+        rows = uidata.summary_rows(directory)
+        linear_sizes, linear_modes = uidata.sizes_and_modes(rows, uidata.LINEAR_GRAPHS)
+        large_sizes, large_modes = uidata.sizes_and_modes(rows, uidata.LARGE_GRAPHS)
+        files = [f for f in ('README.md', 'versions.txt', 'pip_freeze.txt', 'code.patch') if (directory / f).exists()]
+        tables = sorted(p.name for p in (directory / 'analysis').glob('table_*.tex'))
+        failures = uidata.failure_rows(directory)
+        present = {r['graph'] for r in rows}
+        limits = {float(f['limit_s']) for f in failures if f.get('limit_s')}
+        return render_template(
+            'campaign_detail.html',
+            info=uidata.campaign_info(directory),
+            figures=uidata.campaign_figures(directory),
+            failures=failures,
+            linear_sizes=linear_sizes, linear_modes=linear_modes, large_sizes=large_sizes, large_modes=large_modes,
+            files=files, tables=tables, plot_styles=_plot_styles(),
+            graphs=[g for g in uidata.LINEAR_GRAPHS + uidata.LARGE_GRAPHS if g in present],
+            large_graphs=[g for g in uidata.LARGE_GRAPHS if g in present],
+            graph_labels={g.name: g.display_name for g in _get_graph_types()},
+            limit_s=max(limits) if limits else None,
+        )
+
+    @app.route('/campaigns/<name>/file/<path:filename>')
+    def campaign_file(name: str, filename: str):
+        """Files of a campaign: its README/versions, and anything under analysis/ (figures, tables)."""
+        directory = uidata.campaign_dir(BASE_DIR, name)
+        if directory is None:
+            abort(404)
+        if filename in ('README.md', 'versions.txt', 'pip_freeze.txt', 'code.patch'):
+            return send_from_directory(directory, filename, mimetype='text/plain')
+        mimetype = 'text/plain' if filename.endswith(('.tex', '.csv', '.json')) else None
+        return send_from_directory(directory / 'analysis', filename, mimetype=mimetype)
+
+    @app.route('/api/campaigns/<name>/matrix')
+    def api_campaign_matrix(name: str):
+        directory = uidata.campaign_dir(BASE_DIR, name)
+        if directory is None:
+            return jsonify({'error': 'Unknown campaign'}), 404
+        family = request.args.get('family', 'linear')
+        graphs = uidata.LARGE_GRAPHS if family == 'large' else uidata.LINEAR_GRAPHS
+        rows = uidata.summary_rows(directory)
+        sizes, modes = uidata.sizes_and_modes(rows, graphs)
+        try:
+            n = int(request.args.get('n') or (sizes[-1] if sizes else 0))
+        except ValueError:
+            return jsonify({'error': 'n must be an integer'}), 400
+        mode = request.args.get('mode') or 'left_recursion'
+        metric = 'memory' if request.args.get('metric') == 'memory' else 'time'
+        if family == 'large':  # rows are sizes there; return one matrix per size for the chosen graph
+            graph = request.args.get('graph') or uidata.LARGE_GRAPHS[0]
+            out = {'family': 'large', 'graph': graph, 'mode': mode, 'metric': metric, 'sizes': sizes, 'rows': []}
+            for size in sizes:
+                m = uidata.matrix(rows, [graph], size, mode, metric)
+                out['rows'].append({'n': size, 'cells': m['cells'].get(graph, {})})
+            out['series'] = sorted({s for r in out['rows'] for s in r['cells']})
+            vals = [c['value'] for r in out['rows'] for c in r['cells'].values() if c['value'] is not None and c['status'] == 'ok']
+            out['min'], out['max'] = (min(vals), max(vals)) if vals else (None, None)
+            return jsonify(out)
+        m = uidata.matrix(rows, graphs, n, mode, metric)
+        return jsonify({'family': 'linear', 'n': n, 'mode': mode, 'metric': metric, 'sizes': sizes, 'modes': modes,
+                        'graphs': m['graphs'], 'series': m['series'], 'cells': m['cells'],
+                        'min': m['min'], 'max': m['max']})
+
+    @app.route('/api/campaigns/<name>/series')
+    def api_campaign_series(name: str):
+        """Points of every series for one (graph, mode): mean time or memory per n, or the failure."""
+        directory = uidata.campaign_dir(BASE_DIR, name)
+        if directory is None:
+            return jsonify({'error': 'Unknown campaign'}), 404
+        graph = request.args.get('graph', 'complete')
+        mode = request.args.get('mode', 'left_recursion')
+        metric = 'memory' if request.args.get('metric') == 'memory' else 'time'
+        return jsonify({'graph': graph, 'mode': mode, 'metric': metric,
+                        'series': uidata.series_points(uidata.summary_rows(directory), graph, mode, metric)})
 
     # ── Results ──────────────────────────────────────────────────────────────
 
@@ -726,12 +942,15 @@ def create_app() -> Flask:
 
         return render_template(
             'results.html',
+            file_count=sum(len(f) for sys_ in tree.values() for g in sys_.values() for f in g.values()),
             tree=tree,
             all_domains=sorted(list(tree.keys())),
             all_systems=sorted_systems,
             all_graphs=sorted(list(all_graphs)),
             all_modes=sorted(list(all_modes)),
             plot_styles=_plot_styles(),
+            categories={s.name: s.category for s in loader.load_systems()},
+            graph_labels={g.name: g.display_name for g in _get_graph_types()},
         )
 
     @app.route('/results/data/<domain>/<system>/<graph>/<filename>')
@@ -778,6 +997,15 @@ def create_app() -> Flask:
     def api_systems():
         systems = _get_systems()
         return jsonify([s.to_dict() for s in systems])
+
+    @app.route('/api/nav')
+    def api_nav():
+        """Names for the command palette (no version detection, no I/O beyond the descriptors)."""
+        return jsonify({
+            'systems': [{'name': s.name, 'label': s.display_name} for s in loader.load_systems()],
+            'graphs': [{'name': g.name, 'label': g.display_name} for g in _get_graph_types()],
+            'campaigns': [d.name for d in uidata.campaign_dirs(BASE_DIR)],
+        })
 
     @app.route('/api/graph-types')
     def api_graph_types():

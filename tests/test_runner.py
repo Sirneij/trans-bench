@@ -687,3 +687,58 @@ class TestExperimentRunnerHelpers:
         
         # Should fall back to requested modes
         assert runner2.modes == ["mode1", "mode2"]
+
+
+class TestExperimentRunnerStop:
+    """should_stop (the web UI's Stop button) ends a run before the next configuration."""
+
+    def _runner(self, tmp_path, should_stop):
+        sys_desc = SystemDescriptor(
+            name="test_sys", display_name="Test System", category="db", protocol="test_proto",
+            timing_phases=[TimingPhase("load", "Load")],
+            input_format="tsv", modes=["right_recursion"], rule_extension=".sql", flags={}, execution={},
+            descriptor_path=tmp_path / 'systems' / 'test_sys' / 'descriptor.yaml',
+            rules_dir=tmp_path / 'systems' / 'test_sys' / 'rules', credentials={}, version="0.1"
+        )
+        graph_desc = GraphTypeDescriptor(name="test_graph", display_name="Test Graph", description="Desc",
+                                         generator="some.module.func", parameters={})
+        domain_desc = DomainDescriptor(
+            name="transitive", display_name="Transitive", description="Transitive closure",
+            category="recursion", modes=["right_recursion"], query_parameters=[],
+            output_schema=[], data_requirements={},
+            descriptor_path=tmp_path / 'domains' / 'transitive' / 'descriptor.yaml'
+        )
+        events = []
+        runner = ExperimentRunner(
+            config={'timing_dir': str(tmp_path / 'timing')}, systems=[sys_desc], graph_types=[graph_desc],
+            size_range=[10, 30, 10], num_runs=1, modes=["right_recursion"], domain="transitive",
+            domain_descriptor=domain_desc, progress_cb=events.append, should_stop=should_stop,
+        )
+        runner.base_dir = tmp_path
+        return runner, events
+
+    def test_stop_before_first_configuration(self, tmp_path):
+        runner, events = self._runner(tmp_path, should_stop=lambda: True)
+        with patch.object(runner, '_generate_input_data'), \
+             patch.object(runner, '_all_modes_exist', return_value=False), \
+             patch.object(runner, '_run_single') as run_single, \
+             patch('engine.runner.subprocess.run') as sub:
+            runner.run()
+        run_single.assert_not_called()
+        sub.assert_not_called()  # no plots for a stopped run
+        assert any(e.get('type') == 'log' and e.get('level') == 'warn' for e in events)
+
+    def test_no_stop_runs_everything(self, tmp_path):
+        runner, events = self._runner(tmp_path, should_stop=lambda: False)
+        (tmp_path / 'systems' / 'test_sys' / 'rules').mkdir(parents=True)
+        (tmp_path / 'systems' / 'test_sys' / 'rules' / 'transitive_right_recursion.sql').write_text('select 1;')
+        with patch.object(runner, '_generate_input_data'), \
+             patch.object(runner, '_all_modes_exist', return_value=False), \
+             patch.object(runner, '_resolve_input_path', return_value=tmp_path / 'in.tsv'), \
+             patch.object(runner, '_prepare_output_folder', return_value=tmp_path / 'out'), \
+             patch.object(runner, '_append_average'), \
+             patch.object(runner, '_run_single') as run_single, \
+             patch('engine.runner.subprocess.run'):
+            runner.run()
+        assert run_single.call_count == 2  # sizes 10 and 20
+        assert [e['status'] for e in events if e.get('type') == 'progress'] == ['running', 'done', 'running', 'done']

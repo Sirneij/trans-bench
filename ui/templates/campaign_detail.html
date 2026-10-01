@@ -1,0 +1,536 @@
+{% extends "base.html" %}
+{% import '_macros.html' as m %}
+{% block title %}{{ info.name }}{% endblock %}
+{% block crumbs %}<a href="{{ url_for('campaigns_list') }}">Campaigns</a><span class="sep">/</span><span aria-current="page">{{ info.name }}</span>{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  .controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; }
+  .controls .field { gap: 4px; }
+  .controls .select { min-width: 150px; height: 34px; background-position: calc(100% - 17px) 14px, calc(100% - 12px) 14px; }
+  .file-list { border-right: 1px solid var(--line); padding: 8px; background: var(--surface-2); max-height: 640px; overflow-y: auto; }
+  .files { display: grid; grid-template-columns: 250px minmax(0, 1fr); min-height: 480px; }
+  .viewer { min-width: 0; display: flex; flex-direction: column; }
+  .viewer pre { margin: 0; padding: 16px; overflow: auto; font: 12.5px/1.6 var(--font-mono); max-height: 620px; background: var(--code-bg); flex: 1; }
+  .viewer .d-add { color: var(--ok); background: color-mix(in srgb, var(--ok-soft) 70%, transparent); display: block; }
+  .viewer .d-del { color: var(--danger); background: color-mix(in srgb, var(--danger-soft) 70%, transparent); display: block; }
+  .viewer .d-hunk { color: var(--accent); display: block; }
+  .viewer .d-file { color: var(--ink); font-weight: 700; display: block; }
+  .fig-thumb canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; animation: fade-in var(--t-slow) var(--ease-out); }
+  .fig-thumb .skeleton { position: absolute; inset: 12px; }
+  .fig { cursor: zoom-in; }
+  .lightbox-stage { background: #fff; display: grid; place-items: center; min-height: 300px; position: relative; }
+  .lightbox-stage canvas { max-width: 100%; max-height: calc(100vh - 190px); height: auto; display: block; }
+  .agree-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(18px, 1fr)); gap: 3px; }
+  .agree-grid span { aspect-ratio: 1; border-radius: 4px; background: var(--ok); opacity: .85; }
+  .agree-grid span.no { background: var(--danger); }
+  tr.fail-row { cursor: pointer; }
+  @media (max-width: 900px) { .files { grid-template-columns: minmax(0, 1fr); } .file-list { border-right: 0; border-bottom: 1px solid var(--line); max-height: 200px; } }
+</style>
+{% endblock %}
+
+{% block content %}
+{% set n_fail = info.failures.values()|sum %}
+<header class="page-head">
+  <div>
+    <div class="eyebrow"><i data-lucide="flask-conical" style="width:14px;height:14px"></i>Campaign{% if info.memory_runs %} · with memory{% endif %}</div>
+    <h1>{{ info.name }}</h1>
+    <p class="lede"><b style="color:var(--ink);font-weight:600">{{ info.title }}.</b> {{ info.intro }}</p>
+  </div>
+  <div class="page-actions">
+    {% if info.has_analysis %}<a class="btn" href="{{ url_for('campaign_file', name=info.name, filename='summary.csv') }}" download><i data-lucide="download"></i>summary.csv</a>{% endif %}
+    <a class="btn btn-primary" href="{{ url_for('experiment_new') }}#step-4"><i data-lucide="repeat"></i>Run again</a>
+  </div>
+</header>
+
+<div class="grid grid-4" data-stagger>
+  <div class="card kpi"><div class="kpi-label"><i data-lucide="play"></i>Runs executed</div><div class="kpi-value" data-count="{{ info.executed }}">{{ '{:,}'.format(info.executed) }}</div><div class="kpi-sub">{{ info.series|length }} series, plus {{ '{:,}'.format(info.skipped) }} skipped</div></div>
+  <div class="card kpi"><div class="kpi-label"><i data-lucide="circle-check"></i>Completed and verified</div><div class="kpi-value" style="color:var(--ok)" data-count="{{ info.ok }}">{{ '{:,}'.format(info.ok) }}</div><div class="kpi-sub">{{ '%.2f' % (100 * info.ok / (info.executed or 1)) }}% of executed runs</div></div>
+  <div class="card kpi"><div class="kpi-label"><i data-lucide="triangle-alert"></i>Failed</div><div class="kpi-value" style="color:var(--warn)" data-count="{{ n_fail }}">{{ n_fail }}</div><div class="kpi-sub">{% for k, v in info.failures.items() %}{{ v }} {{ m.failure_label(k)|lower }}{{ ', ' if not loop.last }}{% else %}none{% endfor %}</div></div>
+  <div class="card kpi"><div class="kpi-label"><i data-lucide="clock"></i>Wall-clock span</div><div class="kpi-value" id="span">—</div><div class="kpi-sub">{{ (info.first or '')[:16]|replace('T', ' ') }} → {{ (info.last or '')[:16]|replace('T', ' ') }} UTC</div></div>
+</div>
+
+<section class="card mt-4 reveal" style="--i:4">
+  <div class="tabs" role="tablist" aria-label="Campaign" data-hash style="padding:0 12px">
+    <button class="tab" role="tab" id="t-overview" data-tab="overview" aria-controls="p-overview" aria-selected="true"><i data-lucide="layout-panel-left"></i>Overview</button>
+    {% if info.has_analysis %}
+    <button class="tab" role="tab" id="t-scaling" data-tab="scaling" aria-controls="p-scaling"><i data-lucide="chart-line"></i>Scaling</button>
+    <button class="tab" role="tab" id="t-matrix" data-tab="matrix" aria-controls="p-matrix"><i data-lucide="grid-3x3"></i>Matrix</button>
+    <button class="tab" role="tab" id="t-figures" data-tab="figures" aria-controls="p-figures"><i data-lucide="image"></i>Figures <span class="count">{{ figures|length }}</span></button>
+    <button class="tab" role="tab" id="t-failures" data-tab="failures" aria-controls="p-failures"><i data-lucide="circle-alert"></i>Failures <span class="count">{{ failures|length }}</span></button>
+    {% endif %}
+    <button class="tab" role="tab" id="t-files" data-tab="files" aria-controls="p-files"><i data-lucide="folder-open"></i>Files</button>
+  </div>
+
+  <!-- Overview -->
+  <div id="p-overview" role="tabpanel" aria-labelledby="t-overview" class="tab-panel card-body">
+    <div class="split" style="gap:24px">
+      <div>
+        <div class="cluster" style="justify-content:space-between;margin-bottom:8px"><h3>Outcome by series</h3>
+          <div class="olegend"><span><i class="o-ok"></i>completed</span><span><i class="o-timeout"></i>timeout</span><span><i class="o-oom"></i>out of memory / error</span><span><i class="o-unsupported"></i>unsupported / limit</span><span><i class="o-skipped"></i>skipped</span></div>
+        </div>
+        {% for name, counts in info.series.items() %}
+          {% set tot = counts.values()|sum %}
+          <div class="series-row">
+            <span class="name">{{ m.marker(plot_styles.get(name)) }}<span title="{{ name }}">{{ plot_styles[name].label if plot_styles.get(name) else name }}</span></span>
+            {{ m.outcome_bar(counts, tot) }}
+            <span class="n">{{ '{:,}'.format(tot) }}</span>
+          </div>
+        {% endfor %}
+      </div>
+      <div class="stack" style="gap:16px">
+        <div>
+          <h3 style="margin-bottom:10px">Verification</h3>
+          {% if info.incorrect %}
+          <div class="callout danger"><i data-lucide="circle-x"></i><div><b>Incorrect results</b> (row count or hash differs from the reference closure):
+            <ul style="margin:6px 0 0;padding-left:18px">{% for k, gs in info.incorrect.items() %}<li><span class="mono">{{ k }}</span>: {{ gs|join(', ') }}</li>{% endfor %}</ul></div></div>
+          {% else %}
+          <div class="callout ok"><i data-lucide="shield-check"></i><div><b>Every completed run returned the correct closure.</b></div></div>
+          {% endif %}
+          {% if info.agreement %}
+          {% set agree = info.agreement.values()|selectattr('agree')|list|length %}
+          <div class="mt-4">
+            <div class="small ink-2" style="margin-bottom:6px">Scale-free and Barabási–Albert graphs (no reference closure): the systems agree on {{ agree }} of {{ info.agreement|length }} graph sizes.</div>
+            <div class="agree-grid">{% for k, a in info.agreement.items() %}<span class="{{ '' if a.agree else 'no' }}" title="{{ k }}: {{ a.systems }} series, {{ 'agree' if a.agree else 'disagree' }} ({{ a.count|join(', ') }} pairs)"></span>{% endfor %}</div>
+          </div>
+          {% endif %}
+        </div>
+        <div>
+          <h3 style="margin-bottom:10px">Environment</h3>
+          <dl class="dl small">
+            {% for k, v in info.versions.items() %}
+              <dt>{{ k }}</dt>
+              <dd class="mono" style="font-size:12px">{% if 'not found' in v %}<span style="color:var(--warn)">not captured</span>{% else %}{{ v|truncate(110) }}{% endif %}</dd>
+            {% else %}<dt>versions</dt><dd class="muted">no versions.txt</dd>{% endfor %}
+          </dl>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if info.has_analysis %}
+  <!-- Scaling -->
+  <div id="p-scaling" role="tabpanel" aria-labelledby="t-scaling" class="tab-panel card-body" hidden>
+    <div class="controls">
+      <div class="field"><label class="hint" for="sc-graph">Topology</label><select class="select" id="sc-graph">{% for g in graphs %}<option value="{{ g }}">{{ graph_labels.get(g, g) }}</option>{% endfor %}</select></div>
+      <div class="field"><label class="hint" for="sc-mode">Mode</label><select class="select" id="sc-mode">{% for md in (linear_modes + large_modes)|unique %}<option value="{{ md }}" {{ 'selected' if md == 'left_recursion' }}>{{ md }}</option>{% endfor %}</select></div>
+      <div class="field"><span class="hint">Measure</span><div class="seg" id="sc-metric"><button type="button" value="time" aria-pressed="true">Time</button><button type="button" value="memory" aria-pressed="false" {{ 'disabled' if not info.memory_runs }}>Memory</button></div></div>
+      <div class="field"><span class="hint">Axis</span><div class="seg" id="sc-scale"><button type="button" value="logarithmic" aria-pressed="true">Log</button><button type="button" value="linear" aria-pressed="false">Linear</button></div></div>
+    </div>
+    <div class="chart-box tall mt-4"><canvas id="sc-chart" aria-label="Scaling chart" role="img"></canvas></div>
+    <p class="hint mt-2" id="sc-note">Mean of the runs per size. Legend in the order the curves end (highest first); ✕ marks a failure{% if limit_s %}, drawn at the {{ limit_s|int }} s limit{% endif %}.</p>
+  </div>
+
+  <!-- Matrix -->
+  <div id="p-matrix" role="tabpanel" aria-labelledby="t-matrix" class="tab-panel card-body" hidden>
+    <div class="controls">
+      <div class="field"><span class="hint">Topologies</span><div class="seg" id="mx-family"><button type="button" value="linear" aria-pressed="true">Structured</button>{% if large_graphs %}<button type="button" value="large" aria-pressed="false">Scale-free &amp; BA</button>{% endif %}</div></div>
+      <div class="field" id="mx-n-field"><label class="hint" for="mx-n">Size n</label><select class="select" id="mx-n">{% for n in linear_sizes %}<option value="{{ n }}" {{ 'selected' if loop.last }}>{{ '{:,}'.format(n) }}</option>{% endfor %}</select></div>
+      <div class="field" id="mx-graph-field" hidden><label class="hint" for="mx-graph">Topology</label><select class="select" id="mx-graph">{% for g in large_graphs %}<option value="{{ g }}">{{ graph_labels.get(g, g) }}</option>{% endfor %}</select></div>
+      <div class="field"><label class="hint" for="mx-mode">Mode</label><select class="select" id="mx-mode"></select></div>
+      <div class="field"><span class="hint">Measure</span><div class="seg" id="mx-metric"><button type="button" value="time" aria-pressed="true">Time</button><button type="button" value="memory" aria-pressed="false" {{ 'disabled' if not info.memory_runs }}>Memory</button></div></div>
+      <span class="spacer"></span>
+      <div class="legend-scale"><span id="mx-min">fast</span><span class="bar"></span><span id="mx-max">slow</span></div>
+    </div>
+    <div class="matrix-wrap mt-4" id="mx-wrap"><div class="skeleton" style="height:320px"></div></div>
+    <div class="olegend mt-2"><span><i style="background:var(--warn-soft);box-shadow:inset 0 0 0 1px var(--warn)"></i>TO timeout</span><span><i style="background:var(--danger-soft);box-shadow:inset 0 0 0 1px var(--danger)"></i>OOM / error</span><span><i style="background:var(--muted-soft);box-shadow:inset 0 0 0 1px var(--muted)"></i>unsupported</span><span><i style="box-shadow:inset 0 0 0 1px var(--line-strong)"></i>skipped after a failure at a smaller n</span><span><i style="box-shadow:inset 0 0 0 2px var(--ok)"></i>fastest in the row</span><span>† incorrect result</span><span class="muted">Click a cell to see its curve.</span></div>
+  </div>
+
+  <!-- Figures -->
+  <div id="p-figures" role="tabpanel" aria-labelledby="t-figures" class="tab-panel card-body" hidden>
+    {% if figures %}
+    <div class="controls" style="margin-bottom:16px">
+      <div class="seg" id="fg-kind"><button type="button" value="pdf" aria-pressed="true">matplotlib</button><button type="button" value="tex_pdf" aria-pressed="false">pgfplots</button></div>
+      <div class="seg" id="fg-metric"><button type="button" value="all" aria-pressed="true">All</button><button type="button" value="elapsed" aria-pressed="false">Elapsed</button><button type="button" value="cpu" aria-pressed="false">CPU</button>{% if figures|selectattr('metric', 'equalto', 'memory')|list %}<button type="button" value="memory" aria-pressed="false">Memory</button>{% endif %}</div>
+      <span class="spacer"></span>
+      <label class="search" style="width:min(240px,100%)"><i data-lucide="search"></i><input class="input" id="fg-q" type="search" placeholder="Filter figures" aria-label="Filter figures" style="height:34px"></label>
+    </div>
+    <div class="grid grid-auto" id="fg-grid" style="grid-template-columns:repeat(auto-fill,minmax(230px,1fr))">
+      {% for f in figures %}
+      <button class="card fig" type="button" data-i="{{ loop.index0 }}" data-metric="{{ f.metric }}" data-q="{{ (f.name ~ ' ' ~ graph_labels.get(f.graph, f.graph))|lower }}" style="text-align:left;padding:0;font:inherit;color:inherit">
+        <div class="fig-thumb"><div class="skeleton"></div></div>
+        <div class="fig-meta"><span class="t">{{ graph_labels.get(f.graph, f.graph) }}</span><span class="chip">{{ f.metric }}</span></div>
+      </button>
+      {% endfor %}
+    </div>
+    {% else %}
+      {{ m.empty('No figures', 'Run analyze_verified.py on this campaign to draw them.') }}
+    {% endif %}
+  </div>
+
+  <!-- Failures -->
+  <div id="p-failures" role="tabpanel" aria-labelledby="t-failures" class="tab-panel" hidden>
+    {% if failures %}
+    <div class="card-body controls" style="padding-bottom:12px">
+      <div class="cluster" id="fl-kinds">
+        {% for k in failures|map(attribute='failure')|unique|sort %}<button type="button" class="chip {{ {'timeout': 'chip-warn', 'oom': 'chip-danger', 'error': 'chip-danger'}.get(k, 'chip-muted') }}" data-kind="{{ k }}" aria-pressed="true">{{ m.failure_label(k) }} · {{ failures|selectattr('failure', 'equalto', k)|list|length }}</button>{% endfor %}
+      </div>
+      <span class="spacer"></span>
+      <label class="search" style="width:min(260px,100%)"><i data-lucide="search"></i><input class="input" id="fl-q" type="search" placeholder="Filter by system, topology, message" aria-label="Filter failures" style="height:34px"></label>
+    </div>
+    <div class="table-wrap scroll-y" style="border-top:1px solid var(--line)">
+      <table class="table" data-sortable id="fl-table">
+        <thead><tr><th class="sortable" data-type="text">Series</th><th class="sortable" data-type="text">Topology</th><th class="sortable" data-type="text">Mode</th><th class="sortable r">First failed n</th><th class="sortable" data-type="text">Kind</th><th>Message</th></tr></thead>
+        <tbody>
+          {% for f in failures %}
+          <tr class="fail-row" data-kind="{{ f.failure }}" data-q="{{ (f.series ~ ' ' ~ f.graph ~ ' ' ~ f.mode ~ ' ' ~ f.error)|lower }}" tabindex="0" title="Click to expand the message">
+            <td data-sort="{{ f.series }}">{{ m.system_name(f.series, plot_styles) }}</td>
+            <td style="white-space:nowrap">{{ graph_labels.get(f.graph, f.graph) }}</td>
+            <td class="mono">{{ f.mode.replace('_recursion', '') }}</td>
+            <td class="r mono" data-sort="{{ f.first_failed_n }}">{{ '{:,}'.format(f.first_failed_n|int) if f.first_failed_n else '—' }}</td>
+            <td data-sort="{{ f.failure }}">{{ m.failure_chip(f.failure) }}</td>
+            <td class="mono small muted"><div class="clip">{{ f.error }}</div></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div id="fl-empty" hidden>{{ m.empty('No failure matches', 'Change the kinds or the filter.') }}</div>
+    {% else %}
+      {{ m.empty('No failures', 'Every configuration of this campaign completed.') }}
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Files -->
+  <div id="p-files" role="tabpanel" aria-labelledby="t-files" class="tab-panel" hidden>
+    <div class="files" style="border-top:1px solid var(--line)">
+      <div class="file-list tree" role="listbox" aria-label="Files">
+        {% for f in files %}<button class="leaf" type="button" data-file="{{ f }}"><i data-lucide="{{ 'file-diff' if f.endswith('.patch') else 'file-text' }}"></i><span>{{ f }}</span></button>{% endfor %}
+        {% if info.has_analysis %}
+        <div class="nav-label" style="padding-left:8px">analysis/</div>
+        {% for f in ['summary.csv', 'failures.csv', 'verification.json'] %}<button class="leaf" type="button" data-file="{{ f }}"><i data-lucide="{{ 'sheet' if f.endswith('.csv') else 'file-json' }}"></i><span>{{ f }}</span></button>{% endfor %}
+        {% for t in tables %}<button class="leaf" type="button" data-file="{{ t }}"><i data-lucide="table"></i><span>{{ t }}</span></button>{% endfor %}
+        {% endif %}
+      </div>
+      <div class="viewer">
+        <div class="card-head" style="min-height:50px"><span class="mono" style="font-weight:600" id="fv-name">Choose a file</span>
+          <div class="cluster"><button class="btn btn-ghost btn-sm" type="button" id="fv-copy" hidden><i data-lucide="copy"></i>Copy</button><a class="btn btn-ghost btn-sm" id="fv-raw" target="_blank" rel="noopener" hidden><i data-lucide="external-link"></i>Raw</a></div></div>
+        <div id="fv-body" style="flex:1;display:flex;flex-direction:column">{{ m.empty('Pick a file', 'README, versions, the code patch the campaign ran with, and the analysis outputs.') }}</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<dialog id="lightbox" aria-label="Figure">
+  <div class="dialog-card wide">
+    <div class="card-head">
+      <div class="cluster"><b id="lb-title"></b><span class="chip" id="lb-metric"></span></div>
+      <div class="cluster">
+        <button class="btn btn-ghost btn-sm btn-icon" type="button" id="lb-prev" aria-label="Previous figure"><i data-lucide="chevron-left"></i></button>
+        <button class="btn btn-ghost btn-sm btn-icon" type="button" id="lb-next" aria-label="Next figure"><i data-lucide="chevron-right"></i></button>
+        <a class="btn btn-sm" id="lb-pdf" target="_blank" rel="noopener"><i data-lucide="file-down"></i>PDF</a>
+        <a class="btn btn-sm" id="lb-tex" target="_blank" rel="noopener"><i data-lucide="file-code"></i>.tex</a>
+        <button class="btn btn-ghost btn-sm btn-icon" type="button" data-close-dialog aria-label="Close"><i data-lucide="x"></i></button>
+      </div>
+    </div>
+    <div class="lightbox-stage" id="lb-stage"></div>
+  </div>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+(() => {
+  const NAME = {{ info.name | tojson }};
+  const STYLES = {{ plot_styles | tojson }};
+  const LABELS = {{ graph_labels | tojson }};
+  const FIGS = {{ figures | tojson }};
+  const SIZES = { linear: {{ linear_sizes | tojson }}, large: {{ large_sizes | tojson }} };
+  const MODES = { linear: {{ linear_modes | tojson }}, large: {{ large_modes | tojson }} };
+  const LIMIT = {{ (limit_s or 'null') | tojson }};
+  const fileUrl = (f) => `/campaigns/${encodeURIComponent(NAME)}/file/${f}`;
+  const $ = TB.$; const $$ = TB.$$;
+  const sysLabel = (s) => (STYLES[s] ? STYLES[s].label : s);
+  const segVal = (id) => ($(`#${id} [aria-pressed="true"]`) || {}).value;
+
+  // wall-clock span
+  const first = {{ info.first | tojson }}; const last = {{ info.last | tojson }};
+  if (first && last) {
+    const h = (new Date(last) - new Date(first)) / 3.6e6;
+    $('#span').textContent = h >= 48 ? `${(h / 24).toFixed(1)} days` : `${h.toFixed(1)} h`;
+  }
+
+  // ── Scaling chart ───────────────────────────────────────────────
+  let chart = null;
+  async function drawScaling() {
+    if (!$('#sc-chart')) return;
+    const graph = $('#sc-graph').value; const mode = $('#sc-mode').value;
+    const metric = segVal('sc-metric'); const scale = segVal('sc-scale');
+    const d = await fetch(`/api/campaigns/${NAME}/series?graph=${graph}&mode=${mode}&metric=${metric}`).then((r) => r.json());
+    TB.chartTheme();
+    const ink = TB.cssVar('--ink');
+    const last = {};
+    const sets = [];
+    Object.entries(d.series).forEach(([s, pts]) => {
+      const st = STYLES[s] || {};
+      const color = st.color || ink;
+      const ok = pts.filter((p) => p.status === 'ok' && p.value !== null).map((p) => ({ x: p.n, y: p.value, sd: p.sd }));
+      const fail = pts.find((p) => p.status !== 'ok' && p.status !== 'skipped');
+      if (!ok.length && !fail) return;
+      const data = ok.slice();
+      if (fail && metric === 'time' && LIMIT) data.push({ x: fail.n, y: LIMIT, failure: fail.failure || fail.status });
+      last[s] = data.length ? [data[data.length - 1].x, data[data.length - 1].y] : [0, 0];
+      sets.push({
+        key: s, label: st.label || s, data, borderColor: color, backgroundColor: color,
+        pointStyle: data.map((p) => (p.failure ? 'crossRot' : st.pointStyle || 'circle')),
+        pointRotation: st.rotation || 0, pointRadius: data.map((p) => (p.failure ? 8 : 3.5)), pointHoverRadius: 6,
+        pointBorderWidth: data.map((p) => (p.failure ? 2.5 : 1)),
+        borderDash: st.dashed ? [6, 4] : [], borderWidth: 1.8, tension: 0.15,
+        segment: { borderDash: (c) => (c.p1.raw && c.p1.raw.failure ? [2, 3] : undefined) },
+      });
+    });
+    // legend order = order of the last points, highest first (engine/plot_style.py legend_order)
+    sets.sort((a, b) => (last[b.key][1] - last[a.key][1]) || (last[b.key][0] - last[a.key][0]));
+    const cfg = {
+      type: 'line',
+      data: { datasets: sets },
+      options: {
+        responsive: true, maintainAspectRatio: false, parsing: false, interaction: { mode: 'nearest', intersect: false },
+        scales: {
+          x: { type: 'linear', title: { display: true, text: 'n' }, grid: { color: TB.cssVar('--line') } },
+          y: { type: scale, title: { display: true, text: metric === 'time' ? 'time' : 'memory used' }, grid: { color: TB.cssVar('--line') },
+            ticks: { callback: (v) => { if (scale === 'logarithmic' && !/^(1|2|5)$/.test(String(v / 10 ** Math.floor(Math.log10(v))).slice(0, 1))) return ''; return metric === 'time' ? TB.fmtSeconds(v) : `${TB.fmt(v, 1)} MB`; } } },
+        },
+        plugins: {
+          legend: { position: 'right', labels: { padding: 12 } },
+          tooltip: { callbacks: { label: (c) => (c.raw.failure ? `${c.dataset.label}: ${c.raw.failure} at n=${c.raw.x.toLocaleString()}` : `${c.dataset.label}: ${metric === 'time' ? TB.fmtSeconds(c.raw.y) : `${TB.fmt(c.raw.y, 1)} MB`}${c.raw.sd ? ` ± ${metric === 'time' ? TB.fmtSeconds(c.raw.sd) : TB.fmt(c.raw.sd, 1)}` : ''}`) } },
+        },
+      },
+    };
+    if (window.innerWidth < 700) cfg.options.plugins.legend.position = 'bottom';
+    if (chart) chart.destroy();
+    chart = new Chart($('#sc-chart'), cfg);
+    $('#sc-note').hidden = false;
+  }
+  if ($('#sc-chart')) {
+    ['sc-graph', 'sc-mode'].forEach((id) => $(`#${id}`).addEventListener('change', drawScaling));
+    ['sc-metric', 'sc-scale'].forEach((id) => $(`#${id}`).addEventListener('segchange', drawScaling));
+    TB.onTheme(() => { if (chart) drawScaling(); });
+  }
+
+  // ── Matrix ──────────────────────────────────────────────────────
+  const SHORT = { timeout: 'TO', oom: 'OOM', unsupported: 'N/A', iteration_limit: 'LIMIT', killed: 'KILLED', error: 'ERR' };
+  function fillMxControls() {
+    const fam = segVal('mx-family');
+    $('#mx-n-field').hidden = fam === 'large';
+    $('#mx-graph-field').hidden = fam !== 'large';
+    const mode = $('#mx-mode').value || 'left_recursion';
+    $('#mx-mode').innerHTML = MODES[fam].map((md) => `<option ${md === mode ? 'selected' : ''}>${md}</option>`).join('');
+    if (fam === 'linear') {
+      const n = $('#mx-n').value;
+      $('#mx-n').innerHTML = SIZES.linear.map((s, i) => `<option value="${s}" ${String(s) === n || (!n && i === SIZES.linear.length - 1) ? 'selected' : ''}>${s.toLocaleString()}</option>`).join('');
+    }
+  }
+  const heat = (v, lo, hi) => {
+    if (v === null || lo === null) return null;
+    const t = hi > lo ? (Math.log(v) - Math.log(lo)) / (Math.log(hi) - Math.log(lo)) : 0.5;
+    return Math.max(0, Math.min(1, t));
+  };
+  const fmtCell = (v, metric) => (metric === 'time' ? TB.fmtSeconds(v) : `${TB.fmt(v, v < 10 ? 1 : 0)} MB`);
+  async function drawMatrix() {
+    const wrap = $('#mx-wrap');
+    if (!wrap) return;
+    const fam = segVal('mx-family'); const metric = segVal('mx-metric'); const mode = $('#mx-mode').value;
+    const q = fam === 'large' ? `family=large&graph=${$('#mx-graph').value}` : `family=linear&n=${$('#mx-n').value}`;
+    wrap.style.opacity = '.5';
+    const d = await fetch(`/api/campaigns/${NAME}/matrix?${q}&mode=${mode}&metric=${metric}`).then((r) => r.json());
+    wrap.style.opacity = '';
+    const rows = fam === 'large' ? d.rows.filter((r) => Object.keys(r.cells).length).map((r) => ({ key: r.n, label: `n = ${r.n.toLocaleString()}`, cells: r.cells })) : d.graphs.map((g) => ({ key: g, label: LABELS[g] || g, cells: d.cells[g] }));
+    const series = d.series;
+    if (!rows.length) { wrap.innerHTML = '<div class="empty"><h3>No data for this choice</h3><p>Try another size or mode.</p></div>'; return; }
+    $('#mx-min').textContent = d.min !== null ? fmtCell(d.min, metric) : '';
+    $('#mx-max').textContent = d.max !== null ? fmtCell(d.max, metric) : '';
+    let i = 0;
+    let html = `<table class="matrix"><thead><tr><th></th>${series.map((s) => `<th title="${TB.esc(s)}">${TB.marker(STYLES[s])}${TB.esc(sysLabel(s))}</th>`).join('')}</tr></thead><tbody>`;
+    rows.forEach((r) => {
+      const vals = series.map((s) => r.cells[s]).filter((c) => c && c.status === 'ok' && c.value !== null).map((c) => c.value);
+      const best = vals.length > 1 ? Math.min(...vals) : null;
+      html += `<tr><th>${TB.esc(r.label)}</th>`;
+      series.forEach((s) => {
+        const c = r.cells[s];
+        i += 1;
+        const data = `data-s="${TB.esc(s)}" data-r="${TB.esc(r.key)}"`;
+        if (!c) { html += `<td class="none" style="--i:${i}" ${data}>·</td>`; return; }
+        if (c.status === 'ok') {
+          if (c.value === null) { html += `<td class="none" style="--i:${i}" ${data} title="not measured">n/a</td>`; return; }
+          const t = heat(c.value, d.min, d.max);
+          const bg = `color-mix(in oklab, var(--heat-1) ${Math.round(t * 100)}%, var(--heat-0))`;
+          const fg = t > 0.55 ? 'var(--on-dark)' : 'var(--ink)';
+          const wrong = c.correct === 'False' || c.correct === false;
+          html += `<td class="${c.value === best ? 'best' : ''} ${wrong ? 'wrong' : ''}" style="--i:${i};background:${bg};color:${fg}" ${data}>${fmtCell(c.value, metric)}</td>`;
+        } else if (c.status === 'skipped') {
+          html += `<td class="fail f-skipped" style="--i:${i}" ${data}>${c.failure ? `${SHORT[c.failure] || c.failure}<sup>s</sup>` : 'skip'}</td>`;
+        } else {
+          const k = c.failure || c.status;
+          html += `<td class="fail f-${TB.esc(k)}" style="--i:${i}" ${data}>${SHORT[k] || TB.esc(k)}</td>`;
+        }
+      });
+      html += '</tr>';
+    });
+    wrap.innerHTML = `${html}</tbody></table>`;
+    wrap._data = { d, rows, fam, metric };
+  }
+  if ($('#mx-wrap')) {
+    const wrap = $('#mx-wrap');
+    wrap.addEventListener('mousemove', (e) => {
+      const td = e.target.closest('td[data-s]');
+      if (!td || !wrap._data) { TB.tip.hide(); return; }
+      const { rows, metric, fam } = wrap._data;
+      const r = rows.find((x) => String(x.key) === td.dataset.r);
+      const c = r && r.cells[td.dataset.s];
+      const head = `<b>${TB.esc(sysLabel(td.dataset.s))}</b> · ${TB.esc(fam === 'large' ? `${LABELS[$('#mx-graph').value] || ''}, ${r.label}` : `${r.label}, n = ${Number($('#mx-n').value).toLocaleString()}`)}`;
+      let body = '<span class="tip-dim">no configuration</span>';
+      if (c && c.status === 'ok') body = c.value === null ? '<span class="tip-dim">memory not measured for this system</span>' : `${metric === 'time' ? 'mean' : 'used'} <b>${fmtCell(c.value, metric)}</b>${c.sd ? ` ± ${metric === 'time' ? TB.fmtSeconds(c.sd) : `${TB.fmt(c.sd, 1)}`}` : ''} over ${c.runs} runs${metric === 'time' && c.mem_peak ? `<br><span class="tip-dim">peak memory ${TB.fmt(c.mem_peak, 0)} MB</span>` : ''}${c.correct === 'False' ? '<br>† incorrect result' : ''}<br><span class="tip-dim">mode ${TB.esc(c.mode)}</span>`;
+      else if (c && c.status === 'skipped') body = `skipped: a smaller n failed${c.failure ? ` (${TB.esc(c.failure)})` : ''}`;
+      else if (c) body = `failed: <b>${TB.esc(c.failure || c.status)}</b>`;
+      TB.tip.show(`${head}<br>${body}`, e.clientX, e.clientY);
+    });
+    wrap.addEventListener('mouseleave', () => TB.tip.hide());
+    wrap.addEventListener('click', (e) => {
+      const td = e.target.closest('td[data-s]');
+      if (!td || !$('#sc-graph')) return;
+      const fam = segVal('mx-family');
+      $('#sc-graph').value = fam === 'large' ? $('#mx-graph').value : td.dataset.r;
+      $('#sc-mode').value = $('#mx-mode').value;
+      $$('#sc-metric button').forEach((b) => b.setAttribute('aria-pressed', String(b.value === segVal('mx-metric'))));
+      $('#sc-metric')._place && $('#sc-metric')._place();
+      TB.tip.hide();
+      const already = drawn.has('scaling');
+      $('.tabs')._select('scaling');
+      if (already) drawScaling();
+    });
+    $('#mx-family').addEventListener('segchange', () => { fillMxControls(); drawMatrix(); });
+    $('#mx-metric').addEventListener('segchange', drawMatrix);
+    ['mx-n', 'mx-mode', 'mx-graph'].forEach((id) => $(`#${id}`).addEventListener('change', drawMatrix));
+    fillMxControls();
+  }
+
+  // ── Figures (first page rendered with pdf.js) ───────────────────
+  let figKind = 'pdf';
+  const figUrl = (f) => fileUrl(f[figKind] || f.pdf);
+  const pdfCache = {};
+  async function renderPdf(url, canvas, width) {
+    if (!window.pdfjsLib) throw new Error('pdf.js unavailable');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    pdfCache[url] = pdfCache[url] || pdfjsLib.getDocument(url).promise;
+    const doc = await pdfCache[url];
+    const page = await doc.getPage(1);
+    const v = page.getViewport({ scale: 1 });
+    const scale = (width * (window.devicePixelRatio || 1)) / v.width;
+    const vp = page.getViewport({ scale });
+    canvas.width = vp.width; canvas.height = vp.height;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+  }
+  const thumbIO = 'IntersectionObserver' in window ? new IntersectionObserver((ents) => {
+    ents.forEach((en) => { if (en.isIntersecting) { thumbIO.unobserve(en.target); loadThumb(en.target); } });
+  }, { rootMargin: '200px' }) : null;
+  async function loadThumb(card) {
+    const f = FIGS[+card.dataset.i];
+    const box = card.querySelector('.fig-thumb');
+    const cv = document.createElement('canvas');
+    try {
+      await renderPdf(figUrl(f), cv, box.clientWidth || 260);
+      box.innerHTML = ''; box.appendChild(cv);
+    } catch {
+      box.innerHTML = `<div class="empty" style="padding:24px"><p class="small">Preview unavailable</p></div>`;
+    }
+  }
+  function loadThumbs() { $$('#fg-grid .fig').forEach((c) => { c.querySelector('.fig-thumb').innerHTML = '<div class="skeleton"></div>'; if (thumbIO) thumbIO.observe(c); else loadThumb(c); }); }
+  let lbIndex = 0;
+  const visibleFigs = () => $$('#fg-grid .fig').filter((c) => !c.hidden).map((c) => +c.dataset.i);
+  async function openFig(i) {
+    lbIndex = i;
+    const f = FIGS[i];
+    $('#lb-title').textContent = LABELS[f.graph] || f.graph;
+    $('#lb-metric').textContent = f.metric;
+    $('#lb-pdf').href = figUrl(f);
+    $('#lb-tex').href = fileUrl(f.tex || '');
+    $('#lb-tex').hidden = !f.tex;
+    const stage = $('#lb-stage');
+    stage.innerHTML = '<div class="skeleton" style="width:80%;height:420px;margin:24px"></div>';
+    TB.openDialog($('#lightbox'));
+    const cv = document.createElement('canvas');
+    try { await renderPdf(figUrl(f), cv, Math.min(1000, stage.clientWidth || 900)); stage.innerHTML = ''; stage.appendChild(cv); } catch { stage.innerHTML = `<iframe class="viewer-frame" src="${figUrl(f)}" title="Figure"></iframe>`; }
+  }
+  const stepFig = (k) => { const v = visibleFigs(); if (!v.length) return; const pos = v.indexOf(lbIndex); openFig(v[(pos + k + v.length) % v.length]); };
+  if ($('#fg-grid')) {
+    $$('#fg-grid .fig').forEach((c) => c.addEventListener('click', () => openFig(+c.dataset.i)));
+    $('#lb-prev').addEventListener('click', () => stepFig(-1));
+    $('#lb-next').addEventListener('click', () => stepFig(1));
+    $('#lightbox').addEventListener('keydown', (e) => { if (e.key === 'ArrowLeft') stepFig(-1); if (e.key === 'ArrowRight') stepFig(1); });
+    const filterFigs = () => {
+      const m = segVal('fg-metric'); const q = $('#fg-q').value.trim().toLowerCase();
+      $$('#fg-grid .fig').forEach((c) => { c.hidden = !((m === 'all' || c.dataset.metric === m) && (!q || c.dataset.q.includes(q))); });
+    };
+    $('#fg-metric').addEventListener('segchange', filterFigs);
+    $('#fg-q').addEventListener('input', filterFigs);
+    $('#fg-kind').addEventListener('segchange', (e) => { figKind = e.detail.value; loadThumbs(); });
+  }
+
+  // ── Failures ────────────────────────────────────────────────────
+  if ($('#fl-table')) {
+    const apply = () => {
+      const on = new Set($$('#fl-kinds [aria-pressed="true"]').map((b) => b.dataset.kind));
+      const q = $('#fl-q').value.trim().toLowerCase();
+      let shown = 0;
+      $$('#fl-table tbody tr').forEach((tr) => { const ok = on.has(tr.dataset.kind) && (!q || tr.dataset.q.includes(q)); tr.hidden = !ok; shown += ok; });
+      $('#fl-empty').hidden = shown > 0;
+    };
+    $$('#fl-kinds button').forEach((b) => b.addEventListener('click', () => { b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true')); apply(); }));
+    $('#fl-q').addEventListener('input', apply);
+    $$('#fl-table tbody tr').forEach((tr) => {
+      const toggle = () => tr.classList.toggle('is-expanded');
+      tr.addEventListener('click', toggle);
+      tr.addEventListener('keydown', (e) => { if (e.key === 'Enter') toggle(); });
+    });
+  }
+
+  // ── Files ───────────────────────────────────────────────────────
+  let fvText = '';
+  function renderFile(name, text) {
+    fvText = text;
+    const body = $('#fv-body');
+    if (name.endsWith('.csv')) {
+      const rows = text.trim().split('\n').slice(0, 401).map((l) => l.split(','));
+      const head = rows.shift() || [];
+      body.innerHTML = `<div class="table-wrap scroll-y" style="max-height:620px"><table class="table"><thead><tr>${head.map((h) => `<th>${TB.esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c) => `<td class="mono small">${TB.esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>${text.split('\n').length > 402 ? '<p class="hint" style="padding:8px 16px">First 400 rows; open Raw for the rest.</p>' : ''}`;
+      return;
+    }
+    if (name.endsWith('.patch')) {
+      body.innerHTML = `<pre>${text.split('\n').map((l) => { const e = TB.esc(l); if (l.startsWith('diff --git') || l.startsWith('+++') || l.startsWith('---')) return `<span class="d-file">${e}</span>`; if (l.startsWith('@@')) return `<span class="d-hunk">${e}</span>`; if (l.startsWith('+')) return `<span class="d-add">${e}</span>`; if (l.startsWith('-')) return `<span class="d-del">${e}</span>`; return `${e}\n`; }).join('')}</pre>`;
+      return;
+    }
+    if (name.endsWith('.json')) { try { text = JSON.stringify(JSON.parse(text), null, 2); fvText = text; } catch { /* as is */ } }
+    body.innerHTML = `<pre>${TB.esc(text)}</pre>`;
+  }
+  $$('.file-list .leaf').forEach((b) => b.addEventListener('click', async () => {
+    $$('.file-list .leaf').forEach((x) => x.setAttribute('aria-current', String(x === b)));
+    const f = b.dataset.file;
+    $('#fv-name').textContent = f;
+    $('#fv-body').innerHTML = '<div style="padding:16px" class="stack"><div class="skeleton" style="height:14px;width:60%"></div><div class="skeleton" style="height:14px;width:85%"></div><div class="skeleton" style="height:14px;width:70%"></div></div>';
+    const r = await fetch(fileUrl(f));
+    if (!r.ok) { $('#fv-body').innerHTML = '<div class="empty"><h3>Could not load the file</h3></div>'; return; }
+    renderFile(f, await r.text());
+    $('#fv-raw').href = fileUrl(f); $('#fv-raw').hidden = false; $('#fv-copy').hidden = false;
+  }));
+  $('#fv-copy').addEventListener('click', (e) => TB.copyText(fvText, null));
+
+  // panels draw on first view
+  const drawn = new Set();
+  const onTab = (id) => {
+    if (drawn.has(id)) return;
+    drawn.add(id);
+    if (id === 'scaling') drawScaling();
+    if (id === 'matrix') drawMatrix();
+    if (id === 'figures' && $('#fg-grid')) loadThumbs();
+    if (id === 'files') { const first = $('.file-list .leaf'); if (first) first.click(); }
+  };
+  $('.tabs').addEventListener('tabchange', (e) => onTab(e.detail.id));
+  const cur = $('.tabs [aria-selected="true"]');
+  if (cur) onTab(cur.dataset.tab);
+})();
+</script>
+{% endblock %}

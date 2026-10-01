@@ -22,6 +22,7 @@ import json
 import logging
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any, Callable, Optional
 
@@ -56,6 +57,8 @@ class ExperimentRunner:
         Recursion modes to benchmark.
     progress_cb : callable, optional
         Called with a progress dict on every step — used by the Web UI for SSE.
+    should_stop : callable, optional
+        Checked before each configuration; when it returns True the run ends there (the Web UI's Stop).
     """
 
     def __init__(
@@ -70,6 +73,7 @@ class ExperimentRunner:
         query_mode: str = 'full_materialization',
         progress_cb: Optional[Callable[[dict], None]] = None,
         domain_descriptor: Optional[DomainDescriptor] = None,
+        should_stop: Optional[Callable[[], bool]] = None,
     ):
         self.config = config
         self.systems = systems
@@ -79,6 +83,7 @@ class ExperimentRunner:
         self.domain = domain
         self.query_mode = query_mode  # full_materialization or demand_driven
         self.progress_cb = progress_cb
+        self.should_stop = should_stop  # checked between configurations (the UI's Stop button)
         self.timing_dir = Path(config.get('timing_dir', 'timing'))
         self.base_dir = Path(__file__).parent.parent
 
@@ -130,6 +135,9 @@ class ExperimentRunner:
                         continue
 
                     for mode in self.modes:
+                        if self.should_stop and self.should_stop():
+                            self._emit_log('Stopped on request, after the last configuration finished.', 'warn')
+                            return
                         if mode not in system.modes:
                             done += 1
                             continue
@@ -158,7 +166,7 @@ class ExperimentRunner:
         config_str = json.dumps(self.config)
         subprocess.run(
             [
-                'python',
+                sys.executable,  # the interpreter running the suite, so its virtualenv is used
                 'generate_plot_table.py',
                 '--config',
                 config_str,
@@ -397,7 +405,7 @@ class ExperimentRunner:
             config_str = json.dumps(self.config)
             result = subprocess.run(
                 [
-                    'python',
+                    sys.executable,
                     'generate_db.py',
                     '--config',
                     config_str,

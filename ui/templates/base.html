@@ -2,98 +2,103 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>{% block title %}trans-bench{% endblock %} · Benchmark Suite</title>
-  <meta name="description" content="Plugin-driven transitive closure benchmarking for logic and database systems"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <title>{% block title %}Overview{% endblock %} · trans-bench</title>
+  <meta name="description" content="Benchmark suite for transitive closure across logic engines and database systems"/>
+  <meta name="color-scheme" content="light dark"/>
+  <script>
+    /* theme before first paint: auto | light | dark */
+    (function () { try { var p = localStorage.getItem('tb-theme') || 'auto'; document.documentElement.setAttribute('data-theme-pref', p); if (p !== 'auto') document.documentElement.setAttribute('data-theme', p); } catch (e) {} })();
+  </script>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2310141b'/%3E%3Cpath d='M9 22L16 10L23 22' fill='none' stroke='%23fff' stroke-width='2'/%3E%3Cpath d='M9 22L23 22' stroke='%238199ff' stroke-width='2' stroke-dasharray='2 2.5'/%3E%3Ccircle cx='9' cy='22' r='3' fill='%23fff'/%3E%3Ccircle cx='16' cy='10' r='3' fill='%23fff'/%3E%3Ccircle cx='23' cy='22' r='3' fill='%23fff'/%3E%3C/svg%3E"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
-  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}?v={{ range(1, 1000000) | random }}"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..700&family=Geist:wght@400..700&family=Geist+Mono:wght@400..600&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}?v={{ asset_version }}"/>
   {% block head %}{% endblock %}
 </head>
 <body>
+{% set ep = request.endpoint or '' %}
+{% macro nav(endpoint, icon, label, active) -%}
+<a class="nav-link" href="{{ url_for(endpoint) }}" {% if active %}aria-current="page"{% endif %}><i data-lucide="{{ icon }}"></i><span>{{ label }}</span></a>
+{%- endmacro %}
+<a class="skip-link" href="#main">Skip to content</a>
 
-<!-- Sidebar Navigation -->
-<nav class="sidebar" id="sidebar">
-  <div class="sidebar-brand">
-    <div class="brand-icon">
-      <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="13" stroke="url(#bg)" stroke-width="2"/><path d="M8 14 L14 8 L20 14 L14 20 Z" fill="url(#bg)" opacity="0.8"/><defs><linearGradient id="bg" x1="0" y1="0" x2="28" y2="28"><stop offset="0%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#8b5cf6"/></linearGradient></defs></svg>
-    </div>
-    <div class="brand-text">
-      <span class="brand-name">trans-bench</span>
-      <span class="brand-tag">v2.0 · plugin-driven</span>
-    </div>
-  </div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <marker id="tb-arrow" viewBox="0 0 6 6" refX="4.6" refY="3" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M0 0.4L6 3L0 5.6z" style="fill: context-stroke" fill="#7a8192"/>
+    </marker>
+  </defs>
+</svg>
 
-  <ul class="nav-list">
-    {% set ep = request.endpoint %}
-    <li class="nav-item {% if ep == 'dashboard' %}active{% endif %}">
-      <a href="{{ url_for('dashboard') }}" class="nav-link">
-        <i data-lucide="layout-dashboard" class="nav-icon-svg"></i>
-        <span>Dashboard</span>
-      </a>
-    </li>
-    <li class="nav-item {% if 'system' in (ep or '') %}active{% endif %}">
-      <a href="{{ url_for('systems_list') }}" class="nav-link">
-        <i data-lucide="server" class="nav-icon-svg"></i>
-        <span>Systems</span>
-      </a>
-    </li>
-    <li class="nav-item {% if 'experiment' in (ep or '') %}active{% endif %}">
-      <a href="{{ url_for('experiment_new') }}" class="nav-link">
-        <i data-lucide="play-circle" class="nav-icon-svg"></i>
-        <span>Run Experiment</span>
-      </a>
-    </li>
-    <li class="nav-item {% if ep == 'results' %}active{% endif %}">
-      <a href="{{ url_for('results') }}" class="nav-link">
-        <i data-lucide="bar-chart-2" class="nav-icon-svg"></i>
-        <span>Results</span>
-      </a>
-    </li>
-    <li class="nav-item {% if ep in ('new_domain', 'new_system', 'new_graph') %}active{% endif %}">
-      <a href="{{ url_for('new_system') }}" class="nav-link">
-        <i data-lucide="plus-circle" class="nav-icon-svg"></i>
-        <span>Add System</span>
-      </a>
-    </li>
-  </ul>
-
-  <div class="nav-footer">
-    <a href="https://github.com/Sirneij/trans-bench" target="_blank" class="nav-link">
-      <i data-lucide="github" class="nav-icon-svg"></i>
-      <span>GitHub</span>
+<div class="app">
+  <aside class="sidebar" id="sidebar" aria-label="Main navigation">
+    <a class="brand" href="{{ url_for('dashboard') }}">
+      <svg class="brand-mark" viewBox="0 0 30 30" aria-hidden="true" fill="none" stroke-width="1.8">
+        <path class="bm-edge" d="M7 21L15 7L23 21"/>
+        <path class="bm-close" d="M7 21H23" stroke-dasharray="2.4 2.6"/>
+        <circle class="bm-node" cx="7" cy="21" r="3.4"/><circle class="bm-node" cx="15" cy="7" r="3.4"/><circle class="bm-node" cx="23" cy="21" r="3.4"/>
+      </svg>
+      <div>
+        <div class="brand-name">trans-bench</div>
+        <div class="brand-sub">transitive closure benchmarks</div>
+      </div>
     </a>
-  </div>
-</nav>
 
-<!-- Main Content -->
-<main class="main-content" id="main">
-  <header class="topbar">
-    <button class="menu-btn" onclick="toggleSidebar()" aria-label="Toggle menu">☰</button>
-    <div class="topbar-title">{% block page_title %}{% endblock %}</div>
-    <div class="topbar-actions">
-      {% if experiment_running is defined and experiment_running %}
-        <a href="{{ url_for('experiment_live') }}" class="badge badge-running pulse">● Running</a>
-      {% endif %}
+    <nav class="nav">
+      <span class="nav-indicator" aria-hidden="true"></span>
+      {{ nav('dashboard', 'layout-dashboard', 'Overview', ep == 'dashboard') }}
+      {{ nav('campaigns_list', 'flask-conical', 'Campaigns', ep.startswith('campaign')) }}
+      {{ nav('results', 'chart-line', 'Results explorer', ep in ('results', 'result_detail')) }}
+      <div class="nav-label">Configure</div>
+      {{ nav('systems_list', 'database', 'Systems', ep in ('systems_list', 'system_detail', 'new_system')) }}
+      {{ nav('graphs_list', 'share-2', 'Topologies', ep in ('graphs_list', 'graph_detail', 'new_graph')) }}
+      {{ nav('new_domain', 'boxes', 'Domains', ep == 'new_domain') }}
+      <div class="nav-label">Run</div>
+      {{ nav('experiment_new', 'play', 'New experiment', ep == 'experiment_new') }}
+      <a class="nav-link" href="{{ url_for('experiment_live') }}" {% if ep == 'experiment_live' %}aria-current="page"{% endif %}>
+        <i data-lucide="activity"></i><span>Live monitor</span>
+        {% if experiment_running %}<span class="nav-count"><span class="live-dot" title="An experiment is running"></span></span>{% endif %}
+      </a>
+    </nav>
+
+    <div class="sidebar-foot">
+      <a class="nav-link" href="https://github.com/Sirneij/trans-bench" target="_blank" rel="noopener"><i data-lucide="github"></i><span>Source on GitHub</span><i data-lucide="arrow-up-right" style="width:14px;height:14px;margin-left:auto"></i></a>
+      <div class="env-mini"><kbd>⌘</kbd><kbd>K</kbd> jump anywhere · <kbd>n</kbd> new run · <kbd>t</kbd> theme</div>
     </div>
-  </header>
+  </aside>
+  <div class="sidebar-scrim" aria-hidden="true"></div>
 
-  <div class="content-area">
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% for cat, msg in messages %}
-        <div class="alert alert-{{ cat }}">{{ msg }}</div>
-      {% endfor %}
-    {% endwith %}
+  <div class="main">
+    <header class="topbar">
+      <button class="btn btn-ghost btn-icon menu-btn" type="button" aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false"><i data-lucide="menu"></i></button>
+      <nav class="crumbs" aria-label="Breadcrumb">
+        {% block crumbs %}<span aria-current="page">{{ self.title() }}</span>{% endblock %}
+      </nav>
+      <div class="topbar-actions">
+        <span id="run-slot">{% if experiment_running and ep != 'experiment_live' %}<a class="run-chip" href="{{ url_for('experiment_live') }}"><span class="live-dot"></span>Running</a>{% endif %}</span>
+        <button class="btn btn-sm search-btn" type="button" data-palette aria-label="Search (⌘K)"><i data-lucide="search"></i><span class="lbl">Search</span><span class="kbd hide-sm">⌘K</span></button>
+        <button class="btn btn-ghost btn-icon btn-sm theme-btn" type="button" data-theme-toggle aria-label="Switch theme (auto, light, dark)" title="Theme: auto → light → dark">
+          <i data-lucide="sun" class="i-sun"></i><i data-lucide="moon" class="i-moon"></i><i data-lucide="sun-moon" class="i-auto"></i>
+        </button>
+      </div>
+    </header>
 
-    {% block content %}{% endblock %}
+    <main class="content" id="main" tabindex="-1">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for cat, msg in messages %}
+          <div class="callout {{ 'danger' if cat == 'error' else cat }}" style="margin-bottom:16px"><i data-lucide="info"></i><div>{{ msg }}</div></div>
+        {% endfor %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </main>
   </div>
-</main>
+</div>
 
-<!-- Toast container -->
-<div id="toast-container"></div>
-
-<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}?v={{ asset_version }}"></script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

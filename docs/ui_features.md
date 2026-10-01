@@ -1,27 +1,57 @@
-# Trans-Bench Platform Features
+# Web UI
 
-The Trans-Bench Web UI provides a comprehensive, end-to-end platform for orchestrating, executing, and analyzing complex transitive closure benchmarks across diverse database and logic systems. 
+`python transitive.py --ui` (add `--ui-port 5055` on macOS, where AirPlay Receiver uses port 5000) serves the UI from
+`ui/app.py`. Templates are in `ui/templates/`, the design system in `ui/static/css/app.css` (colour, type, spacing and
+motion tokens with light and dark values) and the shared behaviour in `ui/static/js/app.js` (`window.TB`). Data shaping
+for the pages lives in `ui/data.py`.
 
-## 1. Experiment Orchestration & Execution
-- **Wizard-Based Setup**: Seamlessly define benchmark parameters including graph topologies (Path, Cycle, Clique, Tree, etc.), target node sizes, and timeout limits.
-- **Variant Selection**: Benchmark different rule evaluation strategies by selecting between Left, Right, and Double recursion modes.
-- **Cross-Engine Benchmarking**: Run simultaneous benchmarks across Graph Databases (Neo4j), Relational Databases (PostgreSQL, DuckDB, MariaDB), and Datalog/Prolog engines (Soufflé, XSB, Clingo, Alda).
+## Verified campaigns (`/campaigns`)
 
-## 2. Live Benchmark Monitoring
-- **Real-Time Execution Tracking**: Monitor the live status of running benchmarks with progress indicators tracking distinct phases (Data Generation, Loading, Indexing, and Querying).
-- **Live Terminal Stream**: Inspect standard output directly from the underlying engine instances during execution to trace exact commands and quickly catch runtime failures or timeouts.
+A campaign is a directory `results/<name>/` with one `<series>/runs.jsonl` per system, written by `benchmark.py`, and
+the `analysis/` that `analyze_verified.py` produces from it. Each campaign page has:
 
-## 3. System Configuration & Query Management
-- **Integrated Rule IDE**: An embedded code editor allows you to directly view, modify, and save system-specific queries and rules (`.sql`, `.py`, `.P`, `.dl`) without leaving the browser.
-- **Credential Management**: Securely configure and update connection strings, user credentials, and engine-specific flags via an integrated YAML editor.
-- **System Architecture Mapping**: View exactly which protocols, input formats, and timing phases map to each individual benchmarking target.
+- **Overview**: runs executed, completed, failed (by kind: timeout, out of memory, unsupported, iteration limit, error)
+  and skipped after a failure, per series; whether every completed run returned the correct closure
+  (`verification.json`), cross-system agreement on the scale-free and Barabási–Albert graphs, and the captured versions.
+- **Scaling**: mean time or memory against n for one topology and mode, one curve per system in its paper colour and
+  marker, failures drawn as ✕ at the time limit, legend in the order the curves end (`engine/plot_style.py`).
+- **Matrix**: a heat map of every topology × system at one size (or every size × system for the scale-free and
+  Barabási–Albert graphs), log-scaled, with TO/OOM/unsupported cells, skipped cells marked with their cause, the fastest
+  system per row outlined and incorrect results flagged. Clicking a cell opens its curve.
+- **Figures**: the matplotlib and pgfplots PDFs of the paper, rendered with pdf.js, with a keyboard-navigable viewer.
+- **Failures**: `failures.csv`, filterable by kind and text, sortable, with the full error message on click.
+- **Files**: README, versions, pip freeze, the code patch the campaign ran with (as a diff), `summary.csv`,
+  `failures.csv`, `verification.json` and the LaTeX tables.
 
-## 4. Advanced Result Analysis & Visualization
-- **Scaling Performance Comparison**: Dynamically generate stacked bar charts to analyze how different systems handle increasing graph sizes.
-- **Side-by-Side Variant Analysis**: Compare multiple recursion modes simultaneously (e.g., Left vs. Right recursion side-by-side) to evaluate query optimizer behavior under varying algorithmic constraints.
-- **Phase Trend Tracking**: Isolate specific execution phases (e.g., Query Time vs. Data Load Time) to see performance trajectories via multi-line charts. 
-- **Intelligent Phase Mapping**: The system automatically normalizes metrics across fundamentally different architectures (e.g., intelligently mapping Neo4j's "Write Result" to a Datalog engine's "Evaluation Time" for fair Query-phase comparisons).
+JSON behind these views: `/api/campaigns/<name>/matrix` and `/api/campaigns/<name>/series`.
 
-## 5. Graph Topology Explorer
-- **Mathematical Definitions**: Review the exact set-theoretic formulas and structural rules defining each graph type.
-- **Implementation Inspection**: Dynamically extract and inspect the raw Python code responsible for generating the synthetic graph datasets directly from the `DataGenerator` core.
+## Experiments started from the UI
+
+- **New experiment** (`/experiment/new`): systems → topologies (each with a drawing) → settings (domain, modes, sizes,
+  runs) → review. The review shows the number of runs and the equivalent `transitive.py` command, and a `benchmark.py`
+  loop for a verified campaign. Links from a system or topology page preselect it (`?systems=`, `?graphs=`).
+- **Live monitor** (`/experiment/live`): progress ring, elapsed and remaining time, the configuration being run,
+  configurations finished per system, and the output stream with level filters, search, follow, download and clear.
+  **Stop** ends the run after the configuration that is running (`ExperimentRunner(should_stop=...)`).
+- **Results explorer** (`/results`): the timing CSVs of `transitive.py` runs. Compare systems phase by phase (stacked
+  bars per mode) or as a trend of one phase, in real time, CPU time or memory; open a file to see each run and the
+  average.
+
+## Configuration
+
+- **Systems** (`/systems`, `/systems/<name>`): connector, detected version, modes and credential status; the timing
+  phases with the one reported as query time highlighted; editors for `descriptor.yaml` (validated before saving), the
+  rule files and `credentials.yaml` (hidden until revealed). ⌘S saves; unsaved editors are marked and guarded.
+- **Topologies** (`/graphs`, `/graphs/<name>`): every graph family drawn from its own generator; on a topology page the
+  size can be changed and the pairs the transitive closure adds can be overlaid; the formal definition (KaTeX) and the
+  generator's source.
+- **Register a system**, **Add a topology**, **Domains**: forms that bootstrap a system from an existing one, a graph
+  descriptor (with a generator stub to implement) or a query domain from a template.
+
+## Interaction
+
+- ⌘K or `/` opens a command palette (pages, actions, systems, topologies, campaigns); `g` then `d`/`s`/`t`/`c`/`r`/`l`
+  jumps to a page, `n` starts a new experiment, `t` cycles the theme (system, light, dark).
+- Confirmations and messages are in-page dialogs and toasts; the top bar shows when an experiment is running.
+- Motion (page transitions, staggered reveals, count-ups, drawn edges, animated tabs and steps) respects
+  `prefers-reduced-motion`. The layout works down to phone width, with the navigation in a drawer.

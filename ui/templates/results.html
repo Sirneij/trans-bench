@@ -1,840 +1,258 @@
-{% extends "base.html" %} {% block title %}Results{% endblock %} {% block
-page_title %}Experiment Results{% endblock %} {% block head %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-{% endblock %} {% block content %}
+{% extends "base.html" %}
+{% import '_macros.html' as m %}
+{% block title %}Results explorer{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  .explorer { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 16px; align-items: start; }
+  .explorer-side { position: sticky; top: 76px; max-height: calc(100vh - 96px); display: flex; flex-direction: column; }
+  .explorer-side .tree { overflow-y: auto; flex: 1; }
+  .controls { display: flex; flex-wrap: wrap; gap: 14px 18px; align-items: flex-end; }
+  .controls .select { height: 34px; min-width: 170px; background-position: calc(100% - 17px) 14px, calc(100% - 12px) 14px; }
+  .chipset { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chipset .chip { height: 28px; padding: 0 10px; }
+  .mode-chart { border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; background: var(--surface-2); min-width: 0; }
+  .mode-chart h4 { font-size: var(--fs-sm); text-transform: uppercase; letter-spacing: .06em; color: var(--ink-2); margin-bottom: 8px; }
+  .phase-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: var(--fs-xs); color: var(--ink-2); }
+  .phase-legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; margin-right: 6px; vertical-align: -1px; }
+  @media (max-width: 1000px) { .explorer { grid-template-columns: minmax(0, 1fr); } .explorer-side { position: static; max-height: 360px; } }
+</style>
+{% endblock %}
+
+{% block content %}
+{% call m.page_head('Results explorer', 'Timing files written by transitive.py under timing/, ' ~ file_count ~ ' in total. Compare systems phase by phase, or open a file to see every run.', 'Results', 'chart-line') %}
+  <a class="btn" href="{{ url_for('campaigns_list') }}"><i data-lucide="flask-conical"></i>Verified campaigns</a>
+{% endcall %}
 
 {% if tree %}
-<div class="ide-container">
-  <!-- LEFT SIDEBAR -->
-  <div class="ide-sidebar">
-    <div class="ide-sidebar-header">
-      <span style="color: var(--accent)">🗂️</span> Data Explorer
+<div class="explorer">
+  <aside class="card explorer-side" aria-label="Timing files">
+    <div class="card-head" style="min-height:0;padding:12px">
+      <label class="search" style="width:100%"><i data-lucide="search"></i><input class="input" id="tree-q" type="search" placeholder="Filter files" aria-label="Filter files" style="height:34px"></label>
     </div>
-    <div class="ide-sidebar-body">
+    <div class="tree" id="tree">
       {% for domain_name, systems in tree.items() %}
-      <details class="tree-system" open>
-        <summary>
-          <span class="tree-icon">▶</span>
-          <span style="color: var(--accent); font-weight: bold"
-            >[Domain] {{ domain_name }}</span
-          >
-        </summary>
-        <div
-          style="
-            padding-left: 12px;
-            border-left: 1px solid rgba(255, 255, 255, 0.05);
-            margin-left: 12px;
-          "
-        >
+      <details open data-node>
+        <summary><i data-lucide="chevron-right" class="chev"></i><i data-lucide="boxes"></i>{{ domain_name }}</summary>
+        <div class="branch">
           {% for system_name, graphs in systems.items() %}
-          <details class="tree-system" open>
-            <summary>
-              <span class="tree-icon">▶</span>
-              <span style="color: var(--text)">{{ system_name }}</span>
-              <span class="tree-badge"
-                >{{ graphs.values()|map('length')|sum }}</span
-              >
-            </summary>
-
-            {% for graph_name, files in graphs.items() %}
-            <details class="tree-graph">
-              <summary>
-                <span class="tree-icon">▶</span>
-                <span>{{ graph_name }}</span>
-                <span
-                  class="tree-badge"
-                  style="background: transparent; opacity: 0.5"
-                  >{{ files|length }}</span
-                >
-              </summary>
-              <div class="tree-files">
-                {% for fname in files %}
-                <button
-                  class="tree-file-btn"
-                  onclick="loadResult('{{ domain_name }}', '{{ system_name }}', '{{ graph_name }}', '{{ fname }}', this)"
-                >
-                  <span style="font-size: 0.9rem">📊</span>
-                  <span
-                    style="
-                      overflow: hidden;
-                      text-overflow: ellipsis;
-                      white-space: nowrap;
-                    "
-                    title="{{ fname }}"
-                    >{{ fname }}</span
-                  >
-                </button>
-                {% endfor %}
-              </div>
-            </details>
-            {% endfor %}
+          <details data-node data-system="{{ system_name }}">
+            <summary><i data-lucide="chevron-right" class="chev"></i>{{ m.marker(plot_styles.get(system_name)) }}{{ plot_styles[system_name].label if plot_styles.get(system_name) else system_name }}<span class="count">{{ graphs.values()|map('length')|sum }}</span></summary>
+            <div class="branch">
+              {% for graph_name, files in graphs.items() %}
+              <details data-node>
+                <summary><i data-lucide="chevron-right" class="chev"></i><i data-lucide="share-2"></i>{{ graph_labels.get(graph_name, graph_name) }}<span class="count">{{ files|length }}</span></summary>
+                <div class="branch">
+                  {% for fname in files %}
+                  <button class="leaf" type="button" data-domain="{{ domain_name }}" data-system="{{ system_name }}" data-graph="{{ graph_name }}" data-file="{{ fname }}" data-q="{{ (domain_name ~ ' ' ~ system_name ~ ' ' ~ graph_name ~ ' ' ~ fname)|lower }}"><i data-lucide="file-spreadsheet"></i><span title="{{ fname }}">{{ fname }}</span></button>
+                  {% endfor %}
+                </div>
+              </details>
+              {% endfor %}
+            </div>
           </details>
           {% endfor %}
         </div>
       </details>
       {% endfor %}
     </div>
-  </div>
+  </aside>
 
-  <!-- RIGHT MAIN AREA -->
-  <div class="ide-main">
-    <div class="ide-tabs">
-      <button
-        class="ide-tab active"
-        id="tab-trend"
-        onclick="switchView('trend')"
-      >
-        <span>📈</span> Trend Analysis
-      </button>
-      <button
-        class="ide-tab"
-        id="tab-file"
-        onclick="switchView('file')"
-        disabled
-        title="Select a file from the Data Explorer to enable this view"
-      >
-        <span>📄</span> File Viewer
-      </button>
+  <section class="card" style="min-width:0">
+    <div class="tabs" role="tablist" aria-label="Views" style="padding:0 12px">
+      <button class="tab" role="tab" id="t-compare" data-tab="compare" aria-controls="p-compare" aria-selected="true"><i data-lucide="chart-column-stacked"></i>Compare systems</button>
+      <button class="tab" role="tab" id="t-file" data-tab="file" aria-controls="p-file"><i data-lucide="file-spreadsheet"></i><span id="file-tab-label">File</span></button>
     </div>
 
-    <!-- VIEW: TREND ANALYSIS (now contains Stacked & Line charts) -->
-    <div id="view-trend" class="ide-content active">
-      <div class="trend-header-container">
-        <h2 class="trend-title">
-          Scaling Performance Comparison
-        </h2>
-        <p class="trend-subtitle">
-          Compare execution times across different graph sizes and systems.
-        </p>
+    <div id="p-compare" role="tabpanel" aria-labelledby="t-compare" class="tab-panel card-body">
+      <div class="controls">
+        <div class="field"><label class="hint" for="c-domain">Domain</label><select class="select" id="c-domain">{% for d in all_domains %}<option>{{ d }}</option>{% endfor %}</select></div>
+        <div class="field"><label class="hint" for="c-graph">Topology</label><select class="select" id="c-graph">{% for g in all_graphs %}<option value="{{ g }}">{{ graph_labels.get(g, g) }}</option>{% endfor %}</select></div>
+        <div class="field"><span class="hint">Chart</span><div class="seg" id="c-view"><button type="button" value="stacked" aria-pressed="true"><i data-lucide="chart-column-stacked"></i>Phases</button><button type="button" value="line" aria-pressed="false"><i data-lucide="chart-line"></i>Trend</button></div></div>
+        <div class="field"><span class="hint">Measure</span><div class="seg" id="c-metric"><button type="button" value="RealTime" aria-pressed="true">Real</button><button type="button" value="CPUTime" aria-pressed="false">CPU</button><button type="button" value="MaxRAM_MB" aria-pressed="false">Memory</button></div></div>
+        <div class="field" id="phase-field" hidden><label class="hint" for="c-phase">Phase</label><select class="select" id="c-phase"><option value="Query">Query</option><option value="LoadFacts">Loading</option><option value="Total">Total</option></select></div>
       </div>
-
-      <div class="sub-tabs">
-        <button
-          class="sub-tab active"
-          id="subtab-stacked"
-          onclick="switchSubView('stacked')"
-        >
-          Stacked Comparison
-        </button>
-        <button
-          class="sub-tab"
-          id="subtab-line"
-          onclick="switchSubView('line')"
-        >
-          Phase Trends
-        </button>
+      <div class="grid grid-2 mt-4" style="gap:14px 24px">
+        <div class="field"><span class="hint">Modes</span><div class="chipset" id="c-modes">{% for md in all_modes %}<button type="button" class="chip chip-accent" data-v="{{ md }}" aria-pressed="{{ 'true' if loop.first else 'false' }}">{{ md.replace('_recursion', '') }}</button>{% endfor %}</div></div>
+        <div class="field"><span class="hint cluster" style="justify-content:space-between">Systems <span class="cluster" style="gap:10px"><button type="button" class="btn btn-ghost btn-sm" data-pick="all" style="height:22px;padding:0 6px">all</button><button type="button" class="btn btn-ghost btn-sm" data-pick="logic" style="height:22px;padding:0 6px">logic</button><button type="button" class="btn btn-ghost btn-sm" data-pick="db" style="height:22px;padding:0 6px">databases</button></span></span>
+          <div class="chipset" id="c-systems">{% for s in all_systems %}<button type="button" class="chip chip-outline" data-v="{{ s }}" data-cat="{{ categories.get(s, '') }}" aria-pressed="true">{{ m.marker(plot_styles.get(s)) }}{{ plot_styles[s].label if plot_styles.get(s) else s }}</button>{% endfor %}</div></div>
       </div>
+      <div id="c-out" class="mt-6"></div>
+    </div>
 
-      <div class="trend-form-section">
-        <div class="results-filter-grid">
-          <div class="form-group">
-            <label class="results-filter-label">Domain</label>
-            <select id="trend-domain" class="results-select trend-select-full">
-              {% for d in all_domains %}
-              <option value="{{ d }}">{{ d }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="results-filter-label">Graph Type</label>
-            <select id="trend-graph-type" class="results-select trend-select-full">
-              {% for g in all_graphs %}
-              <option value="{{ g }}">{{ g }}</option>
-              {% endfor %}
-            </select>
-          </div>
+    <div id="p-file" role="tabpanel" aria-labelledby="t-file" class="tab-panel card-body" hidden>
+      <div id="f-empty">{{ m.empty('No file open', 'Pick a timing file on the left to see each run and the average.') }}</div>
+      <div id="f-view" hidden>
+        <div class="cluster" style="justify-content:space-between;margin-bottom:12px">
+          <div><div class="mono" style="font-weight:600" id="f-name"></div><div class="small muted" id="f-path"></div></div>
+          <div class="cluster"><div class="seg" id="f-metric"><button type="button" value="RealTime" aria-pressed="true">Real</button><button type="button" value="CPUTime" aria-pressed="false">CPU</button><button type="button" value="MaxRAM_MB" aria-pressed="false">Memory</button></div><button class="btn btn-sm" type="button" id="f-copy"><i data-lucide="copy"></i>Copy CSV</button></div>
         </div>
-        <div class="form-group trend-form-group">
-          <label class="results-filter-label">Modes <span class="trend-filter-note">(Multiple selection for stacked view)</span></label>
-          <div class="mode-checks trend-mode-checks">
-            {% for m in all_modes %}
-            <label class="results-check-label">
-              <input type="checkbox" class="trend-mode-check" value="{{ m }}" {% if loop.first %}checked{% endif %} />
-              {{ m }}
-            </label>
-            {% endfor %}
-          </div>
-        </div>
-
-        <div
-          id="phase-selector-container"
-          class="form-group trend-form-group"
-          style="display: none"
-        >
-          <label class="results-filter-label">Phase to Plot</label>
-          <select id="trend-phase" class="results-select trend-select-full">
-            <option value="Query">Query / Execute / WriteResult</option>
-            <option value="LoadFacts">Load Facts / Data</option>
-            <option value="Total">Total Runtime</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <div class="trend-systems-header">
-            <label class="results-filter-label trend-no-margin">Systems to Compare</label>
-            <label class="results-check-label trend-no-margin" id="logic-systems-toggle-container">
-              <input type="checkbox" id="logic-systems-only" checked onchange="toggleLogicSystems()" />
-              <span class="trend-logic-toggle-text">Logic Systems Only</span>
-            </label>
-          </div>
-          <div class="mode-checks trend-mode-checks">
-            {% for s in all_systems %}
-            <label class="results-check-label sys-check-label" data-sys="{{ s }}">
-              <input type="checkbox" class="trend-system-check" value="{{ s }}" checked />
-              {{ s }}
-            </label>
-            {% endfor %}
-          </div>
-        </div>
+        <div class="chart-box"><canvas id="f-chart" role="img" aria-label="Runs of this file"></canvas></div>
+        <div class="table-wrap scroll-y mt-4" style="border:1px solid var(--line);border-radius:var(--radius)"><table class="table" id="f-table"></table></div>
       </div>
-
-      <div class="trend-actions">
-        <span id="compare-loading" class="trend-loading-text" style="display:none;">⏳ Generating…</span>
-        <button onclick="generateTrendChart()" class="btn btn-primary" id="compare-btn">
-          Generate Comparison
-        </button>
-      </div>
-
-      <div id="trend-chart-container" class="trend-chart-container" style="display: none;">
-        <div class="trend-chart-header">
-          <h3 id="chart-title" class="trend-chart-title">
-            Performance Trend
-          </h3>
-          <div class="mode-checks trend-metric-toggles">
-            <label class="check-inline trend-check-inline-item">
-              <input
-                type="radio"
-                name="chart-metric"
-                value="RealTime"
-                checked
-                onchange="updateTrendMetric()"
-              />
-              Real Time
-            </label>
-            <label class="check-inline trend-check-inline-item">
-              <input
-                type="radio"
-                name="chart-metric"
-                value="CPUTime"
-                onchange="updateTrendMetric()"
-              />
-              CPU Time
-            </label>
-            <label class="check-inline trend-check-inline-last">
-              <input
-                type="radio"
-                name="chart-metric"
-                value="MaxRAM_MB"
-                onchange="updateTrendMetric()"
-              />
-              Memory (MB)
-            </label>
-          </div>
-        </div>
-        <div id="trend-legend"></div>
-        <div id="charts-wrapper" class="trend-charts-wrapper">
-          <!-- Canvases will be injected here -->
-        </div>
-      </div>
-    </div> <!-- END view-trend -->
-
-    <!-- VIEW: FILE VIEWER -->
-    <div id="view-file" class="ide-content">
-      <div class="file-viewer-header">
-        <h3 id="data-panel-title" class="file-viewer-title">—</h3>
-        <p id="data-panel-subtitle" class="file-viewer-subtitle">—</p>
-      </div>
-
-      <div class="file-viewer-chart-box">
-        <div class="file-viewer-canvas-wrap">
-          <canvas id="result-chart"></canvas>
-        </div>
-      </div>
-
-      <h4 class="file-viewer-raw-title">Raw Data</h4>
-      <div class="table-scroll file-viewer-table-scroll">
-        <table class="data-table" id="result-table">
-          <thead id="result-thead"></thead>
-          <tbody id="result-tbody"></tbody>
-        </table>
-      </div>
-    </div> <!-- END view-file -->
-  </div> <!-- END ide-main -->
-</div> <!-- END ide-container -->
-{% else %}
-<div class="empty-state large" style="margin-top: 40px">
-  <div class="empty-icon">◉</div>
-  <h2>No results yet</h2>
-  <p>Run an experiment to generate timing data.</p>
-  <a
-    href="{{ url_for('experiment_new') }}"
-    class="btn btn-primary"
-    style="margin-top: 16px"
-    >▷ Run Experiment</a
-  >
+    </div>
+  </section>
 </div>
-{% endif %} {% endblock %} {% block scripts %}
+{% else %}
+<div class="card">{{ m.empty('No timing files yet', 'Run an experiment from this UI or with transitive.py; its timing files appear here.', url_for('experiment_new'), 'New experiment', 'play') }}</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if tree %}
 <script>
-  let chartInstance = null;
-  let trendChartInstances = [];
-  let currentTrendData = null;
-  let currentTrendSystems = null;
-  let currentTrendModes = null;
-  let currentSubView = "stacked";
+(() => {
+  const STYLES = {{ plot_styles | tojson }};
+  const $ = TB.$; const $$ = TB.$$;
+  const label = (s) => (STYLES[s] ? STYLES[s].label : s);
+  const segVal = (id) => ($(`#${id} [aria-pressed="true"]`) || {}).value;
+  const pressed = (id) => $$(`#${id} [aria-pressed="true"]`).map((b) => b.dataset.v);
+  const PHASE_COLORS = ['#2747d6', '#10805b', '#c27c0e', '#b42d6a', '#5b6be0', '#0f8fa8', '#8a5a2b', '#6f42c1', '#4f7f1f', '#c1233d'];
+  const phaseColor = {}; let nextColor = 0;
+  const colorFor = (p) => (phaseColor[p] = phaseColor[p] || PHASE_COLORS[nextColor++ % PHASE_COLORS.length]);
+  const unit = (metric) => (metric === 'MaxRAM_MB' ? 'MB' : 's');
+  const fmtV = (v, metric) => (metric === 'MaxRAM_MB' ? `${TB.fmt(v, 1)} MB` : TB.fmtSeconds(v));
 
-  const LOGIC_SYSTEMS = ["xsb", "souffle", "clingo", "alda", "prolog"];
-
-  function toggleLogicSystems() {
-    const isLogicOnly = document.getElementById("logic-systems-only").checked;
-    document.querySelectorAll(".sys-check-label").forEach((label) => {
-      const sys = label.dataset.sys;
-      const checkbox = label.querySelector("input");
-      const isLogic = LOGIC_SYSTEMS.includes(sys);
-      if (isLogicOnly && !isLogic) {
-        checkbox.checked = false;
-      } else if (isLogicOnly && isLogic) {
-        checkbox.checked = true;
-      } else if (!isLogicOnly) {
-        checkbox.checked = true; // Select all when logic only is off
-      }
+  // ── tree ──────────────────────────────────────────────────────────
+  $('#tree-q').addEventListener('input', (e) => {
+    const q = e.target.value.trim().toLowerCase();
+    $$('#tree .leaf').forEach((l) => { l.hidden = !!q && !l.dataset.q.includes(q); });
+    $$('#tree details[data-node]').reverse().forEach((d) => {
+      const any = d.querySelector('.leaf:not([hidden])');
+      d.hidden = !any;
+      if (q && any) d.open = true;
     });
-  }
-
-  function switchSubView(view) {
-    currentSubView = view;
-    document
-      .querySelectorAll(".sub-tab")
-      .forEach((el) => el.classList.remove("active"));
-    document.getElementById(`subtab-${view}`).classList.add("active");
-
-    if (view === "line") {
-      document.getElementById("phase-selector-container").style.display =
-        "block";
-      document.getElementById("logic-systems-toggle-container").style.display =
-        "none";
-      // For line chart, only allow one mode to keep it readable, but we handle it in render
-    } else {
-      document.getElementById("phase-selector-container").style.display =
-        "none";
-      document.getElementById("logic-systems-toggle-container").style.display =
-        "block";
-    }
-
-    if (currentTrendData) {
-      renderTrendChart();
-    }
-  }
-
-  document.addEventListener("DOMContentLoaded", () => {
-    toggleLogicSystems();
   });
 
-  function stringToColor(str) {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++)
-      hash = str.charCodeAt(i) + ((hash << 5) - hash);
-    return `hsl(${Math.abs(hash) % 360}, 70%, 60%)`;
+  // ── compare ───────────────────────────────────────────────────────
+  let charts = [];
+  let timer;
+  const queue = () => { clearTimeout(timer); timer = setTimeout(compare, 180); };
+  function toggleChip(b, single) {
+    if (single) $$('button', b.parentElement).forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    else b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true'));
   }
+  $$('#c-modes .chip').forEach((b) => b.addEventListener('click', () => { toggleChip(b, segVal('c-view') === 'line'); queue(); }));
+  $$('#c-systems .chip').forEach((b) => b.addEventListener('click', () => { toggleChip(b, false); queue(); }));
+  $$('[data-pick]').forEach((b) => b.addEventListener('click', () => {
+    const k = b.dataset.pick;
+    $$('#c-systems .chip').forEach((c) => c.setAttribute('aria-pressed', String(k === 'all' || (k === 'logic' ? c.dataset.cat === 'logic' : c.dataset.cat !== 'logic'))));
+    queue();
+  }));
+  ['c-domain', 'c-graph', 'c-phase'].forEach((id) => $(`#${id}`).addEventListener('change', queue));
+  $('#c-metric').addEventListener('segchange', queue);
+  $('#c-view').addEventListener('segchange', () => {
+    const line = segVal('c-view') === 'line';
+    $('#phase-field').hidden = !line;
+    if (line) { const on = $$('#c-modes [aria-pressed="true"]'); on.slice(1).forEach((b) => b.setAttribute('aria-pressed', 'false')); if (!on.length) $('#c-modes .chip')?.setAttribute('aria-pressed', 'true'); }
+    queue();
+  });
 
-  function generateTrendChart() {
-    const domain = document.getElementById("trend-domain")
-      ? document.getElementById("trend-domain").value
-      : "transitive";
-    const graphType = document.getElementById("trend-graph-type").value;
-    const modes = Array.from(
-      document.querySelectorAll(".trend-mode-check:checked"),
-    ).map((cb) => cb.value);
-    const systems = Array.from(
-      document.querySelectorAll(".trend-system-check:checked"),
-    ).map((cb) => cb.value);
-
-    // Custom sort order: XSB, Clingo, Souffle
-    const preferredOrder = ["xsb", "clingo", "souffle"];
-    systems.sort((a, b) => {
-      let idxA = preferredOrder.indexOf(a.toLowerCase());
-      let idxB = preferredOrder.indexOf(b.toLowerCase());
-      if (idxA === -1) idxA = 999;
-      if (idxB === -1) idxB = 999;
-      return idxA - idxB || a.localeCompare(b);
-    });
-
-    if (!systems.length) { showToast("Select at least one system", "warn"); return; }
-    if (!modes.length)   { showToast("Select at least one mode", "warn"); return; }
-
-    // Show loading state
-    const btn = document.getElementById("compare-btn");
-    const spinner = document.getElementById("compare-loading");
-    if (btn) { btn.disabled = true; btn.textContent = "Generating…"; }
-    if (spinner) spinner.style.display = "inline";
-
-    const done = () => {
-      if (btn) { btn.disabled = false; btn.textContent = "Generate Comparison"; }
-      if (spinner) spinner.style.display = "none";
-    };
-
-    fetch("/api/compare/trends", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ domain, graph_type: graphType, modes, systems }),
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        done();
-        if (data.error) { showToast(data.error, "error"); return; }
-        if (!data.length) { showToast("No data found for this configuration.", "warn"); return; }
-        currentTrendData = data;
-        currentTrendSystems = systems;
-        currentTrendModes = modes;
-        renderTrendChart();
-      })
-      .catch((err) => {
-        done();
-        showToast("Failed to load trends", "error");
-        console.error(err);
-      });
+  function phaseValue(obj, phase, metric) {
+    if (!obj) return null;
+    if (phase === 'Total') return Object.keys(obj).filter((k) => k.endsWith(metric)).reduce((a, k) => a + obj[k], 0);
+    const keys = phase === 'Query' ? ['Query', 'ExecuteQuery', 'Evaluation', 'WriteResult'] : ['LoadFacts', 'LoadData', 'LoadRules', 'CreateTable'];
+    for (const k of keys) if (obj[k + metric] !== undefined) return obj[k + metric];
+    return null;
   }
-
-  function updateTrendMetric() {
-    if (currentTrendData) renderTrendChart();
-  }
-
-  function findPhaseValue(systemObj, requestedPhase, metric, sysName) {
-    if (!systemObj) return 0;
-
-    // Custom mapping logic
-    let targetKeys = [];
-    if (requestedPhase === "Query") {
-      if (sysName === "neo4j") targetKeys = ["WriteResult"];
-      else if (
-        sysName === "duckdb" ||
-        sysName === "postgres" ||
-        sysName === "mariadb" ||
-        sysName === "cockroachdb"
-      )
-        targetKeys = ["ExecuteQuery", "Query"];
-      else if (sysName === "alda") targetKeys = ["Evaluation"];
-      else targetKeys = ["Query"];
-    } else if (requestedPhase === "LoadFacts") {
-      targetKeys = ["LoadFacts", "LoadData", "LoadRules", "CreateTable"];
-    } else if (requestedPhase === "Total") {
-      // Sum all metric keys
-      let total = 0;
-      Object.keys(systemObj).forEach((k) => {
-        if (k.endsWith(metric)) total += systemObj[k];
-      });
-      return total;
-    } else {
-      targetKeys = [requestedPhase];
-    }
-
-    for (let tk of targetKeys) {
-      const key = tk + metric;
-      if (systemObj[key] !== undefined) return systemObj[key];
-      if (systemObj[tk] !== undefined) return systemObj[tk]; // Fallback if metric suffix missing
-    }
-    return 0;
-  }
-
-  function renderTrendChart() {
-    const data = currentTrendData;
-    const systems = currentTrendSystems;
-    const modes = currentTrendModes;
-    const metric = document.querySelector(
-      'input[name="chart-metric"]:checked',
-    ).value;
-
-    document.getElementById("trend-chart-container").style.display = "flex";
-    const wrapper = document.getElementById("charts-wrapper");
-
-    // Cleanup old chart instances
-    trendChartInstances.forEach((inst) => inst.destroy());
-    trendChartInstances = [];
-    wrapper.innerHTML = "";
-
+  async function compare() {
+    const out = $('#c-out');
+    const systems = pressed('c-systems'); const modes = pressed('c-modes');
+    charts.forEach((c) => c.destroy()); charts = [];
+    if (!systems.length || !modes.length) { out.innerHTML = '<div class="empty"><h3>Choose at least one system and one mode</h3></div>'; return; }
+    out.innerHTML = '<div class="skeleton" style="height:340px"></div>';
+    let data;
+    try {
+      data = await fetch('/api/compare/trends', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ domain: $('#c-domain').value, graph_type: $('#c-graph').value, modes, systems }) }).then((r) => r.json());
+    } catch { out.innerHTML = '<div class="empty"><h3>Could not load the data</h3></div>'; return; }
+    if (data.error || !data.length) { out.innerHTML = `<div class="empty"><h3>No data for this choice</h3><p>${TB.esc(data.error || 'None of the selected systems has timing files for this topology and mode.')}</p></div>`; return; }
+    TB.chartTheme();
+    const metric = segVal('c-metric');
     const sizes = data.map((d) => d.size);
-
-    if (currentSubView === "line") {
-      document.getElementById("chart-title").textContent =
-        "Phase Trend Analysis";
-      document.getElementById("trend-legend").innerHTML = ""; // Chart.js default legend is fine for line charts
-
-      // Create single canvas wrapper for line chart
-      const canvasWrap = document.createElement("div");
-      canvasWrap.style.cssText =
-        "position: relative; height: 500px; width: 100%;";
-      const canvas = document.createElement("canvas");
-      canvasWrap.appendChild(canvas);
-      wrapper.appendChild(canvasWrap);
-
-      const ctx = canvas.getContext("2d");
-
-      const selectedPhase = document.getElementById("trend-phase").value;
-      const modeToUse = modes[0]; // Line chart uses first selected mode
-
-      const datasets = [];
-      const colors = [
-        "#38bdf8",
-        "#8b5cf6",
-        "#ec4899",
-        "#10b981",
-        "#f59e0b",
-        "#ef4444",
-        "#a855f7",
-      ];
-
-      // one colour and point shape per system, the same in every chart (engine/plot_style.py)
-      const plotStyles = {{ plot_styles | tojson }};
-      systems.forEach((sys, i) => {
-        const st = plotStyles[sys] || { color: colors[i % colors.length], pointStyle: "circle", rotation: 0, dashed: false };
-        const phaseData = data.map((d) => {
-          if (d.modes[modeToUse] && d.modes[modeToUse][sys]) {
-            return findPhaseValue(
-              d.modes[modeToUse][sys],
-              selectedPhase,
-              metric,
-              sys,
-            );
-          }
-          return 0;
-        });
-
-        datasets.push({
-          label: `${(plotStyles[sys] || {}).label || sys} (${selectedPhase})`,
-          data: phaseData,
-          borderColor: st.color,
-          backgroundColor: st.color,
-          borderDash: st.dashed ? [6, 3] : [],
-          pointStyle: st.pointStyle,
-          rotation: st.rotation,
-          pointRadius: 4,
-          borderWidth: 2,
-          tension: 0.3,
-          fill: false,
-        });
-      });
-      // legend order = order of the last data points, top to bottom (engine/plot_style.py)
-      const lastValue = (ds) => { for (let k = ds.data.length - 1; k >= 0; k--) if (ds.data[k]) return ds.data[k]; return 0; };
-      datasets.sort((a, b) => lastValue(b) - lastValue(a));
-
-      const chart = new Chart(ctx, {
-        type: "line",
-        data: { labels: sizes.map((s) => `Size ${s}`), datasets: datasets },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          interaction: { mode: "index", intersect: false },
-          plugins: {
-            legend: { labels: { color: "#e2e8f0", usePointStyle: true } },
-            tooltip: {
-              callbacks: {
-                label: (ctx) => `${ctx.dataset.label}: ${ctx.raw.toFixed(4)} s`,
-              },
-            },
-          },
-          scales: {
-            x: {
-              ticks: { color: "#94a3b8" },
-              grid: { color: "rgba(255,255,255,0.05)" },
-            },
-            y: {
-              ticks: { color: "#94a3b8" },
-              grid: { color: "rgba(255,255,255,0.05)" },
-              title: { display: true, text: "Time (s)", color: "#94a3b8" },
-            },
-          },
-        },
-      });
-      trendChartInstances.push(chart);
-    } else {
-      // STACKED BAR CHART
-      document.getElementById("chart-title").textContent =
-        "Stacked Phase Comparison";
-
-      const phaseColors = {};
-
-      // First, determine all phases and colors globally for the legend
-      const globalSysPhases = {};
-      systems.forEach((sys) => (globalSysPhases[sys] = []));
-
-      data.forEach((d) => {
-        modes.forEach((mode) => {
-          systems.forEach((sys) => {
-            if (d.modes[mode] && d.modes[mode][sys]) {
-              Object.keys(d.modes[mode][sys]).forEach((p) => {
-                if (p.endsWith("RealTime") || p.endsWith("CPUTime")) {
-                  if (p.endsWith(metric)) {
-                    const basePhase = p.replace(metric, "");
-                    if (!globalSysPhases[sys].includes(basePhase)) {
-                      globalSysPhases[sys].push(basePhase);
-                      if (!phaseColors[basePhase])
-                        phaseColors[basePhase] = stringToColor(basePhase);
-                    }
-                  }
-                } else if (p === metric) {
-                  // For non-suffixed metrics like MaxRAM_MB, only include if it matches selected metric
-                  if (!globalSysPhases[sys].includes(p)) {
-                    globalSysPhases[sys].push(p);
-                    if (!phaseColors[p]) phaseColors[p] = stringToColor(p);
-                  }
-                }
-              });
-            }
-          });
-        });
-      });
-
-      // Build custom grouped HTML legend for stacked chart
-      const legendContainer = document.getElementById("trend-legend");
-      let legendHTML = '<div class="trend-legend-wrapper">';
-      systems.forEach((sys) => {
-        legendHTML += `<div class="trend-legend-sys-box">`;
-        legendHTML += `<strong class="trend-legend-sys-title">${sys}</strong>`;
-
-        [...globalSysPhases[sys]].reverse().forEach((basePhase) => {
-          const color = phaseColors[basePhase];
-          legendHTML += `
-          <div class="trend-legend-item">
-            <div class="trend-legend-color-box" style="background-color: ${color};"></div>
-            <span>${basePhase}</span>
-          </div>
-        `;
-        });
-        legendHTML += `</div>`;
-      });
-      legendHTML += "</div>";
-      legendContainer.innerHTML = legendHTML;
-
-      // Generate a chart for each mode
-      modes.forEach((mode) => {
-        const modeDatasets = [];
-
-        systems.forEach((sys) => {
-          const modeSysPhases = [];
-          data.forEach((d) => {
-            if (d.modes[mode] && d.modes[mode][sys]) {
-              Object.keys(d.modes[mode][sys]).forEach((p) => {
-                if (p.endsWith("RealTime") || p.endsWith("CPUTime")) {
-                  if (p.endsWith(metric)) {
-                    const bp = p.replace(metric, "");
-                    if (!modeSysPhases.includes(bp)) modeSysPhases.push(bp);
-                  }
-                } else if (p === metric) {
-                  // For non-suffixed metrics like MaxRAM_MB, only include if it matches selected metric
-                  if (!modeSysPhases.includes(p)) modeSysPhases.push(p);
-                }
-              });
-            }
-          });
-
-          modeSysPhases.forEach((basePhase) => {
-            const phaseData = data.map((d) => {
-              if (d.modes[mode] && d.modes[mode][sys]) {
-                if (d.modes[mode][sys][basePhase + metric] !== undefined)
-                  return d.modes[mode][sys][basePhase + metric];
-                if (d.modes[mode][sys][basePhase] !== undefined)
-                  return d.modes[mode][sys][basePhase];
-              }
-              return 0;
-            });
-
-            modeDatasets.push({
-              label: basePhase,
-              data: phaseData,
-              backgroundColor: phaseColors[basePhase],
-              stack: sys,
-            });
-          });
-        });
-
-        // Create DOM wrapper for this mode's chart
-        const modeWrap = document.createElement("div");
-        // If only 1 mode, full width. If 2 modes, 48% width. If >2, flex basis 30%.
-        const widthPct =
-          modes.length === 1
-            ? "100%"
-            : modes.length === 2
-              ? "calc(50% - 10px)"
-              : "calc(33.3% - 14px)";
-
-        modeWrap.style.cssText = `flex: 1 1 ${widthPct}; min-width: 300px; display: flex; flex-direction: column; background: rgba(0,0,0,0.2); border-radius: var(--radius); padding: 16px; border: 1px solid var(--border);`;
-
-        const title = document.createElement("div");
-        title.style.cssText =
-          "font-weight: 700; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.9rem; text-align: center; margin-bottom: 12px;";
-        title.innerText = mode.replace(/_/g, " ");
-        modeWrap.appendChild(title);
-
-        const canvasWrap = document.createElement("div");
-        canvasWrap.style.cssText =
-          "position: relative; height: 400px; width: 100%;";
-        const canvas = document.createElement("canvas");
-        canvasWrap.appendChild(canvas);
-        modeWrap.appendChild(canvasWrap);
-
-        wrapper.appendChild(modeWrap);
-
-        const ctx = canvas.getContext("2d");
-        const chart = new Chart(ctx, {
-          type: "bar",
-          data: {
-            labels: sizes.map((s) => `Size ${s}`),
-            datasets: modeDatasets,
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: { mode: "nearest", intersect: true },
-            plugins: {
-              legend: { display: false },
-              tooltip: {
-                callbacks: {
-                  title: (ctx) =>
-                    `Size: ${sizes[ctx[0].dataIndex]} | ${ctx[0].dataset.stack.toUpperCase()}`,
-                  label: (ctx) => `${ctx.dataset.label}: ${ctx.raw.toFixed(4)}`,
-                },
-              },
-            },
-            scales: {
-              x: {
-                stacked: true,
-                ticks: { color: "#94a3b8" },
-                grid: { color: "rgba(255,255,255,0.05)" },
-              },
-              y: {
-                stacked: true,
-                ticks: { color: "#94a3b8" },
-                grid: { color: "rgba(255,255,255,0.05)" },
-                title: { display: true, text: "Time (s)", color: "#94a3b8" },
-              },
-            },
-          },
-        });
-        trendChartInstances.push(chart);
-      });
+    const grid = { color: TB.cssVar('--line') };
+    if (segVal('c-view') === 'line') {
+      const mode = modes[0]; const phase = $('#c-phase').value;
+      const sets = systems.map((s) => {
+        const st = STYLES[s] || {}; const col = TB.seriesColor(st);
+        const pts = data.map((d) => ({ x: d.size, y: phaseValue(d.modes[mode] && d.modes[mode][s], phase, metric) })).filter((p) => p.y !== null);
+        return { label: label(s), data: pts, borderColor: col, backgroundColor: col, pointStyle: st.pointStyle || 'circle', pointRotation: st.rotation || 0, borderDash: st.dashed ? [6, 4] : [], pointRadius: 3.5, borderWidth: 1.8, tension: 0.15 };
+      }).filter((d) => d.data.length);
+      const lastY = (d) => d.data[d.data.length - 1].y;
+      sets.sort((a, b) => lastY(b) - lastY(a));
+      out.innerHTML = `<div class="small muted" style="margin-bottom:8px">${TB.esc(mode)} · ${phase === 'Query' ? 'query phase' : phase === 'Total' ? 'all phases' : 'loading phases'}</div><div class="chart-box tall"><canvas></canvas></div>`;
+      charts.push(new Chart(out.querySelector('canvas'), { type: 'line', data: { datasets: sets }, options: { responsive: true, maintainAspectRatio: false, parsing: false, interaction: { mode: 'nearest', intersect: false }, scales: { x: { type: 'linear', title: { display: true, text: 'n' }, grid }, y: { title: { display: true, text: unit(metric) }, grid } }, plugins: { legend: { position: window.innerWidth < 700 ? 'bottom' : 'right' }, tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${fmtV(c.raw.y, metric)}` } } } } }));
+      return;
     }
-  }
-
-  function renderChart(keys, rows) {
-    const ctx = document.getElementById("result-chart").getContext("2d");
-    if (chartInstance) chartInstance.destroy();
-
-    // Filter out the 'Average' row and use remaining rows
-    const dataRows = rows.filter((r) => r[keys[0]] !== "Average");
-    if (dataRows.length === 0) return;
-
-    const labels = dataRows.map((r) => r[keys[0]]);
-    const datasets = [];
-
-    // Create a dataset for each column except the first
-    const colors = ["#8b5cf6", "#ec4899", "#10b981", "#f59e0b", "#3b82f6"];
-
-    for (let i = 1; i < keys.length; i++) {
-      const key = keys[i];
-      // Attempt to convert values to float
-      const data = dataRows.map((r) => parseFloat(r[key]) || 0);
-      datasets.push({
-        label: key,
-        data: data,
-        borderColor: colors[(i - 1) % colors.length],
-        backgroundColor: colors[(i - 1) % colors.length] + "33",
-        borderWidth: 2,
-        tension: 0.3,
-        fill: true,
-      });
-    }
-
-    chartInstance = new Chart(ctx, {
-      type: "line",
-      data: { labels: labels, datasets: datasets },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { position: 'bottom', labels: { color: "#e2e8f0", boxWidth: 12, padding: 15 } },
-        },
-        scales: {
-          x: {
-            ticks: { color: "#94a3b8" },
-            grid: { color: "rgba(255,255,255,0.05)" },
-          },
-          y: {
-            ticks: { color: "#94a3b8" },
-            grid: { color: "rgba(255,255,255,0.05)" },
-            title: { display: true, text: "Time (s)", color: "#94a3b8" },
-          },
-        },
-      },
+    // stacked phases, one chart per mode
+    const phasesOf = (obj) => Object.keys(obj || {}).filter((k) => k.endsWith(metric)).map((k) => k.slice(0, -metric.length));
+    const all = new Set();
+    data.forEach((d) => modes.forEach((md) => systems.forEach((s) => phasesOf(d.modes[md] && d.modes[md][s]).forEach((p) => all.add(p)))));
+    const phases = [...all];
+    phases.forEach(colorFor);
+    out.innerHTML = `<div class="phase-legend" style="margin-bottom:12px">${phases.map((p) => `<span><i style="background:${colorFor(p)}"></i>${TB.esc(p)}</span>`).join('')}<span class="muted">· one bar per system, stacked by phase</span></div><div class="grid ${modes.length > 1 ? 'grid-2' : ''}" id="mode-charts"></div>`;
+    modes.forEach((md) => {
+      const box = document.createElement('div');
+      box.className = 'mode-chart';
+      box.innerHTML = `<h4>${TB.esc(md.replace(/_/g, ' '))}</h4><div class="chart-box"><canvas></canvas></div>`;
+      $('#mode-charts').appendChild(box);
+      const sets = [];
+      systems.forEach((s) => phases.forEach((p) => {
+        const vals = data.map((d) => { const o = d.modes[md] && d.modes[md][s]; return o && o[p + metric] !== undefined ? o[p + metric] : null; });
+        if (vals.some((v) => v)) sets.push({ label: `${label(s)} · ${p}`, data: vals, backgroundColor: colorFor(p), stack: s, borderRadius: 2, sys: s, phase: p });
+      }));
+      charts.push(new Chart(box.querySelector('canvas'), {
+        type: 'bar', data: { labels: sizes, datasets: sets },
+        options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'nearest', intersect: true },
+          scales: { x: { stacked: true, title: { display: true, text: 'n' }, grid: { display: false } }, y: { stacked: true, title: { display: true, text: unit(metric) }, grid } },
+          plugins: { legend: { display: false }, tooltip: { callbacks: { title: (c) => `n = ${c[0].label} · ${label(c[0].dataset.sys)}`, label: (c) => `${c.dataset.phase}: ${fmtV(c.raw, metric)}` } } } },
+      }));
     });
   }
+  TB.onTheme(() => compare());
 
-  function switchView(viewId) {
-    document
-      .querySelectorAll(".ide-content")
-      .forEach((el) => el.classList.remove("active"));
-    document
-      .querySelectorAll(".ide-tab")
-      .forEach((el) => el.classList.remove("active"));
-
-    document.getElementById(`view-${viewId}`).classList.add("active");
-    document.getElementById(`tab-${viewId}`).classList.add("active");
+  // ── file view ─────────────────────────────────────────────────────
+  let fchart = null; let fdata = null;
+  function drawFile() {
+    if (!fdata) return;
+    TB.chartTheme();
+    const metric = segVal('f-metric');
+    const cols = fdata.columns.slice(1).filter((c) => c.endsWith(metric));
+    const rows = fdata.rows.filter((r) => r[fdata.columns[0]] !== 'Average');
+    const sets = cols.map((c) => ({ label: c.slice(0, -metric.length), data: rows.map((r) => parseFloat(r[c]) || 0), backgroundColor: colorFor(c.slice(0, -metric.length)), borderRadius: 2 }));
+    if (fchart) fchart.destroy();
+    fchart = new Chart($('#f-chart'), { type: 'bar', data: { labels: rows.map((r) => `run ${r[fdata.columns[0]]}`), datasets: sets }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true, grid: { display: false } }, y: { stacked: true, title: { display: true, text: unit(metric) }, grid: { color: TB.cssVar('--line') } } }, plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${fmtV(c.raw, metric)}` } } } } });
   }
-
-  function loadResult(domain, system, graph, fname, btnElement) {
-    if (btnElement) {
-      document
-        .querySelectorAll(".tree-file-btn")
-        .forEach((el) => el.classList.remove("active"));
-      btnElement.classList.add("active");
-    }
-
-    fetch(`/results/data/${domain}/${system}/${graph}/${fname}`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.error) {
-          showToast("Error: " + d.error, "error");
-          return;
-        }
-        document.getElementById("data-panel-title").textContent = fname;
-        document.getElementById("data-panel-subtitle").textContent =
-          `[${domain}] ${system} / ${graph}`;
-        const rows = d.rows;
-        if (!rows.length) {
-          showToast("No data in file", "warn");
-          return;
-        }
-
-        const keys = d.columns || Object.keys(rows[0]);
-
-        // Update Table
-        document.getElementById("result-thead").innerHTML =
-          "<tr>" + keys.map((k) => `<th>${k}</th>`).join("") + "</tr>";
-        document.getElementById("result-tbody").innerHTML = rows
-          .map(
-            (row) =>
-              '<tr class="' +
-              (row[keys[0]] === "Average" ? "row-average" : "") +
-              '">' +
-              keys
-                .map((k) => {
-                  const val = parseFloat(row[k]);
-                  return `<td>${isNaN(val) ? row[k] : val.toFixed(4)}</td>`;
-                })
-                .join("") +
-              "</tr>",
-          )
-          .join("");
-
-        // Make active FIRST so container has dimensions
-        document.getElementById("tab-file").disabled = false;
-        switchView("file");
-
-        // Render Chart AFTER display block is set
-        renderChart(keys, rows);
-      })
-      .catch((err) => {
-        showToast("Failed to load data.", "error");
-        console.error(err);
-      });
+  async function openFile(btn) {
+    $$('#tree .leaf').forEach((l) => l.setAttribute('aria-current', String(l === btn)));
+    const { domain, system, graph, file } = btn.dataset;
+    const d = await fetch(`/results/data/${domain}/${system}/${graph}/${file}`).then((r) => r.json()).catch(() => ({ error: 'Could not load the file' }));
+    if (d.error) { TB.toast(d.error, 'error'); return; }
+    if (!d.rows.length) { TB.toast('The file has no rows', 'warn'); return; }
+    fdata = d;
+    $('#f-empty').hidden = true; $('#f-view').hidden = false;
+    $('#f-name').textContent = file;
+    $('#f-path').textContent = `${domain} / ${label(system)} / ${graph}`;
+    $('#file-tab-label').textContent = file.length > 28 ? `${file.slice(0, 26)}…` : file;
+    const keys = d.columns;
+    $('#f-table').innerHTML = `<thead><tr>${keys.map((k) => `<th class="${k === keys[0] ? '' : 'r'}">${TB.esc(k)}</th>`).join('')}</tr></thead><tbody>${d.rows.map((r) => `<tr class="${r[keys[0]] === 'Average' ? 'row-average' : ''}">${keys.map((k, i) => { const v = parseFloat(r[k]); return `<td class="${i ? 'r mono' : ''}">${i && !isNaN(v) ? v.toFixed(4) : TB.esc(r[k])}</td>`; }).join('')}</tr>`).join('')}</tbody>`;
+    $('.tabs')._select('file');
+    setTimeout(drawFile, 30);
   }
+  $$('#tree .leaf').forEach((b) => b.addEventListener('click', () => openFile(b)));
+  $('#f-metric').addEventListener('segchange', drawFile);
+  $('#f-copy').addEventListener('click', () => { if (fdata) TB.copyText([fdata.columns.join(','), ...fdata.rows.map((r) => fdata.columns.map((c) => r[c]).join(','))].join('\n')); });
+
+  // ?system=name preselects that system (link from a system page)
+  const want = new URLSearchParams(location.search).get('system');
+  if (want) {
+    const chips = $$('#c-systems .chip');
+    if (chips.some((c) => c.dataset.v === want)) chips.forEach((c) => c.setAttribute('aria-pressed', String(c.dataset.v === want)));
+    const node = $(`#tree details[data-system="${CSS.escape(want)}"]`);
+    if (node) node.open = true;
+  }
+  compare();
+})();
 </script>
+{% endif %}
 {% endblock %}

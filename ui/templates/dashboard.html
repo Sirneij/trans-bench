@@ -1,217 +1,148 @@
 {% extends "base.html" %}
-{% block title %}Dashboard{% endblock %}
-{% block page_title %}Dashboard{% endblock %}
-
-{% block head %}
-<style>
-.dash-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:20px}
-.g-12{grid-column:span 12}
-.g-8{grid-column:span 8}
-.g-4{grid-column:span 4}
-.g-3{grid-column:span 3}
-@media(max-width:1100px){.g-8{grid-column:span 12}.g-4{grid-column:span 12}}
-@media(max-width:700px){.g-3{grid-column:span 6}}
-@media(max-width:480px){.g-3{grid-column:span 12}}
-
-/* Welcome hero */
-.hero-card{
-  grid-column:span 12;
-  background:linear-gradient(135deg,rgba(56,189,248,0.08) 0%,rgba(129,140,248,0.06) 50%,rgba(52,211,153,0.04) 100%);
-  border:1px solid rgba(56,189,248,0.15);border-radius:var(--radius);
-  padding:40px 48px;position:relative;overflow:hidden;
-}
-.hero-card::before{
-  content:'';position:absolute;top:-60px;right:-60px;
-  width:300px;height:300px;border-radius:50%;
-  background:radial-gradient(circle,rgba(56,189,248,0.12),transparent 70%);
-  pointer-events:none;
-}
-.hero-card::after{
-  content:'';position:absolute;bottom:-80px;left:30%;
-  width:200px;height:200px;border-radius:50%;
-  background:radial-gradient(circle,rgba(129,140,248,0.1),transparent 70%);
-  pointer-events:none;
-}
-.hero-title{
-  font-size:2.8rem;font-weight:800;letter-spacing:-.04em;line-height:1.1;
-  background:linear-gradient(135deg,#fff 0%,#a5b4fc 60%,#38bdf8 100%);
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-  background-clip:text;margin-bottom:12px;
-}
-.hero-sub{font-size:1.05rem;color:rgba(240,246,252,.65);line-height:1.6;max-width:600px;margin-bottom:28px}
-.hero-cta{
-  display:inline-flex;align-items:center;gap:10px;padding:13px 26px;
-  background:linear-gradient(135deg,rgba(56,189,248,.25),rgba(129,140,248,.18));
-  border:1px solid rgba(56,189,248,.4);border-radius:12px;
-  color:var(--accent);font-weight:700;font-size:.95rem;text-decoration:none;
-  transition:all .25s var(--ease);
-}
-.hero-cta:hover{background:linear-gradient(135deg,rgba(56,189,248,.38),rgba(129,140,248,.28));box-shadow:0 8px 28px rgba(56,189,248,.25);transform:translateY(-2px);color:#fff}
-
-/* Stat cards */
-.stat-card{
-  border-radius:var(--radius);padding:24px 20px;text-align:center;
-  background:rgba(13,17,23,.75);border:1px solid var(--border);
-  backdrop-filter:blur(16px);transition:all .25s var(--ease);position:relative;overflow:hidden;
-}
-.stat-card::before{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;opacity:0;transition:opacity .25s;background:var(--accent-line,var(--accent))}
-.stat-card:hover{transform:translateY(-3px);border-color:var(--border2);box-shadow:0 12px 32px rgba(0,0,0,.4)}
-.stat-card:hover::before{opacity:1}
-.stat-num{font-size:2.4rem;font-weight:800;letter-spacing:-.05em;line-height:1;font-family:var(--mono)}
-.stat-lbl{font-size:.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:.09em;font-weight:700;margin-top:8px}
-
-/* Action cards */
-.action-card{
-  padding:26px 22px;border-radius:var(--radius);
-  background:rgba(13,17,23,.7);border:1px solid var(--border);
-  text-decoration:none;color:inherit;display:flex;flex-direction:column;
-  transition:all .25s var(--ease);position:relative;overflow:hidden;
-}
-.action-card::after{content:'';position:absolute;inset:0;border-radius:inherit;background:linear-gradient(135deg,rgba(255,255,255,.03),transparent);opacity:0;transition:opacity .25s}
-.action-card:hover{transform:translateY(-4px);border-color:var(--border2);box-shadow:0 20px 48px rgba(0,0,0,.5)}
-.action-card:hover::after{opacity:1}
-.acard-icon{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;font-size:1.6rem;margin-bottom:18px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.04);transition:transform .25s var(--spring)}
-.action-card:hover .acard-icon{transform:scale(1.1)}
-.acard-title{font-size:1rem;font-weight:700;color:var(--text);margin-bottom:6px}
-.acard-desc{font-size:.8rem;color:var(--text2);line-height:1.5}
-
-/* Graph chips */
-.graph-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
-.graph-chip{display:inline-flex;align-items:center;gap:7px;padding:7px 13px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:99px;font-size:.8rem;font-weight:500;color:var(--text2);text-decoration:none;transition:all .2s var(--ease)}
-.graph-chip:hover{background:rgba(56,189,248,.1);border-color:rgba(56,189,248,.25);color:var(--accent);transform:translateY(-1px)}
-
-/* Section headings */
-.section-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
-.section-title{font-size:1rem;font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px}
-.panel{background:rgba(13,17,23,.75);border:1px solid var(--border);border-radius:var(--radius);padding:24px;backdrop-filter:blur(16px)}
-
-/* Env rows */
-.env-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.03);font-size:.85rem}
-.env-key{color:var(--text3);font-weight:600}
-.env-val{color:var(--text);font-family:var(--mono);font-size:.82rem}
-
-/* Counter animation */
-@keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-.stat-num{animation:countUp .6s var(--ease) both}
-</style>
-{% endblock %}
+{% import '_macros.html' as m %}
+{% block title %}Overview{% endblock %}
 
 {% block content %}
+{% set latest = campaigns[0] if campaigns else None %}
 
-<!-- Hero -->
-<div class="hero-card" style="margin-bottom:20px;">
-  <h1 class="hero-title">Trans-Bench Engine</h1>
-  <p class="hero-sub">Plugin-driven benchmarking for transitive closure, shortest-path, reachability and beyond. Zero Python required to extend.</p>
-  <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
-    <a href="{{ url_for('experiment_new') }}" class="hero-cta">
-      <i data-lucide="play" style="width:17px;height:17px;"></i> Launch Experiment
-    </a>
-    {% if experiment_running %}
-    <a href="{{ url_for('experiment_live') }}" class="btn" style="padding:13px 22px;border-color:rgba(245,158,11,.3);color:#fbbf24;background:rgba(245,158,11,.08);">
-      <i data-lucide="activity" style="width:15px;height:15px;"></i> Live Monitor
-    </a>
-    {% endif %}
-  </div>
-</div>
-
-<!-- Stats row -->
-<div class="dash-grid" style="margin-bottom:20px;">
-  <div class="stat-card g-3" style="--accent-line:#38bdf8;">
-    <div class="stat-num" style="color:#38bdf8;">{{ systems|length }}</div>
-    <div class="stat-lbl">Systems</div>
-  </div>
-  <div class="stat-card g-3" style="--accent-line:#818cf8;">
-    <div class="stat-num" style="color:#818cf8;">{{ graph_types|length }}</div>
-    <div class="stat-lbl">Topologies</div>
-  </div>
-  <div class="stat-card g-3" style="--accent-line:#34d399;">
-    <div class="stat-num" style="color:#34d399;">{{ csv_count }}</div>
-    <div class="stat-lbl">Result Files</div>
-  </div>
-  <div class="stat-card g-3" style="--accent-line:#f59e0b;">
-    <div class="stat-num" style="color:#f59e0b;">{{ benchmarked_systems|length }}</div>
-    <div class="stat-lbl">Benchmarked</div>
-  </div>
-</div>
-
-<!-- Action cards -->
-<div class="dash-grid" style="margin-bottom:20px;">
-  <a href="{{ url_for('experiment_new') }}" class="action-card g-3" style="border-color:rgba(56,189,248,.15);">
-    <div class="acard-icon" style="background:rgba(56,189,248,.12);border-color:rgba(56,189,248,.2);">🚀</div>
-    <div class="acard-title">Launch Experiment</div>
-    <div class="acard-desc">Configure systems, graphs, modes and run a live benchmark.</div>
-  </a>
-  <a href="{{ url_for('results') }}" class="action-card g-3" style="border-color:rgba(129,140,248,.15);">
-    <div class="acard-icon" style="background:rgba(129,140,248,.12);border-color:rgba(129,140,248,.2);">📈</div>
-    <div class="acard-title">Trend Analysis</div>
-    <div class="acard-desc">Visualize scaling performance across systems and graph sizes.</div>
-  </a>
-  <a href="{{ url_for('systems_list') }}" class="action-card g-3" style="border-color:rgba(52,211,153,.15);">
-    <div class="acard-icon" style="background:rgba(52,211,153,.12);border-color:rgba(52,211,153,.2);">⚙️</div>
-    <div class="acard-title">Manage Systems</div>
-    <div class="acard-desc">Configure Datalog, SQL, and graph engines and credentials.</div>
-  </a>
-  <a href="{{ url_for('new_system') }}" class="action-card g-3" style="border-color:rgba(245,158,11,.15);">
-    <div class="acard-icon" style="background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.2);">➕</div>
-    <div class="acard-title">Add Target</div>
-    <div class="acard-desc">Integrate a new logic or database system as a benchmark target.</div>
-  </a>
-</div>
-
-<!-- Systems + Environment -->
-<div class="dash-grid" style="margin-bottom:20px;">
-  <div class="panel g-8">
-    <div class="section-head">
-      <div class="section-title"><i data-lucide="server" style="width:16px;height:16px;color:var(--accent);"></i> Active Systems</div>
-      <a href="{{ url_for('systems_list') }}" class="btn" style="padding:6px 14px;font-size:.8rem;">View all</a>
+<section class="card hero reveal" style="--i:0">
+  <div class="hero-copy">
+    <div class="eyebrow"><i data-lucide="sparkles" style="width:14px;height:14px"></i>trans-bench</div>
+    <h2>How fast does each system compute a transitive closure?</h2>
+    <p class="ink-2">Run the same recursive query on {{ systems|length }} logic engines and database systems over {{ graph_types|length }} graph topologies, verify every answer, and compare time and memory as the graphs grow.</p>
+    <div class="cluster mt-2">
+      <a class="btn btn-primary btn-lg" href="{{ url_for('experiment_new') }}"><i data-lucide="play"></i>New experiment</a>
+      {% if latest %}<a class="btn btn-lg" href="{{ url_for('campaign_detail', name=latest.name) }}"><i data-lucide="flask-conical"></i>Latest campaign</a>{% endif %}
+      {% if experiment_running %}<a class="run-chip" href="{{ url_for('experiment_live') }}"><span class="live-dot"></span>Experiment running</a>{% endif %}
     </div>
-    <div style="display:flex;flex-direction:column;gap:10px;">
-    {% for system in systems[:6] %}
-      <a href="{{ url_for('system_detail', name=system.name) }}" style="display:flex;align-items:center;gap:14px;padding:12px 14px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;text-decoration:none;transition:all .2s var(--ease);" onmouseover="this.style.borderColor='var(--border2)';this.style.background='rgba(255,255,255,.05)'" onmouseout="this.style.borderColor='var(--border)';this.style.background='rgba(255,255,255,.03)'">
-        <div style="width:36px;height:36px;border-radius:8px;background:{% if system.category|lower in ('sql','db','rdbms') %}rgba(56,189,248,.12){% else %}rgba(129,140,248,.12){% endif %};display:grid;place-items:center;font-size:.85rem;font-family:var(--mono);font-weight:700;color:{% if system.category|lower in ('sql','db','rdbms') %}#38bdf8{% else %}#818cf8{% endif %};">{{ system.name[:2].upper() }}</div>
-        <div style="flex:1;min-width:0;">
-          <div style="font-weight:600;color:var(--text);font-size:.88rem;">{{ system.display_name }}</div>
-          <div style="font-size:.75rem;color:var(--text3);font-family:var(--mono);">{{ system.protocol }} <span style="opacity:0.5;margin:0 4px;">|</span> {% if system.version == 'Unknown' %}<span style="color:#ef4444;font-weight:bold;" title="Version could not be detected">⚠ Unknown</span>{% else %}{{ system.version | truncate(25) }}{% endif %}</div>
+  </div>
+  <div class="hero-art" aria-hidden="true">
+    {# a path a→b→c→d; the dashed edges are what the closure adds #}
+    <svg class="closure" viewBox="0 0 360 200">
+      <path class="c" style="--i:0" d="M52 158 Q150 205 249 132" marker-end="url(#tb-arrow)"/>
+      <path class="c" style="--i:1" d="M168 64 Q245 28 306 66" marker-end="url(#tb-arrow)"/>
+      <path class="c" style="--i:2" d="M38 136 Q150 -30 307 64" marker-end="url(#tb-arrow)"/>
+      <path class="e" d="M52 144L148 76" marker-end="url(#tb-arrow)"/>
+      <path class="e" d="M164 80L252 118" marker-end="url(#tb-arrow)"/>
+      <path class="e" d="M268 116L314 82" marker-end="url(#tb-arrow)"/>
+      <circle class="n" cx="40" cy="150" r="13"/><text x="40" y="150">a</text>
+      <circle class="n" cx="155" cy="70" r="13"/><text x="155" y="70">b</text>
+      <circle class="n" cx="262" cy="124" r="13"/><text x="262" y="124">c</text>
+      <circle class="n" cx="320" cy="72" r="13"/><text x="320" y="72">d</text>
+    </svg>
+  </div>
+</section>
+
+<div class="grid grid-4 mt-4" data-stagger>
+  <div class="card kpi">
+    <div class="kpi-label"><i data-lucide="database"></i>Systems</div>
+    <div class="kpi-value" data-count="{{ systems|length }}">{{ systems|length }}</div>
+    <div class="kpi-sub">{{ systems|selectattr('category', 'equalto', 'logic')|list|length }} logic · {{ systems|rejectattr('category', 'equalto', 'logic')|list|length }} database</div>
+  </div>
+  <div class="card kpi">
+    <div class="kpi-label"><i data-lucide="share-2"></i>Topologies</div>
+    <div class="kpi-value" data-count="{{ graph_types|length }}">{{ graph_types|length }}</div>
+    <div class="kpi-sub">graph families with generators</div>
+  </div>
+  <div class="card kpi">
+    <div class="kpi-label"><i data-lucide="circle-check"></i>Verified runs</div>
+    <div class="kpi-value" data-count="{{ latest.ok if latest else 0 }}">{{ '{:,}'.format(latest.ok) if latest else 0 }}</div>
+    <div class="kpi-sub">{% if latest %}of {{ '{:,}'.format(latest.executed) }} executed in {{ latest.name }}{% else %}no campaign yet{% endif %}</div>
+  </div>
+  <div class="card kpi">
+    <div class="kpi-label"><i data-lucide="file-spreadsheet"></i>Result files</div>
+    <div class="kpi-value" data-count="{{ csv_count }}">{{ csv_count }}</div>
+    <div class="kpi-sub">timing CSVs from {{ benchmarked_systems|length }} systems</div>
+  </div>
+</div>
+
+<div class="split mt-4">
+  <section class="card reveal" style="--i:3">
+    <div class="card-head">
+      <h3><i data-lucide="flask-conical"></i>Campaigns</h3>
+      <a class="btn btn-ghost btn-sm" href="{{ url_for('campaigns_list') }}">All campaigns<i data-lucide="arrow-right"></i></a>
+    </div>
+    {% if campaigns %}
+      {% for c in campaigns[:3] %}
+      <a class="card-body" href="{{ url_for('campaign_detail', name=c.name) }}" style="display:block;color:inherit;{% if not loop.first %}border-top:1px solid var(--line){% endif %}">
+        <div class="cluster" style="justify-content:space-between">
+          <div style="min-width:0">
+            <div class="cluster"><b>{{ c.name }}</b>{% if loop.first %}<span class="chip chip-accent">latest</span>{% endif %}{% if c.memory_runs %}<span class="chip chip-outline"><i data-lucide="memory-stick"></i>memory</span>{% endif %}</div>
+            <div class="small muted mt-2" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ c.title }}</div>
+          </div>
+          <div class="small muted tabular" style="text-align:right">{{ '{:,}'.format(c.executed) }} runs<br>{{ (c.first or '')[:10] }}</div>
         </div>
-        <div class="badge {% if system.category|lower in ('sql','db','rdbms') %}badge-db{% else %}badge-logic{% endif %}">{{ system.category }}</div>
+        <div class="mt-4">{{ m.outcome_bar(c.total, c.executed + c.skipped) }}</div>
+        <div class="olegend mt-2">
+          <span><i class="o-ok"></i>{{ '{:,}'.format(c.ok) }} completed</span>
+          {% for k, v in c.failures.items() %}<span><i class="o-{{ k }}"></i>{{ v }} {{ m.failure_label(k)|lower }}</span>{% endfor %}
+          {% if c.skipped %}<span><i class="o-skipped"></i>{{ c.skipped }} skipped</span>{% endif %}
+        </div>
       </a>
-    {% endfor %}
-    </div>
-  </div>
-  <div class="panel g-4">
-    <div class="section-head">
-      <div class="section-title"><i data-lucide="monitor" style="width:16px;height:16px;color:var(--accent3);"></i> Environment</div>
-    </div>
-    <div>
-      <div class="env-row"><span class="env-key">OS</span><span class="env-val">{{ machine_info.os }}</span></div>
-      <div class="env-row"><span class="env-key">Arch</span><span class="env-val">{{ machine_info.arch }}</span></div>
-      <div class="env-row"><span class="env-key">CPUs</span><span class="env-val">{{ machine_info.cpu_count }}</span></div>
-      <div class="env-row" style="border:none;"><span class="env-key">Python</span><span class="env-val">{{ machine_info.python_version }}</span></div>
-    </div>
-    {% if experiment_running %}
-    <div style="margin-top:20px;padding:14px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:10px;display:flex;align-items:center;gap:10px;">
-      <div style="width:8px;height:8px;border-radius:50%;background:#f59e0b;animation:pulse 1.5s ease-in-out infinite;flex-shrink:0;"></div>
-      <div style="font-size:.82rem;color:#fbbf24;font-weight:600;">Experiment in progress</div>
-    </div>
+      {% endfor %}
+    {% else %}
+      {{ m.empty('No verified campaign yet', 'Run benchmark.py with --out results/<campaign>/<system> to record verified runs; the campaign appears here with its figures and failures.', url_for('experiment_new'), 'Plan a run', 'play') }}
     {% endif %}
-  </div>
+  </section>
+
+  <section class="card reveal" style="--i:4">
+    <div class="card-head">
+      <h3><i data-lucide="database"></i>Systems</h3>
+      <a class="btn btn-ghost btn-sm" href="{{ url_for('systems_list') }}">Manage<i data-lucide="arrow-right"></i></a>
+    </div>
+    <div style="padding:6px 8px">
+      {% for s in systems %}
+        {% set st = system_ui.get(s.name) %}
+        <a href="{{ url_for('system_detail', name=s.name) }}" class="cluster sys-row" style="flex-wrap:nowrap;padding:8px 10px;border-radius:9px;color:inherit">
+          {{ m.marker(st) }}
+          <span style="font-weight:550;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ s.display_name }}</span>
+          {% if latest and latest.series.get(s.name) %}
+            {% set ser = latest.series[s.name] %}{% set fails = ser.values()|sum - ser.get('ok', 0) - ser.get('skipped', 0) %}
+            {% if fails %}<span class="chip chip-warn" title="failed runs in {{ latest.name }}">{{ fails }} failed</span>{% else %}<span class="chip chip-ok" title="all executed runs completed in {{ latest.name }}">all ok</span>{% endif %}
+          {% endif %}
+          <span class="chip chip-outline">{{ s.category }}</span>
+        </a>
+      {% endfor %}
+    </div>
+  </section>
 </div>
 
-<!-- Graph topologies -->
-<div class="panel">
-  <div class="section-head">
-    <div class="section-title"><i data-lucide="share-2" style="width:16px;height:16px;color:var(--accent2);"></i> Graph Topologies</div>
-    <span style="font-size:.8rem;color:var(--text3);">{{ graph_types|length }} types registered</span>
-  </div>
-  {% set topo_icons = {'cycle': '○', 'binary_tree': '🌲', 'complete': '◉', 'path': '→', 'grid': '⊞', 'star': '✦', 'barabasi_albert': '🕸', 'scale_free': '🕸', 'multi_path': '⇉', 'max_acyclic': '△', 'cycle_with_shortcuts': '⊙', 'reverse_binary_tree': '🌲', 'w': 'W', 'x': 'X', 'y': 'Y'} %}
-  <div class="graph-chips">
-  {% for g in graph_types %}
-    <a href="{{ url_for('graph_detail', name=g.name) }}" class="graph-chip" title="{{ g.description }}">
-      <span>{{ topo_icons.get(g.name, '⬡') }}</span>
-      <span>{{ g.display_name }}</span>
-    </a>
+<div class="section-title">
+  <h2>Topologies</h2>
+  <a class="btn btn-ghost btn-sm" href="{{ url_for('graphs_list') }}">All {{ graph_types|length }}<i data-lucide="arrow-right"></i></a>
+</div>
+<div class="grid grid-3" data-stagger>
+  {% for g in graph_types[:6] %}
+  <a class="card topo-card" href="{{ url_for('graph_detail', name=g.name) }}">
+    <div class="gdiag-wrap">{{ m.graph_svg(previews.get(g.name), g.name) }}</div>
+    <div class="topo-meta">
+      <h3>{{ g.display_name }}<i data-lucide="arrow-up-right" style="width:16px;height:16px;color:var(--ink-3)"></i></h3>
+      <p>{{ g.description|truncate(90) }}</p>
+    </div>
+  </a>
   {% endfor %}
-  </div>
 </div>
 
+<div class="grid grid-2 mt-6">
+  <section class="card reveal">
+    <div class="card-head"><h3><i data-lucide="laptop-minimal"></i>This machine</h3></div>
+    <div class="card-body">
+      <dl class="dl">
+        <dt>OS</dt><dd class="mono">{{ machine_info.os }}</dd>
+        <dt>Architecture</dt><dd class="mono">{{ machine_info.arch }}</dd>
+        <dt>CPUs</dt><dd class="mono">{{ machine_info.cpu_count }}</dd>
+        <dt>Python</dt><dd class="mono">{{ machine_info.python_version }}</dd>
+      </dl>
+    </div>
+  </section>
+  <section class="card reveal">
+    <div class="card-head"><h3><i data-lucide="square-terminal"></i>From the command line</h3></div>
+    <div class="card-body stack">
+      {{ m.cmd('./virtualenv/bin/python benchmark.py --systems postgres --runs 5 --timeout 600 --out results/my_campaign/postgres', 'cmd-campaign') }}
+      {{ m.cmd('./virtualenv/bin/python analyze_verified.py results/my_campaign', 'cmd-analyze') }}
+      <p class="small muted">A campaign directory holds one runs.jsonl per system (one --out each); analyze_verified.py writes the tables and figures shown under Campaigns.</p>
+    </div>
+  </section>
+</div>
+<style>.sys-row:hover { background: var(--sunken); }</style>
 {% endblock %}

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% import '_macros.html' as m %}
+{% block title %}Topologies{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css" crossorigin="anonymous">
+<style>
+  .topo-card .sym { font-size: var(--fs-md); color: var(--ink-2); }
+  .topo-card .sym .katex { font-size: 1em; }
+</style>
+{% endblock %}
+
+{% block content %}
+{% call m.page_head('Topologies', 'The graph families the suite generates. Each drawing is a small instance from the same generator the benchmark uses; open one to change its size and see what the transitive closure adds.', 'Configure', 'share-2') %}
+  <a class="btn" href="{{ url_for('new_graph') }}"><i data-lucide="git-branch-plus"></i>Add a topology</a>
+  <a class="btn btn-primary" href="{{ url_for('experiment_new') }}"><i data-lucide="play"></i>New experiment</a>
+{% endcall %}
+
+<div class="cluster" style="justify-content:flex-end;margin-bottom:16px">
+  <label class="search" style="width:min(280px,100%)"><i data-lucide="search"></i><input class="input" id="g-search" type="search" placeholder="Filter topologies" aria-label="Filter topologies"></label>
+</div>
+
+<div class="grid grid-3" data-stagger id="g-grid">
+  {% for g in graph_types %}
+  <a class="card topo-card" href="{{ url_for('graph_detail', name=g.name) }}" data-q="{{ (g.name ~ ' ' ~ g.display_name ~ ' ' ~ g.description)|lower }}">
+    <div class="gdiag-wrap">{{ m.graph_svg(previews.get(g.name), g.name) }}</div>
+    <div class="topo-meta">
+      <h3>{{ g.display_name }}<span class="sym" data-tex="{{ math[g.name].symbol }}">{{ math[g.name].symbol }}</span></h3>
+      <p>{{ g.description }}</p>
+      {% set p = previews.get(g.name) %}
+      {% if p %}<div class="cluster mt-2 small muted" style="gap:12px"><span>{{ p.node_count }} nodes</span><span>{{ p.edge_count }} edges</span><span>|TC| {{ p.closure_count }}</span></div>{% endif %}
+    </div>
+  </a>
+  {% endfor %}
+</div>
+<div id="g-empty" hidden>{{ m.empty('No topology matches', 'Try another name.') }}</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js" crossorigin="anonymous"></script>
+<script>
+(() => {
+  TB.$$('[data-tex]').forEach((el) => { try { katex.render(el.dataset.tex, el, { throwOnError: false }); } catch { /* keep TeX */ } });
+  const cards = TB.$$('#g-grid .topo-card');
+  TB.$('#g-search').addEventListener('input', (e) => {
+    const q = e.target.value.trim().toLowerCase();
+    let shown = 0;
+    cards.forEach((c) => { const on = !q || c.dataset.q.includes(q); c.hidden = !on; shown += on; });
+    TB.$('#g-empty').hidden = shown > 0;
+  });
+})();
+</script>
+{% endblock %}

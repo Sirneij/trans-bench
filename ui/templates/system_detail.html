@@ -1,379 +1,232 @@
 {% extends "base.html" %}
+{% import '_macros.html' as m %}
 {% block title %}{{ system.display_name }}{% endblock %}
-{% block page_title %}{{ system.display_name }}{% endblock %}
+{% block crumbs %}<a href="{{ url_for('systems_list') }}">Systems</a><span class="sep">/</span><span aria-current="page">{{ system.display_name }}</span>{% endblock %}
 
 {% block head %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/dracula.min.css">
 <style>
-/* New Detail Styles */
-.detail-bento {
-  display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  gap: 24px;
-  margin-top: 10px;
-  margin-bottom: 40px;
-}
-.bento-hero {
-  grid-column: span 12;
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.7), rgba(30, 41, 59, 0.4));
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(12px);
-  border-radius: calc(var(--radius) * 1.5);
-  padding: 32px;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
-  gap: 24px;
-  position: relative;
-  overflow: hidden;
-}
-.bento-hero::before {
-  content: ''; position: absolute; inset: 0;
-  background: radial-gradient(circle at top right, rgba(56, 189, 248, 0.1), transparent 50%);
-  pointer-events: none;
-}
-.hero-left { display: flex; flex-direction: column; gap: 8px; z-index: 1; }
-.hero-right { display: flex; flex-direction: column; gap: 8px; z-index: 1; align-items: flex-end; }
-
-.sys-badge { font-size: 0.8rem; padding: 4px 12px; border-radius: 12px; font-weight: 700; text-transform: uppercase; background: rgba(255,255,255,0.1); color: var(--text2); display: inline-block; margin-bottom: 8px; }
-.sys-badge.datalog { background: rgba(139, 92, 246, 0.2); color: #c4b5fd; border: 1px solid rgba(139, 92, 246, 0.3); }
-.sys-badge.sql { background: rgba(56, 189, 248, 0.2); color: #bae6fd; border: 1px solid rgba(56, 189, 248, 0.3); }
-.sys-badge.graph { background: rgba(16, 185, 129, 0.2); color: #a7f3d0; border: 1px solid rgba(16, 185, 129, 0.3); }
-
-.hero-title { font-size: 2.5rem; font-weight: 800; margin: 0; background: linear-gradient(to right, #fff, #94a3b8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; display: flex; align-items: center; gap: 16px;}
-.hero-meta { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
-.meta-tag { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); padding: 6px 16px; border-radius: 20px; font-family: var(--mono); font-size: 0.85rem; color: var(--text2); display: flex; gap: 8px; align-items: center; }
-.meta-key { color: var(--text3); font-weight: 700; text-transform: uppercase; font-size: 0.7rem; }
-.meta-val { color: var(--accent); font-weight: 600; }
-
-.phases-container { display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end; max-width: 400px;}
-.phase-pill-new { background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.05); padding: 10px 16px; border-radius: var(--radius); display: flex; flex-direction: column; gap: 4px; transition: all 0.2s; }
-.phase-pill-new:hover { border-color: rgba(255,255,255,0.1); transform: translateY(-2px); }
-.phase-id-new { font-weight: 700; color: white; font-size: 0.95rem; }
-.phase-cols-new { font-size: 0.75rem; color: var(--text3); font-family: var(--mono); }
-
-.bento-workspace { grid-column: span 12; display: flex; gap: 24px; min-height: 600px; }
-.workspace-nav { width: 220px; flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; }
-.workspace-tab { padding: 16px 20px; background: rgba(15, 23, 42, 0.4); border: 1px solid rgba(255,255,255,0.05); border-radius: calc(var(--radius) * 1.2); color: var(--text2); font-weight: 600; cursor: pointer; transition: all 0.2s; text-align: left; display: flex; align-items: center; gap: 12px; }
-.workspace-tab:hover { background: rgba(255,255,255,0.05); color: var(--text); transform: translateX(4px); }
-.workspace-tab.active { background: rgba(56, 189, 248, 0.15); border-color: rgba(56, 189, 248, 0.3); color: white; box-shadow: 0 4px 12px rgba(0,0,0,0.2); transform: translateX(4px); }
-
-.workspace-content { flex: 1; background: rgba(15, 23, 42, 0.4); border: 1px solid rgba(255,255,255,0.05); border-radius: calc(var(--radius) * 1.5); backdrop-filter: blur(12px); overflow: hidden; display: flex; flex-direction: column; min-width: 0; }
-.tab-panel { display: none; flex-direction: column; height: 100%; }
-.tab-panel.active { display: flex; }
-
-.editor-toolbar { padding: 20px 24px; background: rgba(0,0,0,0.2); border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center; }
-.editor-title { font-family: var(--mono); font-weight: 700; color: white; font-size: 1.15rem; display: flex; align-items: center; gap: 10px; }
-.editor-title-icon { color: var(--accent); }
-.editor-subtitle { font-size: 0.85rem; color: var(--text3); margin-top: 6px; }
-.cm-container { flex: 1; position: relative; }
-.CodeMirror { height: 100%; position: absolute; inset: 0; background: transparent; border: none; font-family: var(--mono); font-size: 14px; }
-.CodeMirror-gutters { background: rgba(0,0,0,0.2) !important; border-right: 1px solid rgba(255,255,255,0.05) !important; }
-
-.rules-layout { display: flex; flex: 1; min-height: 0; }
-.rules-sidebar { width: 250px; background: rgba(0,0,0,0.15); border-right: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; overflow-y: auto; padding: 12px; gap: 8px; }
-.rule-item { background: transparent; border: 1px solid transparent; padding: 10px 16px; border-radius: var(--radius); color: var(--text2); display: flex; align-items: center; gap: 10px; cursor: pointer; text-align: left; transition: all 0.2s; font-family: var(--mono); font-size: 0.85rem; }
-.rule-item:hover { background: rgba(255,255,255,0.05); color: var(--text); }
-.rule-item.active { background: rgba(56, 189, 248, 0.15); border-color: rgba(56, 189, 248, 0.3); color: white; font-weight: 600; }
-.rule-editor-area { flex: 1; display: flex; flex-direction: column; min-width: 0; position: relative; }
-.rule-empty { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; color: var(--text3); }
-
-@media (max-width: 900px) {
-  .bento-workspace { flex-direction: column; }
-  .workspace-nav { width: 100%; flex-direction: row; overflow-x: auto; }
-  .workspace-tab { white-space: nowrap; flex: 1; justify-content: center; transform: none !important; }
-}
+  .rules { display: grid; grid-template-columns: 240px minmax(0, 1fr); min-height: 520px; }
+  .rules-list { border-right: 1px solid var(--line); padding: 8px; overflow-y: auto; max-height: 560px; background: var(--surface-2); }
+  .rules-main { min-width: 0; display: flex; flex-direction: column; }
+  .rules-main .editor { flex: 1; }
+  .dirty-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--warn); display: inline-block; animation: pop var(--t-med) var(--ease-spring); }
+  .masked { display: grid; place-items: center; gap: 14px; text-align: center; padding: 64px 24px; border-top: 1px solid var(--line); }
+  @media (max-width: 900px) {
+    .rules { grid-template-columns: minmax(0, 1fr); }
+    .rules-list { border-right: 0; border-bottom: 1px solid var(--line); max-height: 180px; }
+  }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="breadcrumb" style="margin-bottom: 24px;">
-  <a href="{{ url_for('systems_list') }}" style="color: var(--text2); text-decoration: none; font-weight: 600;">Systems</a>
-  <span style="color: var(--text3); margin: 0 8px;">›</span>
-  <span style="color: white; font-weight: 700;">{{ system.display_name }}</span>
+{% set st = system_ui.get(system.name) %}
+<header class="page-head">
+  <div class="cluster" style="flex-wrap:nowrap;gap:16px;align-items:center">
+    {{ m.marker(st, 'sys-badge') }}
+    <div style="min-width:0">
+      <div class="eyebrow" style="margin-bottom:4px">{{ system.category }} · {{ system.protocol }}</div>
+      <h1>{{ system.display_name }}</h1>
+    </div>
+  </div>
+  <div class="page-actions">
+    <a class="btn" href="{{ url_for('results') }}?system={{ system.name }}"><i data-lucide="chart-line"></i>Results</a>
+    <a class="btn btn-primary" href="{{ url_for('experiment_new', systems=system.name) }}"><i data-lucide="play"></i>Benchmark this system</a>
+  </div>
+</header>
+
+<div class="grid grid-4" data-stagger>
+  <div class="card kpi"><div class="kpi-label"><i data-lucide="tag"></i>Version</div><div class="mono mt-2" style="font-size:var(--fs-sm);overflow-wrap:anywhere" id="sys-version">{{ 'not detected' if system.version == 'Unknown' else system.version }}</div></div>
+  <div class="card kpi"><div class="kpi-label"><i data-lucide="file-input"></i>Input format</div><div class="kpi-value" style="font-size:1.4rem">{{ system.input_format }}</div><div class="kpi-sub">rules end in <code>{{ system.rule_extension }}</code></div></div>
+  <div class="card kpi"><div class="kpi-label"><i data-lucide="repeat"></i>Recursion modes</div><div class="kpi-value" style="font-size:1.4rem">{{ system.modes|length }}</div><div class="kpi-sub">{{ system.modes|map('replace', '_recursion', '')|join(', ') }}</div></div>
+  <div class="card kpi"><div class="kpi-label"><i data-lucide="key-round"></i>Credentials</div>
+    <div class="kpi-value" style="font-size:1.4rem">{% if cred_yaml.strip() %}set{% elif system.flags.get('requires_credentials', False) %}<span style="color:var(--warn)">missing</span>{% else %}not needed{% endif %}</div>
+    <div class="kpi-sub">systems/{{ system.name }}/credentials.yaml</div></div>
 </div>
 
-<div class="detail-bento">
-  <!-- Hero Section -->
-  <div class="bento-hero">
-    <div class="hero-left">
-      <div class="sys-badge {{ system.category|lower }}">{{ system.category }}</div>
-      <h1 class="hero-title">{{ system.display_name }}</h1>
-      <div class="hero-meta">
-        <div class="meta-tag"><span class="meta-key">Protocol</span><span class="meta-val">{{ system.protocol }}</span></div>
-        <div class="meta-tag"><span class="meta-key">Input</span><span class="meta-val">{{ system.input_format }}</span></div>
-        <div class="meta-tag"><span class="meta-key">Ext</span><span class="meta-val">{{ system.rule_extension }}</span></div>
-        <div class="meta-tag"><span class="meta-key">Version</span><span class="meta-val" style="font-family:var(--mono);">
-          {% if system.version == 'Unknown' %}
-            <span style="color:#ef4444;font-weight:bold;" title="Version could not be detected">⚠ Unknown</span>
-          {% else %}
-            {{ system.version | truncate(25) }}
-          {% endif %}
-        </span></div>
+<section class="card mt-4 reveal">
+  <div class="card-head"><h3><i data-lucide="timer"></i>Timing phases</h3><span class="small muted">The highlighted phase is the query time reported in the paper.</span></div>
+  <div class="card-body">
+    <div class="pipeline">
+      {% for phase in system.timing_phases %}
+      <div class="phase {{ 'is-timed' if phase.id == system.query_phase }}" style="--i:{{ loop.index0 }}">
+        <div class="phase-name">{% if phase.id == system.query_phase %}<i data-lucide="timer" style="width:15px;height:15px;color:var(--accent)"></i>{% endif %}{{ phase.label }}</div>
+        <div class="phase-sub mono">{{ phase.label }}RealTime</div>
       </div>
+      {% endfor %}
     </div>
-    
-    <div class="hero-right">
-      <div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text3); font-weight: 600; margin-bottom: 4px;">Timing Phases</div>
-      <div class="phases-container">
-        {% for phase in system.timing_phases %}
-        <div class="phase-pill-new">
-          <div class="phase-id-new">{{ phase.id }}</div>
-          <div class="phase-cols-new">{{ phase.label }}RealTime</div>
-        </div>
+  </div>
+</section>
+
+<section class="card mt-4 reveal">
+  <div class="tabs" role="tablist" aria-label="System files" data-hash style="padding:0 12px">
+    <button class="tab" role="tab" id="t-descriptor" data-tab="descriptor" aria-controls="p-descriptor" aria-selected="true"><i data-lucide="file-cog"></i>Descriptor</button>
+    <button class="tab" role="tab" id="t-rules" data-tab="rules" aria-controls="p-rules"><i data-lucide="file-code-2"></i>Rule files <span class="count">{{ rule_files|length }}</span></button>
+    <button class="tab" role="tab" id="t-credentials" data-tab="credentials" aria-controls="p-credentials"><i data-lucide="lock"></i>Credentials</button>
+  </div>
+
+  <div id="p-descriptor" role="tabpanel" aria-labelledby="t-descriptor" class="tab-panel">
+    <div class="card-head" style="border-bottom:0">
+      <div><div class="mono" style="font-weight:600">descriptor.yaml</div><div class="small muted">Changes apply on the next run. YAML is validated before saving.</div></div>
+      <div class="cluster"><span class="small muted hide-sm"><kbd>⌘</kbd><kbd>S</kbd></span><button class="btn btn-primary btn-sm" id="save-desc" type="button"><i data-lucide="save"></i>Save</button></div>
+    </div>
+    <div class="editor"><textarea id="descriptor-editor" spellcheck="false" aria-label="descriptor.yaml">{{ descriptor_yaml }}</textarea></div>
+  </div>
+
+  <div id="p-rules" role="tabpanel" aria-labelledby="t-rules" class="tab-panel" hidden>
+    {% if rule_files %}
+    <div class="rules" style="border-top:1px solid var(--line)">
+      <div class="rules-list tree" role="listbox" aria-label="Rule files">
+        {% for f in rule_files %}
+        <button class="leaf" type="button" data-file="{{ f }}"><i data-lucide="file-code"></i><span title="{{ f }}">{{ f }}</span></button>
         {% endfor %}
       </div>
+      <div class="rules-main">
+        <div class="card-head" style="min-height:52px">
+          <div class="cluster mono" style="font-weight:600" id="rule-title"><span class="muted" style="font-family:var(--font-body);font-weight:400">Choose a file on the left</span></div>
+          <button class="btn btn-primary btn-sm" id="save-rule" type="button" hidden><i data-lucide="save"></i>Save</button>
+        </div>
+        <div id="rule-empty" class="empty" style="flex:1">
+          <i data-lucide="mouse-pointer-click" style="width:28px;height:28px;color:var(--ink-3)"></i>
+          <p>Rule files live in <code>systems/{{ system.name }}/rules/</code>, one per recursion mode.</p>
+        </div>
+        <div class="editor" id="rule-wrap" hidden><textarea id="rule-editor" spellcheck="false" aria-label="Rule file"></textarea></div>
+      </div>
     </div>
+    {% else %}
+      {{ m.empty('No rule files yet', 'Create files such as transitive_right_recursion' ~ system.rule_extension ~ ' in systems/' ~ system.name ~ '/rules/.') }}
+    {% endif %}
   </div>
 
-  <!-- Workspace -->
-  <div class="bento-workspace">
-    <!-- Left Navigation -->
-    <div class="workspace-nav" id="system-tabs">
-      <button class="workspace-tab active" data-tab="descriptor">
-        <span style="font-size: 1.2rem;">📄</span> Descriptor
-      </button>
-      <button class="workspace-tab" data-tab="credentials">
-        <span style="font-size: 1.2rem;">🔑</span> Credentials
-      </button>
-      <button class="workspace-tab" data-tab="rules">
-        <span style="font-size: 1.2rem;">📁</span> Rule Files
-      </button>
+  <div id="p-credentials" role="tabpanel" aria-labelledby="t-credentials" class="tab-panel" hidden>
+    <div class="card-head" style="border-bottom:0">
+      <div><div class="cluster mono" style="font-weight:600">credentials.yaml <span class="chip chip-muted" style="font-family:var(--font-body)">git-ignored</span></div>
+        <div class="small muted">{% if system.flags.get('requires_credentials', False) %}Connection settings for {{ system.display_name }}.{% else %}{{ system.display_name }} does not need credentials.{% endif %}{% if has_example %} A template is in credentials.example.yaml.{% endif %}</div></div>
+      <button class="btn btn-primary btn-sm" id="save-cred" type="button" hidden><i data-lucide="save"></i>Save</button>
     </div>
-
-    <!-- Right Content Area -->
-    <div class="workspace-content">
-      
-      <!-- Descriptor Tab -->
-      <div class="tab-panel active" id="tab-descriptor">
-        <div class="editor-toolbar">
-          <div>
-            <div class="editor-title"><span class="editor-title-icon">⚙️</span> descriptor.yaml</div>
-            <div class="editor-subtitle">Edit configuration directly — changes apply on next run</div>
-          </div>
-          <button class="btn btn-primary" onclick="saveDescriptor()">Save Changes</button>
-        </div>
-        <div class="cm-container">
-          <textarea id="descriptor-editor" class="code-editor" spellcheck="false">{{ descriptor_yaml }}</textarea>
-        </div>
-      </div>
-
-      <!-- Credentials Tab -->
-      <div class="tab-panel" id="tab-credentials">
-        <div class="editor-toolbar">
-          <div>
-            <div class="editor-title"><span class="editor-title-icon">🔒</span> credentials.yaml <span style="font-size: 0.7rem; background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 6px; margin-left: 8px;">Git-ignored</span></div>
-            <div class="editor-subtitle">Stored securely in systems/{{ system.name }}/credentials.yaml</div>
-          </div>
-          <button class="btn btn-primary" onclick="saveCredentials()">Save Secrets</button>
-        </div>
-        {% if not system.flags.get('requires_credentials', True) %}
-        <div style="padding: 16px 24px; background: rgba(56, 189, 248, 0.1); border-bottom: 1px solid rgba(56, 189, 248, 0.2); color: #bae6fd; font-size: 0.95rem;">
-          <strong style="color: #38bdf8;">Note:</strong> This system does not explicitly require credentials.
-        </div>
-        {% endif %}
-        <div class="cm-container">
-          <textarea id="cred-editor" class="code-editor" spellcheck="false" placeholder="# Example:&#10;dbURL: postgres://user:pass@localhost:5432/mydb">{{ cred_yaml }}</textarea>
-        </div>
-      </div>
-
-      <!-- Rules Tab -->
-      <div class="tab-panel" id="tab-rules">
-        <div class="editor-toolbar">
-          <div>
-            <div class="editor-title" id="rule-title"><span class="editor-title-icon">📜</span> Local Rule Files</div>
-            <div class="editor-subtitle">Auto-discovered in <code>systems/{{ system.name }}/rules/</code></div>
-          </div>
-          <button class="btn btn-primary" id="btn-save-rule" onclick="saveRuleFile()" style="display: none;">Save Rule</button>
-        </div>
-        <div class="rules-layout">
-          {% if rule_files %}
-          <div class="rules-sidebar">
-            {% for f in rule_files %}
-            <button class="rule-item" data-filename="{{ f }}" onclick="loadRuleFile('{{ f }}', this)">
-              <span>📄</span> <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ f }}">{{ f }}</span>
-            </button>
-            {% endfor %}
-          </div>
-          <div class="rule-editor-area">
-            <div id="rule-empty-state" class="rule-empty">
-              <div style="font-size: 3rem; margin-bottom: 16px; opacity: 0.3;">👈</div>
-              Select a rule file to view or edit its contents
-            </div>
-            <div id="rule-cm-container" class="cm-container" style="display: none;">
-              <textarea id="rule-editor" class="code-editor" spellcheck="false"></textarea>
-            </div>
-          </div>
-          {% else %}
-          <div class="empty-state" style="margin: auto; border: none; background: transparent; width: 100%;">
-            <div class="empty-icon" style="font-size: 4rem; opacity: 0.5;">📁</div>
-            <h3 style="font-size: 1.5rem; margin-top: 16px;">No rule files found</h3>
-            <p style="color: var(--text2);">Create files named <code>transitive_right_recursion{{ system.rule_extension }}</code> in the rules directory.</p>
-          </div>
-          {% endif %}
-        </div>
-      </div>
-
+    <div class="masked" id="cred-mask">
+      <div class="dialog-icon"><i data-lucide="eye-off"></i></div>
+      <p class="ink-2" style="max-width:44ch">Credentials are hidden so they do not show on screen by accident.</p>
+      <button class="btn" type="button" id="reveal-cred"><i data-lucide="eye"></i>Show and edit</button>
     </div>
+    <div class="editor" id="cred-wrap" hidden><textarea id="cred-editor" spellcheck="false" aria-label="credentials.yaml">{{ cred_yaml }}</textarea></div>
   </div>
-</div>
+</section>
 {% endblock %}
 
 {% block scripts %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/edit/closebrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/selection/active-line.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/yaml/yaml.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/python/python.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/sql/sql.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/javascript/javascript.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/erlang/erlang.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/prolog/prolog.min.js"></script>
 <script>
+(() => {
   const systemName = {{ system.name | tojson }};
+  const post = (url, body) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(body) })
+    .then(async (r) => { const d = await r.json().catch(() => ({})); return r.ok ? d : { ok: false, error: d.error || `HTTP ${r.status}` }; });
+  const dirty = new Set();
+  const markDirty = (key, on) => {
+    if (on) dirty.add(key); else dirty.delete(key);
+    const tab = TB.$(`#t-${key === 'rule' ? 'rules' : key === 'desc' ? 'descriptor' : 'credentials'}`);
+    const dot = tab.querySelector('.dirty-dot');
+    if (on && !dot) tab.insertAdjacentHTML('beforeend', '<span class="dirty-dot" title="Unsaved changes"></span>');
+    if (!on && dot) dot.remove();
+  };
+  window.addEventListener('beforeunload', (e) => { if (dirty.size) { e.preventDefault(); e.returnValue = ''; } });
 
-  const cmConfig = {
-    mode: 'yaml',
-    theme: 'dracula',
-    lineNumbers: true,
-    tabSize: 2,
-    indentWithTabs: false,
-    autoCloseBrackets: true,
-    extraKeys: {
-      "Ctrl-S": function(cm) {
-        if (cm === descEditor) saveDescriptor();
-        else if (cm === credEditor) saveCredentials();
-        else if (cm === ruleEditor) saveRuleFile();
-      },
-      "Cmd-S": function(cm) {
-        if (cm === descEditor) saveDescriptor();
-        else if (cm === credEditor) saveCredentials();
-        else if (cm === ruleEditor) saveRuleFile();
-      }
-    }
+  const editors = {};
+  const saveKeys = { 'Cmd-S': (cm) => cm._save && cm._save(), 'Ctrl-S': (cm) => cm._save && cm._save() };
+  const make = (id, mode, save, key) => {
+    const cm = CodeMirror.fromTextArea(document.getElementById(id), {
+      mode, theme: 'tb', lineNumbers: true, tabSize: 2, indentWithTabs: false, autoCloseBrackets: true,
+      styleActiveLine: true, lineWrapping: false, extraKeys: saveKeys,
+    });
+    cm._save = save;
+    cm.on('change', () => markDirty(key, !cm.isClean()));
+    return cm;
   };
 
-  const descEditor = CodeMirror.fromTextArea(document.getElementById('descriptor-editor'), cmConfig);
-  const credEditor = CodeMirror.fromTextArea(document.getElementById('cred-editor'), cmConfig);
-  
-  // Rule Editor Setup
-  let ruleEditor = null;
-  let currentRuleFile = null;
-  let ruleIsDirty = false;
-  
-  if (document.getElementById('rule-editor')) {
-    ruleEditor = CodeMirror.fromTextArea(document.getElementById('rule-editor'), Object.assign({}, cmConfig, { mode: 'text/plain' }));
-    
-    ruleEditor.on('change', () => {
-      if (!ruleIsDirty && currentRuleFile) {
-        ruleIsDirty = true;
-        document.getElementById('rule-title').innerHTML = `<span class="editor-title-icon">📜</span> ${currentRuleFile} <span style="color: #f59e0b; font-size: 0.8rem; margin-left: 8px;">● Unsaved</span>`;
-        document.getElementById('btn-save-rule').style.background = '#f59e0b';
-        document.getElementById('btn-save-rule').style.color = '#fff';
-      }
-    });
-  }
+  async function withLoading(btn, fn) { btn.classList.add('is-loading'); try { await fn(); } finally { btn.classList.remove('is-loading'); } }
 
-  function saveDescriptor() {
-    const yaml = descEditor.getValue();
-    fetch(`/systems/${systemName}/save`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `descriptor_yaml=${encodeURIComponent(yaml)}`
-    }).then(r => r.json()).then(d => {
-      showToast(d.ok ? '✓ Descriptor saved' : '✗ ' + d.error, d.ok ? 'success' : 'error');
-    });
-  }
-
-  function saveCredentials() {
-    const yaml = credEditor.getValue();
-    fetch(`/systems/${systemName}/creds`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `cred_yaml=${encodeURIComponent(yaml)}`
-    }).then(r => r.json()).then(d => {
-      showToast(d.ok ? '✓ Credentials saved' : '✗ ' + d.error, d.ok ? 'success' : 'error');
-    });
-  }
-  
-  function loadRuleFile(filename, btnElement) {
-    document.querySelectorAll('.rule-item').forEach(el => el.classList.remove('active'));
-    if (btnElement) btnElement.classList.add('active');
-    
-    currentRuleFile = filename;
-    document.getElementById('rule-title').innerHTML = `<span class="editor-title-icon">📜</span> ${filename}`;
-    
-    fetch(`/systems/${systemName}/rules/${filename}`)
-      .then(r => r.json())
-      .then(d => {
-        if (d.error) {
-          showToast(d.error, 'error');
-          return;
-        }
-        document.getElementById('rule-empty-state').style.display = 'none';
-        document.getElementById('rule-cm-container').style.display = 'block';
-        document.getElementById('btn-save-rule').style.display = 'block';
-        
-        // Basic syntax highlighting based on extension
-        let mode = 'text/plain';
-        if (filename.endsWith('.py')) mode = 'python';
-        else if (filename.endsWith('.sql')) mode = 'sql';
-        else if (filename.endsWith('.yaml') || filename.endsWith('.yml')) mode = 'yaml';
-        else if (filename.endsWith('.json')) mode = 'javascript';
-        else if (filename.endsWith('.dl') || filename.endsWith('.lp') || filename.endsWith('.P')) mode = 'erlang';
-        
-        ruleIsDirty = false;
-        document.getElementById('btn-save-rule').style.background = '';
-        document.getElementById('btn-save-rule').style.color = '';
-        ruleEditor.setOption('mode', mode);
-        ruleEditor.setValue(d.content);
-        // Clear history so you can't undo into empty
-        ruleEditor.clearHistory();
-        setTimeout(() => ruleEditor.refresh(), 50);
-      })
-      .catch(e => {
-        showToast('Failed to load rule file', 'error');
-        console.error(e);
-      });
-  }
-
-  function saveRuleFile() {
-    if (!currentRuleFile) return;
-    const content = ruleEditor.getValue();
-    
-    fetch(`/systems/${systemName}/rules/${currentRuleFile}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `content=${encodeURIComponent(content)}`
-    }).then(r => r.json()).then(d => {
-      if (d.ok) {
-        showToast('✓ Rule file saved', 'success');
-        ruleIsDirty = false;
-        document.getElementById('rule-title').innerHTML = `<span class="editor-title-icon">📜</span> ${currentRuleFile}`;
-        document.getElementById('btn-save-rule').style.background = '';
-        document.getElementById('btn-save-rule').style.color = '';
-      } else {
-        showToast('✗ ' + d.error, 'error');
-      }
-    });
-  }
-
-  // Tab switching
-  document.querySelectorAll('.workspace-tab').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.workspace-tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-      btn.classList.add('active');
-      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
-
-      // Refresh CodeMirror when tab becomes visible
-      if (btn.dataset.tab === 'descriptor') descEditor.refresh();
-      if (btn.dataset.tab === 'credentials') credEditor.refresh();
-      if (btn.dataset.tab === 'rules' && ruleEditor) ruleEditor.refresh();
-    });
+  // descriptor
+  const saveDesc = () => withLoading(TB.$('#save-desc'), async () => {
+    const d = await post(`/systems/${systemName}/save`, { descriptor_yaml: editors.desc.getValue() });
+    if (d.ok) { editors.desc.markClean(); markDirty('desc', false); TB.toast('Descriptor saved', 'success'); } else TB.toast(d.error, 'error', 7000);
   });
+  editors.desc = make('descriptor-editor', 'yaml', saveDesc, 'desc');
+  TB.$('#save-desc').addEventListener('click', saveDesc);
 
-  // Refresh initially active editor
-  setTimeout(() => descEditor.refresh(), 50);
+  // credentials (revealed on request)
+  const saveCred = () => withLoading(TB.$('#save-cred'), async () => {
+    const d = await post(`/systems/${systemName}/creds`, { cred_yaml: editors.cred.getValue() });
+    if (d.ok) { editors.cred.markClean(); markDirty('cred', false); TB.toast('Credentials saved', 'success'); } else TB.toast(d.error, 'error', 7000);
+  });
+  TB.$('#reveal-cred').addEventListener('click', () => {
+    TB.$('#cred-mask').hidden = true;
+    TB.$('#cred-wrap').hidden = false;
+    TB.$('#save-cred').hidden = false;
+    editors.cred = make('cred-editor', 'yaml', saveCred, 'cred');
+    editors.cred.focus();
+  });
+  TB.$('#save-cred').addEventListener('click', saveCred);
+
+  // rule files
+  let currentRule = null;
+  const modeFor = (f) => f.endsWith('.py') ? 'python' : f.endsWith('.sql') ? 'text/x-sql' : /\.ya?ml$/.test(f) ? 'yaml'
+    : f.endsWith('.json') || f.endsWith('.js') ? 'javascript' : /\.(P|pl|lp|dl)$/.test(f) ? 'prolog' : 'text/plain';
+  const saveRule = () => currentRule && withLoading(TB.$('#save-rule'), async () => {
+    const d = await post(`/systems/${systemName}/rules/${encodeURIComponent(currentRule)}`, { content: editors.rule.getValue() });
+    if (d.ok) { editors.rule.markClean(); markDirty('rule', false); TB.toast(`${currentRule} saved`, 'success'); } else TB.toast(d.error, 'error', 7000);
+  });
+  async function openRule(btn) {
+    const f = btn.dataset.file;
+    if (f === currentRule) return;
+    if (dirty.has('rule') && !(await TB.confirm({ title: 'Discard unsaved changes?', body: `${currentRule} has changes that are not saved.`, confirmLabel: 'Discard', danger: true }))) return;
+    const r = await fetch(`/systems/${systemName}/rules/${encodeURIComponent(f)}`).then((x) => x.json()).catch(() => ({ error: 'Could not load the file' }));
+    if (r.error) { TB.toast(r.error, 'error'); return; }
+    TB.$$('.rules-list .leaf').forEach((b) => b.setAttribute('aria-current', String(b === btn)));
+    currentRule = f;
+    TB.$('#rule-title').textContent = f;
+    TB.$('#rule-empty').hidden = true;
+    TB.$('#rule-wrap').hidden = false;
+    TB.$('#save-rule').hidden = false;
+    if (!editors.rule) editors.rule = make('rule-editor', 'text/plain', saveRule, 'rule');
+    editors.rule.setOption('mode', modeFor(f));
+    editors.rule.setValue(r.content);
+    editors.rule.clearHistory();
+    editors.rule.markClean();
+    markDirty('rule', false);
+    setTimeout(() => editors.rule.refresh(), 20);
+  }
+  TB.$$('.rules-list .leaf').forEach((b) => b.addEventListener('click', () => openRule(b)));
+  TB.$('#save-rule')?.addEventListener('click', saveRule);
+
+  // CodeMirror measures itself; refresh when a hidden panel becomes visible
+  TB.$('.tabs').addEventListener('tabchange', (e) => {
+    setTimeout(() => {
+      if (e.detail.id === 'descriptor') editors.desc.refresh();
+      if (e.detail.id === 'credentials' && editors.cred) editors.cred.refresh();
+      if (e.detail.id === 'rules') { editors.rule?.refresh(); if (!currentRule) { const first = TB.$('.rules-list .leaf'); if (first) openRule(first); } }
+    }, 10);
+  });
+  if (location.hash === '#rules') { const first = TB.$('.rules-list .leaf'); if (first) openRule(first); }
+  setTimeout(() => editors.desc.refresh(), 30);
+
+  // the version is detected in the background on first load
+  const v = TB.$('#sys-version');
+  if (v.textContent.includes('detecting')) {
+    let tries = 0;
+    const poll = setInterval(async () => {
+      tries += 1;
+      const s = (await fetch('/api/systems').then((r) => r.json()).catch(() => [])).find((x) => x.name === systemName);
+      if (s && !s.version.includes('detecting')) { v.textContent = s.version === 'Unknown' ? 'not detected' : s.version; clearInterval(poll); }
+      if (tries > 20) clearInterval(poll);
+    }, 2500);
+  }
+})();
 </script>
 {% endblock %}

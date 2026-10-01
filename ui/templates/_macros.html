@@ -1,0 +1,95 @@
+{# Shared building blocks. Import with: {% import '_macros.html' as m %} #}
+
+{# matplotlib marker -> SVG shape (16x16 box, centred on 8,8); the same shapes as the paper's figures #}
+{% set MARKERS = {
+  'x': '<path d="M3.5 3.5l9 9M12.5 3.5l-9 9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>',
+  's': '<rect x="3" y="3" width="10" height="10" rx="1"/>',
+  'v': '<path d="M2.5 4h11L8 13.5z"/>',
+  '^': '<path d="M8 2.5L13.5 12h-11z"/>',
+  '<': '<path d="M2.5 8L12.5 2.5v11z"/>',
+  '>': '<path d="M13.5 8L3.5 2.5v11z"/>',
+  'D': '<path d="M8 1.8L14.2 8 8 14.2 1.8 8z"/>',
+  'o': '<circle cx="8" cy="8" r="5.5"/>',
+  'P': '<path d="M6 2.5h4V6h3.5v4H10v3.5H6V10H2.5V6H6z"/>',
+  '*': '<path d="M8 1.5l1.9 4.3 4.6.4-3.5 3 1.1 4.6L8 11.4 3.9 13.8 5 9.2l-3.5-3 4.6-.4z"/>',
+  'p': '<path d="M8 2l5.7 4.1-2.2 6.7h-7L2.3 6.1z"/>',
+  'h': '<path d="M8 1.8l5.4 3.1v6.2L8 14.2l-5.4-3.1V4.9z"/>',
+} %}
+
+{% macro marker(style, cls='sys-mark') -%}
+<span class="{{ cls }}" {% if style and style.color %}style="--mark: {{ style.color }}"{% endif %} aria-hidden="true"><svg viewBox="0 0 16 16" fill="currentColor">{{ MARKERS.get(style.marker if style else 'o', MARKERS['o']) | safe }}</svg></span>
+{%- endmacro %}
+
+{% macro system_name(name, system_ui, label=None) -%}
+{% set st = system_ui.get(name) if system_ui else None %}<span class="cluster" style="gap:7px;flex-wrap:nowrap">{{ marker(st) }}<span>{{ label or (st.label if st else name) }}</span></span>
+{%- endmacro %}
+
+{% macro page_head(title, lede=None, eyebrow=None, eyebrow_icon=None) -%}
+<header class="page-head">
+  <div>
+    {% if eyebrow %}<div class="eyebrow">{% if eyebrow_icon %}<i data-lucide="{{ eyebrow_icon }}" style="width:14px;height:14px"></i>{% endif %}{{ eyebrow }}</div>{% endif %}
+    <h1>{{ title }}</h1>
+    {% if lede %}<p class="lede">{{ lede }}</p>{% endif %}
+  </div>
+  {% if caller %}<div class="page-actions">{{ caller() }}</div>{% endif %}
+</header>
+{%- endmacro %}
+
+{% macro empty(title, body=None, cta_href=None, cta_label=None, cta_icon='plus') -%}
+<div class="empty">
+  <svg class="empty-art" viewBox="0 0 128 88" aria-hidden="true">
+    <path class="e" d="M24 60L58 28M58 28L100 44M24 60L100 44M58 28L64 74"/>
+    <circle class="n" cx="24" cy="60" r="8"/><circle class="n hot" cx="58" cy="28" r="8"/>
+    <circle class="n" cx="100" cy="44" r="8"/><circle class="n" cx="64" cy="74" r="6"/>
+  </svg>
+  <h3>{{ title }}</h3>
+  {% if body %}<p>{{ body }}</p>{% endif %}
+  {% if cta_href %}<a class="btn btn-primary mt-2" href="{{ cta_href }}"><i data-lucide="{{ cta_icon }}"></i>{{ cta_label }}</a>{% endif %}
+</div>
+{%- endmacro %}
+
+{# A small drawing of a graph instance (ui/data.py graph_preview). Directed edges get arrowheads when few. #}
+{% macro graph_svg(p, name='', animate=True, label=None) -%}
+{% if p %}
+{% set round_ = name in ('complete', 'max_acyclic', 'cycle', 'cycle_with_shortcuts', 'star', 'grid', 'barabasi_albert', 'scale_free') %}
+{% set W = 100 %}{% set H = 100 if round_ else 58 %}
+{% set k = p.nodes|length %}{% set r = 4.2 if k <= 10 else (3.4 if k <= 16 else (2.7 if k <= 30 else 2.1)) %}
+{% set arrows = p.edges|length <= 48 %}
+{% set pos = {} %}{% for v in p.nodes %}{% set _ = pos.update({v.id: (v.x * W, v.y * H)}) %}{% endfor %}
+<svg class="gdiag {{ 'animate' if animate }}" viewBox="-9 -9 {{ W + 18 }} {{ H + 18 }}" role="img" aria-label="{{ label or ('Example ' ~ name ~ ' graph with ' ~ p.node_count ~ ' nodes and ' ~ p.edge_count ~ ' edges') }}">
+  {% for e in p.edges %}
+    {% set a = pos[e.a] %}{% set b = pos[e.b] %}
+    {% if e.self %}
+      <circle class="e loop" cx="{{ '%.2f' % a[0] }}" cy="{{ '%.2f' % (a[1] - r * 1.9) }}" r="{{ r * 1.1 }}" pathLength="1" style="--i:{{ loop.index0 }}"/>
+    {% else %}
+      {% set dx = b[0] - a[0] %}{% set dy = b[1] - a[1] %}{% set d = ((dx * dx + dy * dy) ** 0.5) or 1 %}
+      {% set s = (r + 0.6) / d %}{% set t = (r + (2.4 if arrows else 0.6)) / d %}
+      <line class="e" x1="{{ '%.2f' % (a[0] + dx * s) }}" y1="{{ '%.2f' % (a[1] + dy * s) }}" x2="{{ '%.2f' % (b[0] - dx * t) }}" y2="{{ '%.2f' % (b[1] - dy * t) }}" pathLength="1" {% if arrows %}marker-end="url(#tb-arrow)"{% endif %} style="--i:{{ loop.index0 }}"/>
+    {% endif %}
+  {% endfor %}
+  {% for v in p.nodes %}
+    <circle class="n" cx="{{ '%.2f' % pos[v.id][0] }}" cy="{{ '%.2f' % pos[v.id][1] }}" r="{{ r }}" style="--i:{{ loop.index0 }}"/>
+  {% endfor %}
+</svg>
+{% else %}
+<svg class="gdiag" viewBox="0 0 100 58" role="img" aria-label="No preview available"><text x="50" y="32" text-anchor="middle" font-size="7" fill="var(--ink-3)">no preview</text></svg>
+{% endif %}
+{%- endmacro %}
+
+{% macro outcome_bar(counts, total) -%}
+{% set order = ['ok', 'timeout', 'oom', 'unsupported', 'iteration_limit', 'killed', 'error', 'skipped'] %}
+<div class="obar" role="img" aria-label="{% for k in order if counts.get(k) %}{{ counts[k] }} {{ k }}{{ ', ' if not loop.last }}{% endfor %}">
+  {% for k in order if counts.get(k) %}<span class="o-{{ k }}" style="width: {{ (100 * counts[k] / (total or 1)) | round(3) }}%; --i: {{ loop.index0 }}" title="{{ counts[k] }} {{ k }}"></span>{% endfor %}
+</div>
+{%- endmacro %}
+
+{% macro failure_label(kind) -%}{{ {'timeout': 'Timeout', 'oom': 'Out of memory', 'unsupported': 'Unsupported', 'iteration_limit': 'Iteration limit', 'killed': 'Killed', 'error': 'Error', 'skipped': 'Skipped', 'ok': 'Completed'}.get(kind, kind) }}{%- endmacro %}
+
+{% macro failure_chip(kind) -%}
+{% set cls = {'timeout': 'chip-warn', 'oom': 'chip-danger', 'error': 'chip-danger', 'killed': 'chip-danger', 'ok': 'chip-ok'}.get(kind, 'chip-muted') %}
+<span class="chip {{ cls }}">{{ failure_label(kind) }}</span>
+{%- endmacro %}
+
+{% macro cmd(text, id=None) -%}
+<div class="cmd"><span class="prompt">$</span><code {% if id %}id="{{ id }}"{% endif %}>{{ text }}</code><button class="btn btn-ghost btn-sm btn-icon" type="button" data-copy="{{ '#' ~ id if id else text }}" aria-label="Copy command"><i data-lucide="copy"></i></button></div>
+{%- endmacro %}

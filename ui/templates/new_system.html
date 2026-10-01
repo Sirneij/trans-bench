@@ -1,123 +1,92 @@
 {% extends "base.html" %}
-{% block title %}Add System{% endblock %}
-{% block page_title %}Add New System{% endblock %}
+{% import '_macros.html' as m %}
+{% block title %}Register a system{% endblock %}
+{% block crumbs %}<a href="{{ url_for('systems_list') }}">Systems</a><span class="sep">/</span><span aria-current="page">Register a system</span>{% endblock %}
 
 {% block content %}
-<style>
-/* New System Bento Box Styles */
-.bento-header {
-  display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; margin-top: 10px;
-}
-.bento-title {
-  margin: 0; font-size: 2.2rem; font-weight: 800; color: white; background: linear-gradient(to right, #fff, #94a3b8); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-}
-.new-system-bento {
-  display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  gap: 24px;
-}
-.bento-panel {
-  background: rgba(15, 23, 42, 0.4);
-  border: 1px solid rgba(255,255,255,0.05);
-  backdrop-filter: blur(12px);
-  border-radius: calc(var(--radius) * 1.5);
-  padding: 32px;
-}
-.bento-form { grid-column: span 8; }
-.bento-info { grid-column: span 4; background: linear-gradient(135deg, rgba(56, 189, 248, 0.05), rgba(59, 130, 246, 0.1)); border-color: rgba(56, 189, 248, 0.2); }
+{% call m.page_head('Register a system', 'Start from an existing system that talks to its engine the same way; its descriptor is copied and renamed. You then adapt the descriptor, add rule files and, if needed, a connector.', 'Configure', 'database') %}{% endcall %}
 
-.form-group-large { margin-bottom: 24px; }
-.form-label-large { display: block; font-size: 1.1rem; font-weight: 700; color: white; margin-bottom: 12px; }
-.form-input-large { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius); padding: 16px; color: white; font-size: 1.1rem; transition: all 0.2s; }
-.form-input-large:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2); }
-.form-hint-large { display: block; font-size: 0.85rem; color: var(--text3); margin-top: 8px; }
+<form id="new-system" class="split" novalidate>
+  <div class="stack" style="gap:16px">
+    <section class="card card-body stack" style="gap:16px">
+      <div class="field">
+        <label class="label" for="name">Name</label>
+        <div class="input-group"><span class="addon">systems/</span><input class="input mono" id="name" name="name" placeholder="sqlite" autocomplete="off" spellcheck="false" required aria-describedby="name-hint"></div>
+        <span class="hint" id="name-hint">Lowercase letters, digits and underscores, starting with a letter. Used as the directory name and on the command line.</span>
+      </div>
+    </section>
 
-.info-step { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
-.step-num { flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; background: rgba(56, 189, 248, 0.2); color: #38bdf8; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; }
-.step-text { color: var(--text2); font-size: 0.95rem; line-height: 1.5; padding-top: 4px; }
-.step-text code { background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; color: #bae6fd; border: 1px solid rgba(255,255,255,0.05); }
-
-@media (max-width: 900px) {
-  .bento-form, .bento-info { grid-column: span 12; }
-}
-</style>
-
-<div class="breadcrumb" style="margin-bottom: 24px;">
-  <a href="{{ url_for('systems_list') }}" style="color: var(--text2); text-decoration: none; font-weight: 600;">Systems</a>
-  <span style="color: var(--text3); margin: 0 8px;">›</span>
-  <span style="color: white; font-weight: 700;">Add New System</span>
-</div>
-
-<div class="bento-header">
-  <h1 class="bento-title">Clone System Descriptor</h1>
-</div>
-
-<div class="new-system-bento">
-  
-  <div class="bento-panel bento-form">
-    <div style="margin-bottom: 32px;">
-      <p style="color: var(--text2); font-size: 1.05rem; line-height: 1.6; margin: 0;">The fastest way to add a new system is to clone an existing descriptor and adapt it. No Python code changes are required.</p>
-    </div>
-
-    <div class="form-group-large">
-      <label class="form-label-large">New system name <span style="color: #ef4444;">*</span></label>
-      <input type="text" id="new-name" class="form-input-large" placeholder="e.g. sqlite, clickhouse, mysql" pattern="[a-z0-9_]+" title="Lowercase letters, numbers, underscores only"/>
-      <span class="form-hint-large">Used as directory name: <code>systems/&lt;name&gt;/</code></span>
-    </div>
-
-    <div class="form-group-large">
-      <label class="form-label-large">Copy descriptor from</label>
-      <select id="template-select" class="form-input-large">
+    <section class="card card-body">
+      <div class="label" id="tpl-label" style="margin-bottom:10px">Start from</div>
+      <div class="pick-grid" role="radiogroup" aria-labelledby="tpl-label" data-stagger>
         {% for s in systems %}
-        <option value="{{ s.name }}">{{ s.display_name }} ({{ s.protocol }})</option>
+        <label class="pick">
+          <input type="radio" name="template" value="{{ s.name }}" {{ 'checked' if loop.first }}>
+          <span class="pick-box"><svg viewBox="0 0 12 12"><path d="M2 6.5l2.6 2.5L10 3.2" pathLength="20"/></svg></span>
+          <span class="pick-main"><span class="pick-title"><span>{{ s.display_name }}</span></span><span class="pick-sub">{{ s.category }} · {{ s.protocol }} · {{ s.rule_extension }}</span></span>
+        </label>
         {% endfor %}
-      </select>
-      <span class="form-hint-large">Choose the closest existing system as a starting point.</span>
-    </div>
+      </div>
+    </section>
 
-    <div style="margin-top: 40px; display: flex; gap: 16px;">
-      <button class="btn btn-primary" onclick="createSystem()" style="font-size: 1.1rem; padding: 16px 32px; box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);">Create System →</button>
-      <a href="{{ url_for('systems_list') }}" class="btn" style="font-size: 1.1rem; padding: 16px 32px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">Cancel</a>
+    <div class="cluster">
+      <button class="btn btn-primary btn-lg" type="submit" id="create"><i data-lucide="plus"></i>Create system</button>
+      <a class="btn btn-ghost btn-lg" href="{{ url_for('systems_list') }}">Cancel</a>
     </div>
   </div>
 
-  <div class="bento-panel bento-info">
-    <h3 style="color: white; font-size: 1.2rem; font-weight: 700; margin: 0 0 24px 0;">What happens next?</h3>
-    <div class="info-step">
-      <div class="step-num">1</div>
-      <div class="step-text">A new directory <code>systems/&lt;name&gt;/</code> is created.</div>
+  <aside class="card">
+    <div class="card-head"><h3><i data-lucide="folder-tree"></i>What gets created</h3></div>
+    <div class="card-body">
+      <div class="codeblock"><pre><code id="tree-preview">systems/
+└── <b id="pv-name">sqlite</b>/
+    ├── descriptor.yaml   <span class="muted">copied from <span id="pv-tpl"></span></span>
+    └── rules/            <span class="muted">empty</span></code></pre></div>
+      <ol class="prose small mt-4" style="padding-left:18px">
+        <li>Edit <code>descriptor.yaml</code>: display name, timing phases, modes.</li>
+        <li>Add one rule file per recursion mode under <code>rules/</code>.</li>
+        <li>If the engine speaks a new protocol, add a connector in <code>engine/connectors/</code> (see docs/SYSTEMS.md).</li>
+      </ol>
     </div>
-    <div class="info-step">
-      <div class="step-num">2</div>
-      <div class="step-text">The selected template's <code>descriptor.yaml</code> is copied over and the internal name is automatically updated.</div>
-    </div>
-    <div class="info-step">
-      <div class="step-num">3</div>
-      <div class="step-text">An empty <code>rules/</code> sub-directory is created for your custom logic files.</div>
-    </div>
-    <div class="info-step">
-      <div class="step-num">4</div>
-      <div class="step-text">You'll be instantly redirected to the new system's workspace to edit its descriptor and add credentials.</div>
-    </div>
-  </div>
+  </aside>
+</form>
+{% endblock %}
 
-</div>
-
+{% block scripts %}
 <script>
-function createSystem() {
-  const name = document.getElementById('new-name').value.trim();
-  const template = document.getElementById('template-select').value;
-  if (!name) { showToast('Name is required', 'error'); return; }
-  if (!/^[a-z0-9_]+$/.test(name)) { showToast('Use only lowercase letters, numbers, underscores', 'error'); return; }
-
-  fetch('/systems/new', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-    body: `name=${encodeURIComponent(name)}&template=${encodeURIComponent(template)}`,
-  }).then(r => r.json()).then(d => {
-    if (d.ok) window.location.href = d.redirect;
-    else showToast('✗ ' + d.error, 'error');
+(() => {
+  const TAKEN = {{ systems|map(attribute='name')|list|tojson }};
+  const $ = TB.$;
+  const nameEl = $('#name');
+  const check = () => {
+    const v = nameEl.value.trim().toLowerCase().replace(/\s+/g, '_');
+    let err = '';
+    if (v && !/^[a-z][a-z0-9_]*$/.test(v)) err = 'Use lowercase letters, digits and underscores, starting with a letter.';
+    else if (TAKEN.includes(v)) err = `There is already a system named ${v}.`;
+    nameEl.setAttribute('aria-invalid', String(!!err));
+    $('#name-hint').textContent = err || 'Lowercase letters, digits and underscores, starting with a letter. Used as the directory name and on the command line.';
+    $('#name-hint').classList.toggle('err', !!err);
+    $('#pv-name').textContent = v || 'sqlite';
+    $('#pv-tpl').textContent = `systems/${(document.querySelector('input[name="template"]:checked') || {}).value}/`;
+    return { v, err };
+  };
+  document.addEventListener('input', check);
+  document.addEventListener('change', check);
+  check();
+  $('#new-system').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const { v, err } = check();
+    if (!v || err) { nameEl.setAttribute('aria-invalid', 'true'); nameEl.focus(); if (!v) { $('#name-hint').textContent = 'Give the system a name.'; $('#name-hint').classList.add('err'); } return; }
+    const btn = $('#create');
+    btn.classList.add('is-loading');
+    try {
+      const r = await fetch('{{ url_for("new_system") }}', { method: 'POST', body: new URLSearchParams({ name: v, template: document.querySelector('input[name="template"]:checked').value }) });
+      const d = await r.json();
+      if (d.ok) { TB.toast(`Created ${v}`, 'success'); location.href = d.redirect; return; }
+      TB.toast(d.error || 'Could not create the system', 'error', 7000);
+    } catch { TB.toast('The server did not answer', 'error'); }
+    btn.classList.remove('is-loading');
   });
-}
+})();
 </script>
 {% endblock %}

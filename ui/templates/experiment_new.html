@@ -1,840 +1,355 @@
-{% extends "base.html" %} {% block title %}New Experiment{% endblock %} {% block
-page_title %}Configure Experiment{% endblock %} {% block content %}
+{% extends "base.html" %}
+{% import '_macros.html' as m %}
+{% block title %}New experiment{% endblock %}
+
+{% block head %}
 <style>
-  /* Bento Wizard Styles */
-  .wizard-bento {
-    display: grid;
-    grid-template-columns: repeat(12, 1fr);
-    gap: 24px;
-  }
-  .bento-wizard-panel {
-    background: rgba(15, 23, 42, 0.4);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(12px);
-    border-radius: calc(var(--radius) * 1.5);
-    padding: 32px;
-    grid-column: span 12;
-    display: none;
-    animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-  .bento-wizard-panel.active {
-    display: block;
-  }
-
-  @keyframes slideUp {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .wizard-steps-bento {
-    display: flex;
-    gap: 16px;
-    margin-bottom: 40px;
-    grid-column: span 12;
-  }
-  .step-bento {
-    flex: 1;
-    background: rgba(0, 0, 0, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    padding: 16px;
-    border-radius: var(--radius);
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    transition: all 0.3s;
-  }
-  .step-bento.active {
-    background: linear-gradient(
-      135deg,
-      rgba(56, 189, 248, 0.15),
-      rgba(59, 130, 246, 0.05)
-    );
-    border-color: rgba(56, 189, 248, 0.3);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(56, 189, 248, 0.15);
-  }
-  .step-bento.done {
-    border-color: rgba(16, 185, 129, 0.3);
-  }
-
-  .step-num-bento {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.05);
-    display: grid;
-    place-items: center;
-    font-weight: 700;
-    color: var(--text3);
-    transition: all 0.3s;
-  }
-  .step-bento.active .step-num-bento {
-    background: #38bdf8;
-    color: white;
-    box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
-  }
-  .step-bento.done .step-num-bento {
-    background: #10b981;
-    color: white;
-  }
-
-  .step-label-bento {
-    font-weight: 600;
-    color: var(--text2);
-    transition: all 0.3s;
-  }
-  .step-bento.active .step-label-bento {
-    color: white;
-    font-weight: 700;
-  }
-  .step-bento.done .step-label-bento {
-    color: #a7f3d0;
-  }
-
-  .bento-heading-large {
-    font-size: 2rem;
-    font-weight: 800;
-    color: white;
-    margin-bottom: 8px;
-  }
-  .bento-sub {
-    font-size: 1.05rem;
-    color: var(--text2);
-    margin-bottom: 32px;
-  }
-
-  .check-grid-bento {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 16px;
-  }
-  .check-card-bento {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    background: rgba(0, 0, 0, 0.3);
-    border: 2px solid rgba(255, 255, 255, 0.05);
-    border-radius: var(--radius);
-    padding: 20px;
-    cursor: pointer;
-    transition: all 0.2s;
-    user-select: none;
-  }
-  .check-card-bento input {
-    position: absolute;
-    opacity: 0;
-    width: 0;
-    height: 0;
-  }
-  .check-card-bento:hover {
-    border-color: rgba(255, 255, 255, 0.15);
-    transform: translateY(-2px);
-  }
-  .check-card-bento:has(input:checked) {
-    border-color: #38bdf8;
-    background: linear-gradient(135deg, rgba(56, 189, 248, 0.1), transparent);
-    box-shadow: 0 4px 15px rgba(56, 189, 248, 0.15);
-  }
-
-  .check-mark-bento {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    border: 2px solid rgba(255, 255, 255, 0.1);
-    display: grid;
-    place-items: center;
-    color: transparent;
-    font-size: 0.9rem;
-    transition: all 0.2s;
-  }
-  .check-card-bento:has(input:checked) .check-mark-bento {
-    background: #38bdf8;
-    border-color: #38bdf8;
-    color: white;
-  }
-
-  .wizard-nav-bento {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 40px;
-    padding-top: 24px;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
-  }
-
-  .review-bento {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-  }
-  .review-item-bento {
-    background: rgba(0, 0, 0, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    padding: 20px;
-    border-radius: var(--radius);
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .review-item-bento.highlight {
-    grid-column: span 2;
-    background: linear-gradient(
-      135deg,
-      rgba(56, 189, 248, 0.15),
-      rgba(59, 130, 246, 0.05)
-    );
-    border-color: rgba(56, 189, 248, 0.3);
-  }
-
-  @media (max-width: 900px) {
-    .wizard-steps-bento {
-      flex-direction: column;
-      gap: 8px;
-    }
-    .review-bento {
-      grid-template-columns: 1fr;
-    }
-    .review-item-bento.highlight {
-      grid-column: span 1;
-    }
-  }
+  .wiz { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; align-items: start; }
+  .summary { position: sticky; top: 76px; }
+  .summary .row { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px dashed var(--line); font-size: var(--fs-sm); }
+  .summary .row:last-of-type { border-bottom: 0; }
+  .summary .row span:last-child { text-align: right; color: var(--ink); font-weight: 550; min-width: 0; overflow-wrap: anywhere; }
+  .big-num { font-family: var(--font-display); font-size: 2.4rem; font-weight: 650; letter-spacing: -.03em; line-height: 1; font-variant-numeric: tabular-nums; }
+  .size-strip { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
+  .size-strip span { font: 500 11px var(--font-mono); padding: 3px 7px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); animation: pop var(--t-med) var(--ease-spring) backwards; animation-delay: calc(var(--i, 0) * 15ms); }
+  .numstep { display: inline-flex; align-items: stretch; border: 1px solid var(--line-strong); border-radius: 9px; overflow: hidden; }
+  .numstep button { width: 36px; border: 0; background: var(--surface-2); cursor: pointer; color: var(--ink-2); display: grid; place-items: center; }
+  .numstep button:hover { background: var(--sunken); color: var(--ink); }
+  .numstep button svg { width: 15px; height: 15px; }
+  .numstep input { width: 64px; border: 0; text-align: center; background: var(--surface); color: var(--ink); font: 600 var(--fs-base) var(--font-mono); }
+  .numstep input:focus { outline: none; }
+  .panel-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+  .panel-head h2 { font-size: var(--fs-xl); }
+  .panel-head p { color: var(--ink-2); margin-top: 4px; font-size: var(--fs-md); }
+  .fieldset { border: 0; padding: 0; margin: 0 0 24px; }
+  .fieldset legend { padding: 0; margin-bottom: 10px; }
+  @media (max-width: 1100px) { .wiz { grid-template-columns: minmax(0, 1fr); } .summary { position: static; } }
 </style>
+{% endblock %}
 
-<div class="breadcrumb" style="margin-bottom: 24px">
-  <a
-    href="{{ url_for('dashboard') }}"
-    style="color: var(--text2); text-decoration: none; font-weight: 600"
-    >Dashboard</a
-  >
-  <span style="color: var(--text3); margin: 0 8px">›</span>
-  <span style="color: white; font-weight: 700">New Experiment</span>
+{% block content %}
+{% call m.page_head('New experiment', 'Pick what to run, then start it here or copy the command. Runs started here use transitive.py in-process; for verified measurements with a time limit use the benchmark.py command shown on the last step.', 'Run', 'play') %}{% endcall %}
+
+{% if experiment_running %}
+<div class="callout warn" style="margin-bottom:20px"><i data-lucide="activity"></i><div>An experiment is already running. You can plan the next one, but it can only start when the current one finishes. <a href="{{ url_for('experiment_live') }}">Open the live monitor</a></div></div>
+{% endif %}
+
+<nav class="stepper" aria-label="Steps">
+  <button class="step" type="button" data-go="1" aria-current="step"><span class="step-num">1</span><span class="step-text">Systems</span></button>
+  <button class="step" type="button" data-go="2"><span class="step-num">2</span><span class="step-text">Topologies</span></button>
+  <button class="step" type="button" data-go="3"><span class="step-num">3</span><span class="step-text">Settings</span></button>
+  <button class="step" type="button" data-go="4"><span class="step-num">4</span><span class="step-text">Review</span></button>
+</nav>
+
+<div class="wiz">
+  <div>
+    <!-- 1 · Systems -->
+    <section class="wiz-panel" data-step="1" aria-labelledby="h-step1">
+      <div class="panel-head">
+        <div><h2 id="h-step1">Which systems?</h2><p>Leave everything unselected to run every discovered system.</p></div>
+        <div class="cluster"><button class="btn btn-sm" type="button" data-all="sys">Select all</button><button class="btn btn-sm btn-ghost" type="button" data-none="sys">Clear</button></div>
+      </div>
+      <div class="pick-grid" id="sys-grid" data-stagger>
+        {% for s in systems %}
+        <label class="pick">
+          <input type="checkbox" name="systems" value="{{ s.name }}" {% if s.name in preselect.systems %}checked{% endif %}>
+          <span class="pick-box"><svg viewBox="0 0 12 12"><path d="M2 6.5l2.6 2.5L10 3.2" pathLength="20"/></svg></span>
+          <span class="pick-main">
+            <span class="pick-title">{{ m.marker(system_ui.get(s.name)) }}<span>{{ s.display_name }}</span></span>
+            <span class="pick-sub">{{ s.category }} · {{ s.protocol }}</span>
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+    </section>
+
+    <!-- 2 · Topologies -->
+    <section class="wiz-panel" data-step="2" aria-labelledby="h-step2" hidden>
+      <div class="panel-head">
+        <div><h2 id="h-step2">Which topologies?</h2><p>Leave everything unselected to run every topology.</p></div>
+        <div class="cluster"><button class="btn btn-sm" type="button" data-all="graph">Select all</button><button class="btn btn-sm btn-ghost" type="button" data-none="graph">Clear</button></div>
+      </div>
+      <div class="pick-grid" id="graph-grid" style="grid-template-columns:repeat(auto-fill,minmax(250px,1fr))">
+        {% for g in graph_types %}
+        <label class="pick" title="{{ g.description }}">
+          <input type="checkbox" name="graphs" value="{{ g.name }}" {% if g.name in preselect.graphs %}checked{% endif %}>
+          <span class="pick-box"><svg viewBox="0 0 12 12"><path d="M2 6.5l2.6 2.5L10 3.2" pathLength="20"/></svg></span>
+          <span class="pick-main">
+            <span class="pick-title"><span>{{ g.display_name }}</span></span>
+            <span class="pick-sub">{{ g.name }}</span>
+          </span>
+          <span class="pick-mini">{{ m.graph_svg(previews.get(g.name), g.name, False) }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </section>
+
+    <!-- 3 · Settings -->
+    <section class="wiz-panel" data-step="3" aria-labelledby="h-step3" hidden>
+      <div class="panel-head"><div><h2 id="h-step3">Settings</h2><p>Recursion modes, graph sizes and repetitions.</p></div></div>
+
+      <div class="card card-body">
+        <div class="grid grid-2" style="gap:20px">
+          <div class="field">
+            <label class="label" for="domain">Domain</label>
+            <select class="select" id="domain">
+              {% for d in domain_options %}<option value="{{ d.name }}" data-modes="{{ d.modes|join(',') }}">{{ d.display_name }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <span class="label" id="qm-label">Query mode</span>
+            <div class="seg" role="radiogroup" aria-labelledby="qm-label">
+              <label><input type="radio" name="query_mode" value="full_materialization" checked>Full materialization</label>
+              <label><input type="radio" name="query_mode" value="demand_driven">Demand-driven</label>
+            </div>
+            <span class="hint" id="qm-hint">Compute the whole closure.</span>
+          </div>
+        </div>
+
+        <fieldset class="fieldset mt-6">
+          <legend class="label">Recursion modes</legend>
+          <div class="cluster" id="modes"></div>
+          <span class="hint err" id="modes-err" hidden>Choose at least one mode.</span>
+        </fieldset>
+
+        <fieldset class="fieldset">
+          <legend class="label">Graph sizes <span class="opt">n from start to stop (exclusive)</span></legend>
+          <div class="grid grid-3" style="gap:12px;max-width:520px">
+            <div class="field"><label class="hint" for="size-start">Start</label><input class="input mono" type="number" id="size-start" value="10" min="1" inputmode="numeric"></div>
+            <div class="field"><label class="hint" for="size-stop">Stop</label><input class="input mono" type="number" id="size-stop" value="101" min="2" inputmode="numeric"></div>
+            <div class="field"><label class="hint" for="size-step">Step</label><input class="input mono" type="number" id="size-step" value="10" min="1" inputmode="numeric"></div>
+          </div>
+          <div class="size-strip" id="size-strip" aria-live="polite"></div>
+          <span class="hint err" id="sizes-err" hidden>Stop must be larger than start, and step at least 1.</span>
+        </fieldset>
+
+        <div class="grid grid-2" style="gap:20px">
+          <div class="field">
+            <label class="label" for="num-runs">Runs per configuration</label>
+            <div class="numstep"><button type="button" data-step-by="-1" aria-label="Fewer runs"><i data-lucide="minus"></i></button><input type="number" id="num-runs" value="5" min="1" max="50"><button type="button" data-step-by="1" aria-label="More runs"><i data-lucide="plus"></i></button></div>
+            <span class="hint">The paper averages 5 runs.</span>
+          </div>
+          <div class="field" id="souffle-field">
+            <label class="label" for="souffle-dir">Soufflé include directory <span class="opt">optional</span></label>
+            <input class="input mono" type="text" id="souffle-dir" value="{{ config.get('souffle_include_dir', '') or '' }}" placeholder="/opt/homebrew/include">
+            <span class="hint">Only used when Soufflé is selected.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4 · Review -->
+    <section class="wiz-panel" data-step="4" aria-labelledby="h-step4" hidden>
+      <div class="panel-head"><div><h2 id="h-step4">Review and start</h2><p>Start it here and watch it live, or copy a command to run in a terminal.</p></div></div>
+      <div class="stack">
+        <div class="card card-body">
+          <div class="cluster" style="justify-content:space-between;align-items:flex-end">
+            <div><div class="small muted">Runs to execute</div><div class="big-num" id="r-total">0</div></div>
+            <div class="small muted" id="r-formula" style="text-align:right"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h3><i data-lucide="square-terminal"></i>Same run from the command line</h3></div>
+          <div class="card-body stack">
+            <div class="small muted">In-process, as the Start button runs it:</div>
+            <div class="cmd"><span class="prompt">$</span><code id="cmd-transitive"></code><button class="btn btn-ghost btn-sm btn-icon" type="button" data-copy="#cmd-transitive" aria-label="Copy command"><i data-lucide="copy"></i></button></div>
+            <div class="cluster small muted mt-2" style="justify-content:space-between">
+              <span>Verified (separate process per run, time limit, result check), one series per system:</span>
+              <label class="cluster" style="gap:6px">campaign <input class="input mono btn-sm" id="campaign-name" value="my_campaign" style="width:140px" aria-label="Campaign name"></label>
+            </div>
+            <div class="cmd"><span class="prompt">$</span><code id="cmd-benchmark"></code><button class="btn btn-ghost btn-sm btn-icon" type="button" data-copy="#cmd-benchmark" aria-label="Copy command"><i data-lucide="copy"></i></button></div>
+            <p class="hint" id="bench-note">Results land in results/&lt;campaign&gt;/&lt;system&gt;/runs.jsonl and appear under Campaigns once analyzed.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="wiz-foot">
+      <button class="btn" type="button" id="back"><i data-lucide="arrow-left"></i>Back</button>
+      <span class="spacer"></span>
+      <span class="small muted hide-sm" id="step-hint"></span>
+      <button class="btn btn-primary" type="button" id="next">Continue<i data-lucide="arrow-right"></i></button>
+      <button class="btn btn-primary" type="button" id="start" hidden {% if experiment_running %}disabled title="An experiment is already running"{% endif %}><i data-lucide="play"></i>Start experiment</button>
+    </div>
+  </div>
+
+  <aside class="card summary" aria-label="Summary">
+    <div class="card-head"><h3><i data-lucide="list-checks"></i>Summary</h3></div>
+    <div class="card-body" style="padding-top:8px;padding-bottom:8px">
+      <div class="row"><span class="muted">Systems</span><span id="s-sys">all</span></div>
+      <div class="row"><span class="muted">Topologies</span><span id="s-graph">all</span></div>
+      <div class="row"><span class="muted">Modes</span><span id="s-modes">—</span></div>
+      <div class="row"><span class="muted">Sizes</span><span id="s-sizes">—</span></div>
+      <div class="row"><span class="muted">Runs each</span><span id="s-runs">5</span></div>
+    </div>
+    <div class="card-foot"><span class="muted small">Total runs</span><span class="spacer"></span><b class="tabular" id="s-total" style="font-size:var(--fs-lg)">0</b></div>
+  </aside>
 </div>
+{% endblock %}
 
-<div class="wizard-bento" id="wizard">
-  <!-- Step indicators -->
-  <div class="wizard-steps-bento">
-    <div class="step-bento active" data-step="1">
-      <div class="step-num-bento">1</div>
-      <div class="step-label-bento">Systems</div>
-    </div>
-    <div class="step-bento" data-step="2">
-      <div class="step-num-bento">2</div>
-      <div class="step-label-bento">Graphs</div>
-    </div>
-    <div class="step-bento" data-step="3">
-      <div class="step-num-bento">3</div>
-      <div class="step-label-bento">Settings</div>
-    </div>
-    <div class="step-bento" data-step="4">
-      <div class="step-num-bento">4</div>
-      <div class="step-label-bento">Review</div>
-    </div>
-  </div>
-
-  <!-- Step 1: Select systems -->
-  <div class="bento-wizard-panel active" id="step-1" data-step-label="Step 1 of 4: Systems">
-    <h2 class="bento-heading-large">Which systems do you want to benchmark?</h2>
-    <p class="bento-sub">
-      Select one or more. Leave all unchecked to run all discovered systems.
-    </p>
-    <div style="display:flex;gap:10px;margin-bottom:16px;">
-      <button type="button" class="btn" style="padding:6px 14px;font-size:.85rem;background:rgba(56,189,248,.1);border-color:rgba(56,189,248,.3);color:#38bdf8;" onclick="selectAll('systems-grid')">Select All</button>
-      <button type="button" class="btn" style="padding:6px 14px;font-size:.85rem;background:rgba(255,255,255,.05);" onclick="selectNone('systems-grid')">Clear</button>
-    </div>
-    <div class="check-grid-bento" id="systems-grid">
-      {% for system in systems %}
-      <label class="check-card-bento" for="sys-{{ system.name }}">
-        <input type="checkbox" id="sys-{{ system.name }}" name="systems" value="{{ system.name }}" />
-        <div class="card-check-indicator"></div>
-        <div class="check-card-meta">
-          <div class="check-card-category">{{ system.category }}</div>
-          <div class="check-card-name">{{ system.display_name }}</div>
-          <div class="check-card-slug">{{ system.protocol }}</div>
-        </div>
-      </label>
-      {% endfor %}
-    </div>
-    <div class="wizard-footer">
-      <span></span>
-      <button class="btn btn-primary" style="padding:12px 28px;font-size:1rem;" onclick="nextStep()">Next Step →</button>
-    </div>
-  </div>
-
-  <!-- Step 2: Select graph types -->
-  <div class="bento-wizard-panel" id="step-2" data-step-label="Step 2 of 4: Graphs">
-    <h2 class="bento-heading-large">Which graph topologies?</h2>
-    <p class="bento-sub">
-      Leave all unchecked to test all discovered topologies.
-    </p>
-    <div style="display:flex;gap:10px;margin-bottom:16px;">
-      <button type="button" class="btn" style="padding:6px 14px;font-size:.85rem;background:rgba(56,189,248,.1);border-color:rgba(56,189,248,.3);color:#38bdf8;" onclick="selectAll('graphs-grid')">Select All</button>
-      <button type="button" class="btn" style="padding:6px 14px;font-size:.85rem;background:rgba(255,255,255,.05);" onclick="selectNone('graphs-grid')">Clear</button>
-    </div>
-    <div class="check-grid-bento" id="graphs-grid">
-      {% for g in graph_types %}
-      <label class="check-card-bento" for="g-{{ g.name }}">
-        <input type="checkbox" id="g-{{ g.name }}" name="graphs" value="{{ g.name }}" />
-        <div class="card-check-indicator"></div>
-        <div class="check-card-meta">
-          <div class="check-card-name">{{ g.display_name }}</div>
-          <div class="check-card-slug" style="white-space:normal;line-height:1.4;">{{ g.description[:65] }}{% if g.description|length > 65 %}…{% endif %}</div>
-        </div>
-      </label>
-      {% endfor %}
-    </div>
-    <div class="wizard-footer">
-      <button class="btn" style="padding:12px 28px;font-size:1rem;" onclick="prevStep()">← Back</button>
-      <button class="btn btn-primary" style="padding:12px 28px;font-size:1rem;" onclick="nextStep()">Next Step →</button>
-    </div>
-    </div>
-  </div>
-
-  <!-- Step 3: Settings -->
-  <div class="bento-wizard-panel" id="step-3" data-step-label="Step 3 of 4: Settings">
-    <h2 class="bento-heading-large">Experiment settings</h2>
-
-    <div
-      style="display: flex; flex-direction: column; gap: 32px; margin-top: 32px"
-    >
-      <div>
-        <label
-          style="
-            display: block;
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: white;
-            margin-bottom: 12px;
-          "
-          >Recursion Modes</label
-        >
-        <div id="modes-container" style="display:flex;flex-wrap:wrap;gap:20px;background:rgba(0,0,0,.2);padding:20px;border-radius:var(--radius);border:1px solid rgba(255,255,255,.05);">
-          <!-- populated by JS based on selected domain -->
-        </div>
-      </div>
-
-      <div>
-        <label
-          style="
-            display: block;
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: white;
-            margin-bottom: 12px;
-          "
-          >Benchmark Domain</label
-        >
-        <select id="domain" onchange="onDomainChange(this.value)"
-          style="background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:12px;color:white;width:100%;font-size:1.1rem;">
-          {% for d in domain_options %}
-          <option value="{{ d.name }}" data-modes="{{ d.modes | join(',') }}">{{ d.display_name }}</option>
-          {% endfor %}
-        </select>
-        <div style="margin-top: 8px; font-size: 0.85rem; color: var(--text3)">
-          Controls the rule files and queries loaded (e.g.,
-          'transitive_closure', 'shortest_path').
-        </div>
-      </div>
-
-      <div>
-        <label
-          style="
-            display: block;
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: white;
-            margin-bottom: 12px;
-          "
-          >Query Execution Mode</label
-        >
-        <div
-          style="
-            display: flex;
-            gap: 20px;
-            background: rgba(0, 0, 0, 0.2);
-            padding: 16px;
-            border-radius: var(--radius);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-          "
-        >
-          <label
-            style="
-              display: flex;
-              align-items: center;
-              gap: 10px;
-              cursor: pointer;
-              color: white;
-              font-weight: 500;
-            "
-          >
-            <input
-              type="radio"
-              name="query_mode"
-              value="full_materialization"
-              checked
-              style="width: 18px; height: 18px; accent-color: #38bdf8"
-            />
-            Full Materialization
-          </label>
-          <label
-            style="
-              display: flex;
-              align-items: center;
-              gap: 10px;
-              cursor: pointer;
-              color: white;
-              font-weight: 500;
-            "
-          >
-            <input
-              type="radio"
-              name="query_mode"
-              value="demand_driven"
-              style="width: 18px; height: 18px; accent-color: #38bdf8"
-            />
-            Demand-Driven
-          </label>
-        </div>
-        <div style="margin-top: 8px; font-size: 0.85rem; color: var(--text3)">
-          Full Materialization: compute all results upfront. Demand-Driven:
-          compute only requested results.
-        </div>
-      </div>
-
-      <div>
-        <label
-          style="
-            display: block;
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: white;
-            margin-bottom: 12px;
-          "
-          >Graph Size Range</label
-        >
-        <div
-          style="
-            display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-            background: rgba(0, 0, 0, 0.2);
-            padding: 20px;
-            border-radius: var(--radius);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-          "
-        >
-          <div style="display: flex; flex-direction: column; gap: 8px">
-            <label
-              style="
-                font-size: 0.85rem;
-                color: var(--text2);
-                font-weight: 600;
-                text-transform: uppercase;
-              "
-              >Start Size</label
-            >
-            <input
-              type="number"
-              id="size-start"
-              value="10"
-              min="1"
-              style="
-                background: rgba(0, 0, 0, 0.4);
-                border: 1px solid rgba(255, 255, 255, 0.1);
-                border-radius: 8px;
-                padding: 12px;
-                color: white;
-                width: 140px;
-                font-size: 1.1rem;
-              "
-            />
-          </div>
-          <div style="display: flex; flex-direction: column; gap: 8px">
-            <label
-              style="
-                font-size: 0.85rem;
-                color: var(--text2);
-                font-weight: 600;
-                text-transform: uppercase;
-              "
-              >Stop (Exclusive)</label
-            >
-            <input
-              type="number"
-              id="size-stop"
-              value="101"
-              min="2"
-              style="
-                background: rgba(0, 0, 0, 0.4);
-                border: 1px solid rgba(255, 255, 255, 0.1);
-                border-radius: 8px;
-                padding: 12px;
-                color: white;
-                width: 140px;
-                font-size: 1.1rem;
-              "
-            />
-          </div>
-          <div style="display: flex; flex-direction: column; gap: 8px">
-            <label
-              style="
-                font-size: 0.85rem;
-                color: var(--text2);
-                font-weight: 600;
-                text-transform: uppercase;
-              "
-              >Step</label
-            >
-            <input
-              type="number"
-              id="size-step"
-              value="10"
-              min="1"
-              style="
-                background: rgba(0, 0, 0, 0.4);
-                border: 1px solid rgba(255, 255, 255, 0.1);
-                border-radius: 8px;
-                padding: 12px;
-                color: white;
-                width: 140px;
-                font-size: 1.1rem;
-              "
-            />
-          </div>
-        </div>
-        <div
-          id="size-preview"
-          style="
-            margin-top: 12px;
-            font-family: var(--mono);
-            color: #38bdf8;
-            font-size: 0.9rem;
-            background: rgba(56, 189, 248, 0.1);
-            padding: 8px 16px;
-            border-radius: 8px;
-            display: inline-block;
-          "
-        ></div>
-      </div>
-
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px">
-        <div>
-          <label
-            style="
-              display: block;
-              font-size: 1.1rem;
-              font-weight: 700;
-              color: white;
-              margin-bottom: 12px;
-            "
-            >Runs per Cell</label
-          >
-          <input
-            type="number"
-            id="num-runs"
-            value="3"
-            min="1"
-            max="50"
-            style="
-              background: rgba(0, 0, 0, 0.4);
-              border: 1px solid rgba(255, 255, 255, 0.1);
-              border-radius: 8px;
-              padding: 12px;
-              color: white;
-              width: 100%;
-              font-size: 1.1rem;
-            "
-          />
-          <div style="margin-top: 8px; font-size: 0.85rem; color: var(--text3)">
-            Higher = more accurate averages, longer runtime
-          </div>
-        </div>
-
-        <div>
-          <label
-            style="
-              display: block;
-              font-size: 1.1rem;
-              font-weight: 700;
-              color: white;
-              margin-bottom: 12px;
-            "
-            >Soufflé Include Directory</label
-          >
-          <input
-            type="text"
-            id="souffle-include-dir"
-            value="{{ config.get('souffle_include_dir', '') }}"
-            style="
-              background: rgba(0, 0, 0, 0.4);
-              border: 1px solid rgba(255, 255, 255, 0.1);
-              border-radius: 8px;
-              padding: 12px;
-              color: white;
-              width: 100%;
-              font-size: 1.1rem;
-              font-family: var(--mono);
-            "
-          />
-          <div style="margin-top: 8px; font-size: 0.85rem; color: var(--text3)">
-            Path to Soufflé's C++ include directory (if using Soufflé)
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="wizard-nav-bento">
-      <button
-        class="btn"
-        style="
-          padding: 12px 28px;
-          font-size: 1.1rem;
-          background: rgba(255, 255, 255, 0.05);
-        "
-        onclick="prevStep()"
-      >
-        ← Back
-      </button>
-      <button
-        class="btn btn-primary"
-        style="
-          padding: 12px 28px;
-          font-size: 1.1rem;
-          box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
-        "
-        onclick="nextStep()"
-      >
-        Review Settings →
-      </button>
-    </div>
-  </div>
-
-  <!-- Step 4: Review -->
-  <div class="bento-wizard-panel" id="step-4">
-    <h2 class="bento-heading-large">Review & Start</h2>
-    <p class="bento-sub">
-      Verify your configuration before launching the benchmark runner.
-    </p>
-
-    <div class="review-bento" id="review-summary"></div>
-
-    <div class="wizard-nav-bento">
-      <button
-        class="btn"
-        style="
-          padding: 12px 28px;
-          font-size: 1.1rem;
-          background: rgba(255, 255, 255, 0.05);
-        "
-        onclick="prevStep()"
-      >
-        ← Back
-      </button>
-      <button
-        class="btn btn-success"
-        style="
-          padding: 16px 36px;
-          font-size: 1.2rem;
-          font-weight: 800;
-          background: linear-gradient(135deg, #10b981, #059669);
-          border: none;
-          box-shadow: 0 8px 24px rgba(16, 185, 129, 0.4);
-        "
-        onclick="startExperiment()"
-        id="start-btn"
-      >
-        ▷ Launch Experiment
-      </button>
-    </div>
-  </div>
-</div>
-
+{% block scripts %}
 <script>
-  let currentStep = 1;
-  const totalSteps = 4;
+(() => {
+  const ALL = { sys: {{ systems|map(attribute='name')|list|tojson }}, graph: {{ graph_types|map(attribute='name')|list|tojson }} };
+  const LABEL = { {% for s in systems %}{{ s.name|tojson }}: {{ s.display_name|tojson }},{% endfor %} };
+  const $ = TB.$; const $$ = TB.$$;
+  let step = 1;
 
-  function nextStep() {
-    if (currentStep < totalSteps) {
-      setStep(currentStep + 1);
-    }
-  }
-  function prevStep() {
-    if (currentStep > 1) {
-      setStep(currentStep - 1);
-    }
-  }
-  function setStep(n) {
-    document
-      .querySelectorAll(".bento-wizard-panel")
-      .forEach((p) => p.classList.remove("active"));
-    document.querySelectorAll(".step-bento").forEach((s) => {
-      s.classList.remove("active", "done");
-      if (parseInt(s.dataset.step) < n) s.classList.add("done");
-      if (parseInt(s.dataset.step) === n) s.classList.add("active");
-    });
-    document.getElementById(`step-${n}`).classList.add("active");
-    currentStep = n;
-    if (n === 4) buildReview();
-    updateSizePreview();
-  }
-
-  function updateSizePreview() {
-    const s = parseInt(document.getElementById("size-start")?.value || 10);
-    const e = parseInt(document.getElementById("size-stop")?.value || 101);
-    const st = parseInt(document.getElementById("size-step")?.value || 10);
-    const sizes = [];
-    for (let i = s; i < e; i += st) sizes.push(i);
-    const el = document.getElementById("size-preview");
-    if (el)
-      el.textContent = `Sizes: [${sizes.slice(0, 8).join(", ")}${sizes.length > 8 ? ", …" : ""}] (${sizes.length} total)`;
-  }
-
-  ["size-start", "size-stop", "size-step"].forEach((id) => {
-    const el = document.getElementById(id);
-    if (el) el.addEventListener("input", updateSizePreview);
+  const checked = (name) => $$(`input[name="${name}"]:checked`).map((i) => i.value);
+  const sizes = () => {
+    const a = parseInt($('#size-start').value, 10); const b = parseInt($('#size-stop').value, 10); const s = parseInt($('#size-step').value, 10);
+    if (!(a >= 1) || !(b > a) || !(s >= 1)) return null;
+    const out = []; for (let i = a; i < b && out.length < 500; i += s) out.push(i);
+    return { start: a, stop: b, step: s, list: out };
+  };
+  const state = () => ({
+    systems: checked('systems'), graphs: checked('graphs'), modes: checked('modes'),
+    domain: $('#domain').value, query_mode: $('input[name="query_mode"]:checked').value,
+    sizes: sizes(), runs: Math.max(1, Math.min(50, parseInt($('#num-runs').value, 10) || 1)),
+    souffle: $('#souffle-dir').value.trim(),
   });
-  updateSizePreview();
 
-  // ── Select All / None ──────────────────────────────────────────
-  function selectAll(gridId) {
-    document.querySelectorAll(`#${gridId} input[type=checkbox]`).forEach(cb => cb.checked = true);
-  }
-  function selectNone(gridId) {
-    document.querySelectorAll(`#${gridId} input[type=checkbox]`).forEach(cb => cb.checked = false);
-  }
-
-  // ── Dynamic modes from domain ──────────────────────────────────
+  // ── modes follow the domain ─────────────────────────────────────
   function renderModes(modes) {
-    const c = document.getElementById('modes-container');
-    c.innerHTML = modes.map((m, i) => `
-      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;color:white;font-weight:500;">
-        <input type="checkbox" name="modes" value="${m}" ${i < 2 ? 'checked' : ''}
-          style="width:18px;height:18px;accent-color:#38bdf8"/>
-        ${m.replace(/_/g,' ')}
-      </label>`).join('');
+    const keep = new Set(checked('modes'));
+    const def = keep.size ? keep : new Set(['left_recursion', 'right_recursion']);
+    $('#modes').innerHTML = modes.map((md) => `<label class="pick" style="padding:10px 12px"><input type="checkbox" name="modes" value="${TB.esc(md)}" ${def.has(md) ? 'checked' : ''}><span class="pick-box"><svg viewBox="0 0 12 12"><path d="M2 6.5l2.6 2.5L10 3.2" pathLength="20"/></svg></span><span class="pick-title mono" style="font-weight:500;font-size:var(--fs-sm)">${TB.esc(md)}</span></label>`).join('');
+    update();
   }
-
-  function onDomainChange(domainName) {
-    const sel = document.getElementById('domain');
-    const opt = sel.options[sel.selectedIndex];
-    const cached = opt.dataset.modes;
-    if (cached) { renderModes(cached.split(',').filter(Boolean)); return; }
-    fetch(`/api/domains/${encodeURIComponent(domainName)}/modes`)
-      .then(r => r.json())
-      .then(d => { opt.dataset.modes = d.modes.join(','); renderModes(d.modes); })
-      .catch(() => renderModes(['right_recursion','left_recursion','double_recursion']));
+  async function onDomain() {
+    const opt = $('#domain').selectedOptions[0];
+    if (opt.dataset.modes) { renderModes(opt.dataset.modes.split(',').filter(Boolean)); return; }
+    const d = await fetch(`/api/domains/${encodeURIComponent(opt.value)}/modes`).then((r) => r.json()).catch(() => ({ modes: ['right_recursion', 'left_recursion', 'double_recursion'] }));
+    opt.dataset.modes = d.modes.join(',');
+    renderModes(d.modes);
   }
+  $('#domain').addEventListener('change', onDomain);
 
-  // Init modes for default domain on load
-  (function initModes() {
-    const sel = document.getElementById('domain');
-    if (sel) onDomainChange(sel.value);
-  })();
+  // ── summary, commands, validation ────────────────────────────────
+  const listText = (sel, all, label = (x) => x) => (sel.length === 0 || sel.length === all.length ? `all ${all.length}` : sel.length <= 3 ? sel.map(label).join(', ') : `${sel.length} of ${all.length}`);
+  let lastStrip = '';
+  function update() {
+    const s = state();
+    $('#s-sys').textContent = listText(s.systems, ALL.sys, (x) => LABEL[x] || x);
+    $('#s-graph').textContent = listText(s.graphs, ALL.graph);
+    $('#s-modes').textContent = s.modes.length ? s.modes.map((x) => x.replace('_recursion', '')).join(', ') : 'none';
+    $('#s-sizes').textContent = s.sizes ? `${s.sizes.list.length} (${s.sizes.list[0]}…${s.sizes.list[s.sizes.list.length - 1]})` : 'invalid';
+    $('#s-runs').textContent = s.runs;
+    const nSys = s.systems.length || ALL.sys.length; const nG = s.graphs.length || ALL.graph.length;
+    const nSizes = s.sizes ? s.sizes.list.length : 0;
+    const total = nSys * nG * s.modes.length * nSizes * s.runs;
+    $('#s-total').textContent = total.toLocaleString();
+    $('#r-total').textContent = total.toLocaleString();
+    $('#r-formula').innerHTML = `${nSys} systems × ${nG} topologies × ${s.modes.length} modes<br>× ${nSizes} sizes × ${s.runs} runs`;
+    $('#souffle-field').style.display = (s.systems.length === 0 || s.systems.includes('souffle')) ? '' : 'none';
+    $('#qm-hint').textContent = s.query_mode === 'demand_driven' ? 'Compute only what the query asks for.' : 'Compute the whole closure.';
 
-  // ── Keyboard Navigation ────────────────────────────────────────
+    const strip = s.sizes ? s.sizes.list.slice(0, 40).join(',') : '';
+    if (strip !== lastStrip) {
+      lastStrip = strip;
+      $('#size-strip').innerHTML = s.sizes ? s.sizes.list.slice(0, 40).map((n, i) => `<span style="--i:${i}">${n}</span>`).join('') + (s.sizes.list.length > 40 ? `<span>+${s.sizes.list.length - 40} more</span>` : '') : '';
+    }
+    $('#sizes-err').hidden = !!s.sizes;
+    ['size-start', 'size-stop', 'size-step'].forEach((id) => $(`#${id}`).setAttribute('aria-invalid', String(!s.sizes)));
+    $('#modes-err').hidden = s.modes.length > 0;
+
+    const parts = ['python transitive.py'];
+    if (s.domain !== 'transitive') parts.push(`--domain ${s.domain}`);
+    if (s.query_mode !== 'full_materialization') parts.push(`--query-mode ${s.query_mode}`);
+    if (s.systems.length) parts.push(`--systems ${s.systems.join(' ')}`);
+    if (s.graphs.length) parts.push(`--graphs ${s.graphs.join(' ')}`);
+    if (s.modes.length) parts.push(`--modes ${s.modes.join(' ')}`);
+    if (s.sizes) parts.push(`--sizes ${s.sizes.start} ${s.sizes.stop} ${s.sizes.step}`);
+    parts.push(`--num-runs ${s.runs}`);
+    if (s.souffle && (s.systems.length === 0 || s.systems.includes('souffle'))) parts.push(`--souffle-include-dir ${s.souffle}`);
+    $('#cmd-transitive').textContent = parts.join(' ');
+
+    const camp = ($('#campaign-name').value.trim() || 'my_campaign').replace(/[^\w.-]/g, '_');
+    const sysList = (s.systems.length ? s.systems : ALL.sys).join(' ');
+    const bench = [`for s in ${sysList}; do`, `  python benchmark.py --systems $s`];
+    if (s.graphs.length) bench.push(`--graphs ${s.graphs.join(' ')}`);
+    if (s.modes.length) bench.push(`--modes ${s.modes.join(' ')}`);
+    if (s.sizes) bench.push(`--sizes ${s.sizes.list.join(' ')}`);
+    bench.push(`--runs ${s.runs} --timeout 600 --out results/${camp}/$s --no-analysis; done && python analyze_verified.py results/${camp}`);
+    $('#cmd-benchmark').textContent = `${bench.slice(0, 2).join('\n')} ${bench.slice(2).join(' ')}`;
+    const transitiveOnly = s.domain === 'transitive' && s.query_mode === 'full_materialization';
+    $('#cmd-benchmark').closest('.cmd').style.opacity = transitiveOnly ? '' : '.45';
+    $('#bench-note').textContent = transitiveOnly ? 'Results land in results/<campaign>/<system>/runs.jsonl and appear under Campaigns once analyzed.' : 'benchmark.py measures the transitive closure with full materialization only.';
+    return s;
+  }
+  document.addEventListener('input', update);
+  document.addEventListener('change', update);
+
+  $$('[data-all]').forEach((b) => b.addEventListener('click', () => { $$(`#${b.dataset.all}-grid input`).forEach((i) => { i.checked = true; }); update(); }));
+  $$('[data-none]').forEach((b) => b.addEventListener('click', () => { $$(`#${b.dataset.none}-grid input`).forEach((i) => { i.checked = false; }); update(); }));
+  $$('[data-step-by]').forEach((b) => b.addEventListener('click', () => { const i = $('#num-runs'); i.value = Math.max(1, Math.min(50, (parseInt(i.value, 10) || 1) + parseInt(b.dataset.stepBy, 10))); update(); }));
+
+  // ── steps ────────────────────────────────────────────────────────
+  const hints = { 1: (s) => `${s.systems.length || 'All'} selected`, 2: (s) => `${s.graphs.length || 'All'} selected`, 3: () => '', 4: () => '' };
+  function valid(n) {
+    const s = state();
+    if (n >= 3 && (!s.modes.length || !s.sizes)) return 3;
+    return 0;
+  }
+  function go(n) {
+    if (n === step || n < 1 || n > 4) return;
+    if (n > 3 && valid(n)) { go(3); TB.toast('Fix the settings first', 'warn', 2400); return; }
+    const back = n < step;
+    $$('.wiz-panel').forEach((p) => {
+      const on = +p.dataset.step === n;
+      p.hidden = !on;
+      if (on) { p.classList.toggle('back', back); p.style.animation = 'none'; void p.offsetWidth; p.style.animation = ''; }
+    });
+    $$('.step').forEach((b) => {
+      const k = +b.dataset.go;
+      b.classList.toggle('is-done', k < n);
+      if (k === n) b.setAttribute('aria-current', 'step'); else b.removeAttribute('aria-current');
+      b.querySelector('.step-num').innerHTML = k < n ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' : k;
+    });
+    step = n;
+    $('#back').disabled = n === 1;
+    $('#next').hidden = n === 4;
+    $('#start').hidden = n !== 4;
+    $('#step-hint').textContent = hints[n](state());
+    update();
+    window.scrollTo({ top: 0, behavior: TB.reduceMotion() ? 'auto' : 'smooth' });
+    history.replaceState(null, '', `#step-${n}`);
+  }
+  $$('.step').forEach((b) => b.addEventListener('click', () => go(+b.dataset.go)));
+  $('#next').addEventListener('click', () => go(step + 1));
+  $('#back').addEventListener('click', () => go(step - 1));
+  document.addEventListener('change', () => { $('#step-hint').textContent = hints[step](state()); });
   document.addEventListener('keydown', (e) => {
-    // Don't intercept when user is in an input/select/textarea
-    const tag = document.activeElement.tagName;
-    if (['INPUT','SELECT','TEXTAREA'].includes(tag)) return;
-    if (e.key === 'ArrowRight' || e.key === 'Enter') { e.preventDefault(); nextStep(); }
-    if (e.key === 'ArrowLeft') { e.preventDefault(); prevStep(); }
+    if (e.target.closest('input, select, textarea') || document.querySelector('dialog[open]')) return;
+    if (e.key === 'ArrowRight' && step < 4) { e.preventDefault(); go(step + 1); }
+    if (e.key === 'ArrowLeft' && step > 1) { e.preventDefault(); go(step - 1); }
   });
 
-  function buildReview() {
-    const systems = [
-      ...document.querySelectorAll("#systems-grid input:checked"),
-    ].map((i) => i.value);
-    const graphs = [
-      ...document.querySelectorAll("#graphs-grid input:checked"),
-    ].map((i) => i.value);
-    const modes = [
-      ...document.querySelectorAll('input[name="modes"]:checked'),
-    ].map((i) => i.value);
-    const start = document.getElementById("size-start").value;
-    const stop = document.getElementById("size-stop").value;
-    const step = document.getElementById("size-step").value;
-    const runs = document.getElementById("num-runs").value;
-    const domain = document.getElementById("domain").value;
-    const query_mode = document.querySelector(
-      'input[name="query_mode"]:checked',
-    ).value;
-
-    const sizes = [];
-    for (let i = parseInt(start); i < parseInt(stop); i += parseInt(step))
-      sizes.push(i);
-    const cells =
-      (systems.length || 1) *
-      (graphs.length || 1) *
-      sizes.length *
-      modes.length;
-
-    document.getElementById("review-summary").innerHTML = `
-    <div class="review-item-bento"><div style="color: var(--text2); font-weight: 600; text-transform: uppercase; font-size: 0.85rem;">Domain</div>
-      <div style="font-size: 1.1rem; color: white;">${domain}</div></div>
-    <div class="review-item-bento"><div style="color: var(--text2); font-weight: 600; text-transform: uppercase; font-size: 0.85rem;">Query Mode</div>
-      <div style="font-size: 1.1rem; color: white;">${query_mode}</div></div>
-    <div class="review-item-bento"><div style="color: var(--text2); font-weight: 600; text-transform: uppercase; font-size: 0.85rem;">Systems</div>
-      <div style="font-size: 1.1rem; color: white;">${systems.length ? systems.join(", ") : "All discovered"}</div></div>
-    <div class="review-item-bento"><div style="color: var(--text2); font-weight: 600; text-transform: uppercase; font-size: 0.85rem;">Graphs</div>
-      <div style="font-size: 1.1rem; color: white;">${graphs.length ? graphs.join(", ") : "All discovered"}</div></div>
-    <div class="review-item-bento"><div style="color: var(--text2); font-weight: 600; text-transform: uppercase; font-size: 0.85rem;">Modes</div>
-      <div style="font-size: 1.1rem; color: white;">${modes.join(", ")}</div></div>
-    <div class="review-item-bento"><div style="color: var(--text2); font-weight: 600; text-transform: uppercase; font-size: 0.85rem;">Sizes</div>
-      <div style="font-size: 1.1rem; color: white;">${sizes.join(", ")} (${sizes.length} sizes)</div></div>
-    <div class="review-item-bento"><div style="color: var(--text2); font-weight: 600; text-transform: uppercase; font-size: 0.85rem;">Runs per cell</div>
-      <div style="font-size: 1.1rem; color: white;">${runs}</div></div>
-    <div class="review-item-bento highlight"><div style="color: #38bdf8; font-weight: 700; text-transform: uppercase; font-size: 0.85rem;">Est. total runs</div>
-      <div style="font-size: 1.25rem; color: white;">${cells} × ${runs} = <strong style="font-size: 1.5rem;">${cells * parseInt(runs)}</strong> benchmark executions</div></div>
-  `;
-  }
-
-  function startExperiment() {
-    const btn = document.getElementById("start-btn");
-    btn.disabled = true;
-    btn.textContent = "⏳ Starting…";
-
+  // ── start ────────────────────────────────────────────────────────
+  $('#start').addEventListener('click', async () => {
+    const s = update();
+    if (valid(4)) { go(3); return; }
+    const btn = $('#start');
+    btn.classList.add('is-loading');
     const payload = {
-      systems: [
-        ...document.querySelectorAll("#systems-grid input:checked"),
-      ].map((i) => i.value),
-      graphs: [...document.querySelectorAll("#graphs-grid input:checked")].map(
-        (i) => i.value,
-      ),
-      modes: [...document.querySelectorAll('input[name="modes"]:checked')].map(
-        (i) => i.value,
-      ),
-      domain: document.getElementById("domain").value,
-      query_mode: document.querySelector('input[name="query_mode"]:checked')
-        .value,
-      sizes: [
-        parseInt(document.getElementById("size-start").value),
-        parseInt(document.getElementById("size-stop").value),
-        parseInt(document.getElementById("size-step").value),
-      ],
-      num_runs: parseInt(document.getElementById("num-runs").value),
-      souffle_include_dir: document.getElementById("souffle-include-dir").value,
+      systems: s.systems, graphs: s.graphs, modes: s.modes, domain: s.domain, query_mode: s.query_mode,
+      sizes: [s.sizes.start, s.sizes.stop, s.sizes.step], num_runs: s.runs, souffle_include_dir: s.souffle,
     };
+    try {
+      const r = await fetch('/experiment/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const d = await r.json();
+      if (d.ok) { location.href = '/experiment/live'; return; }
+      TB.toast(d.error || 'Could not start the experiment', 'error', 7000);
+    } catch { TB.toast('The server did not answer', 'error'); }
+    btn.classList.remove('is-loading');
+  });
 
-    fetch("/experiment/start", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    })
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.ok) {
-          window.location.href = "/experiment/live";
-        } else {
-          showToast("✗ " + d.error, "error");
-          btn.disabled = false;
-          btn.textContent = "▷ Start Experiment";
-        }
-      });
-  }
+  onDomain();
+  const fromHash = parseInt((location.hash.match(/step-(\d)/) || [])[1], 10);
+  const pre = { systems: {{ preselect.systems | tojson }}, graphs: {{ preselect.graphs | tojson }} };
+  step = 0;
+  // arriving from a system or topology page: that choice is made, continue with the next step
+  go(fromHash >= 1 && fromHash <= 4 ? fromHash : pre.graphs.length ? 3 : pre.systems.length ? 2 : 1);
+})();
 </script>
 {% endblock %}

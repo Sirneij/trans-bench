@@ -176,15 +176,23 @@ python benchmark.py --systems duckdb --graphs cycle path --sizes 100 200 300 --o
 
 ## Web UI Guide
 
-| Page           | URL                | What you can do                                           |
-| -------------- | ------------------ | --------------------------------------------------------- |
-| Dashboard      | `/`                | Overview stats, quick actions                             |
-| Systems        | `/systems`         | See all registered systems, credential status             |
-| System Detail  | `/systems/<name>`  | Edit descriptor YAML, save credentials, browse rule files |
-| Add System     | `/systems/new`     | Clone a template to bootstrap a new system                |
-| New Experiment | `/experiment/new`  | Multi-step wizard: pick systems → graphs → settings → run |
-| Live Monitor   | `/experiment/live` | SSE-powered real-time progress + log stream               |
-| Results        | `/results`         | Full **Data Explorer**, **File Viewer**, and **Trend Analysis** charts (Stacked & Line comparisons) |
+| Page             | URL                    | What you can do                                                                                       |
+| ---------------- | ---------------------- | ----------------------------------------------------------------------------------------------------- |
+| Overview         | `/`                    | Latest campaigns with their outcomes, systems, topologies, the commands to start a campaign          |
+| Campaigns        | `/campaigns`           | Every verified campaign under `results/` (benchmark.py), with completed, failed and skipped runs     |
+| Campaign         | `/campaigns/<name>`    | Outcome per series, verification, environment; scaling chart; time/memory heat matrix; the paper's figures; filterable failures; README, versions and code patch |
+| Results explorer | `/results`             | Timing files of transitive.py runs: phase-by-phase comparison of systems, and every run of a file    |
+| Systems          | `/systems`             | Registered systems with connector, version, modes and credential status                              |
+| System           | `/systems/<name>`      | Timing phases; edit the descriptor, rule files and credentials (hidden until revealed)                |
+| Topologies       | `/graphs`              | Every graph family drawn from its own generator                                                      |
+| Topology         | `/graphs/<name>`       | Change the size of a drawn instance, overlay the pairs its transitive closure adds, definition and generator code |
+| New experiment   | `/experiment/new`      | Wizard: systems → topologies → settings → review; start here or copy the transitive.py / benchmark.py command |
+| Live monitor     | `/experiment/live`     | Progress, current configuration, per-system counts, filterable output; stop after the current configuration |
+| Domains          | `/domains/new`         | Existing query domains and a form to add one from a template                                         |
+
+Press <kbd>⌘K</kbd> (or <kbd>/</kbd>) anywhere to jump to a page, system, topology or campaign; <kbd>n</kbd> starts a new
+experiment and <kbd>t</kbd> switches between the system, light and dark themes. On macOS, port 5000 is often taken by
+AirPlay Receiver; use `python transitive.py --ui --ui-port 5055` then.
 
 ---
 
@@ -497,7 +505,7 @@ python transitive.py --domain shortest_path --modes dijkstra_style iterative_dee
 **Via Web UI:**
 
 1. Launch the UI: `python transitive.py --ui`
-2. Navigate to **→ Systems** → **Add New System**
+2. Navigate to **Systems** → **Register a system**
 3. Enter name, choose template, customize descriptor
 4. Add credentials and rule files
 5. Run experiments

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% import '_macros.html' as m %}
+{% block title %}Campaigns{% endblock %}
+
+{% block content %}
+{% call m.page_head('Campaigns', 'Verified benchmark campaigns under results/. Every run in them was executed in its own process with a time limit and checked against an independently computed closure.', 'Results', 'flask-conical') %}
+  <a class="btn btn-primary" href="{{ url_for('experiment_new') }}#step-4"><i data-lucide="square-terminal"></i>Plan a campaign</a>
+{% endcall %}
+
+{% if campaigns %}
+<div class="stack" data-stagger>
+  {% for c in campaigns %}
+  <a class="card is-link" href="{{ url_for('campaign_detail', name=c.name) }}">
+    <div class="card-body">
+      <div class="cluster" style="justify-content:space-between;align-items:flex-start">
+        <div style="min-width:0;flex:1">
+          <div class="cluster">
+            <h2 style="font-size:var(--fs-xl)">{{ c.name }}</h2>
+            {% if loop.first %}<span class="chip chip-accent">latest</span>{% endif %}
+            {% if c.memory_runs %}<span class="chip chip-outline"><i data-lucide="memory-stick"></i>memory measured</span>{% endif %}
+            {% if c.has_analysis %}<span class="chip chip-outline"><i data-lucide="chart-line"></i>analyzed</span>{% else %}<span class="chip chip-warn">not analyzed</span>{% endif %}
+          </div>
+          <p class="ink-2 mt-2">{{ c.title }}</p>
+        </div>
+        <div class="small muted tabular" style="text-align:right;white-space:nowrap">
+          {{ (c.first or '')[:10] }} → {{ (c.last or '')[:10] }}<br>{{ c.series|length }} series
+        </div>
+      </div>
+      <div class="grid grid-4 mt-4" style="gap:12px">
+        <div><div class="small muted">Executed</div><div class="kpi-value" style="font-size:1.5rem;margin-top:2px">{{ '{:,}'.format(c.executed) }}</div></div>
+        <div><div class="small muted">Completed</div><div class="kpi-value" style="font-size:1.5rem;margin-top:2px;color:var(--ok)">{{ '{:,}'.format(c.ok) }}</div></div>
+        <div><div class="small muted">Failed</div><div class="kpi-value" style="font-size:1.5rem;margin-top:2px;color:var(--warn)">{{ c.failures.values()|sum }}</div></div>
+        <div><div class="small muted">Skipped after a failure</div><div class="kpi-value" style="font-size:1.5rem;margin-top:2px;color:var(--ink-3)">{{ '{:,}'.format(c.skipped) }}</div></div>
+      </div>
+      <div class="mt-4">{{ m.outcome_bar(c.total, c.executed + c.skipped) }}</div>
+      <div class="olegend mt-2">
+        <span><i class="o-ok"></i>completed</span>
+        {% for k, v in c.failures.items() %}<span><i class="o-{{ k }}"></i>{{ v }} {{ m.failure_label(k)|lower }}</span>{% endfor %}
+        {% if c.skipped %}<span><i class="o-skipped"></i>skipped</span>{% endif %}
+      </div>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card">{{ m.empty('No campaigns yet', 'A campaign is a directory results/<name>/ with one <system>/runs.jsonl per series, written by benchmark.py. Plan one in the experiment wizard and copy the command.', url_for('experiment_new') ~ '#step-4', 'Plan a campaign', 'square-terminal') }}</div>
+{% endif %}
+{% endblock %}
