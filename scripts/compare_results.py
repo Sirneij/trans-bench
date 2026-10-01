@@ -41,7 +41,7 @@ def status(runs: list) -> str:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('results')
-    ap.add_argument('--reference', default=str(Path(__file__).resolve().parent.parent / 'results' / 'verified_2026'))
+    ap.add_argument('--reference', default=str(Path(__file__).resolve().parent.parent / 'results' / 'verified_2026_v2'))
     a = ap.parse_args()
     new, ref = load(Path(a.results)), load(Path(a.reference))
     common = sorted(set(new) & set(ref))

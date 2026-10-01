@@ -76,6 +76,8 @@ for ph in $PHASES; do
     singlestore) colima start --cpu 8 --memory 10 --disk 40 --vm-type vz --vz-rosetta >/dev/null 2>&1
                  docker start singlestoredb-dev >/dev/null; wait_port 3307
                  for i in $(seq 1 60); do docker inspect --format '{{.State.Health.Status}}' singlestoredb-dev | grep -q '^healthy' && break; sleep 5; done
+                 img=$(docker inspect singlestoredb-dev --format '{{.Config.Image}}')
+                 echo "singlestore image: $img ($(docker image inspect $img --format '{{index .RepoDigests 0}}'))" >> $R/versions.txt
                  suite singlestore "left_recursion right_recursion double_recursion" ""
                  stop_all ;;
     *)           echo "unknown phase $ph"; exit 2 ;;

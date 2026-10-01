@@ -46,6 +46,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from engine import verify
+from engine.failures import classify_failure
 from engine.connectors import get_connector
 from engine.loader import DescriptorLoader
 from engine.run_one import RESULT_MARKER
@@ -178,6 +179,8 @@ def run_campaign(a: argparse.Namespace) -> None:
                             if errors or rec['timing_row'] is None or rec['exit_code'] != 0:
                                 rec['status'] = 'error'
                         rec['errors'] = errors
+                        rec['failure'] = classify_failure(rec['status'], rec.get('exit_code'), errors)
+                        rec['memory'] = (outcome or {}).get('memory')
                         record(rec)
                         if rec['status'] != 'ok':
                             stop = True

@@ -37,6 +37,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 import matplotlib.ticker  # noqa: E402
 
 from engine.figures_tex import compile_tex, figure_to_tex, find_engine  # noqa: E402
+from engine.failures import classify_failure  # noqa: E402
 from engine.plot_style import legend_order, style  # noqa: E402
 
 GRAPHS = ['complete', 'max_acyclic', 'cycle', 'cycle_with_shortcuts', 'path', 'multi_path',
@@ -131,7 +132,22 @@ def summarize(runs):
                 if i >= 0:
                     err = ' '.join(text[i + 10:].split())
         limit = max((r.get('timeout_s') or DEFAULT_LIMIT_S) for r in rs)
+        # why the configuration failed: recorded by benchmark.py since the 2026 rerun, else derived
+        # from the error text with the same rules
+        failed = next((r for r in rs if r.get('status') in ('timeout', 'error')), None)
+        failure = None
+        if failed is not None:
+            failure = failed.get('failure') or classify_failure(failed['status'], failed.get('exit_code'), [err])
+        # memory used by the query (peak minus before, engine/memory.py), mean over the completed runs
+        mem = [r['memory']['used_mb'] for r in ok if isinstance(r.get('memory'), dict) and 'used_mb' in r['memory']]
+        mem_peak = [r['memory']['peak_mb'] for r in ok if isinstance(r.get('memory'), dict) and 'peak_mb' in r['memory']]
+        complete_mem = len(mem) == RUNS and status == 'ok'
         rows[key] = dict(series=series, graph=key[1], mode=key[2], n=key[3], status=status, runs=len(ok), limit=limit,
+                         failure=failure,
+                         mem_used_mb=statistics.mean(mem) if complete_mem else None,
+                         mem_used_sd=statistics.stdev(mem) if complete_mem and len(mem) > 1 else None,
+                         mem_peak_mb=statistics.mean(mem_peak) if complete_mem and len(mem_peak) == RUNS else None,
+                         mem_probe=next((r['memory'].get('probe') for r in ok if isinstance(r.get('memory'), dict)), None),
                          mean=statistics.mean(t) if len(t) == RUNS and status == 'ok' else None,
                          median=statistics.median(t) if t else None,
                          sd=statistics.stdev(t) if len(t) > 1 else None, min=min(t) if t else None,
@@ -173,8 +189,9 @@ def warn_near_limit(rows, fraction: float = 0.5) -> list:
 
 
 def write_summary(rows, out: Path):
-    keys = ['series', 'graph', 'mode', 'n', 'status', 'runs', 'mean', 'median', 'sd', 'min', 'max', 'cpu_mean',
-            'all_correct', 'any_incorrect', 'unverified', 'checked_by', 'error']
+    keys = ['series', 'graph', 'mode', 'n', 'status', 'failure', 'runs', 'mean', 'median', 'sd', 'min', 'max',
+            'cpu_mean', 'mem_used_mb', 'mem_used_sd', 'mem_peak_mb', 'mem_probe', 'all_correct', 'any_incorrect',
+            'unverified', 'checked_by', 'error']
     with open(out / 'summary.csv', 'w', newline='') as f:
         w = csv.DictWriter(f, fieldnames=keys, extrasaction='ignore')
         w.writeheader()
@@ -290,26 +307,92 @@ def fmt(v):
     return f'{v:.5f}'
 
 
+FAILURE_LABEL = {'timeout': 'TO', 'oom': 'OOM', 'unsupported': 'n/s', 'iteration_limit': 'IL',
+                 'killed': 'KILL', 'error': 'ERR'}
+
+
+def apply_skip_causes(rows):
+    """A configuration that was not run (skipped) gets the failure of the largest smaller n of the
+    same series, graph and mode, so that the tables show why: TO^s after a timeout, OOM^s after
+    running out of memory, and so on."""
+    for k, r in rows.items():
+        if r['status'] != 'skipped':
+            continue
+        earlier = [rows[kk] for kk in rows if kk[:3] == k[:3] and kk[3] < k[3] and rows[kk]['failure']]
+        r['failure'] = max(earlier, key=lambda x: x['n'])['failure'] if earlier else None
+
+
+def failure_cell(r):
+    label = FAILURE_LABEL.get(r['failure'], 'ERR')
+    if r['status'] == 'skipped' and label != 'n/s':
+        return label + '$^{s}$'
+    return label
+
+
 def cell(rows, s, g, m, n):
     r = rows.get((s, g, m, n))
     if r is None:
         return '--'
-    if r['status'] == 'timeout':
-        return 'TO'
-    if r['status'] == 'skipped':
-        return 'TO$^{s}$'
-    if r['status'] == 'error':
-        e = r['error'].lower()
-        if 'out of memory' in e or 'outofmemory' in e or 'memory' in e:
-            return 'OOM'
-        if 'more than once' in e or 'restrictions imposed' in e:
-            return 'n/s'
-        if 'max number of iterations' in e:
-            return 'IL'
-        return 'ERR'
+    if r['status'] in ('timeout', 'skipped', 'error'):
+        return failure_cell(r)
     if r['all_correct'] is False:
         return fmt(r['mean']) + '$^{\\dagger}$'
     return fmt(r['mean'])
+
+
+def fmt_mb(v):
+    if v is None:
+        return '--'
+    if v >= 100:
+        return f'{v:,.0f}'
+    if v >= 10:
+        return f'{v:.1f}'
+    return f'{v:.2f}'
+
+
+def mem_cell(rows, s, g, m, n):
+    """Memory used by the query (MB, mean of the runs), or the failure label."""
+    r = rows.get((s, g, m, n))
+    if r is None:
+        return '--'
+    if r['status'] in ('timeout', 'skipped', 'error'):
+        return failure_cell(r)
+    v = fmt_mb(r['mem_used_mb'])
+    return v + '$^{\\dagger}$' if r['all_correct'] is False and v != '--' else v
+
+
+def table_memory_linear(rows, n, out: Path):
+    """Memory used by the query for n (same layout as table_linear)."""
+    systems = ['xsb', 'postgres', 'mariadb', 'duckdb', 'cockroachdb']
+    lines = []
+    for g in GRAPHS:
+        cells = [mem_cell(rows, s, g, m, n) for m in ('left_recursion', 'right_recursion') for s in systems]
+        cells.append(mem_cell(rows, 'neo4j', g, 'left_recursion', n))  # MongoDB: no memory probe
+        lines.append(GNAME[g] + ' & ' + ' & '.join(cells) + r' \\')
+    (out / f'table_memory_linear_n{n}.tex').write_text('\n'.join(lines) + '\n')
+
+
+def table_memory_large(rows, g, sizes, mode, out: Path):
+    systems = ['cockroachdb', 'neo4j', 'mariadb', 'postgres', 'duckdb', 'xsb']  # MongoDB, SingleStore: no probe
+    lines = []
+    for n in sizes:
+        cs = [mem_cell(rows, s, g, 'left_recursion' if s in ('neo4j', 'mongodb') else mode, n) for s in systems]
+        lines.append(f'{n:,} & ' + ' & '.join(cs) + r' \\')
+    (out / f'table_memory_{g}_{mode}.tex').write_text('\n'.join(lines) + '\n')
+
+
+def write_failures(rows, out: Path):
+    """failures.csv: for every series, graph and mode, the first n that did not complete and why."""
+    first = {}
+    for k in sorted(rows, key=lambda k: (k[0], k[1], k[2], k[3])):
+        r = rows[k]
+        if r['status'] in ('timeout', 'error') and k[:3] not in first:
+            first[k[:3]] = r
+    with open(out / 'failures.csv', 'w', newline='') as f:
+        w = csv.writer(f)
+        w.writerow(['series', 'graph', 'mode', 'first_failed_n', 'failure', 'limit_s', 'error'])
+        for (s, g, m), r in sorted(first.items()):
+            w.writerow([s, g, m, r['n'], r['failure'], r['limit'], r['error'][:300]])
 
 
 def table_linear(rows, n, out: Path):
@@ -371,6 +454,8 @@ def main(argv=None):
     runs = load(results)
     rows = summarize(runs)
     apply_agreement(rows)
+    apply_skip_causes(rows)
+    write_failures(rows, out)
     write_summary(rows, out)
     v = verification(runs, rows, out)
     print(json.dumps(v['counts']), json.dumps(v['incorrect_results']))
@@ -384,9 +469,11 @@ def main(argv=None):
         texs.append(plot_graph(rows, g, list(sizes), out, cpu=True, formats=a.figures))
         for m in ('left_recursion', 'right_recursion'):
             table_large(rows, g, list(sizes), m, out)
+            table_memory_large(rows, g, list(sizes), m, out)
     for n in (500, 1000):
         table_linear(rows, n, out)
         table_double(rows, n, out)
+        table_memory_linear(rows, n, out)
     texs = [t for t in texs if t]
     if texs and not a.no_compile:
         engine = a.latex_engine or find_engine()

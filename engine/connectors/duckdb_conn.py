@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any
 import duckdb
 
 from engine.connectors.base import BaseConnector
+from engine.memory import rss_of_self, sampler_or_none
 
 if TYPE_CHECKING:
     from engine.loader import SystemDescriptor
@@ -72,7 +73,8 @@ class DuckDBConnector(BaseConnector):
                 if i >= len(phases):
                     break
                 try:
-                    real, cpu, _ = self.timed(conn.execute, command)
+                    timer = self.timed_query if phases[i].id == descriptor.query_phase else self.timed
+                    real, cpu, _ = timer(conn.execute, command)
                     measurements[i] = (real, cpu)
                 except Exception as e:
                     self._record_error(f'DuckDB command {i} error: {e}\nSQL: {command}')
@@ -83,6 +85,10 @@ class DuckDBConnector(BaseConnector):
             self._cleanup()
 
         return self.build_timing_row(phases, measurements)
+
+    def memory_sampler(self):
+        """RSS of this process: DuckDB runs in-process (one process per run)."""
+        return sampler_or_none(rss_of_self, 'duckdb process RSS')
 
     def close(self) -> None:
         self._cleanup()

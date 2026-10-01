@@ -28,3 +28,7 @@ ui/__pycache__/
 
 # DuckDB per-run database file (removed after each run)
 systems/duckdb/rules/duckdb/
+
+# Generated benchmark inputs beyond the tracked small sizes: regenerate with generate_db.py
+# (input/SHA256SUMS pins them, scripts/verify_inputs.py checks). Tracked files are unaffected.
+/input/

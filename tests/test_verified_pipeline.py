@@ -21,6 +21,7 @@ from engine.connectors import PROTOCOL_REGISTRY, get_connector
 from engine.connectors.neo4j_conn import Neo4jConnector
 from engine.connectors.rdbms import (
     CockroachDBConnector,
+    PostgreSQLConnector,
     MariaDBConnector,
     SingleStoreConnector,
     concatenate_chunks,
@@ -31,6 +32,8 @@ from engine.loader import DescriptorLoader, SystemDescriptor, TimingPhase
 BASE = Path(__file__).resolve().parent.parent
 PY = sys.executable
 VERIFIED = BASE / 'results' / 'verified_2026'
+# the campaign of the paper (rerun with memory measurements and recorded failure kinds)
+VERIFIED_V2 = BASE / 'results' / 'verified_2026_v2'
 
 
 def closure_bruteforce(edges):
@@ -251,7 +254,8 @@ class TestSingleStoreConnector:
         cursor.fetchall.return_value = [(1, 2), (2, 3)]
         mconn = MagicMock()
         mconn.cursor.return_value = cursor
-        with patch('MySQLdb.connect', return_value=mconn):
+        with patch('MySQLdb.connect', return_value=mconn), \
+                patch.object(SingleStoreConnector, 'memory_sampler', return_value=None):
             c = SingleStoreConnector()
             c.connect({'host': 'h', 'port': 3307, 'user': 'u', 'password': 'p', 'database': 'benchmark'}, desc)
             row = c.run_experiment(desc.rules_dir / 'transitive_left_recursion.py', Path('/data/edge.facts'), tmp_path,
@@ -273,11 +277,37 @@ class TestSingleStoreConnector:
                                       Exception('(2741, "recursive CTE iteration limit")')]
         mconn = MagicMock()
         mconn.cursor.return_value = cursor
-        with patch('MySQLdb.connect', return_value=mconn):
+        with patch('MySQLdb.connect', return_value=mconn), \
+                patch.object(SingleStoreConnector, 'memory_sampler', return_value=None):
             c = SingleStoreConnector()
             c.connect({}, desc)
             c.run_experiment(desc.rules_dir / 'transitive_left_recursion.py', Path('x'), tmp_path, desc, {})
         assert len(c.errors) == 1 and '2741' in c.errors[0]
+
+
+class TestMemoryProbes:
+    def test_postgres_probe_is_the_backend_process(self):
+        import os
+
+        desc = DescriptorLoader(base_dir=BASE, detect_versions=False).get_system('postgres')
+        conn = MagicMock()
+        conn.cursor.return_value.fetchone.return_value = (os.getpid(),)  # pretend we are the backend
+        with patch('psycopg2.connect', return_value=conn):
+            c = PostgreSQLConnector()
+            c.connect({'dbURL': 'x'}, desc)
+        assert c.memory_sampler().probe() > 0
+
+    def test_query_phase_records_memory(self, tmp_path):
+        """DuckDB (in-process): the query phase gets a memory record; other phases do not affect it."""
+        from engine.connectors.duckdb_conn import DuckDBConnector
+
+        desc = DescriptorLoader(base_dir=BASE, detect_versions=False).get_system('duckdb')
+        c = DuckDBConnector()
+        c.connect({}, desc)
+        rule = tmp_path / 'transitive_left_recursion.sql'
+        rule.write_text((desc.rules_dir / 'transitive_left_recursion.sql').read_text())
+        c.run_experiment(rule, BASE / 'input/souffle/cycle/100/edge.facts', tmp_path, desc, {})
+        assert c.errors == [] and c.memory['probe'] == 'duckdb process RSS' and c.memory['used_mb'] >= 0
 
 
 class TestCockroachChunks:
@@ -431,14 +461,16 @@ class TestAnalysis:
         with pytest.raises(ValueError):
             analyze_verified.base_system('nosuchsystem')
 
-    @pytest.mark.skipif(not VERIFIED.exists(), reason='results/verified_2026 not present')
-    def test_reanalysis_reproduces_published_tables(self, tmp_path):
+    @pytest.mark.parametrize('campaign', [VERIFIED, VERIFIED_V2], ids=['verified_2026', 'verified_2026_v2'])
+    def test_reanalysis_reproduces_published_tables(self, tmp_path, campaign):
         """Tables, summary and verification of the paper are regenerated exactly from runs.jsonl + logs."""
-        p = _run([PY, 'analyze_verified.py', str(VERIFIED), '--out', str(tmp_path), '--no-compile'])
+        if not campaign.exists():
+            pytest.skip(f'{campaign} not present')
+        p = _run([PY, 'analyze_verified.py', str(campaign), '--out', str(tmp_path), '--no-compile'])
         assert p.returncode == 0, p.stderr
-        published = VERIFIED / 'analysis'
-        names = [f.name for f in published.glob('table_*.tex')] + ['summary.csv', 'verification.json']
-        assert len(names) == 10
+        published = campaign / 'analysis'
+        names = [f.name for f in published.glob('table_*.tex')] + ['summary.csv', 'verification.json', 'failures.csv']
+        assert len(names) == 17  # 8 time tables, 6 memory tables, summary, verification, failures
         for name in names:
             assert (tmp_path / name).read_text() == (published / name).read_text(), name
         tex_figures = sorted(f.name for f in (published / 'figures_tex').glob('*.tex'))

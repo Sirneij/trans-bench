@@ -45,6 +45,8 @@ class BaseConnector(ABC):
     def __init__(self):
         self._connection = None
         self.errors: list[str] = []
+        # memory used by the query phase (engine/memory.py MemorySampler.result()), or None
+        self.memory: dict | None = None
 
     def _record_error(self, message: str) -> None:
         """Log an error and keep it in ``self.errors`` so the caller can mark the run as failed."""
@@ -125,6 +127,21 @@ class BaseConnector(ABC):
         """Where the run's query result goes: descriptor.result_file, or the connector's default name."""
         return Path(output_folder) / (getattr(descriptor, 'result_file', '') or default)
 
+    def memory_sampler(self):
+        """A MemorySampler (engine/memory.py) for the memory of whatever executes this system's
+        query, or None if the system has no probe. Override per connector."""
+        return None
+
+    def timed_query(self, fn, *args, **kwargs) -> tuple[float, float, Any]:
+        """Like timed(), for the query phase: also samples the query's memory into self.memory."""
+        sampler = self.memory_sampler()
+        if sampler is None:
+            return self.timed(fn, *args, **kwargs)
+        with sampler:
+            result = self.timed(fn, *args, **kwargs)
+        self.memory = sampler.result()
+        return result
+
     @staticmethod
     def timed(fn, *args, **kwargs) -> tuple[float, float, Any]:
         """
@@ -138,9 +155,10 @@ class BaseConnector(ABC):
         return real, cpu, result
 
     @staticmethod
-    def timed_subprocess(cmd: list[str], **kwargs) -> tuple[float, float, float, Any]:
+    def timed_subprocess(cmd: list[str], samples: list | None = None, **kwargs) -> tuple[float, float, float, Any]:
         """
         Run a subprocess, returning (real_seconds, cpu_seconds, max_rss_mb, CompletedProcess).
+        If `samples` is a list, the (seconds since start, rss bytes) samples are appended to it.
         """
         import subprocess
         import threading
@@ -164,10 +182,13 @@ class BaseConnector(ABC):
                     for child in ps_proc.children(recursive=True):
                         mem += child.memory_info().rss
                     max_rss = max(max_rss, mem)
+                    if samples is not None:
+                        samples.append((perf_counter() - t_start, mem))
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     break
                 stop_polling.wait(0.01)
 
+        t_start = perf_counter()
         t = threading.Thread(target=poll_memory, daemon=True)
         t.start()
 

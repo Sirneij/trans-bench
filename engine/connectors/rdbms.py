@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from engine.connectors.base import BaseConnector
+from engine.memory import rss_of_pid, sampler_or_none
 
 if TYPE_CHECKING:
     from engine.loader import SystemDescriptor
@@ -121,7 +122,16 @@ class PostgreSQLConnector(BaseConnector):
 
         db_url = credentials.get('dbURL', '')
         self._connection = psycopg2.connect(db_url)
+        cur = self._connection.cursor()
+        cur.execute('SELECT pg_backend_pid()')
+        self._backend_pid = cur.fetchone()[0]
+        self._connection.commit()
         log.info('PostgreSQL connected')
+
+    def memory_sampler(self):
+        """RSS of the backend process that executes this connection's queries (one per connection,
+        hence per run). The recursive CTE is not parallelized, so it runs in this process."""
+        return sampler_or_none(lambda: rss_of_pid(int(self._backend_pid)), 'postgres backend RSS')
 
     def run_experiment(
         self,
@@ -146,7 +156,7 @@ class PostgreSQLConnector(BaseConnector):
             measurements[1] = self.timed(ops.import_data_from_tsv, 'edge', str(input_path))[:2]
             measurements[2] = self.timed(ops.create_tc_path_index)[:2]
             measurements[3] = self.timed(ops.analyze_tc_path_table)[:2]
-            measurements[4] = self.timed(ops.run_recursive_query)[:2]
+            measurements[4] = self.timed_query(ops.run_recursive_query)[:2]
             measurements[5] = self.timed(ops.export_transitive_closure_results, results_path)[:2]
             ops.drop_tc_path_tc_result_tables()
         except Exception as e:
@@ -202,7 +212,32 @@ class MariaDBConnector(BaseConnector):
             port=int(credentials.get('port', 3306)),
             local_infile=1,
         )
+        self._credentials = credentials
         log.info('MariaDB connected')
+
+    def memory_sampler(self):
+        """MariaDB's own accounting of the memory allocated by this connection's thread
+        (information_schema.PROCESSLIST.MEMORY_USED), read through a second connection. The RSS of
+        the server process is not usable: the allocator keeps and reuses memory across runs."""
+
+        def make_probe():
+            import MySQLdb
+
+            c = self._credentials
+            thread = self._connection.thread_id()
+            conn = MySQLdb.connect(host=c.get('host', 'localhost'), port=int(c.get('port', 3306)),
+                                   user=c.get('user', ''), passwd=c.get('password', ''))
+            conn.autocommit(True)
+
+            def probe():
+                cur = conn.cursor()
+                cur.execute('SELECT MEMORY_USED FROM information_schema.PROCESSLIST WHERE ID = %s', (thread,))
+                row = cur.fetchone()
+                return float(row[0]) if row else None
+
+            return probe
+
+        return sampler_or_none(make_probe, 'mariadb connection MEMORY_USED')
 
     def run_experiment(
         self,
@@ -232,7 +267,7 @@ class MariaDBConnector(BaseConnector):
             measurements[1] = self.timed(ops.import_data_from_file, 'edge', str(input_path))[:2]
             measurements[2] = self.timed(ops.create_tc_path_index)[:2]
             measurements[3] = self.timed(ops.analyze_tc_path_table)[:2]
-            measurements[4] = self.timed(ops.run_recursive_query)[:2]
+            measurements[4] = self.timed_query(ops.run_recursive_query)[:2]
             measurements[5] = self.timed(ops.export_data_to_file)[:2]
             ops.drop_tc_path_tc_result_tables()
         except Exception as e:
@@ -272,7 +307,15 @@ class SingleStoreConnector(MariaDBConnector):
       * the per-session iteration limit (default 32) is raised before each run;
       * the result is fetched through the client and written locally, because INTO OUTFILE would
         write inside the server (usually a container).
+
+    No memory probe: SingleStore reports its memory only for the whole server (Total_server_memory),
+    and identical runs showed increases that differed by a factor of 5 (memory kept across runs);
+    see docs/VERIFICATION.md.
     """
+
+    def memory_sampler(self):
+        return None
+
 
     def run_experiment(
         self,
@@ -298,7 +341,7 @@ class SingleStoreConnector(MariaDBConnector):
             measurements[1] = self.timed(ops.import_data_from_file, 'edge', str(input_path))[:2]
             measurements[2] = self.timed(ops.create_tc_path_index)[:2]
             measurements[3] = self.timed(ops.analyze_tc_path_table)[:2]
-            measurements[4] = self.timed(ops.run_recursive_query)[:2]
+            measurements[4] = self.timed_query(ops.run_recursive_query)[:2]
             measurements[5] = self.timed(ops.export_data_to_file, results_path)[:2]
             ops.drop_tc_path_tc_result_tables()
         except Exception as e:
@@ -334,7 +377,31 @@ class CockroachDBConnector(BaseConnector):
 
         db_url = credentials.get('dbURL', '')
         self._connection = psycopg2.connect(db_url)
+        self._http_url = credentials.get('httpURL', 'http://localhost:8080')
         log.info('CockroachDB connected')
+
+    def memory_sampler(self):
+        """CockroachDB's own accounting of SQL memory (the root SQL memory monitor, which
+        --max-sql-memory limits), polled from the node's metrics endpoint (credentials: httpURL,
+        default http://localhost:8080). The RSS of the Go server process is not usable: the Go
+        runtime keeps freed heap across runs."""
+
+        def make_probe():
+            import urllib.request
+
+            url = self._http_url.rstrip('/') + '/_status/vars'
+
+            def probe():
+                with urllib.request.urlopen(url, timeout=2) as resp:
+                    for line in resp.read().decode().splitlines():
+                        if line.startswith('sql_mem_root_current'):
+                            return float(line.rsplit(' ', 1)[1])
+                return None
+
+            probe()  # fail now (no sampler) if the endpoint is unreachable
+            return probe
+
+        return sampler_or_none(make_probe, 'cockroachdb sql_mem_root_current', interval=0.05)
 
     def run_experiment(
         self,
@@ -371,7 +438,7 @@ class CockroachDBConnector(BaseConnector):
 
             measurements[2] = self.timed(ops.create_tc_path_index)[:2]
             measurements[3] = self.timed(ops.analyze_tc_path_table)[:2]
-            measurements[4] = self.timed(ops.run_recursive_query)[:2]
+            measurements[4] = self.timed_query(ops.run_recursive_query)[:2]
             measurements[5] = self.timed(ops.export_transitive_closure_results, results_path)[:2]
             ops.drop_tc_path_tc_result_tables()
 

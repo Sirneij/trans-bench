@@ -21,7 +21,11 @@ log = logging.getLogger(__name__)
 
 
 class MongoDBConnector(BaseConnector):
-    """Runs transitive closure experiments on MongoDB via pymongo."""
+    """Runs transitive closure experiments on MongoDB via pymongo.
+
+    No memory probe: MongoDB reports no per-query memory, and the resident memory of mongod is not
+    usable (its allocator keeps and reuses memory across runs); see docs/VERIFICATION.md.
+    """
 
     def connect(self, credentials: dict[str, Any], descriptor: 'SystemDescriptor') -> None:
         from pymongo import MongoClient
@@ -72,7 +76,7 @@ class MongoDBConnector(BaseConnector):
             measurements[0] = self.timed(ops.create_collection, 'edge', 'tc_result')[:2]
             measurements[1] = self.timed(ops.insert_data, 'edge', input_path)[:2]
             measurements[2] = self.timed(ops.create_index, 'edge')[:2]
-            measurements[3] = self.timed(ops.recursive_query, 'edge', 'tc_result')[:2]
+            measurements[3] = self.timed_query(ops.recursive_query, 'edge', 'tc_result')[:2]
             measurements[4] = self.timed(ops.export_to_csv, 'tc_result', results_path)[:2]
         except Exception as e:
             self._record_error(f'MongoDB experiment error: {e}')

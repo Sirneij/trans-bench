@@ -87,9 +87,13 @@ ExecuteQuery). The result is written with `COPY (SELECT …) TO STDOUT WITH CSV 
   The missing pairs have short paths, so `max_recursive_iterations` (default 1000) is not the
   cause, and they are missing with `standard_compliant_cte=1` as well. With both limits raised to
   4 GB (`SET GLOBAL tmp_table_size=4294967296; SET GLOBAL max_heap_table_size=4294967296;`, series
-  `mariadb_tuned`), the results are correct and the queries run 15 to 17 times faster. Reproduce
-  this with `scripts/run_investigation.sh`; the output of the campaign is in
-  `results/verified_2026/mariadb_investigation.jsonl`.
+  `mariadb_tuned`), the results are correct and the queries run 11 to 16 times faster (28 instead
+  of 440 s, and 12.5 instead of 143 s). Reproduce this with `scripts/run_investigation.sh`; the
+  output is in `results/verified_2026_v2/mariadb_investigation.jsonl` (and, from the first
+  campaign, in `results/verified_2026/`).
+* MariaDB's own accounting of the query's memory (`MEMORY_USED`) never exceeded 49 MB in the
+  default configuration, because temporary tables beyond 16 MB go to disk; with 4 GB tables the
+  same queries used up to 1,408 MB.
 * Cancellation runs `KILL <id>` for every other session on the benchmark database.
 
 ## DuckDB

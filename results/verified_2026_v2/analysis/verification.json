@@ -1,0 +1,161 @@
+{
+ "counts": {
+  "status_ok": 12215,
+  "runs_ok_checked": 11540,
+  "status_error": 51,
+  "status_skipped": 528,
+  "status_timeout": 23,
+  "runs_ok_unchecked": 675
+ },
+ "incorrect_results": {
+  "duckdb/double_recursion": [
+   "binary_tree",
+   "cycle",
+   "grid",
+   "multi_path",
+   "path",
+   "reverse_binary_tree",
+   "y"
+  ],
+  "mariadb/right_recursion": [
+   "scale_free"
+  ]
+ },
+ "scale_free_ba_cross_system_agreement": {
+  "barabasi_albert/10000": {
+   "systems": 15,
+   "agree": true,
+   "count": [
+    355238
+   ]
+  },
+  "barabasi_albert/20000": {
+   "systems": 15,
+   "agree": true,
+   "count": [
+    894453
+   ]
+  },
+  "barabasi_albert/30000": {
+   "systems": 15,
+   "agree": true,
+   "count": [
+    1544916
+   ]
+  },
+  "barabasi_albert/40000": {
+   "systems": 13,
+   "agree": true,
+   "count": [
+    2273750
+   ]
+  },
+  "barabasi_albert/50000": {
+   "systems": 13,
+   "agree": true,
+   "count": [
+    3073241
+   ]
+  },
+  "barabasi_albert/60000": {
+   "systems": 13,
+   "agree": true,
+   "count": [
+    3918692
+   ]
+  },
+  "barabasi_albert/70000": {
+   "systems": 13,
+   "agree": true,
+   "count": [
+    4815616
+   ]
+  },
+  "barabasi_albert/80000": {
+   "systems": 13,
+   "agree": true,
+   "count": [
+    5752780
+   ]
+  },
+  "barabasi_albert/90000": {
+   "systems": 13,
+   "agree": true,
+   "count": [
+    6743407
+   ]
+  },
+  "barabasi_albert/100000": {
+   "systems": 13,
+   "agree": false,
+   "count": [
+    7768407,
+    7768408
+   ]
+  },
+  "scale_free/10000": {
+   "systems": 13,
+   "agree": true,
+   "count": [
+    4993626
+   ]
+  },
+  "scale_free/20000": {
+   "systems": 11,
+   "agree": false,
+   "count": [
+    19108898,
+    19108900
+   ]
+  },
+  "scale_free/30000": {
+   "systems": 6,
+   "agree": true,
+   "count": [
+    42559028
+   ]
+  },
+  "scale_free/40000": {
+   "systems": 6,
+   "agree": true,
+   "count": [
+    78133380
+   ]
+  },
+  "scale_free/50000": {
+   "systems": 6,
+   "agree": true,
+   "count": [
+    119738153
+   ]
+  },
+  "scale_free/60000": {
+   "systems": 4,
+   "agree": true,
+   "count": [
+    170170281
+   ]
+  },
+  "scale_free/70000": {
+   "systems": 3,
+   "agree": true,
+   "count": [
+    228536159
+   ]
+  },
+  "scale_free/80000": {
+   "systems": 3,
+   "agree": true,
+   "count": [
+    302903218
+   ]
+  },
+  "scale_free/90000": {
+   "systems": 1,
+   "agree": true,
+   "count": [
+    383195920
+   ]
+  }
+ }
+}

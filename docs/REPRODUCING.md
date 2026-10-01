@@ -1,7 +1,8 @@
 # Reproducing and verifying the published measurements
 
 The measurements in *Database System Performance on Recursive Queries* (Section 4) are the
-campaign in [`results/verified_2026/`](../results/verified_2026/README.md): 8 systems (MariaDB
+campaign in [`results/verified_2026_v2/`](../results/verified_2026_v2/README.md), a complete re-run with memory
+measurements of the first campaign in [`results/verified_2026/`](../results/verified_2026/README.md): 8 systems (MariaDB
 also in a tuned setting), 12 graph families with n = 100…1000, scale-free graphs with
 10k…90k nodes and Barabási-Albert graphs with 10k…100k nodes, 5 runs per configuration, and
 12,279 runs, each checked for correctness. This document covers three things:
@@ -21,14 +22,14 @@ PKG_CONFIG_PATH=/opt/homebrew/opt/mariadb/lib/pkgconfig pip install -r requireme
 
 # 1. Re-derive every table row, summary.csv and verification.json of the paper from the per-run
 #    records, and compare them with the published files (byte for byte):
-python analyze_verified.py results/verified_2026 --out /tmp/reanalysis
-diff -r --exclude=figures results/verified_2026/analysis /tmp/reanalysis && echo identical
+python analyze_verified.py results/verified_2026_v2 --out /tmp/reanalysis
+diff -r --exclude=figures --exclude=figures_tex results/verified_2026_v2/analysis /tmp/reanalysis && echo identical
 
 # 2. The same check, plus the whole pipeline, as tests:
 python -m pytest -q tests
 ```
 
-Each record in `results/verified_2026/<series>/runs.jsonl` contains the run's command, times,
+Each record in `results/verified_2026_v2/<series>/runs.jsonl` contains the run's command, times,
 harness timing row, result count and hash, expected count and hash, and correctness. The full
 output of every run is in `logs.tar.gz`. The record format is described in
 [VERIFICATION.md](VERIFICATION.md).
@@ -133,7 +134,7 @@ To run the analysis by hand, or to compare with the published campaign:
 
 ```sh
 ./virtualenv/bin/python analyze_verified.py results/my_run --out results/my_run/analysis   # --runs N if not 5
-./virtualenv/bin/python scripts/compare_results.py results/my_run    # against results/verified_2026
+./virtualenv/bin/python scripts/compare_results.py results/my_run    # against results/verified_2026_v2
 ```
 
 To use a LaTeX figure in a paper, include its compiled PDF
@@ -147,7 +148,23 @@ hash) as in the published campaign; this must match on any machine. It lists the
 whose status differs (possible near the 600 s limit on a faster or slower machine) and the ratio
 of the median query times per system.
 
-## C. What happened during the 2026 campaign
+## C. What happened during the 2026 campaigns
+
+**Re-run with memory measurements** (`results/verified_2026_v2`, the paper's data), 2026-09-29
+02:26Z to 2026-09-30 17:02Z, with the current harness. The harness was the commit in
+`versions.txt` plus `code.patch`. It was run with:
+
+```sh
+SCRATCH=<server data> XSB_BIN=<XSB/bin> scripts/capture_versions.sh > results/verified_2026_v2/versions.txt
+SCRATCH=<server data> XSB_BIN=<XSB/bin> caffeinate -i -s scripts/run_all.sh results/verified_2026_v2
+```
+
+This run had no incidents. Before it, every system was smoke-tested on a few configurations,
+which is how the memory probes were chosen (docs/VERIFICATION.md). Its results agree with the
+first campaign (`results/verified_2026_v2/README.md`).
+
+**First campaign** (`results/verified_2026`):
+
 
 Commands as executed (all times UTC; first run 2026-09-26 13:42Z, last run 2026-09-28 05:16Z; the full driver output, with the start and end of every phase, is
 `results/verified_2026/run_all.log.gz`):

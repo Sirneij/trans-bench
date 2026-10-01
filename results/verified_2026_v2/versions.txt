@@ -1,0 +1,20 @@
+date: 2026-09-29T02:26:35Z
+machine: Apple M3 Pro, 11 cores, 18 GB
+os: macOS 27.0 (26A428)
+python: Python 3.12.14
+duckdb 1.5.5
+psycopg2 2.9.13 (dt dec pq3 ext lo64)
+mysqlclient 2.3.0
+pymongo 4.18.2
+neo4j-driver 6.3.1
+numpy 2.5.3
+networkx 3.7
+xsb: scripts/capture_versions.sh: line 13: xsb: command not found
+postgresql: PostgreSQL 17.11 (Homebrew) on aarch64-apple-darwin25.6.0, compiled by Apple clang version 21.0.0 (clang-2100.1.1.101), 64-bit
+mariadb: /opt/homebrew/opt/mariadb/bin/mariadbd  Ver 13.0.2-MariaDB for osx10.23 on arm64 (Homebrew)
+cockroachdb: v26.3.2
+mongodb: db version v8.3.11
+neo4j: 2026.09.0, APOC: apoc-2026.09.0-core.jar
+java: openjdk version "21.0.12.1" 2026-08-18
+trans-bench commit: bc0149ff17ddc440f7395b09b553ae8da20452b5 + uncommitted changes (code.patch)
+singlestore image: ghcr.io/singlestore-labs/singlestoredb-dev:0.2.62 (ghcr.io/singlestore-labs/singlestoredb-dev@sha256:2d48d273e138a5fce30e48b8353a3a4c132eabf9f42aff838694bbae2291439c)

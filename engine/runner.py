@@ -250,6 +250,7 @@ class ExperimentRunner:
             outcome['errors'].append(msg)
         finally:
             outcome['errors'] = list(getattr(connector, 'errors', [])) + outcome['errors']
+            outcome['memory'] = getattr(connector, 'memory', None) if isinstance(getattr(connector, 'memory', None), dict) else None
             for msg in getattr(connector, 'errors', []):
                 self._emit_log(f'{system.name}: {msg}', level='error')
             try:

@@ -28,11 +28,12 @@ The original suite required editing **6+ Python files** to add a new system. v2 
 
 The measurements of *Database System Performance on Recursive Queries* (PostgreSQL, MariaDB,
 DuckDB, CockroachDB, SingleStore, MongoDB, Neo4j and XSB; 12,279 runs, each checked for
-correctness) are in [`results/verified_2026/`](results/verified_2026/README.md), together with
+correctness, with memory measurements) are in [`results/verified_2026_v2/`](results/verified_2026_v2/README.md),
+together with
 everything needed to check them:
 
 ```sh
-python analyze_verified.py results/verified_2026 --out /tmp/reanalysis   # re-derives the paper's tables
+python analyze_verified.py results/verified_2026_v2 --out /tmp/reanalysis   # re-derives the paper's tables
 python -m pytest -q tests                                                # incl. a byte-for-byte check of them
 ```
 
@@ -109,7 +110,8 @@ trans-bench/
 ├── analyze_verified.py         ← Summary, verification, figures (PDF + pgfplots/TikZ) and LaTeX tables
 ├── scripts/                    ← Campaign scripts (run_all.sh, capture_versions.sh, verify_inputs.py,
 │                                 compare_results.py, MariaDB investigation)
-├── results/verified_2026/      ← The published campaign (per-run records, logs, analysis)
+├── results/verified_2026_v2/   ← The paper's campaign (per-run records incl. memory, logs, analysis)
+├── results/verified_2026/      ← The first campaign (same protocol, without memory), and its incident log
 └── docs/                       ← REPRODUCING, SYSTEMS, VERIFICATION, EXTENSION_GUIDE, RULES, COOKBOOK
 ```
 

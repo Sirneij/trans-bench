@@ -74,12 +74,43 @@ One JSON object per line.
 | `expected` | `{"count", "hash"}` of the independently computed closure, or `null` above `--expected-max-n` |
 | `correct` | `true`/`false` if `expected` is known, `null` if not; meaningful only for status `ok` |
 | `errors` | error messages of the run (connector errors, or ERROR lines of the log) |
+| `failure` | why the run did not complete (`engine/failures.py`): `timeout` (exceeded `timeout_s`), `oom` (the system reported that it exceeded its memory limit), `unsupported` (the system rejects the query), `iteration_limit`, `killed` (ended by a signal the driver did not send), or `error`; `null` for `ok` |
+| `memory` | memory used by the query phase (`engine/memory.py`): `probe` (what was measured), `before_mb`, `peak_mb`, `used_mb` = peak − before, `samples`, `interval_s`; `null` if the system has no probe |
 
 The records in `results/verified_2026` were written by the original driver (`run_benchmark.py` in
 `results/verified_2026/harness/`). Their `command` field shows `analyze_dbs.py` or
 `analyze_logic_systems.py` with the configuration JSON replaced by `'<config JSON>'`, and their
 timing rows have no `MaxRAM_MB` columns. Otherwise the schema is the same, and
 `analyze_verified.py` reads both.
+
+## Memory
+
+The memory of a run is sampled only during its query phase: once just before the query, every
+`interval_s` while it runs (10 ms; 50 ms where the probe is a query to the server), and once after
+it. `used_mb` = highest sample − first sample is the memory the query added, which is what the
+analysis reports (mean over the 5 runs). What is sampled depends on where the query executes:
+
+| System | Probe |
+| --- | --- |
+| DuckDB | resident memory (RSS) of the benchmark process, in which DuckDB runs (a new process per run) |
+| XSB | RSS of the XSB process of the query-only run, sampled from outside; "before" is the sample just before the query started (run time minus the query time XSB reports) |
+| PostgreSQL | RSS of the backend process serving the connection (a new backend per run) |
+| MariaDB | MariaDB's own accounting of the memory allocated by the connection's thread (`information_schema.PROCESSLIST.MEMORY_USED`), including its internal temporary tables |
+| CockroachDB | CockroachDB's own accounting of SQL memory (`sql_mem_root_current` on the node's metrics endpoint, the quantity `--max-sql-memory` limits); it reserves memory in large chunks (about 64 MB even for tiny queries) |
+| MongoDB | none: MongoDB reports no per-query memory, and its macOS build has no allocator statistics |
+| Neo4j | Neo4j's own accounting of the query's heap memory (`SHOW TRANSACTIONS … estimatedUsedHeapMemory`), the quantity its transaction memory limit applies to; the JVM keeps its heap, so its RSS says nothing about one query |
+| SingleStore | none: SingleStore reports memory only for the whole server (`Total_server_memory`), which keeps memory across runs; it also runs in a VM, so its numbers would not be comparable |
+
+The resident memory (RSS) of a server that serves all runs is not used: in trials, identical runs
+of MariaDB, MongoDB and CockroachDB showed RSS increases (and SingleStore increases of its
+`Total_server_memory`) that differed by up to a factor of 10,
+because the allocator (or the Go runtime) keeps memory freed by one run and reuses it in the next.
+The per-run processes (DuckDB, XSB, a PostgreSQL backend) and the servers' own accounting gave
+the same value within a few percent in every run.
+
+Limitations: a peak shorter than the sampling interval can be missed (queries of a few
+milliseconds); RSS on macOS does not include compressed or swapped pages; the servers' own
+accounting covers what they track (e.g. not the operating system's file cache).
 
 ## Reported values (`analyze_verified.py`)
 

@@ -81,7 +81,8 @@ class XSBConnector(BaseConnector):
 
         # XSB evaluates the query twice: once without writing (query time) and once with writing
         # the result (write time = difference). Timings are printed by xsb_export/extfilequery.P.
-        real1, cpu1, mem1, out1 = self.timed_subprocess(cmd1)
+        samples: list[tuple[float, float]] = []
+        real1, cpu1, mem1, out1 = self.timed_subprocess(cmd1, samples=samples)
         real2, cpu2, mem2, out2 = self.timed_subprocess(cmd2)
         for label, out, key in (('query only', out1, 'QueryOnlyTime'), ('query and write', out2, 'QueryAndWriteTime')):
             if out.returncode != 0 or f'{key}:' not in (out.stdout or ''):
@@ -107,6 +108,7 @@ class XSBConnector(BaseConnector):
         ]
 
         memory = [0.0, 0.0, mem1, max(0.0, mem2 - mem1)]
+        self.memory = self._query_memory(samples, real1, qonly_real)
 
         # Cleanup compiled .xwam files
         for f in rule_path.parent.glob('*.xwam'):
@@ -116,6 +118,21 @@ class XSBConnector(BaseConnector):
 
         gc.collect()
         return self.build_timing_row(phases, measurements[: len(phases)], memory=memory[: len(phases)])
+
+    @staticmethod
+    def _query_memory(samples: list, run_s: float, query_s: float) -> dict:
+        """Memory of the query from the RSS samples (every 10 ms) of the query-only XSB process:
+        peak RSS minus the RSS just before the query started. The query ends right before XSB
+        prints its timings and halts, so it started at about run_s - query_s after the process."""
+        if not samples:
+            return {'probe': 'xsb process RSS (query-only run)', 'error': 'no samples'}
+        t_query = max(0.0, run_s - query_s)
+        before = max((m for t, m in samples if t <= t_query), default=samples[0][1])
+        peak = max(m for _, m in samples)
+        mb = 1024 * 1024
+        return {'probe': 'xsb process RSS (query-only run)', 'before_mb': round(before / mb, 3),
+                'peak_mb': round(peak / mb, 3), 'used_mb': round((peak - before) / mb, 3),
+                'samples': len(samples), 'interval_s': 0.01}
 
     def close(self) -> None:
         pass

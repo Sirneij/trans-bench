@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from engine.connectors.base import BaseConnector
+from engine.memory import sampler_or_none
 
 if TYPE_CHECKING:
     from engine.loader import SystemDescriptor
@@ -93,7 +94,7 @@ class Neo4jConnector(BaseConnector):
                 measurements[i] = (real, cpu)
 
             # Penultimate = main query
-            real, cpu, _ = self.timed(run_fetched, commands[-2])
+            real, cpu, _ = self.timed_query(run_fetched, commands[-2])
             measurements[-2] = (real, cpu)
 
             # Last = export command
@@ -122,6 +123,24 @@ class Neo4jConnector(BaseConnector):
             pass
 
         return self.build_timing_row(phases, measurements)
+
+    def memory_sampler(self):
+        """Neo4j's own accounting of the heap memory used by the running query (the quantity that
+        dbms.memory.transaction.total.max limits), read from a second session while it runs. The
+        server's resident memory is not usable: the JVM keeps its heap after the first queries."""
+
+        def make_probe():
+            session = self._driver.session()
+
+            def probe():
+                rec = session.run(
+                    'SHOW TRANSACTIONS YIELD currentQuery, estimatedUsedHeapMemory '
+                    "WHERE currentQuery STARTS WITH 'MATCH (start' RETURN sum(estimatedUsedHeapMemory) AS m").single()
+                return float(rec['m'] or 0)
+
+            return probe
+
+        return sampler_or_none(make_probe, 'neo4j estimatedUsedHeapMemory of the query', interval=0.01)
 
     @classmethod
     def cancel_running(cls, credentials: dict[str, Any], descriptor: 'SystemDescriptor') -> None:

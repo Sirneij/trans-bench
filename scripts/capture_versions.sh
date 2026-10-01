@@ -17,5 +17,5 @@ echo "cockroachdb: $(${CRDB:-/opt/homebrew/opt/cockroach/bin/cockroach} version 
 echo "mongodb: $(mongod --version | head -1)"
 echo "neo4j: $(${NEO4J:-/opt/homebrew/opt/neo4j/libexec/bin/neo4j} --version 2>&1 | tail -1), APOC: $(ls $S/neo4j/plugins)"
 echo "java: $($JAVA_HOME/bin/java -version 2>&1 | head -1)"
-echo "singlestore image: $(docker inspect singlestoredb-dev --format '{{.Config.Image}}' 2>/dev/null) ($(docker image inspect $(docker inspect singlestoredb-dev --format '{{.Config.Image}}' 2>/dev/null) --format '{{index .RepoDigests 0}}' 2>/dev/null))"
-echo "trans-bench commit: $(git rev-parse HEAD)$(git diff --quiet || echo ' (with uncommitted changes)')"
+# the SingleStore image is recorded by the singlestore phase of scripts/run_all.sh (Docker runs only then)
+echo "trans-bench commit: $(git rev-parse HEAD)$(git diff --quiet HEAD && [ -z "$(git ls-files --others --exclude-standard -- engine systems scripts '*.py')" ] || echo ' + uncommitted changes (code.patch)')"
