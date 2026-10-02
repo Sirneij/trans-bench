@@ -25,12 +25,12 @@ def client():
 
 
 @pytest.mark.parametrize('url,needle', [
-    ('/', 'How fast does each system'),
+    ('/', 'Every path'),
     ('/systems', 'Register a system'),
     ('/systems/postgres', 'Timing phases'),
     ('/systems/new', 'What gets created'),
     ('/graphs', 'Topologies'),
-    ('/graphs/cycle', 'Size parameter'),
+    ('/graphs/cycle', 'Closure lab'),
     ('/graphs/new', 'implement the generator'),
     ('/domains/new', 'Existing domains'),
     ('/experiment/new', 'Which systems?'),
@@ -183,3 +183,42 @@ def test_stream_replays_the_run_to_every_listener(client):
 
 def test_stop_without_a_run(client):
     assert client.post('/experiment/stop').status_code == 409
+
+
+@needs_campaign
+def test_campaign_page_has_race(client):
+    html = client.get(f'/campaigns/{CAMPAIGNS[0]}').get_data(as_text=True)
+    assert 'id="p-race"' in html and 'view-transition-name: camp-' in html
+
+
+@needs_campaign
+def test_leaderboard():
+    directory = uidata.campaign_dirs(BASE_DIR)[0]
+    board = uidata.leaderboard(uidata.summary_rows(directory))
+    assert board
+    # one winner per contest: wins add up to the number of contests that someone finished
+    contests = len(uidata.LINEAR_GRAPHS) * 2
+    assert sum(x['wins'] for x in board) <= contests
+    assert board == sorted(board, key=lambda x: (-x['wins'], -x['podiums'], x['mean_rank'] or 99))
+    for x in board:
+        assert x['completed'] <= x['contests'] and all(p['value'] > 0 for p in x['trend'])
+
+
+def test_dashboard_shows_leaderboard_and_flow(client):
+    html = client.get('/').get_data(as_text=True)
+    assert 'js/flow.js' in html and 'flow-host' in html
+    if CAMPAIGNS:
+        assert 'Fastest at the largest graphs' in html
+
+
+def test_events_carry_time():
+    from ui.app import _EventLog
+
+    log = _EventLog()
+    log.publish({'type': 'log', 'message': 'x'})
+    event = json.loads(log.after(0, timeout=0)[0][1])
+    assert isinstance(event['t'], float)
+
+
+def test_status_has_plan_key(client):
+    assert 'plan' in client.get('/experiment/status').get_json()

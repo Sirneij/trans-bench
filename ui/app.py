@@ -85,6 +85,7 @@ class _EventLog:
             self.cond.notify_all()
 
     def publish(self, payload: dict) -> None:
+        payload = {**payload, 't': time.time()}
         with self.cond:
             self.last_id += 1
             self.events.append((self.last_id, json.dumps(payload)))
@@ -139,7 +140,7 @@ def create_app() -> Flask:
         with _experiment_lock:
             running = _experiment_state['running']
         static = Path(app.static_folder)
-        version = max(int((static / f).stat().st_mtime) for f in ('css/app.css', 'js/app.js'))
+        version = max(int(f.stat().st_mtime) for f in [*static.glob('css/*.css'), *static.glob('js/*.js')])
         return {'experiment_running': running, 'asset_version': version}
 
     def _get_graph_types():
@@ -194,8 +195,12 @@ def create_app() -> Flask:
         }
 
         campaigns = [uidata.campaign_info(d) for d in uidata.campaign_dirs(BASE_DIR)]
+        analyzed = next((d for d in uidata.campaign_dirs(BASE_DIR) if (d / 'analysis' / 'summary.csv').exists()), None)
         return render_template(
             'dashboard.html',
+            leaders=uidata.leaderboard(uidata.summary_rows(analyzed)) if analyzed else [],
+            leaders_campaign=analyzed.name if analyzed else None,
+            plot_styles=_plot_styles(),
             systems=systems,
             graph_types=graph_types,
             csv_count=csv_count,
@@ -203,7 +208,7 @@ def create_app() -> Flask:
             machine_info=machine_info,
             campaigns=campaigns,
             system_ui=_system_ui(systems),
-            previews={g.name: uidata.graph_preview(str(BASE_DIR), g.name) for g in graph_types[:6]},
+            previews={g.name: uidata.graph_preview(str(BASE_DIR), g.name) for g in graph_types},
         )
 
     def _get_math_info(name: str):
@@ -306,7 +311,10 @@ def create_app() -> Flask:
     @app.route('/systems')
     def systems_list():
         systems = _get_systems()
-        return render_template('systems.html', systems=systems, system_ui=_system_ui(systems))
+        analyzed = next((d for d in uidata.campaign_dirs(BASE_DIR) if (d / 'analysis' / 'summary.csv').exists()), None)
+        leaders = {x['series']: x for x in uidata.leaderboard(uidata.summary_rows(analyzed))} if analyzed else {}
+        return render_template('systems.html', systems=systems, system_ui=_system_ui(systems), leaders=leaders,
+                               leaders_campaign=analyzed.name if analyzed else None)
 
     @app.route('/systems/<name>')
     def system_detail(name: str):
@@ -688,6 +696,12 @@ def create_app() -> Flask:
             _experiment_state['started'] = time.time()
             _experiment_state['finished'] = None
             _experiment_state['stop_requested'] = False
+            # what will run, in the runner's order, so the live monitor can lay out every configuration
+            _experiment_state['plan'] = {
+                'systems': [x.name for x in systems], 'graphs': [g.name for g in graph_types],
+                'sizes': list(range(*sizes)), 'modes': selected_modes,
+                'system_modes': {x.name: list(x.modes) for x in systems},
+            }
         _events.reset()
 
         def progress_cb(evt: dict):
@@ -787,6 +801,7 @@ def create_app() -> Flask:
                     'started': _experiment_state['started'],
                     'finished': _experiment_state['finished'],
                     'stop_requested': _experiment_state['stop_requested'],
+                    'plan': _experiment_state.get('plan'),
                     'now': time.time(),
                 }
             )

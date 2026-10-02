@@ -221,6 +221,60 @@ def series_points(rows: list[dict], graph: str, mode: str, metric: str) -> dict[
     return dict(sorted(out.items()))
 
 
+def leaderboard(rows: list[dict]) -> list[dict]:
+    """Who is fastest on the structured topologies at the largest n, per series.
+
+    A contest is one (topology, left or right recursion) at the largest n measured for it; the fastest completed
+    series wins it. `trend` is the geometric mean of the mean times over the topologies the series completed at
+    each n (left recursion), for a sparkline.
+    """
+
+    def compute():
+        single = {'neo4j', 'mongodb'}
+        by_key = {(r['series'], r['graph'], r['mode'], r['n']): r for r in rows if r['graph'] in LINEAR_GRAPHS}
+        series = sorted({r['series'] for r in rows})
+        stats = {s: {'series': s, 'wins': 0, 'podiums': 0, 'contests': 0, 'completed': 0, 'ranks': []} for s in series}
+        for g in LINEAR_GRAPHS:
+            sizes = sorted({r['n'] for r in rows if r['graph'] == g})
+            if not sizes:
+                continue
+            n = sizes[-1]
+            for mode in ('left_recursion', 'right_recursion'):
+                times = []
+                for s in series:
+                    md = 'left_recursion' if s in single else mode
+                    r = by_key.get((s, g, md, n))
+                    if r is None:
+                        continue
+                    stats[s]['contests'] += 1
+                    if r['status'] == 'ok' and r['mean'] is not None:
+                        stats[s]['completed'] += 1
+                        times.append((r['mean'], s))
+                for rank, (_, s) in enumerate(sorted(times), start=1):
+                    stats[s]['ranks'].append(rank)
+                    stats[s]['wins'] += rank == 1
+                    stats[s]['podiums'] += rank <= 3
+        out = []
+        for s, st in stats.items():
+            if not st['contests']:
+                continue
+            trend = []
+            for n in sorted({r['n'] for r in rows if r['graph'] in LINEAR_GRAPHS}):
+                vals = [by_key[(s, g, 'left_recursion', n)]['mean'] for g in LINEAR_GRAPHS
+                        if (s, g, 'left_recursion', n) in by_key and by_key[(s, g, 'left_recursion', n)]['status'] == 'ok'
+                        and by_key[(s, g, 'left_recursion', n)]['mean']]
+                if vals:
+                    trend.append({'n': n, 'value': math.exp(sum(math.log(v) for v in vals) / len(vals))})
+            ranks = st.pop('ranks')
+            st['mean_rank'] = sum(ranks) / len(ranks) if ranks else None
+            st['trend'] = trend
+            out.append(st)
+        out.sort(key=lambda x: (-x['wins'], -x['podiums'], x['mean_rank'] or 99))
+        return out
+
+    return compute()
+
+
 def sizes_and_modes(rows: list[dict], graphs: list[str]) -> tuple[list[int], list[str]]:
     sel = [r for r in rows if r['graph'] in graphs]
     return sorted({r['n'] for r in sel}), sorted({r['mode'] for r in sel})

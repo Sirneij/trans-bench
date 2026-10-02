@@ -23,7 +23,7 @@
   <a class="card is-link sys-card" href="{{ url_for('system_detail', name=s.name) }}" data-cat="{{ s.category }}" data-q="{{ (s.name ~ ' ' ~ s.display_name ~ ' ' ~ s.protocol)|lower }}">
     <div class="card-body">
       <div class="cluster" style="flex-wrap:nowrap;align-items:flex-start">
-        {{ m.marker(st, 'sys-badge') }}
+        <span style="view-transition-name: sys-{{ s.name }}">{{ m.marker(st, 'sys-badge') }}</span>
         <div style="min-width:0;flex:1">
           <h3 style="font-size:var(--fs-base)">{{ s.display_name }}</h3>
           <div class="mono small muted">{{ s.name }}</div>
@@ -35,6 +35,13 @@
         <dt>Version</dt><dd class="mono" data-version="{{ s.name }}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ s.version }}">{% if s.version == 'Unknown' %}<span style="color:var(--warn)">not detected</span>{% else %}{{ s.version }}{% endif %}</dd>
         <dt>Input</dt><dd class="mono">{{ s.input_format }} · {{ s.rule_extension }}</dd>
       </dl>
+      {% set lb = leaders.get(s.name) %}
+      {% if lb %}
+      <div class="mt-4" style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface-2)">
+        <div class="cluster small" style="justify-content:space-between"><span class="muted">{{ leaders_campaign }}</span><span><b>{{ lb.wins }}</b> wins · <b>{{ lb.completed }}</b>/{{ lb.contests }} done</span></div>
+        <svg class="spark mt-2" data-trend="{{ lb.trend|tojson|forceescape }}" style="--c:{{ st.color if st and st.color else 'var(--ink)' }}"></svg>
+      </div>
+      {% endif %}
       <div class="cluster mt-4" style="gap:6px">
         {% for mode in s.modes %}<span class="chip mono">{{ mode.replace('_recursion', '') }}</span>{% endfor %}
       </div>
@@ -71,6 +78,9 @@
     });
     TB.$('#sys-empty').hidden = shown > 0;
   };
+  const sparks = TB.$$('svg.spark[data-trend]');
+  const all = sparks.flatMap((x) => JSON.parse(x.dataset.trend).map((p) => p.value)).filter((v) => v > 0);
+  sparks.forEach((x) => { TB.spark(x, JSON.parse(x.dataset.trend), { min: Math.min(...all), max: Math.max(...all) }); x.classList.add('go'); });
   TB.$('#cat-filter').addEventListener('segchange', (e) => { cat = e.detail.value; apply(); });
   TB.$('#sys-search').addEventListener('input', apply);
 

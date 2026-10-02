@@ -2,141 +2,195 @@
 {% import '_macros.html' as m %}
 {% block title %}Overview{% endblock %}
 
+{% block head %}
+<style>
+  /* hero: copy on the left, the live closure flow filling the card */
+  .stage { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr); min-height: 440px; overflow: hidden; border-radius: 20px; }
+  .stage::before { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--ink) 9%, transparent) 1px, transparent 0) 0 0 / 22px 22px; mask: linear-gradient(90deg, transparent 20%, #000 60%); }
+  .stage-copy { position: relative; z-index: 1; padding: 40px 0 36px 40px; display: flex; flex-direction: column; gap: 18px; justify-content: center; }
+  .stage-copy h1 { font-size: clamp(2.2rem, 4.2vw, 3.6rem); line-height: 1.02; letter-spacing: -.035em; }
+  .stage-copy h1 .u { position: relative; white-space: nowrap; color: var(--accent); }
+  .stage-copy h1 .u svg { position: absolute; left: -2%; bottom: -.18em; width: 104%; height: .32em; overflow: visible; }
+  .stage-copy h1 .u path { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 1.2s .5s var(--ease-out) forwards; opacity: .55; }
+  .stage-copy .lede { color: var(--ink-2); font-size: var(--fs-lg); max-width: 46ch; }
+  .stage-art { position: relative; min-width: 0; }
+  .stage-art .flow { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .readout { position: absolute; left: 16px; bottom: 16px; right: 16px; display: flex; flex-wrap: wrap; gap: 6px 16px; font: 500 12px var(--font-mono); color: var(--ink-3); z-index: 1; }
+  .readout b { color: var(--ink); font-weight: 600; }
+  .readout span { background: color-mix(in srgb, var(--surface) 80%, transparent); padding: 3px 8px; border-radius: 6px; backdrop-filter: blur(4px); }
+  .hint-hover { position: absolute; top: 16px; right: 18px; z-index: 1; font-size: var(--fs-xs); color: var(--ink-3); display: flex; align-items: center; gap: 6px; }
+  .hint-hover svg { width: 14px; height: 14px; }
+
+  /* flow drawing */
+  .flow .f-e { fill: none; stroke: var(--line-strong); stroke-width: 1.5; transition: stroke .4s, opacity .4s; animation: fade-in .9s var(--ease-out) backwards; animation-delay: calc(var(--i) * 25ms + 300ms); }
+  .flow .f-e.back { stroke-dasharray: 3 5; }
+  .flow .f-e.lit { stroke: var(--accent); stroke-width: 2; filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent) 60%, transparent)); }
+  .flow .f-n { cursor: pointer; transition: opacity .4s; animation: pop .6s var(--ease-spring) backwards; animation-delay: calc(var(--i) * 30ms + 200ms); }
+  .flow .f-n.dim { opacity: .45; }
+  .flow .f-hit { fill: transparent; }
+  .flow .f-dot { fill: var(--surface); stroke: var(--ink-2); stroke-width: 2; transition: fill .3s, stroke .3s, r .3s var(--ease-spring); }
+  .flow .f-ring { fill: none; stroke: var(--accent); stroke-width: 2; opacity: 0; }
+  .flow .f-n.hit .f-dot { fill: var(--accent); stroke: var(--accent); }
+  .flow .f-n.hit .f-ring { animation: ring .9s var(--ease-out); }
+  .flow .f-n.src .f-dot { fill: var(--ink); stroke: var(--ink); r: 9; }
+  .flow .f-n.src .f-ring { animation: ring 1.6s var(--ease-out) infinite; }
+  .flow .f-n.cyc .f-dot { stroke: var(--warn); stroke-width: 3; }
+  .flow .f-label { font: 600 10px var(--font-mono); fill: var(--ink-3); text-anchor: middle; opacity: 0; transition: opacity .3s; }
+  .flow .f-n.src .f-label, .flow .f-n:hover .f-label { opacity: 1; fill: var(--ink); }
+  .flow .f-pulse { fill: var(--accent); filter: drop-shadow(0 0 5px var(--accent)); }
+  .flow .f-arc { fill: none; stroke: var(--accent); stroke-width: 1.2; stroke-dasharray: 1; stroke-dashoffset: 1; opacity: .45; animation: draw .8s var(--ease-out) forwards; }
+  @keyframes ring { from { opacity: .8; r: 7; } to { opacity: 0; r: 22; } }
+
+  /* stat strip */
+  .strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--line); position: relative; z-index: 1; background: color-mix(in srgb, var(--surface) 70%, transparent); backdrop-filter: blur(6px); }
+  .strip > div { padding: 16px 20px; }
+  .strip > div + div { border-left: 1px solid var(--line); }
+  .strip .v { font-family: var(--font-display); font-size: 1.7rem; font-weight: 650; letter-spacing: -.03em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .strip .k { font-size: var(--fs-xs); color: var(--ink-3); text-transform: uppercase; letter-spacing: .07em; font-weight: 600; }
+
+  /* leaderboard */
+  .lb-row { display: grid; grid-template-columns: 28px minmax(130px, 1.1fr) minmax(0, 1.6fr) 120px 74px; align-items: center; gap: 14px; padding: 10px 20px; border-top: 1px solid var(--line); transition: background var(--t-fast); }
+  .lb-row:hover { background: var(--surface-2); }
+  .lb-rank { font: 700 13px var(--font-mono); color: var(--ink-3); text-align: center; }
+  .lb-row:nth-child(-n+3) .lb-rank { color: var(--accent); }
+  .lb-name { display: flex; align-items: center; gap: 8px; font-weight: 600; min-width: 0; }
+  .lb-bars { display: flex; flex-direction: column; gap: 4px; }
+  .lb-bar { height: 7px; border-radius: 99px; background: var(--sunken); overflow: hidden; }
+  .lb-bar > i { display: block; height: 100%; width: var(--w); border-radius: inherit; background: var(--c, var(--accent)); transform-origin: left; transform: scaleX(0); }
+  .lb-bar.p > i { opacity: .38; }
+  .is-in .lb-bar > i { animation: grow-to 1s var(--ease-out) forwards; animation-delay: calc(var(--i) * 70ms + 150ms); }
+  @keyframes grow-to { to { transform: scaleX(1); } }
+  .lb-meta { font-size: var(--fs-xs); color: var(--ink-3); }
+  .lb-meta b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .lb-head { display: grid; grid-template-columns: 28px minmax(130px, 1.1fr) minmax(0, 1.6fr) 120px 74px; gap: 14px; padding: 8px 20px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+
+  /* verified ring */
+  .vring { position: relative; width: 180px; height: 180px; margin: 6px auto 4px; }
+  .vring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .vring circle { fill: none; stroke-width: 14; }
+  .vring .t { stroke: var(--sunken); }
+  .vring .ok { stroke: var(--ok); stroke-linecap: round; stroke-dasharray: 0 999; }
+  .is-in .vring .ok { animation: vr 1.6s .2s var(--ease-out) forwards; }
+  @keyframes vr { to { stroke-dasharray: var(--len) 999; } }
+  .vring .c { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; }
+  .vring .c b { font-family: var(--font-display); font-size: 2.1rem; font-weight: 650; letter-spacing: -.03em; line-height: 1; }
+
+  .topo-rail { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(250px, 1fr); gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 4px 2px 14px; scrollbar-width: thin; }
+  .topo-rail > * { scroll-snap-align: start; }
+  @media (max-width: 1100px) { .stage { grid-template-columns: minmax(0, 1fr); } .stage-copy { padding: 28px 24px 8px; } .stage-art { min-height: 300px; } .strip { grid-template-columns: repeat(2, minmax(0, 1fr)); } .strip > div:nth-child(3) { border-left: 0; } .strip > div:nth-child(n+3) { border-top: 1px solid var(--line); } }
+  @media (max-width: 700px) { .lb-row, .lb-head { grid-template-columns: 22px minmax(0, 1fr) minmax(0, 1.1fr); } .lb-row > :nth-child(4), .lb-head > :nth-child(4), .lb-row > :nth-child(5), .lb-head > :nth-child(5) { display: none; } .lb-meta { font-size: 11px; } }
+</style>
+{% endblock %}
+
 {% block content %}
 {% set latest = campaigns[0] if campaigns else None %}
 
-<section class="card hero reveal" style="--i:0">
-  <div class="hero-copy">
-    <div class="eyebrow"><i data-lucide="sparkles" style="width:14px;height:14px"></i>trans-bench</div>
-    <h2>How fast does each system compute a transitive closure?</h2>
-    <p class="ink-2">Run the same recursive query on {{ systems|length }} logic engines and database systems over {{ graph_types|length }} graph topologies, verify every answer, and compare time and memory as the graphs grow.</p>
-    <div class="cluster mt-2">
-      <a class="btn btn-primary btn-lg" href="{{ url_for('experiment_new') }}"><i data-lucide="play"></i>New experiment</a>
-      {% if latest %}<a class="btn btn-lg" href="{{ url_for('campaign_detail', name=latest.name) }}"><i data-lucide="flask-conical"></i>Latest campaign</a>{% endif %}
-      {% if experiment_running %}<a class="run-chip" href="{{ url_for('experiment_live') }}"><span class="live-dot"></span>Experiment running</a>{% endif %}
+<section class="card" style="border-radius:20px;overflow:hidden" data-reveal>
+  <div class="stage">
+    <div class="stage-copy">
+      <div class="eyebrow"><span class="live-dot" style="background:var(--accent)"></span>trans-bench · {{ systems|length }} systems · {{ graph_types|length }} topologies</div>
+      <h1>Every path,<br><span class="u">every system<svg viewBox="0 0 100 10" preserveAspectRatio="none"><path d="M1 7 C 30 2, 70 2, 99 6" pathLength="1"/></svg></span>,<br>verified.</h1>
+      <p class="lede">The same recursive query on logic engines and databases, over graphs that grow until something breaks. Every answer is checked against the true closure.</p>
+      <div class="cluster">
+        <a class="btn btn-primary btn-lg" href="{{ url_for('experiment_new') }}"><i data-lucide="play"></i>New experiment</a>
+        {% if latest %}<a class="btn btn-lg" href="{{ url_for('campaign_detail', name=latest.name) }}#race"><i data-lucide="flag"></i>Watch the race</a>{% endif %}
+      </div>
+    </div>
+    <div class="stage-art" id="flow-host">
+      <div class="hint-hover"><i data-lucide="mouse-pointer-2"></i>hover a node</div>
+      <div class="readout" id="flow-readout" aria-live="polite"></div>
     </div>
   </div>
-  <div class="hero-art" aria-hidden="true">
-    {# a path a→b→c→d; the dashed edges are what the closure adds #}
-    <svg class="closure" viewBox="0 0 360 200">
-      <path class="c" style="--i:0" d="M52 158 Q150 205 249 132" marker-end="url(#tb-arrow)"/>
-      <path class="c" style="--i:1" d="M168 64 Q245 28 306 66" marker-end="url(#tb-arrow)"/>
-      <path class="c" style="--i:2" d="M38 136 Q150 -30 307 64" marker-end="url(#tb-arrow)"/>
-      <path class="e" d="M52 144L148 76" marker-end="url(#tb-arrow)"/>
-      <path class="e" d="M164 80L252 118" marker-end="url(#tb-arrow)"/>
-      <path class="e" d="M268 116L314 82" marker-end="url(#tb-arrow)"/>
-      <circle class="n" cx="40" cy="150" r="13"/><text x="40" y="150">a</text>
-      <circle class="n" cx="155" cy="70" r="13"/><text x="155" y="70">b</text>
-      <circle class="n" cx="262" cy="124" r="13"/><text x="262" y="124">c</text>
-      <circle class="n" cx="320" cy="72" r="13"/><text x="320" y="72">d</text>
-    </svg>
+  <div class="strip">
+    <div><div class="k">Systems</div><div class="v" data-count="{{ systems|length }}">{{ systems|length }}</div></div>
+    <div><div class="k">Topologies</div><div class="v" data-count="{{ graph_types|length }}">{{ graph_types|length }}</div></div>
+    <div><div class="k">Verified runs</div><div class="v" style="color:var(--ok)" data-count="{{ latest.ok if latest else 0 }}">{{ '{:,}'.format(latest.ok) if latest else 0 }}</div></div>
+    <div><div class="k">Campaigns</div><div class="v" data-count="{{ campaigns|length }}">{{ campaigns|length }}</div></div>
   </div>
 </section>
 
-<div class="grid grid-4 mt-4" data-stagger>
-  <div class="card kpi">
-    <div class="kpi-label"><i data-lucide="database"></i>Systems</div>
-    <div class="kpi-value" data-count="{{ systems|length }}">{{ systems|length }}</div>
-    <div class="kpi-sub">{{ systems|selectattr('category', 'equalto', 'logic')|list|length }} logic · {{ systems|rejectattr('category', 'equalto', 'logic')|list|length }} database</div>
-  </div>
-  <div class="card kpi">
-    <div class="kpi-label"><i data-lucide="share-2"></i>Topologies</div>
-    <div class="kpi-value" data-count="{{ graph_types|length }}">{{ graph_types|length }}</div>
-    <div class="kpi-sub">graph families with generators</div>
-  </div>
-  <div class="card kpi">
-    <div class="kpi-label"><i data-lucide="circle-check"></i>Verified runs</div>
-    <div class="kpi-value" data-count="{{ latest.ok if latest else 0 }}">{{ '{:,}'.format(latest.ok) if latest else 0 }}</div>
-    <div class="kpi-sub">{% if latest %}of {{ '{:,}'.format(latest.executed) }} executed in {{ latest.name }}{% else %}no campaign yet{% endif %}</div>
-  </div>
-  <div class="card kpi">
-    <div class="kpi-label"><i data-lucide="file-spreadsheet"></i>Result files</div>
-    <div class="kpi-value" data-count="{{ csv_count }}">{{ csv_count }}</div>
-    <div class="kpi-sub">timing CSVs from {{ benchmarked_systems|length }} systems</div>
-  </div>
-</div>
-
-<div class="split mt-4">
-  <section class="card reveal" style="--i:3">
+{% if leaders %}
+<div class="split mt-6" style="gap:16px">
+  <section class="card" data-reveal style="--i:1">
     <div class="card-head">
-      <h3><i data-lucide="flask-conical"></i>Campaigns</h3>
-      <a class="btn btn-ghost btn-sm" href="{{ url_for('campaigns_list') }}">All campaigns<i data-lucide="arrow-right"></i></a>
+      <h3><i data-lucide="trophy"></i>Fastest at the largest graphs</h3>
+      <a class="small" href="{{ url_for('campaign_detail', name=leaders_campaign) }}#race">{{ leaders_campaign }} →</a>
     </div>
-    {% if campaigns %}
-      {% for c in campaigns[:3] %}
-      <a class="card-body" href="{{ url_for('campaign_detail', name=c.name) }}" style="display:block;color:inherit;{% if not loop.first %}border-top:1px solid var(--line){% endif %}">
-        <div class="cluster" style="justify-content:space-between">
-          <div style="min-width:0">
-            <div class="cluster"><b>{{ c.name }}</b>{% if loop.first %}<span class="chip chip-accent">latest</span>{% endif %}{% if c.memory_runs %}<span class="chip chip-outline"><i data-lucide="memory-stick"></i>memory</span>{% endif %}</div>
-            <div class="small muted mt-2" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ c.title }}</div>
-          </div>
-          <div class="small muted tabular" style="text-align:right">{{ '{:,}'.format(c.executed) }} runs<br>{{ (c.first or '')[:10] }}</div>
-        </div>
-        <div class="mt-4">{{ m.outcome_bar(c.total, c.executed + c.skipped) }}</div>
-        <div class="olegend mt-2">
-          <span><i class="o-ok"></i>{{ '{:,}'.format(c.ok) }} completed</span>
-          {% for k, v in c.failures.items() %}<span><i class="o-{{ k }}"></i>{{ v }} {{ m.failure_label(k)|lower }}</span>{% endfor %}
-          {% if c.skipped %}<span><i class="o-skipped"></i>{{ c.skipped }} skipped</span>{% endif %}
-        </div>
+    <div class="lb-head"><span>#</span><span>System</span><span>Wins · podiums</span><span>Time as n grows</span><span style="text-align:right">Done</span></div>
+    <div data-stagger id="lb">
+      {% set maxw = leaders|map(attribute='podiums')|max or 1 %}
+      {% for x in leaders %}
+      {% set st = plot_styles.get(x.series) %}
+      <a class="lb-row" href="{{ url_for('system_detail', name=x.series.split('_')[0]) }}" style="color:inherit;--c:{{ (st.color if st and st.color else 'var(--ink)') }}">
+        <span class="lb-rank">{{ loop.index }}</span>
+        <span class="lb-name">{{ m.marker(st) }}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ st.label if st else x.series }}</span></span>
+        <span class="lb-bars" title="{{ x.wins }} wins, {{ x.podiums }} top-three finishes of {{ x.contests }} contests">
+          <span class="lb-bar"><i style="--w:{{ (100 * x.wins / maxw)|round(1) }}%;--i:{{ loop.index0 }}"></i></span>
+          <span class="lb-bar p"><i style="--w:{{ (100 * x.podiums / maxw)|round(1) }}%;--i:{{ loop.index0 }}"></i></span>
+          <span class="lb-meta"><b>{{ x.wins }}</b> wins · <b>{{ x.podiums }}</b> podiums{% if x.mean_rank %} · mean rank <b>{{ '%.1f' % x.mean_rank }}</b>{% endif %}</span>
+        </span>
+        <svg class="spark" data-trend="{{ x.trend|tojson|forceescape }}" style="--i:{{ loop.index0 }}"></svg>
+        <span class="lb-meta" style="text-align:right"><b>{{ x.completed }}</b>/{{ x.contests }}</span>
       </a>
       {% endfor %}
-    {% else %}
-      {{ m.empty('No verified campaign yet', 'Run benchmark.py with --out results/<campaign>/<system> to record verified runs; the campaign appears here with its figures and failures.', url_for('experiment_new'), 'Plan a run', 'play') }}
-    {% endif %}
+    </div>
+    <div class="card-foot small muted">A contest is one structured topology with left or right recursion at its largest n; the fastest completed system wins it. The line is the geometric mean time over topologies as n grows.</div>
   </section>
 
-  <section class="card reveal" style="--i:4">
-    <div class="card-head">
-      <h3><i data-lucide="database"></i>Systems</h3>
-      <a class="btn btn-ghost btn-sm" href="{{ url_for('systems_list') }}">Manage<i data-lucide="arrow-right"></i></a>
+  <section class="card" data-reveal style="--i:2">
+    <div class="card-head"><h3><i data-lucide="shield-check"></i>Latest campaign</h3>{% if latest %}<a class="small" href="{{ url_for('campaign_detail', name=latest.name) }}">{{ latest.name }} →</a>{% endif %}</div>
+    {% if latest %}
+    {% set C = 2 * 3.14159 * 70 %}
+    <div class="card-body" data-reveal>
+      <div class="vring">
+        <svg viewBox="0 0 180 180"><circle class="t" cx="90" cy="90" r="70"/><circle class="ok" cx="90" cy="90" r="70" style="--len:{{ (C * latest.ok / (latest.executed or 1))|round(1) }}"/></svg>
+        <div class="c"><div><b>{{ '%.1f' % (100 * latest.ok / (latest.executed or 1)) }}%</b><div class="small muted">verified</div></div></div>
+      </div>
+      <div class="stack" style="gap:8px;margin-top:10px">
+        <div class="cluster" style="justify-content:space-between"><span class="small ink-2">Executed runs</span><b class="tabular">{{ '{:,}'.format(latest.executed) }}</b></div>
+        {% for k, v in latest.failures.items() %}
+        <div class="cluster" style="justify-content:space-between"><span class="small ink-2">{{ m.failure_chip(k) }}</span><b class="tabular">{{ v }}</b></div>
+        {% endfor %}
+        <div class="cluster" style="justify-content:space-between"><span class="small ink-2">Skipped after a failure</span><b class="tabular muted">{{ '{:,}'.format(latest.skipped) }}</b></div>
+      </div>
     </div>
-    <div style="padding:6px 8px">
-      {% for s in systems %}
-        {% set st = system_ui.get(s.name) %}
-        <a href="{{ url_for('system_detail', name=s.name) }}" class="cluster sys-row" style="flex-wrap:nowrap;padding:8px 10px;border-radius:9px;color:inherit">
-          {{ m.marker(st) }}
-          <span style="font-weight:550;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ s.display_name }}</span>
-          {% if latest and latest.series.get(s.name) %}
-            {% set ser = latest.series[s.name] %}{% set fails = ser.values()|sum - ser.get('ok', 0) - ser.get('skipped', 0) %}
-            {% if fails %}<span class="chip chip-warn" title="failed runs in {{ latest.name }}">{{ fails }} failed</span>{% else %}<span class="chip chip-ok" title="all executed runs completed in {{ latest.name }}">all ok</span>{% endif %}
-          {% endif %}
-          <span class="chip chip-outline">{{ s.category }}</span>
-        </a>
-      {% endfor %}
-    </div>
+    {% else %}
+      {{ m.empty('No campaign yet', 'Plan one in the wizard and copy the benchmark.py command.', url_for('experiment_new') ~ '#step-4', 'Plan a campaign', 'square-terminal') }}
+    {% endif %}
   </section>
 </div>
+{% endif %}
 
 <div class="section-title">
   <h2>Topologies</h2>
-  <a class="btn btn-ghost btn-sm" href="{{ url_for('graphs_list') }}">All {{ graph_types|length }}<i data-lucide="arrow-right"></i></a>
+  <span class="meta">hover a card to see what its closure adds · <a href="{{ url_for('graphs_list') }}">all {{ graph_types|length }} →</a></span>
 </div>
-<div class="grid grid-3" data-stagger>
-  {% for g in graph_types[:6] %}
+<div class="topo-rail" data-stagger>
+  {% for g in graph_types %}
   <a class="card topo-card" href="{{ url_for('graph_detail', name=g.name) }}">
-    <div class="gdiag-wrap">{{ m.graph_svg(previews.get(g.name), g.name) }}</div>
+    <div class="gdiag-wrap" style="view-transition-name: topo-{{ g.name }}">{{ m.graph_svg(previews.get(g.name), g.name, closure=True) }}</div>
     <div class="topo-meta">
       <h3>{{ g.display_name }}<i data-lucide="arrow-up-right" style="width:16px;height:16px;color:var(--ink-3)"></i></h3>
-      <p>{{ g.description|truncate(90) }}</p>
+      {% set p = previews.get(g.name) %}
+      {% if p %}<p class="mono">{{ p.edge_count }} edges → |TC| {{ p.closure_count }}</p>{% endif %}
     </div>
   </a>
   {% endfor %}
 </div>
 
 <div class="grid grid-2 mt-6">
-  <section class="card reveal">
-    <div class="card-head"><h3><i data-lucide="laptop-minimal"></i>This machine</h3></div>
-    <div class="card-body">
-      <dl class="dl">
-        <dt>OS</dt><dd class="mono">{{ machine_info.os }}</dd>
-        <dt>Architecture</dt><dd class="mono">{{ machine_info.arch }}</dd>
-        <dt>CPUs</dt><dd class="mono">{{ machine_info.cpu_count }}</dd>
-        <dt>Python</dt><dd class="mono">{{ machine_info.python_version }}</dd>
-      </dl>
+  <section class="card" data-reveal>
+    <div class="card-head"><h3><i data-lucide="database"></i>Systems</h3><a class="btn btn-ghost btn-sm" href="{{ url_for('systems_list') }}">Manage<i data-lucide="arrow-right"></i></a></div>
+    <div style="padding:6px 8px;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">
+      {% for s in systems %}
+        <a href="{{ url_for('system_detail', name=s.name) }}" class="cluster sys-row" style="flex-wrap:nowrap;padding:8px 10px;border-radius:9px;color:inherit">
+          {{ m.marker(system_ui.get(s.name)) }}<span style="font-weight:550;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ s.display_name }}</span><span class="chip chip-outline">{{ s.category }}</span>
+        </a>
+      {% endfor %}
     </div>
   </section>
-  <section class="card reveal">
-    <div class="card-head"><h3><i data-lucide="square-terminal"></i>From the command line</h3></div>
+  <section class="card" data-reveal style="--i:1">
+    <div class="card-head"><h3><i data-lucide="square-terminal"></i>From the command line</h3><span class="small muted">{{ machine_info.os }} · {{ machine_info.cpu_count }} CPUs · Python {{ machine_info.python_version }}</span></div>
     <div class="card-body stack">
       {{ m.cmd('./virtualenv/bin/python benchmark.py --systems postgres --runs 5 --timeout 600 --out results/my_campaign/postgres', 'cmd-campaign') }}
       {{ m.cmd('./virtualenv/bin/python analyze_verified.py results/my_campaign', 'cmd-analyze') }}
@@ -145,4 +199,16 @@
   </section>
 </div>
 <style>.sys-row:hover { background: var(--sunken); }</style>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/flow.js') }}?v={{ asset_version }}"></script>
+<script>
+(() => {
+  new ClosureFlow(TB.$('#flow-host'), { seed: 11, readout: TB.$('#flow-readout') });
+  const sparks = TB.$$('svg.spark[data-trend]');
+  const all = sparks.flatMap((s) => JSON.parse(s.dataset.trend).map((p) => p.value)).filter((v) => v > 0);
+  sparks.forEach((s) => TB.spark(s, JSON.parse(s.dataset.trend), { min: Math.min(...all), max: Math.max(...all) }));
+})();
+</script>
 {% endblock %}

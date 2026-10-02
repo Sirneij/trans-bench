@@ -6,18 +6,48 @@
 {% block head %}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css" crossorigin="anonymous">
 <style>
-  .playground { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
-  .playground .stage { min-height: 380px; border-right: 1px solid var(--line); border-radius: var(--radius-lg) 0 0 var(--radius-lg); }
-  .playground .stage .gdiag { width: min(100%, 520px); max-height: 440px; }
-  .stat-line { display: flex; align-items: baseline; justify-content: space-between; padding: 10px 0; border-bottom: 1px dashed var(--line); font-size: var(--fs-md); }
+  .lab { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr); overflow: hidden; }
+  .lab .stage { position: relative; min-height: 460px; border-right: 1px solid var(--line); border-radius: 0; padding: 28px; outline: none; }
+  .lab .stage .gdiag { width: min(100%, 560px); max-height: 480px; }
+  .lab-bar { position: absolute; top: 14px; left: 14px; right: 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; z-index: 2; pointer-events: none; }
+  .lab-bar > * { pointer-events: auto; }
+  .bubble { font: 500 12px var(--font-mono); color: var(--ink-2); background: color-mix(in srgb, var(--surface) 88%, transparent); border: 1px solid var(--line); padding: 6px 10px; border-radius: 8px; backdrop-filter: blur(6px); max-width: 60%; }
+  .bubble b { color: var(--ink); }
+  .lab .side { display: flex; flex-direction: column; gap: 18px; padding: 20px; min-width: 0; }
+  .stat-line { display: flex; align-items: baseline; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed var(--line); font-size: var(--fs-md); }
   .stat-line:last-child { border-bottom: 0; }
-  .stat-line b { font-family: var(--font-display); font-size: 1.35rem; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .stat-line b { font-family: var(--font-display); font-size: 1.3rem; font-weight: 650; font-variant-numeric: tabular-nums; }
   .range { width: 100%; accent-color: var(--accent); }
   .katex { font-size: 1.08em; color: var(--ink); }
-  @media (max-width: 900px) {
-    .playground { grid-template-columns: minmax(0, 1fr); }
-    .playground .stage { border-right: 0; border-bottom: 1px solid var(--line); border-radius: var(--radius-lg) var(--radius-lg) 0 0; min-height: 280px; }
-  }
+
+  /* drawing states */
+  .lab .gdiag .n { transition: fill .35s, stroke .35s, opacity .35s, transform .35s var(--ease-spring); transform-box: fill-box; transform-origin: center; cursor: pointer; }
+  .lab .gdiag .e { stroke-width: .7; transition: stroke .35s, opacity .35s, stroke-width .35s; }
+  .lab .gdiag .n { stroke-width: 1.1; }
+  .lab .gdiag .tc { stroke-dasharray: 1; stroke-dashoffset: 1; opacity: 0; stroke-width: .6; transition: opacity .3s; }
+  .lab .gdiag .tc.past { opacity: .28; stroke-dashoffset: 0; }
+  .lab .gdiag .tc.now { opacity: .95; stroke-width: .9; animation: draw .75s var(--ease-out) forwards; animation-delay: calc(var(--d, 0) * 1ms); filter: drop-shadow(0 0 2px color-mix(in srgb, var(--accent) 70%, transparent)); }
+  .lab .gdiag .n.self { stroke: var(--warn); stroke-width: 1.8; }
+  .lab .gdiag .n.src { fill: var(--ink); stroke: var(--ink); transform: scale(1.35); }
+  .lab .gdiag .n.reach { fill: var(--accent); stroke: var(--accent); transition-delay: calc(var(--d, 0) * 1ms); }
+  .lab .gdiag .n.dim, .lab .gdiag .e.dim { opacity: .3; }
+  .lab .gdiag .e.lit { stroke: var(--accent); stroke-width: 1.1; opacity: 1; transition-delay: calc(var(--d, 0) * 1ms); }
+
+  .transport { display: flex; align-items: center; gap: 6px; }
+  .transport .play { width: 44px; height: 44px; border-radius: 50%; }
+  .transport .play svg { width: 18px; height: 18px; }
+  .hist { display: flex; align-items: flex-end; gap: 3px; height: 92px; padding-top: 6px; }
+  .hist button { flex: 1; min-width: 4px; border: 0; padding: 0; cursor: pointer; border-radius: 4px 4px 1px 1px; background: var(--accent-soft); height: var(--h); position: relative; transition: background var(--t-fast), transform var(--t-fast) var(--ease-out); transform-origin: bottom; animation: grow-y .6s var(--ease-out) backwards; animation-delay: calc(var(--i) * 40ms); }
+  .hist button.done { background: color-mix(in srgb, var(--accent) 45%, var(--accent-soft)); }
+  .hist button.cur { background: var(--accent); }
+  .hist button:hover { transform: scaleY(1.06); }
+  @keyframes grow-y { from { transform: scaleY(0); } }
+  .hist-x { display: flex; justify-content: space-between; font: 500 11px var(--font-mono); color: var(--ink-3); margin-top: 4px; }
+  .versus { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .versus > div { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; background: var(--surface-2); }
+  .versus b { font-family: var(--font-display); font-size: 1.5rem; font-weight: 650; display: block; line-height: 1.1; }
+  .versus .on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); background: color-mix(in srgb, var(--accent-soft) 50%, var(--surface)); }
+  @media (max-width: 1000px) { .lab { grid-template-columns: minmax(0, 1fr); } .lab .stage { border-right: 0; border-bottom: 1px solid var(--line); min-height: 320px; } }
 </style>
 {% endblock %}
 
@@ -26,29 +56,57 @@
   <a class="btn btn-primary" href="{{ url_for('experiment_new', graphs=graph.name) }}"><i data-lucide="play"></i>Benchmark this topology</a>
 {% endcall %}
 
-<section class="card playground reveal" aria-label="Interactive example">
-  <div class="stage gdiag-wrap" id="stage">{{ m.graph_svg(preview, graph.name) }}</div>
-  <div class="card-body stack" style="gap:18px">
-    <div>
-      <div class="cluster" style="justify-content:space-between">
-        <label class="label" for="n-range">Size parameter <span class="mono">n</span></label>
-        <output class="mono chip chip-accent" id="n-out" for="n-range">{{ preview_range[1] }}</output>
-      </div>
-      <input class="range mt-2" type="range" id="n-range" min="{{ preview_range[0] }}" max="{{ preview_range[2] }}" value="{{ preview_range[1] }}" step="1">
-      <p class="hint mt-2">The benchmark uses the same generator with n from 100 upwards; this is a small instance to look at.</p>
+<section class="card lab" aria-label="Closure lab" data-reveal>
+  <div class="stage gdiag-wrap" id="stage" tabindex="0" aria-label="Graph drawing; arrow keys step through iterations, space plays" style="view-transition-name: topo-{{ graph.name }}">
+    {{ m.graph_svg(preview, graph.name) }}
+  </div>
+  <div class="side">
+    <div class="seg" id="lab-mode" role="group" aria-label="Mode">
+      <button type="button" value="fixpoint" aria-pressed="true"><i data-lucide="repeat"></i>Fixpoint</button>
+      <button type="button" value="reach" aria-pressed="false"><i data-lucide="radar"></i>Reach</button>
     </div>
-    <label class="switch"><input type="checkbox" id="show-tc"> Show the pairs the transitive closure adds</label>
+
+    <div id="fix-panel" class="stack" style="gap:16px">
+      <div>
+        <div class="label" style="margin-bottom:8px">Evaluation</div>
+        <div class="versus" id="versus">
+          <div data-strategy="linear" class="on" role="button" tabindex="0"><span class="small muted">Linear · T ∘ E</span><b id="it-linear">–</b><span class="small muted">iterations (left / right recursion)</span></div>
+          <div data-strategy="double" role="button" tabindex="0"><span class="small muted">Doubling · T ∘ T</span><b id="it-double">–</b><span class="small muted">iterations (double recursion)</span></div>
+        </div>
+      </div>
+      <div>
+        <div class="cluster" style="justify-content:space-between">
+          <div class="transport">
+            <button class="btn btn-icon btn-sm" type="button" id="b-first" aria-label="First iteration"><i data-lucide="skip-back"></i></button>
+            <button class="btn btn-icon btn-sm" type="button" id="b-prev" aria-label="Previous iteration"><i data-lucide="chevron-left"></i></button>
+            <button class="btn btn-primary btn-icon play" type="button" id="b-play" aria-label="Play"><i data-lucide="play" class="i-play"></i></button>
+            <button class="btn btn-icon btn-sm" type="button" id="b-next" aria-label="Next iteration"><i data-lucide="chevron-right"></i></button>
+            <button class="btn btn-icon btn-sm" type="button" id="b-last" aria-label="Last iteration"><i data-lucide="skip-forward"></i></button>
+          </div>
+          <span class="chip chip-accent mono" id="it-chip">1 / 1</span>
+        </div>
+        <div class="hist" id="hist" aria-label="New pairs per iteration"></div>
+        <div class="hist-x"><span>iteration 1</span><span>new pairs per iteration</span><span id="hist-last"></span></div>
+      </div>
+    </div>
+
+    <div id="reach-panel" class="small ink-2" hidden>Point at a node (or tab to the drawing and use the arrow keys) to see every node it reaches, wave by wave. Those pairs are its rows of the closure.</div>
+
     <div>
-      <div class="stat-line"><span class="ink-2">Nodes</span><b id="s-nodes">{{ preview.node_count if preview else '—' }}</b></div>
-      <div class="stat-line"><span class="ink-2">Edges</span><b id="s-edges">{{ preview.edge_count if preview else '—' }}</b></div>
-      <div class="stat-line"><span class="ink-2">Closure size <span class="muted small">|TC|</span></span><b id="s-tc">{{ preview.closure_count if preview else '—' }}</b></div>
+      <div class="stat-line"><span class="ink-2">Nodes · edges</span><b><span id="s-nodes">{{ preview.node_count if preview else '—' }}</span> · <span id="s-edges">{{ preview.edge_count if preview else '—' }}</span></b></div>
+      <div class="stat-line"><span class="ink-2">Closure |TC|</span><b id="s-tc">{{ preview.closure_count if preview else '—' }}</b></div>
       <div class="stat-line"><span class="ink-2">Closure / edges</span><b id="s-ratio">{% if preview and preview.edge_count %}{{ '%.1f' % (preview.closure_count / preview.edge_count) }}×{% else %}—{% endif %}</b></div>
+    </div>
+    <div>
+      <div class="cluster" style="justify-content:space-between"><label class="label" for="n-range">Size n</label><output class="mono chip chip-accent" id="n-out" for="n-range">{{ preview_range[1] }}</output></div>
+      <input class="range mt-2" type="range" id="n-range" min="{{ preview_range[0] }}" max="{{ preview_range[2] }}" value="{{ preview_range[1] }}" step="1">
+      <p class="hint mt-2">A small instance from the generator the benchmark runs with n from 100 upwards.</p>
     </div>
   </div>
 </section>
 
 <div class="split split-rev mt-4">
-  <section class="card reveal" style="--i:1">
+  <section class="card" data-reveal style="--i:1">
     <div class="card-head"><h3><i data-lucide="sigma"></i>Definition</h3></div>
     <div class="card-body stack">
       <div class="small muted">Symbol</div>
@@ -57,8 +115,8 @@
       <div class="math-block" data-tex="{{ math_info.definition }}" data-display>{{ math_info.definition }}</div>
     </div>
   </section>
-  <section class="card reveal" style="--i:2">
-    <div class="card-head"><h3><i data-lucide="code-xml"></i>Generator</h3><span class="mono small muted">{{ graph.generator }}</span></div>
+  <section class="card" data-reveal style="--i:2">
+    <div class="card-head"><h3><i data-lucide="code-xml"></i>Generator</h3><span class="mono small muted" style="overflow-wrap:anywhere;min-width:0">{{ graph.generator }}</span></div>
     <div class="card-body">
       <div class="codeblock">
         <div class="codeblock-head">generate_db.py<span class="spacer"></span><button class="btn btn-ghost btn-sm btn-icon" type="button" data-copy="#gen-code" aria-label="Copy code"><i data-lucide="copy"></i></button></div>
@@ -81,37 +139,192 @@
   if (window.hljs) hljs.highlightElement(TB.$('#gen-code'));
 
   const name = {{ graph.name | tojson }};
-  const stage = TB.$('#stage');
-  const range = TB.$('#n-range');
-  const tc = TB.$('#show-tc');
-  let current = {{ preview | tojson }};
-  let seq = 0;
-  const draw = (animate) => {
-    stage.innerHTML = TB.graphSvg(current, { closure: tc.checked, animate });
-    if (!current) return;
-    TB.$('#s-nodes').textContent = current.node_count;
-    TB.$('#s-edges').textContent = current.edge_count;
-    TB.$('#s-tc').textContent = current.closure_count;
-    TB.$('#s-ratio').textContent = current.edge_count ? `${(current.closure_count / current.edge_count).toFixed(1)}×` : '—';
-  };
-  let timer;
+  const $ = TB.$; const $$ = TB.$$;
+  const stage = $('#stage');
+  let P = {{ preview | tojson }};
+  let mode = 'fixpoint'; let strategy = 'linear';
+  let A = null; // analysis of P
+  let k = 1; let playing = null;
+
+  // shortest path length d(u, v) for every reachable pair (u, u included when u is on a cycle)
+  function analyze(p) {
+    const succ = new Map(p.nodes.map((v) => [v.id, []]));
+    p.edges.forEach((e) => succ.get(e.a).push(e.b));
+    const dist = new Map();
+    p.nodes.forEach(({ id: u }) => {
+      const d = new Map(); let frontier = [u]; let step = 0;
+      while (frontier.length) {
+        step += 1; const next = [];
+        frontier.forEach((x) => succ.get(x).forEach((y) => { if (!d.has(y)) { d.set(y, step); next.push(y); } }));
+        frontier = next;
+      }
+      dist.set(u, d);
+    });
+    const iterOf = { linear: (d) => d, double: (d) => 1 + Math.ceil(Math.log2(d)) };
+    const out = { dist, succ, buckets: {}, total: {} };
+    ['linear', 'double'].forEach((st) => {
+      const b = [];
+      dist.forEach((d) => d.forEach((dd) => { const it = iterOf[st](dd); b[it] = (b[it] || 0) + 1; }));
+      out.buckets[st] = Array.from({ length: Math.max(1, b.length - 1) }, (_, i) => b[i + 1] || 0);
+      out.total[st] = out.buckets[st].length;
+    });
+    out.iterOf = iterOf;
+    return out;
+  }
+
+  function draw() {
+    stage.querySelector('svg')?.remove();
+    stage.insertAdjacentHTML('afterbegin', TB.graphSvg(P, { closure: true, animate: true }));
+    if (!P) return;
+    A = analyze(P);
+    $('#it-linear').textContent = A.total.linear;
+    $('#it-double').textContent = A.total.double;
+    ['nodes', 'edges'].forEach((x) => { $(`#s-${x}`).textContent = P[`${x.slice(0, -1)}_count`]; });
+    TB.tweenNumber($('#s-tc'), P.closure_count);
+    $('#s-ratio').textContent = P.edge_count ? `${(P.closure_count / P.edge_count).toFixed(1)}×` : '—';
+    stage.querySelector('.tc-layer').classList.remove('is-off');
+    $$('.n', stage).forEach((n) => {
+      n.addEventListener('pointerenter', () => { if (mode === 'reach') reach(+n.dataset.id); });
+      n.addEventListener('click', () => { if (mode !== 'reach') setMode('reach'); reach(+n.dataset.id); });
+    });
+    buildHist();
+    if (mode === 'fixpoint') show(1, false); else clearReach();
+  }
+
+  // ── fixpoint ──────────────────────────────────────────────────────
+  function buildHist() {
+    const b = A.buckets[strategy];
+    const max = Math.max(...b, 1);
+    $('#hist').innerHTML = b.map((c, i) => `<button type="button" style="--h:${Math.max(6, (100 * c) / max)}%;--i:${i}" data-k="${i + 1}" title="iteration ${i + 1}: ${c} new pair${c === 1 ? '' : 's'}" aria-label="Iteration ${i + 1}: ${c} new pairs"></button>`).join('');
+    $('#hist-last').textContent = `${b.length}`;
+    $$('#hist button').forEach((x) => x.addEventListener('click', () => { pause(); show(+x.dataset.k, true); }));
+    $$('#versus [data-strategy]').forEach((v) => v.classList.toggle('on', v.dataset.strategy === strategy));
+  }
+  function show(next, animate = true) {
+    if (!A) return;
+    const K = A.total[strategy];
+    k = Math.max(1, Math.min(K, next));
+    const iterOf = A.iterOf[strategy];
+    let added = 0;
+    $$('.tc', stage).forEach((t, i) => {
+      const it = iterOf(A.dist.get(+t.dataset.a).get(+t.dataset.b));
+      t.classList.remove('now', 'past');
+      if (it < k) t.classList.add('past');
+      else if (it === k) { if (animate) { t.getBoundingClientRect(); t.style.setProperty('--d', (added * 18) % 600); } t.classList.add(animate ? 'now' : 'past'); added += 1; }
+    });
+    $$('.n', stage).forEach((n) => { const d = A.dist.get(+n.dataset.id).get(+n.dataset.id); n.classList.toggle('self', !!d && iterOf(d) <= k); n.classList.remove('src', 'reach', 'dim'); });
+    $$('.e', stage).forEach((e) => e.classList.remove('lit', 'dim'));
+    const b = A.buckets[strategy];
+    const sofar = b.slice(0, k).reduce((x, y) => x + y, 0);
+    $$('#hist button').forEach((x) => { x.classList.toggle('cur', +x.dataset.k === k); x.classList.toggle('done', +x.dataset.k < k); });
+    $('#it-chip').textContent = `${k} / ${K}`;
+    const lo = 2 ** (k - 2) + 1; const hi = 2 ** (k - 1);
+    const what = k === 1 ? 'the edges themselves' : `shortest path ${strategy === 'linear' ? `of ${k}` : lo === hi ? `of ${hi}` : `of ${lo}–${hi}`} edges`;
+    bubble(`iteration <b>${k}</b>: +<b>${b[k - 1]}</b> pairs (${what}) · |T| = <b>${sofar}</b> of ${P.closure_count}`);
+  }
+  function play() {
+    if (playing) { pause(); return; }
+    if (k >= A.total[strategy]) show(1);
+    playing = setInterval(() => { if (k >= A.total[strategy]) { pause(); return; } show(k + 1); }, 1100);
+    setPlayIcon(true);
+  }
+  function pause() { clearInterval(playing); playing = null; setPlayIcon(false); }
+  function setPlayIcon(on) { $('#b-play').innerHTML = `<i data-lucide="${on ? 'pause' : 'play'}"></i>`; $('#b-play').setAttribute('aria-label', on ? 'Pause' : 'Play'); TB.icons(); }
+  $('#b-play').addEventListener('click', play);
+  $('#b-next').addEventListener('click', () => { pause(); show(k + 1); });
+  $('#b-prev').addEventListener('click', () => { pause(); show(k - 1, false); });
+  $('#b-first').addEventListener('click', () => { pause(); show(1, false); });
+  $('#b-last').addEventListener('click', () => { pause(); show(A.total[strategy]); });
+  $$('#versus [data-strategy]').forEach((v) => {
+    const pick = () => { strategy = v.dataset.strategy; pause(); buildHist(); show(1, false); setTimeout(play, 300); };
+    v.addEventListener('click', pick);
+    v.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } });
+  });
+
+  // ── reach ─────────────────────────────────────────────────────────
+  let reachFrom = null;
+  function reach(u) {
+    if (!A) return;
+    reachFrom = u;
+    const d = A.dist.get(u);
+    const step = 130;
+    $$('.n', stage).forEach((n) => {
+      const id = +n.dataset.id;
+      n.classList.remove('self', 'src', 'reach', 'dim');
+      n.style.setProperty('--d', (d.get(id) || 0) * step);
+      if (id === u) { n.classList.add('src'); if (d.has(u)) n.classList.add('self'); } else if (d.has(id)) n.classList.add('reach'); else n.classList.add('dim');
+    });
+    $$('.e:not(.tc)', stage).forEach((e) => {
+      const a = +e.dataset.a; const b = +e.dataset.b;
+      const da = a === u ? 0 : d.get(a); const db = d.get(b);
+      const on = da !== undefined && db !== undefined && db === da + 1;
+      e.style.setProperty('--d', da * step);
+      e.classList.toggle('lit', on); e.classList.toggle('dim', !on);
+    });
+    let i = 0;
+    $$('.tc', stage).forEach((t) => {
+      t.classList.remove('now', 'past');
+      if (+t.dataset.a === u) { t.style.setProperty('--d', d.get(+t.dataset.b) * step + 80); t.classList.add('now'); i += 1; }
+    });
+    const n = d.size;
+    bubble(`node <b>${u}</b> reaches <b>${n}</b> of ${P.node_count} nodes${d.has(u) ? ', itself included (it is on a cycle)' : ''} · farthest <b>${Math.max(0, ...d.values())}</b> edges away`);
+  }
+  function clearReach() {
+    $$('.n', stage).forEach((n) => n.classList.remove('src', 'reach', 'dim', 'self'));
+    $$('.e', stage).forEach((e) => e.classList.remove('lit', 'dim', 'now', 'past'));
+    bubble('point at a node');
+  }
+  stage.addEventListener('pointerleave', () => { if (mode === 'reach') { reachFrom = null; clearReach(); } });
+
+  function setMode(m) {
+    mode = m;
+    $$('#lab-mode button').forEach((b) => b.setAttribute('aria-pressed', String(b.value === m)));
+    $('#lab-mode')._place?.();
+    $('#fix-panel').hidden = m !== 'fixpoint';
+    $('#reach-panel').hidden = m !== 'reach';
+    pause();
+    if (m === 'fixpoint') show(1, false); else clearReach();
+  }
+  $('#lab-mode').addEventListener('segchange', (e) => setMode(e.detail.value));
+
+  stage.addEventListener('keydown', (e) => {
+    if (mode === 'fixpoint') {
+      if (e.key === 'ArrowRight') { e.preventDefault(); pause(); show(k + 1); }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); pause(); show(k - 1, false); }
+      if (e.key === ' ') { e.preventDefault(); play(); }
+    } else if (['ArrowRight', 'ArrowLeft'].includes(e.key) && P) {
+      e.preventDefault();
+      const ids = P.nodes.map((v) => v.id);
+      const i = ids.indexOf(reachFrom ?? ids[0]);
+      reach(ids[(i + (e.key === 'ArrowRight' ? 1 : -1) + ids.length) % ids.length]);
+    }
+  });
+
+  function bubble(html) {
+    let b = $('#bubble');
+    if (!b) { stage.insertAdjacentHTML('beforeend', '<div class="lab-bar"><div class="bubble" id="bubble" aria-live="polite"></div></div>'); b = $('#bubble'); }
+    b.innerHTML = html;
+  }
+
+  // size
+  const range = $('#n-range');
+  let timer; let seq = 0;
   range.addEventListener('input', () => {
-    TB.$('#n-out').textContent = range.value;
+    $('#n-out').textContent = range.value;
     clearTimeout(timer);
     timer = setTimeout(async () => {
       const mine = ++seq;
       const r = await fetch(`/api/graphs/${name}/preview?n=${range.value}`);
       if (mine !== seq) return;
       if (!r.ok) { TB.toast('No drawing for this size', 'warn', 2000); return; }
-      current = await r.json();
-      draw(true);
-    }, 120);
+      P = await r.json();
+      pause();
+      draw();
+    }, 140);
   });
-  tc.addEventListener('change', () => draw(false));
-  if (current) {
-    // re-render client side so the closure toggle and size slider share one drawing
-    draw(true);
-  }
+
+  draw();
+  if (P && !TB.reduceMotion()) setTimeout(play, 900);
 })();
 </script>
 {% endblock %}

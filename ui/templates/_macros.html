@@ -49,7 +49,7 @@
 {%- endmacro %}
 
 {# A small drawing of a graph instance (ui/data.py graph_preview). Directed edges get arrowheads when few. #}
-{% macro graph_svg(p, name='', animate=True, label=None) -%}
+{% macro graph_svg(p, name='', animate=True, label=None, closure=False) -%}
 {% if p %}
 {% set round_ = name in ('complete', 'max_acyclic', 'cycle', 'cycle_with_shortcuts', 'star', 'grid', 'barabasi_albert', 'scale_free') %}
 {% set W = 100 %}{% set H = 100 if round_ else 58 %}
@@ -57,6 +57,7 @@
 {% set arrows = p.edges|length <= 48 %}
 {% set pos = {} %}{% for v in p.nodes %}{% set _ = pos.update({v.id: (v.x * W, v.y * H)}) %}{% endfor %}
 <svg class="gdiag {{ 'animate' if animate }}" viewBox="-9 -9 {{ W + 18 }} {{ H + 18 }}" role="img" aria-label="{{ label or ('Example ' ~ name ~ ' graph with ' ~ p.node_count ~ ' nodes and ' ~ p.edge_count ~ ' edges') }}">
+  {% if closure and p.closure %}<g class="tc-layer is-off">{% for e in p.closure[:240] %}{% set a = pos[e.a] %}{% set b = pos[e.b] %}{% set dx = b[0] - a[0] %}{% set dy = b[1] - a[1] %}{% set d = ((dx * dx + dy * dy) ** 0.5) or 1 %}{% set s = (r + 0.6) / d %}{% set t = (r + 0.8) / d %}{% set x1 = a[0] + dx * s %}{% set y1 = a[1] + dy * s %}{% set x2 = b[0] - dx * t %}{% set y2 = b[1] - dy * t %}<path class="e tc" d="M{{ '%.1f' % x1 }} {{ '%.1f' % y1 }}Q{{ '%.1f' % ((x1 + x2) / 2 - dy * 0.18) }} {{ '%.1f' % ((y1 + y2) / 2 + dx * 0.18) }} {{ '%.1f' % x2 }} {{ '%.1f' % y2 }}" style="--i:{{ loop.index0 }}"/>{% endfor %}</g>{% endif %}
   {% for e in p.edges %}
     {% set a = pos[e.a] %}{% set b = pos[e.b] %}
     {% if e.self %}

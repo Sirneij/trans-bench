@@ -26,6 +26,37 @@
   .agree-grid span { aspect-ratio: 1; border-radius: 4px; background: var(--ok); opacity: .85; }
   .agree-grid span.no { background: var(--danger); }
   tr.fail-row { cursor: pointer; }
+  /* race */
+  .race-top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+  .race-n { font-family: var(--font-display); font-weight: 650; letter-spacing: -.04em; line-height: .9; font-size: clamp(2.6rem, 6vw, 4.4rem); font-variant-numeric: tabular-nums; }
+  .race-n small { font-size: .32em; letter-spacing: 0; color: var(--ink-3); font-weight: 600; margin-right: .3em; }
+  .race-lead { font-size: var(--fs-sm); color: var(--ink-2); }
+  .race-lead b { color: var(--ink); }
+  .race { position: relative; }
+  .race-row { position: absolute; left: 0; right: 0; height: 38px; display: grid; grid-template-columns: 160px minmax(0, 1fr) 96px; align-items: center; gap: 12px; transition: transform .75s cubic-bezier(.65, 0, .35, 1); }
+  .race-row .who { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: var(--fs-sm); min-width: 0; }
+  .race-row .who span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .race-row .track { position: relative; height: 22px; border-radius: 6px; background: var(--sunken); overflow: hidden; }
+  .race-row .bar { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 6px; background: linear-gradient(90deg, color-mix(in srgb, var(--c) 55%, transparent), var(--c)); transition: width .75s cubic-bezier(.65, 0, .35, 1), background .4s; }
+  .race-row .bar::after { content: ""; position: absolute; right: 0; top: 0; bottom: 0; width: 3px; background: #fff; opacity: .55; border-radius: 2px; }
+  .race-row.fail .bar { width: 100% !important; background: repeating-linear-gradient(-45deg, var(--fc) 0 6px, color-mix(in srgb, var(--fc) 35%, transparent) 6px 12px); opacity: .55; }
+  .race-row.fail .bar::after { display: none; }
+  .race-row .val { font: 600 12.5px var(--font-mono); text-align: right; font-variant-numeric: tabular-nums; }
+  .race-row.fail .val { color: var(--fc); font-family: var(--font-body); font-size: 11.5px; letter-spacing: .03em; }
+  .race-row.first .track { box-shadow: 0 0 0 2px var(--ok); }
+  .race-row.first .who::after { content: "fastest"; font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ok); background: var(--ok-soft); padding: 2px 6px; border-radius: 99px; }
+  .race-row.photo .track { animation: photo 1s var(--ease-out); }
+  @keyframes photo { 0% { box-shadow: 0 0 0 0 var(--ok); } 50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--ok) 25%, transparent); } 100% { box-shadow: 0 0 0 2px var(--ok); } }
+  .race-axis { position: relative; height: 18px; margin: 6px 108px 0 172px; font: 500 10.5px var(--font-mono); color: var(--ink-3); }
+  .race-axis span { position: absolute; transform: translateX(-50%); }
+  .race-wall { position: absolute; top: 0; bottom: 0; right: 108px; width: 2px; background: repeating-linear-gradient(var(--danger) 0 4px, transparent 4px 8px); opacity: .5; pointer-events: none; }
+  .scrub { display: flex; align-items: center; gap: 12px; margin-top: 18px; }
+  .scrub input { flex: 1; accent-color: var(--accent); }
+  @media (max-width: 700px) { .race-axis span:nth-child(even) { display: none; } .race-row { grid-template-columns: 96px minmax(0, 1fr) 70px; } .race-axis { margin-left: 108px; margin-right: 82px; } .race-wall { right: 82px; } .race-row.first .who::after { display: none; } }
+  /* matrix crosshair */
+  .matrix td.col-hl, .matrix th.col-hl { box-shadow: inset 0 0 0 999px color-mix(in srgb, var(--accent) 7%, transparent); }
+  .matrix tbody tr:hover th { color: var(--accent); }
+  .matrix thead th.col-hl { color: var(--accent); }
   @media (max-width: 900px) { .files { grid-template-columns: minmax(0, 1fr); } .file-list { border-right: 0; border-bottom: 1px solid var(--line); max-height: 200px; } }
 </style>
 {% endblock %}
@@ -35,7 +66,7 @@
 <header class="page-head">
   <div>
     <div class="eyebrow"><i data-lucide="flask-conical" style="width:14px;height:14px"></i>Campaign{% if info.memory_runs %} · with memory{% endif %}</div>
-    <h1>{{ info.name }}</h1>
+    <h1 style="view-transition-name: camp-{{ info.name }}">{{ info.name }}</h1>
     <p class="lede"><b style="color:var(--ink);font-weight:600">{{ info.title }}.</b> {{ info.intro }}</p>
   </div>
   <div class="page-actions">
@@ -55,6 +86,7 @@
   <div class="tabs" role="tablist" aria-label="Campaign" data-hash style="padding:0 12px">
     <button class="tab" role="tab" id="t-overview" data-tab="overview" aria-controls="p-overview" aria-selected="true"><i data-lucide="layout-panel-left"></i>Overview</button>
     {% if info.has_analysis %}
+    <button class="tab" role="tab" id="t-race" data-tab="race" aria-controls="p-race"><i data-lucide="flag"></i>Race</button>
     <button class="tab" role="tab" id="t-scaling" data-tab="scaling" aria-controls="p-scaling"><i data-lucide="chart-line"></i>Scaling</button>
     <button class="tab" role="tab" id="t-matrix" data-tab="matrix" aria-controls="p-matrix"><i data-lucide="grid-3x3"></i>Matrix</button>
     <button class="tab" role="tab" id="t-figures" data-tab="figures" aria-controls="p-figures"><i data-lucide="image"></i>Figures <span class="count">{{ figures|length }}</span></button>
@@ -110,6 +142,28 @@
   </div>
 
   {% if info.has_analysis %}
+  <!-- Race -->
+  <div id="p-race" role="tabpanel" aria-labelledby="t-race" class="tab-panel card-body" hidden>
+    <div class="race-top">
+      <div>
+        <div class="race-n"><small>n =</small><span id="rc-n">—</span></div>
+        <div class="race-lead mt-2" id="rc-lead"></div>
+      </div>
+      <div class="controls">
+        <div class="field"><label class="hint" for="rc-graph">Topology</label><select class="select" id="rc-graph">{% for g in graphs %}<option value="{{ g }}" {{ 'selected' if g == 'complete' }}>{{ graph_labels.get(g, g) }}</option>{% endfor %}</select></div>
+        <div class="field"><label class="hint" for="rc-mode">Mode</label><select class="select" id="rc-mode">{% for md in (linear_modes + large_modes)|unique %}<option value="{{ md }}" {{ 'selected' if md == 'left_recursion' }}>{{ md }}</option>{% endfor %}</select></div>
+      </div>
+    </div>
+    <div class="race" id="race"><div class="race-wall" title="time limit"></div></div>
+    <div class="race-axis" id="rc-axis"></div>
+    <div class="scrub">
+      <button class="btn btn-primary btn-icon" type="button" id="rc-play" aria-label="Play"><i data-lucide="play"></i></button>
+      <input type="range" id="rc-scrub" min="0" max="0" value="0" aria-label="Graph size">
+      <span class="mono small muted" id="rc-range"></span>
+    </div>
+    <p class="hint mt-2">Mean time per system as the graph grows (log scale, the same scale at every n). A hatched bar hit the {{ limit_s|int if limit_s else '' }} s limit or ran out of memory; the larger sizes were then skipped.</p>
+  </div>
+
   <!-- Scaling -->
   <div id="p-scaling" role="tabpanel" aria-labelledby="t-scaling" class="tab-panel card-body" hidden>
     <div class="controls">
@@ -253,6 +307,88 @@
     $('#span').textContent = h >= 48 ? `${(h / 24).toFixed(1)} days` : `${h.toFixed(1)} h`;
   }
 
+  // ── Race ────────────────────────────────────────────────────────
+  const race = { data: null, sizes: [], i: 0, timer: null, rows: {} };
+  const FAILC = { timeout: 'var(--warn)', oom: 'var(--danger)', error: 'var(--danger)', killed: 'var(--danger)' };
+  const FAILT = { timeout: 'TIMEOUT', oom: 'OOM', unsupported: 'N/A', iteration_limit: 'LIMIT', error: 'ERROR', killed: 'KILLED' };
+  async function loadRace() {
+    if (!$('#race')) return;
+    pauseRace();
+    const d = await fetch(`/api/campaigns/${NAME}/series?graph=${$('#rc-graph').value}&mode=${$('#rc-mode').value}&metric=time`).then((r) => r.json());
+    race.data = d.series;
+    race.sizes = [...new Set(Object.values(d.series).flat().map((p) => p.n))].sort((a, b) => a - b);
+    const vals = Object.values(d.series).flat().filter((p) => p.status === 'ok' && p.value > 0).map((p) => p.value);
+    race.lo = Math.log(Math.min(...vals) * 0.8); race.hi = Math.log(Math.max(LIMIT || 0, ...vals));
+    const box = $('#race');
+    box.querySelectorAll('.race-row').forEach((r) => r.remove());
+    race.rows = {};
+    Object.keys(d.series).forEach((s) => {
+      const st = STYLES[s] || {};
+      const row = document.createElement('div');
+      row.className = 'race-row';
+      row.style.setProperty('--c', st.color || TB.cssVar('--ink'));
+      row.innerHTML = `<div class="who">${TB.marker(st)}<span>${TB.esc(sysLabel(s))}</span></div><div class="track"><div class="bar"></div></div><div class="val">—</div>`;
+      box.appendChild(row);
+      race.rows[s] = row;
+    });
+    box.style.height = `${Object.keys(d.series).length * 44}px`;
+    // axis ticks: powers of ten inside the range
+    const ticks = [];
+    for (let e = Math.ceil(race.lo / Math.LN10); e <= Math.floor(race.hi / Math.LN10); e += 1) ticks.push(10 ** e);
+    $('#rc-axis').innerHTML = ticks.map((t) => `<span style="left:${(100 * (Math.log(t) - race.lo)) / (race.hi - race.lo)}%">${TB.fmtSeconds(t)}</span>`).join('');
+    $('#rc-scrub').max = String(race.sizes.length - 1);
+    $('#rc-range').textContent = race.sizes.length ? `${race.sizes[0].toLocaleString()} → ${race.sizes[race.sizes.length - 1].toLocaleString()}` : '';
+    stepRace(0);
+  }
+  function stepRace(i) {
+    race.i = Math.max(0, Math.min(race.sizes.length - 1, i));
+    const n = race.sizes[race.i];
+    $('#rc-scrub').value = String(race.i);
+    TB.tweenNumber($('#rc-n'), n, (v) => Math.round(v).toLocaleString(), 500);
+    const state = Object.entries(race.data).map(([s, pts]) => {
+      const here = pts.find((p) => p.n === n);
+      const fail = pts.find((p) => p.n <= n && p.status !== 'ok' && p.status !== 'skipped');
+      if (here && here.status === 'ok' && here.value) return { s, v: here.value };
+      if (fail) return { s, fail: fail.failure || fail.status, at: fail.n };
+      if (here && here.status === 'skipped') return { s, fail: here.failure || 'skipped', at: n };
+      return { s, none: true };
+    });
+    const ok = state.filter((x) => x.v).sort((a, b) => a.v - b.v);
+    const failed = state.filter((x) => x.fail).sort((a, b) => b.at - a.at);
+    const none = state.filter((x) => x.none);
+    [...ok, ...failed, ...none].forEach((x, rank) => {
+      const row = race.rows[x.s];
+      row.style.transform = `translateY(${rank * 44}px)`;
+      row.classList.toggle('fail', !!x.fail);
+      row.classList.toggle('first', rank === 0 && !!x.v && ok.length > 1);
+      row.style.opacity = x.none ? '.35' : '';
+      const val = row.querySelector('.val');
+      if (x.v) {
+        const w = Math.max(1.5, (100 * (Math.log(x.v) - race.lo)) / (race.hi - race.lo));
+        row.querySelector('.bar').style.width = `${w}%`;
+        val.textContent = TB.fmtSeconds(x.v);
+      } else if (x.fail) {
+        row.style.setProperty('--fc', FAILC[x.fail] || 'var(--muted)');
+        val.textContent = x.at === n ? (FAILT[x.fail] || x.fail.toUpperCase()) : `${FAILT[x.fail] || x.fail} @${x.at.toLocaleString()}`;
+      } else { row.querySelector('.bar').style.width = '0'; val.textContent = 'not run'; }
+    });
+    const lead = ok[0]; const last = ok[ok.length - 1];
+    $('#rc-lead').innerHTML = lead ? `Fastest <b>${TB.esc(sysLabel(lead.s))}</b> in <b>${TB.fmtSeconds(lead.v)}</b>${ok.length > 1 ? ` · ${(last.v / lead.v) < 1000 ? `${(last.v / lead.v).toFixed(last.v / lead.v < 10 ? 1 : 0)}×` : `${Math.round(last.v / lead.v).toLocaleString()}×`} faster than the slowest that finished` : ''}${failed.length ? ` · <b>${failed.length}</b> out` : ''}` : 'Nobody finished at this size';
+    if (race.i === race.sizes.length - 1 && lead) { const r = race.rows[lead.s]; r.classList.remove('photo'); void r.offsetWidth; r.classList.add('photo'); }
+  }
+  function playRace() {
+    if (race.timer) { pauseRace(); return; }
+    if (race.i >= race.sizes.length - 1) stepRace(0);
+    race.timer = setInterval(() => { if (race.i >= race.sizes.length - 1) { pauseRace(); return; } stepRace(race.i + 1); }, 1300);
+    $('#rc-play').innerHTML = '<i data-lucide="pause"></i>'; TB.icons();
+  }
+  function pauseRace() { clearInterval(race.timer); race.timer = null; const b = $('#rc-play'); if (b) { b.innerHTML = '<i data-lucide="play"></i>'; TB.icons(); } }
+  if ($('#race')) {
+    $('#rc-play').addEventListener('click', playRace);
+    $('#rc-scrub').addEventListener('input', (e) => { pauseRace(); stepRace(+e.target.value); });
+    ['rc-graph', 'rc-mode'].forEach((id) => $(`#${id}`).addEventListener('change', async () => { await loadRace(); playRace(); }));
+  }
+
   // ── Scaling chart ───────────────────────────────────────────────
   let chart = null;
   async function drawScaling() {
@@ -388,7 +524,14 @@
       else if (c) body = `failed: <b>${TB.esc(c.failure || c.status)}</b>`;
       TB.tip.show(`${head}<br>${body}`, e.clientX, e.clientY);
     });
-    wrap.addEventListener('mouseleave', () => TB.tip.hide());
+    wrap.addEventListener('mouseleave', () => { TB.tip.hide(); wrap.querySelectorAll('.col-hl').forEach((c) => c.classList.remove('col-hl')); });
+    wrap.addEventListener('mouseover', (e) => {
+      const td = e.target.closest('td[data-s]');
+      wrap.querySelectorAll('.col-hl').forEach((c) => c.classList.remove('col-hl'));
+      if (!td) return;
+      const col = td.cellIndex;
+      wrap.querySelectorAll('tr').forEach((tr) => tr.cells[col]?.classList.add('col-hl'));
+    });
     wrap.addEventListener('click', (e) => {
       const td = e.target.closest('td[data-s]');
       if (!td || !$('#sc-graph')) return;
@@ -523,6 +666,7 @@
   const onTab = (id) => {
     if (drawn.has(id)) return;
     drawn.add(id);
+    if (id === 'race') loadRace().then(() => { if (!TB.reduceMotion()) setTimeout(playRace, 500); });
     if (id === 'scaling') drawScaling();
     if (id === 'matrix') drawMatrix();
     if (id === 'figures' && $('#fg-grid')) loadThumbs();

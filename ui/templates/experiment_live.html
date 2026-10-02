@@ -20,6 +20,21 @@
   .status-pill.done { background: var(--accent-soft); color: var(--accent); }
   .status-pill.error { background: var(--danger-soft); color: var(--danger); }
   .status-pill.stopped { background: var(--warn-soft); color: var(--warn); }
+  .mosaic { display: flex; flex-direction: column; gap: 18px; }
+  .mz-sys h4 { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); margin-bottom: 8px; }
+  .mz-sys h4 .small { font-weight: 500; }
+  .mz-grid { display: grid; gap: 3px; align-items: center; overflow-x: auto; }
+  .mz-grid .gh { font-size: 11.5px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 8px; }
+  .mz-grid .sh { font: 500 10px var(--font-mono); color: var(--ink-3); text-align: center; }
+  .mz-cell { display: flex; gap: 2px; justify-content: center; }
+  .mz { width: 100%; max-width: 22px; height: 14px; border-radius: 3px; background: transparent; box-shadow: inset 0 0 0 1px var(--line-strong); transition: background .5s var(--ease-out), transform .3s var(--ease-spring); cursor: default; }
+  .mz.na { box-shadow: none; background: repeating-linear-gradient(-45deg, var(--line) 0 2px, transparent 2px 5px); }
+  .mz.run { box-shadow: none; background: var(--accent); animation: mzpulse 1s ease-in-out infinite; transform: scale(1.15); }
+  .mz.ok { box-shadow: none; animation: mzpop .5s var(--ease-spring); }
+  @keyframes mzpulse { 50% { opacity: .45; } }
+  @keyframes mzpop { 0% { transform: scale(1.6); } 100% { transform: scale(1); } }
+  .mz-legend { display: flex; align-items: center; gap: 8px; font-size: var(--fs-xs); color: var(--ink-3); }
+  .mz-legend .bar { width: 110px; height: 8px; border-radius: 99px; background: linear-gradient(90deg, var(--heat-0), var(--heat-1)); }
   @media (max-width: 1100px) { .live-top { grid-template-columns: minmax(0, 1fr); } }
   @media (max-width: 560px) { .now { flex-direction: column; align-items: stretch; } .ring { margin: 0 auto; } }
 </style>
@@ -73,7 +88,15 @@
     </section>
   </div>
 
-  <section class="card mt-4 reveal" style="--i:2">
+  <section class="card mt-4 reveal" style="--i:2" id="mz-card" hidden>
+    <div class="card-head">
+      <h3><i data-lucide="grid-3x3"></i>Every configuration</h3>
+      <div class="mz-legend"><span>pending</span><span class="mz" style="width:14px;display:inline-block"></span><span>running</span><span class="mz run" style="width:14px;display:inline-block;animation:none;transform:none"></span><span>fast</span><span class="bar"></span><span>slow</span><span class="mz na" style="width:14px;display:inline-block"></span><span>mode not supported</span></div>
+    </div>
+    <div class="card-body mosaic" id="mosaic"></div>
+  </section>
+
+  <section class="card mt-4 reveal" style="--i:3">
     <div class="card-head">
       <h3><i data-lucide="square-terminal"></i>Command</h3>
       <span class="small muted">the same run from a terminal</span>
@@ -106,7 +129,7 @@
 <script>
 (() => {
   const STYLES = {{ plot_styles | tojson }};
-  const $ = TB.$;
+  const $ = TB.$; const $$ = TB.$$;
   const C = 2 * Math.PI * 52;
   const lines = []; // {ts, level, msg, kind}
   const perSys = {}; // system -> {done, total?}
@@ -162,6 +185,50 @@
     if (!names.length) return;
     const max = Math.max(...names.map((n) => perSys[n]));
     $('#per-sys').innerHTML = names.map((n) => `<div class="series-row"><span class="name">${markerFor(n)}<span>${TB.esc(label(n))}</span></span><div class="obar"><span style="width:${(100 * perSys[n]) / max}%;background:${(STYLES[n] && STYLES[n].color) || 'var(--ink)'};animation:none;transition:width .5s var(--ease-out)"></span></div><span class="n">${perSys[n]}</span></div>`).join('');
+  }
+
+  // ── mosaic: one tile per configuration ───────────────────────────
+  const tiles = {}; const startedAt = {}; const durations = [];
+  const key = (s, g, n, md) => `${s}|${g}|${n}|${md}`;
+  function buildMosaic(plan) {
+    if (!plan || !plan.systems) return;
+    $('#mz-card').hidden = false;
+    const cols = `minmax(90px, 140px) repeat(${plan.sizes.length}, minmax(${Math.max(10, plan.modes.length * 10)}px, 1fr))`;
+    $('#mosaic').innerHTML = plan.systems.map((s) => {
+      const supported = new Set((plan.system_modes || {})[s] || plan.modes);
+      let html = `<div class="mz-sys"><h4>${markerFor(s)}${TB.esc(label(s))} <span class="small muted" id="mz-c-${s}"></span></h4><div class="mz-grid" style="grid-template-columns:${cols}"><span></span>${plan.sizes.map((n) => `<span class="sh">${n}</span>`).join('')}`;
+      plan.graphs.forEach((g) => {
+        html += `<span class="gh" title="${TB.esc(g)}">${TB.esc(g)}</span>`;
+        plan.sizes.forEach((n) => {
+          html += `<span class="mz-cell">${plan.modes.map((md) => `<span class="mz${supported.has(md) ? '' : ' na'}" data-k="${TB.esc(key(s, g, n, md))}" title="${TB.esc(`${label(s)} · ${g} · n=${n} · ${md}${supported.has(md) ? '' : ' (not supported)'}`)}"></span>`).join('')}</span>`;
+        });
+      });
+      return `${html}</div></div>`;
+    }).join('');
+    $$('#mosaic .mz[data-k]').forEach((t) => { tiles[t.dataset.k] = t; });
+  }
+  function tile(d) {
+    const t = tiles[key(d.system, d.graph, d.size, d.mode)];
+    if (!t) return;
+    if (d.status === 'running') { startedAt[t.dataset.k] = d.t; t.classList.add('run'); return; }
+    const dur = d.t && startedAt[t.dataset.k] ? d.t - startedAt[t.dataset.k] : null;
+    t.classList.remove('run'); t.classList.add('ok');
+    if (dur !== null) { t.dataset.dur = dur; durations.push(dur); t.title += ` — ${TB.fmtSeconds(dur)}`; }
+    recolor();
+  }
+  let recolorQueued = false;
+  function recolor() {
+    if (recolorQueued) return; recolorQueued = true;
+    requestAnimationFrame(() => {
+      recolorQueued = false;
+      if (!durations.length) return;
+      const lo = Math.log(Math.max(1e-3, Math.min(...durations))); const hi = Math.log(Math.max(1e-3, ...durations));
+      $$('#mosaic .mz.ok').forEach((t) => {
+        const v = t.dataset.dur ? Math.log(Math.max(1e-3, +t.dataset.dur)) : lo;
+        const p = hi > lo ? (v - lo) / (hi - lo) : 0.3;
+        t.style.background = `color-mix(in oklab, var(--heat-1) ${Math.round(35 + p * 65)}%, var(--heat-0))`;
+      });
+    });
   }
 
   // ── output ───────────────────────────────────────────────────────
@@ -248,6 +315,7 @@
     started = s.started; finished = s.finished; running = s.running;
     if (!s.running && !s.started) { $('#live').hidden = true; $('#idle').hidden = false; setStatus('', 'Idle'); return; }
     if (s.cli_command) $('#cli-command').textContent = s.cli_command;
+    buildMosaic(s.plan);
     tick();
     setStatus(s.running ? (s.stop_requested ? 'stopped' : 'running') : 'stopped', s.running ? (s.stop_requested ? 'Stopping…' : 'Running') : 'Loading…');
 
@@ -266,6 +334,7 @@
       if (d.status === '__done__') { end(); return; }
       if (d.type === 'log') { append(d.message, d.level); if (d.level === 'error') { $('#error-callout').hidden = false; $('#error-text').textContent = d.message; } return; }
       setProgress(d);
+      tile(d);
       if (d.status === 'done') { perSys[d.system] = (perSys[d.system] || 0) + 1; renderPerSys(); }
       append(`${label(d.system)} · ${d.graph} · n=${d.size} · ${d.mode} — ${d.status === 'done' ? 'finished' : 'running'}`, d.status === 'done' ? 'success' : 'progress');
     };

@@ -23,7 +23,7 @@
 {% set st = system_ui.get(system.name) %}
 <header class="page-head">
   <div class="cluster" style="flex-wrap:nowrap;gap:16px;align-items:center">
-    {{ m.marker(st, 'sys-badge') }}
+    <span style="view-transition-name: sys-{{ system.name }}">{{ m.marker(st, 'sys-badge') }}</span>
     <div style="min-width:0">
       <div class="eyebrow" style="margin-bottom:4px">{{ system.category }} · {{ system.protocol }}</div>
       <h1>{{ system.display_name }}</h1>

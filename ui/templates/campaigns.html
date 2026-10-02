@@ -15,7 +15,7 @@
       <div class="cluster" style="justify-content:space-between;align-items:flex-start">
         <div style="min-width:0;flex:1">
           <div class="cluster">
-            <h2 style="font-size:var(--fs-xl)">{{ c.name }}</h2>
+            <h2 style="font-size:var(--fs-xl);view-transition-name: camp-{{ c.name }}">{{ c.name }}</h2>
             {% if loop.first %}<span class="chip chip-accent">latest</span>{% endif %}
             {% if c.memory_runs %}<span class="chip chip-outline"><i data-lucide="memory-stick"></i>memory measured</span>{% endif %}
             {% if c.has_analysis %}<span class="chip chip-outline"><i data-lucide="chart-line"></i>analyzed</span>{% else %}<span class="chip chip-warn">not analyzed</span>{% endif %}

@@ -25,13 +25,28 @@
     const t = root.getAttribute('data-theme');
     return t ? t === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
   }
+  let lastPointer = null;
+  document.addEventListener('pointerdown', (e) => { lastPointer = [e.clientX, e.clientY]; }, true);
   function cycleTheme() {
     const order = ['auto', 'light', 'dark'];
     const next = order[(order.indexOf(themePref()) + 1) % order.length];
     try { localStorage.setItem('tb-theme', next); } catch { /* private mode */ }
     const swap = () => applyTheme(next);
-    if (document.startViewTransition && !reduceMotion()) document.startViewTransition(swap); else swap();
-    toast(`Theme: ${next === 'auto' ? 'match system' : next}`, 'info', 1600);
+    const label = `Theme: ${next === 'auto' ? 'match system' : next}`;
+    if (!document.startViewTransition || reduceMotion()) { swap(); toast(label, 'info', 1600); return; }
+    // the new theme grows as a circle from where the switch was pressed (or the theme button)
+    const btn = $('.theme-btn')?.getBoundingClientRect();
+    const [x, y] = lastPointer || (btn ? [btn.left + btn.width / 2, btn.top + btn.height / 2] : [innerWidth - 40, 30]);
+    lastPointer = null;
+    const r = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+    root.classList.add('theme-switching');
+    const vt = document.startViewTransition(swap);
+    quiet(vt);
+    vt.ready.then(() => {
+      root.animate({ clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${r}px at ${x}px ${y}px)`] },
+        { duration: 620, easing: 'cubic-bezier(.65,0,.35,1)', pseudoElement: '::view-transition-new(root)' });
+    }).catch(() => {});
+    vt.finished.finally(() => { root.classList.remove('theme-switching'); toast(label, 'info', 1600); });
   }
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => themeListeners.forEach((fn) => fn(isDark())));
   const cssVar = (name) => getComputedStyle(root).getPropertyValue(name).trim();
@@ -198,10 +213,56 @@
   }
 
   // ── Reveal / stagger ────────────────────────────────────────────────────
+  // groups ([data-stagger]) and single elements ([data-reveal]) animate in when they scroll into view
+  const revealIO = 'IntersectionObserver' in window && !reduceMotion()
+    ? new IntersectionObserver((ents) => ents.forEach((en) => { if (en.isIntersecting) { en.target.classList.add('is-in'); revealIO.unobserve(en.target); } }), { threshold: 0.08, rootMargin: '0px 0px -40px 0px' })
+    : null;
   function stagger(scope = document) {
     $$('[data-stagger]', scope).forEach((group) => {
-      Array.from(group.children).forEach((c, i) => { c.classList.add('reveal'); c.style.setProperty('--i', Math.min(i, 14)); });
+      Array.from(group.children).forEach((c, i) => c.style.setProperty('--i', Math.min(i, 14)));
+      if (revealIO) revealIO.observe(group); else group.classList.add('is-in');
     });
+    $$('[data-reveal]', scope).forEach((el) => (revealIO ? revealIO.observe(el) : el.classList.add('is-in')));
+  }
+
+  // ── Pointer spotlight on cards (a soft light follows the cursor) ────────
+  const SPOT = '.card.is-link, a.card, .pick, .spot';
+  document.addEventListener('pointermove', (e) => {
+    const el = e.target.closest && e.target.closest(SPOT);
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    el.style.setProperty('--mx', `${e.clientX - r.left}px`);
+    el.style.setProperty('--my', `${e.clientY - r.top}px`);
+  }, { passive: true });
+
+  // ── Navigation progress bar ─────────────────────────────────────────────
+  function navProgress() {
+    const bar = document.createElement('div');
+    bar.className = 'nav-progress';
+    document.body.appendChild(bar);
+    document.addEventListener('click', (e) => {
+      const a = e.target.closest('a[href]');
+      if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      if (a.target || a.hasAttribute('download') || a.origin !== location.origin) return;
+      if (a.pathname === location.pathname && a.search === location.search) return; // same page, hash only
+      bar.classList.remove('done'); void bar.offsetWidth; bar.classList.add('loading');
+    });
+    window.addEventListener('pageshow', () => { bar.classList.remove('loading'); bar.classList.add('done'); });
+  }
+
+  /** Animate an element's number from its current value to `to`. */
+  function tweenNumber(el, to, format = (v) => fmt.format(Math.round(v)), ms = 600) {
+    const from = parseFloat(el.dataset.v ?? 'NaN');
+    el.dataset.v = String(to);
+    if (!isFinite(from) || reduceMotion()) { el.textContent = format(to); return; }
+    const t0 = performance.now();
+    const step = (now) => {
+      const p = Math.min(1, (now - t0) / ms);
+      const e = 1 - Math.pow(1 - p, 3);
+      el.textContent = format(from + (to - from) * e);
+      if (p < 1 && el.dataset.v === String(to)) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
   }
 
   // ── Copy to clipboard ───────────────────────────────────────────────────
@@ -436,25 +497,46 @@
     const arrows = p.edges.length <= 48;
     const pos = {};
     p.nodes.forEach((v) => { pos[v.id] = [v.x * W, v.y * H]; });
-    const seg = (a, b, tail, cls, i, curve) => {
+    const seg = (e, tail, cls, i, curve) => {
+      const a = pos[e.a]; const b = pos[e.b];
       const dx = b[0] - a[0]; const dy = b[1] - a[1]; const d = Math.hypot(dx, dy) || 1;
       const s = (r + 0.6) / d; const t = (r + tail) / d;
       const x1 = a[0] + dx * s; const y1 = a[1] + dy * s; const x2 = b[0] - dx * t; const y2 = b[1] - dy * t;
-      if (!curve) return `<line class="${cls}" x1="${x1.toFixed(2)}" y1="${y1.toFixed(2)}" x2="${x2.toFixed(2)}" y2="${y2.toFixed(2)}" pathLength="1"${arrows ? ' marker-end="url(#tb-arrow)"' : ''} style="--i:${i}"/>`;
+      const ids = `data-a="${e.a}" data-b="${e.b}"`;
+      if (!curve) return `<line class="${cls}" ${ids} x1="${x1.toFixed(2)}" y1="${y1.toFixed(2)}" x2="${x2.toFixed(2)}" y2="${y2.toFixed(2)}" pathLength="1"${arrows ? ' marker-end="url(#tb-arrow)"' : ''} style="--i:${i}"/>`;
       // closure pairs bow outwards so they do not hide the edges underneath
-      const mx = (x1 + x2) / 2 - (dy / d) * d * 0.18; const my = (y1 + y2) / 2 + (dx / d) * d * 0.18;
-      return `<path class="${cls}" d="M${x1.toFixed(2)} ${y1.toFixed(2)}Q${mx.toFixed(2)} ${my.toFixed(2)} ${x2.toFixed(2)} ${y2.toFixed(2)}" pathLength="1" style="--i:${i}"/>`;
+      const mx = (x1 + x2) / 2 - dy * 0.18; const my = (y1 + y2) / 2 + dx * 0.18;
+      return `<path class="${cls}" ${ids} d="M${x1.toFixed(2)} ${y1.toFixed(2)}Q${mx.toFixed(2)} ${my.toFixed(2)} ${x2.toFixed(2)} ${y2.toFixed(2)}" pathLength="1" style="--i:${i}"/>`;
     };
     let out = `<svg class="gdiag${animate ? ' animate' : ''}" viewBox="-9 -9 ${W + 18} ${H + 18}" role="img" aria-label="Example ${esc(p.name)} graph with ${p.node_count} nodes and ${p.edge_count} edges">`;
-    if (closure) out += (p.closure || []).map((e, i) => seg(pos[e.a], pos[e.b], 0.8, 'e tc', Math.min(i, 120), true)).join('');
+    out += `<g class="tc-layer${closure ? '' : ' is-off'}">${(p.closure || []).map((e, i) => seg(e, 0.8, 'e tc', Math.min(i, 120), true)).join('')}</g>`;
     p.edges.forEach((e, i) => {
       const a = pos[e.a];
-      if (e.self) out += `<circle class="e loop" cx="${a[0].toFixed(2)}" cy="${(a[1] - r * 1.9).toFixed(2)}" r="${(r * 1.1).toFixed(2)}" pathLength="1" style="--i:${i}"/>`;
-      else out += seg(a, pos[e.b], arrows ? 2.4 : 0.6, 'e', i, false);
+      if (e.self) out += `<circle class="e loop" data-a="${e.a}" data-b="${e.b}" cx="${a[0].toFixed(2)}" cy="${(a[1] - r * 1.9).toFixed(2)}" r="${(r * 1.1).toFixed(2)}" pathLength="1" style="--i:${i}"/>`;
+      else out += seg(e, arrows ? 2.4 : 0.6, 'e', i, false);
     });
-    p.nodes.forEach((v, i) => { out += `<circle class="n" cx="${pos[v.id][0].toFixed(2)}" cy="${pos[v.id][1].toFixed(2)}" r="${r}" style="--i:${i}"><title>node ${v.id}</title></circle>`; });
+    p.nodes.forEach((v, i) => { out += `<circle class="n" data-id="${v.id}" cx="${pos[v.id][0].toFixed(2)}" cy="${pos[v.id][1].toFixed(2)}" r="${r}" style="--i:${i}"><title>node ${v.id}</title></circle>`; });
     return `${out}</svg>`;
   }
+
+  // ── Sparklines (log scale; shared min/max make rows comparable) ─────────
+  function spark(svg, pts, { min, max, color } = {}) {
+    if (!pts || pts.length < 2) { svg.innerHTML = ''; return; }
+    const W = 120; const H = 28;
+    const lo = Math.log(min ?? Math.min(...pts.map((p) => p.value))); const hi = Math.log(max ?? Math.max(...pts.map((p) => p.value)));
+    const x = (i) => (i / (pts.length - 1)) * W;
+    const y = (v) => H - 2 - ((Math.log(v) - lo) / ((hi - lo) || 1)) * (H - 4);
+    const d = pts.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(p.value).toFixed(1)}`).join('');
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.setAttribute('preserveAspectRatio', 'none');
+    if (color) svg.style.setProperty('--c', color);
+    svg.innerHTML = `<path class="a" d="${d}L${W} ${H}L0 ${H}Z"/><path class="l" d="${d}" pathLength="1"/>`;
+  }
+
+  // page-to-page transitions are skipped when navigation is fast or interrupted; that is not an error
+  const quiet = (vt) => { if (vt) { vt.ready?.catch(() => {}); vt.finished?.catch(() => {}); vt.updateCallbackDone?.catch(() => {}); } };
+  window.addEventListener('pageswap', (e) => quiet(e.viewTransition));
+  window.addEventListener('pagereveal', (e) => quiet(e.viewTransition));
 
   // ── Boot ────────────────────────────────────────────────────────────────
   function boot() {
@@ -474,13 +556,14 @@
     $$('[data-theme-toggle]').forEach((b) => b.addEventListener('click', cycleTheme));
     $$('[data-palette]').forEach((b) => b.addEventListener('click', () => palette.open()));
     window.addEventListener('resize', placeNavIndicator);
+    navProgress();
     pollRunning();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 
   window.TB = {
     $, $$, esc, icon, icons, toast, confirm: confirmDialog, openDialog, closeDialog, copyText, countUp, stagger,
-    initTabs, initSeg, initSortable, tip, isDark, cssVar, reduceMotion, graphSvg, marker,
+    initTabs, initSeg, initSortable, tip, isDark, cssVar, reduceMotion, graphSvg, marker, tweenNumber, spark,
     onTheme: (fn) => themeListeners.push(fn),
     fmt: (v, d = 2) => (v === null || v === undefined || Number.isNaN(v) ? '—' : Number(v).toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: 0 })),
     fmtSeconds: (s) => {
