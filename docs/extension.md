@@ -1,41 +1,52 @@
-# Trans-Bench Extension: Requirements & Specifications
+# Requirements of the extension work, and where they stand
 
-This document outlines the requirements and architectural standards established for generalizing Trans-Bench into a multi-domain recursive query benchmarking suite where it must be easily extensible by anyone without requiring Python knowledge.
+When trans-bench was turned from a transitive-closure harness into a suite that others can extend,
+its requirements were written down in this file. They are kept here with their present status,
+because several were met in a different way than first planned, and two were dropped when the code
+they concerned was removed.
 
-## 1. Domain Generalization & Core Architecture
-- **Multi-Domain Support**: The system must support arbitrary recursive logic domains (e.g., `transitive`, `shortest_path`, `same_generation`) rather than being hardcoded to reachability.
-- **Domain-Aware Directory Structure**: Results must be partitioned by domain to prevent data collision.
-  - Standard: `timing/{domain}/{system}/{graph}/{mode}_graph_{size}.csv`
-- **Standardized Data Reporting**: 
-  - Transition from single-file outputs to structured CSVs.
-  - Decouple temporal metrics (Time) from resource metrics (Memory).
-  - Support multi-phase measurement (e.g., LoadFacts, Querying, Writing).
+## Domains and the layout of results
 
-## 2. Hybrid Resource Profiling (Memory Tracking)
-- **Peak RAM Measurement**: Implement OS-level process polling to capture "Peak RSS" (Resident Set Size) for all ephemeral logic engines.
-- **System-Wide Integration**: Integrate `psutil` wrappers into the `BaseConnector` to ensure uniform memory tracking across:
-  - **XSB**: Capturing internal Prolog heap/stack consumption via OS polling.
-  - **Soufflé**: Monitoring the memory footprint of the compiled C++ binary.
-  - **Clingo**: Isolating engine memory from the Python orchestrator.
-  - **Databases**: Preparing for internal telemetry (e.g., JMX, `pg_stat_activity`) for server-side profiling.
+The suite was to accept recursive domains other than the transitive closure (`shortest_path`,
+`same_generation` and so on). This is in place: a domain is a descriptor under `domains/`, a rule
+file is named after its domain and mode, and the engine runs only the modes that both the system and
+the domain declare. No domain other than the transitive closure has rule files yet, and a weighted
+domain still has to settle the name of its input file ([EXTENSION_GUIDE.md](EXTENSION_GUIDE.md)).
 
-## 3. System-Specific Modernization
-- **Clingo Sandbox Isolation**: Refactor `ClingoConnector` to execute in an isolated `clingo_runner.py` subprocess. This is critical for measuring Clingo's standalone memory footprint without interference from the Flask server process.
-- **Demand-Driven Query Logic**: 
-  - The `DataGenerator` must support generating randomized query bindings (e.g., specific start/end nodes).
-  - Connectors must support `query_bindings` injection to test Top-Down vs. Bottom-Up execution.
+Results were to be separated by domain, under `timing/<domain>/<system>/<graph>/`. That layout
+survives inside each series of a campaign (`results/<campaign>/<series>/timing/<domain>/...`), but
+the record of a run is now its line in `runs.jsonl`; the old top-level `timing/` directory was
+retired. Timing rows record every phase separately, with real time, CPU time and memory.
 
-## 4. UI/UX & Visualization Standards
-- **Dynamic Configuration Wizard**: 
-  - Add a "Benchmark Domain" selector to the experiment launch flow.
-  - Allow toggling between "Full Materialization" and "Demand-Driven" benchmarks.
-- **Performance Trend Analytics**:
-  - The UI must support dual-axis or toggleable charts to compare **Time (s)** and **Memory (MB)** trends.
-  - Implement a logical system ordering in charts: **XSB → Clingo → Soufflé**.
-- **Data Exploration**: The "Data Explorer" sidebar must be hierarchical: `Domain > System > Graph > Size/Mode`.
+## Memory
 
-## 5. Script & Tooling Synchronization
-- **LaTeX Generation**: Update `generate_plot_table.py` and `generate_scale_free_table.py` to:
-  - Handle the new directory hierarchy (`parts[2]` for system).
-  - Support the removal of the legacy `timing_` filename prefix.
-  - Enforce the XSB-Clingo-Soufflé ordering in generated LaTeX documents.
+The first plan was to poll the resident memory (RSS) of every process involved. In trials, this
+proved unreliable for servers that serve every run, since their allocators keep freed memory across
+runs. As a result, the suite samples what each system can report about one query: the RSS of a
+process that lives for one run (DuckDB, XSB, a PostgreSQL backend), or the server's own accounting
+(MariaDB, CockroachDB, Neo4j). MongoDB and SingleStore have no usable probe.
+[VERIFICATION.md](VERIFICATION.md) lists the probes and their limits.
+
+## Clingo and demand-driven queries
+
+Clingo was to run in its own process, so that its memory is measured apart from the harness. It does:
+`engine/connectors/clingo_runner.py` runs it, and since October 2026 the runner writes one pair per
+line, so Clingo's results are checked like those of every other system. For demand-driven
+queries, `generate_db.py` writes a random start node next to every input (`queries_<n>.csv`), and the
+connectors pass it to the rules.
+
+## The web interface
+
+The wizard was to offer a choice of domain and of query mode (full materialization or demand-driven);
+it does, together with the campaign name and the time limit. The charts were to compare time and
+memory, and they do so on the campaign pages and in the results explorer, which is organized by
+campaign, series, topology, mode and size. The fixed order XSB, Clingo, Souffle for charts was
+replaced by one rule for every figure: each system keeps its own colour and marker, and legends list
+the systems in the order in which their curves end (`engine/plot_style.py`).
+
+## Scripts for LaTeX output
+
+`generate_plot_table.py` and `generate_scale_free_table.py` were to follow the new layout of the
+results. Both were retired instead. `analyze_verified.py` writes every table row and every figure of
+a campaign, the figures both as matplotlib PDF and as pgfplots/TikZ documents, from the records in
+`runs.jsonl`.

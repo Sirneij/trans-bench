@@ -1,29 +1,17 @@
--- SQL Template: Right Recursion (top-down build)
--- Description: Recursive query that builds results from base edges outward
--- Recursion direction: X → Y → Z (forward chaining)
--- 
--- How to use this template:
--- 1. Replace 'tc_result' with a meaningful output table name if desired
--- 2. Ensure your 'edge' table has columns (x, y) with appropriate types
--- 3. Adjust the UNION ALL to include additional base/recursive cases if needed
--- 4. Test with: SELECT COUNT(*) FROM tc_result;
+-- Template: transitive closure with right recursion, in SQL.
+--
+-- The recursive term puts one edge in front of every known path, as in the rule
+-- path(X, Y) :- edge(X, Z), path(Z, Y). UNION, not UNION ALL, removes the duplicates of every
+-- iteration, so the query also ends on graphs with cycles.
+--
+-- For DuckDB, a rule file is a whole script, one statement per timing phase (systems/duckdb/rules/).
+-- For PostgreSQL, MariaDB and CockroachDB, the statement below is the body of run_recursive_query()
+-- in a Python class (systems/postgres/rules/). The table edge has the columns x and y.
 
-CREATE TEMP TABLE tc_result AS
+CREATE TABLE tc_result AS
 WITH RECURSIVE tc AS (
-    -- Base case: all direct edges
-    SELECT x, y
-    FROM edge
-    
-    UNION ALL
-    
-    -- Recursive case: extend paths by one edge
-    -- Connect previously found paths to new edges
-    SELECT tc.x, edge.y
-    FROM tc
-    JOIN edge ON tc.y = edge.x
-    WHERE tc.x < tc.y  -- Optional: avoid duplicates for symmetric closure
+    SELECT x, y FROM edge
+    UNION
+    SELECT edge.x, tc.y FROM edge JOIN tc ON edge.y = tc.x
 )
-SELECT x, y FROM tc;
-
--- Validation: Count reachable pairs
-SELECT COUNT(*) AS reachable_pairs FROM tc_result;
+SELECT * FROM tc;

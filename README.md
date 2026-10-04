@@ -1,563 +1,250 @@
-# trans-bench · Plugin-Driven Benchmark Suite
+# trans-bench
 
-> **Transitive closure benchmarking for logic and database systems — now extensible by anyone, no Python required.**
+trans-bench measures how database systems and logic systems evaluate recursive queries. The same
+transitive-closure query, `tc(X, Z) :- tc(X, Y), e(Y, Z)` and its SQL, Cypher and Prolog
+equivalents, is run on every system over fourteen graph families, and every result is compared with a
+closure computed independently in Python. A fast answer that is wrong is therefore reported as wrong.
+This repository holds the harness, the measured systems, the published campaigns and a web interface
+for all of them.
 
-[![branch](https://img.shields.io/badge/branch-extends-6366f1)](#)
-[![python](https://img.shields.io/badge/python-3.11%2B-3b82f6)](#)
-[![license](https://img.shields.io/badge/license-MIT-10b981)](#)
+## Published results
 
----
+The measurements of *Database System Performance on Recursive Queries* are in
+[`results/verified_2026_v2/`](results/verified_2026_v2/README.md). The campaign covers PostgreSQL,
+MariaDB, DuckDB, CockroachDB, SingleStore, MongoDB, Neo4j and XSB, with 12,289 runs (five per
+configuration, a 600 s limit per run) and the memory used by each query. Completed runs were checked
+against the closure computed in Python, and on the largest scale-free graphs, where that closure
+was not computed, by agreement between the systems. The first campaign, run with the same protocol but without memory measurements, is in
+[`results/verified_2026/`](results/verified_2026/README.md) together with its incident log.
 
-## What changed in v2 (this branch)
-
-The original suite required editing **6+ Python files** to add a new system. v2 introduces a **plugin-by-configuration** model:
-
-| Before                                                                | After                                                                           |
-| --------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| Edit `common.py`, `analyze_dbs.py`, `transitive.py`, `config.json`, … | Drop one `descriptor.yaml` + rule files                                         |
-| Hardcoded system lists scattered through Python                       | Filesystem auto-discovery                                                       |
-| No UI — CLI only                                                      | Full Web UI with live monitoring                                                |
-| Credentials embedded in `config.json`                                 | Per-system `credentials.yaml` (gitignored)                                      |
-| Single-domain (transitive closure only)                               | **Multi-domain benchmarking** (transitive, shortest_path, reachability, custom) |
-| No extension templates                                                | **Bootstrap CLI + Web UI wizards + YAML templates**                             |
-| No validation tooling                                                 | **Validation API + rule syntax checking**                                       |
-
----
-
-## Published results and the verified benchmark
-
-The measurements of *Database System Performance on Recursive Queries* (PostgreSQL, MariaDB,
-DuckDB, CockroachDB, SingleStore, MongoDB, Neo4j and XSB; 12,279 runs, each checked for
-correctness, with memory measurements) are in [`results/verified_2026_v2/`](results/verified_2026_v2/README.md),
-together with
-everything needed to check them:
+The paper's tables and figures can be derived again from the recorded runs, and the tests compare
+them byte for byte with the published ones:
 
 ```sh
-python analyze_verified.py results/verified_2026_v2 --out /tmp/reanalysis   # re-derives the paper's tables
-python -m pytest -q tests                                                # incl. a byte-for-byte check of them
+python analyze_verified.py results/verified_2026_v2 --out /tmp/reanalysis
+python -m pytest -q tests
 ```
 
-There are two ways to run experiments:
+[docs/REPRODUCING.md](docs/REPRODUCING.md) explains how to verify the data or repeat the campaign.
 
-| | `transitive.py` (and the Web UI) | `benchmark.py` |
-| --- | --- | --- |
-| Purpose | quick, interactive experiments | trustworthy measurements (used for the paper) |
-| Isolation | all trials in one process | one process per trial (`engine/run_one.py`) |
-| Time limit | none | per trial; process group killed and the server-side query cancelled |
-| Failures | logged | recorded per run (`error`/`timeout`); larger sizes skipped |
-| Correctness | not checked | every result checked against an independent closure (count + 64-bit hash) |
-| Output | `timing/…` CSVs; `generate_plot_table.py` charts | `runs.jsonl` + logs + timing CSVs; at the end the campaign is analyzed automatically (`analyze_verified.py`): tables, and every figure as matplotlib PDF and as LaTeX (pgfplots/TikZ, compiled to PDF) |
+## How a campaign runs
 
-* [docs/REPRODUCING.md](docs/REPRODUCING.md): verify the published data, or re-run the campaign (exact commands, incidents).
-* [docs/SYSTEMS.md](docs/SYSTEMS.md): installation, configuration and pitfalls for each system (e.g. Neo4j's lazy results, CockroachDB's export chunks and schema-change jobs, MariaDB's silently incomplete results, SingleStore's `UNION ALL`-only recursion, DuckDB's `recurring`).
-* [docs/VERIFICATION.md](docs/VERIFICATION.md): the correctness check, the run protocol, and the `runs.jsonl` format.
+There is one execution engine, `engine/campaign.py`. A campaign started from the web interface, from
+`transitive.py` or from `benchmark.py` goes through it, so every measurement follows the same rules:
 
----
+- Each run is a separate process (`python -m engine.run_one`) in its own process group.
+- A run that exceeds the time limit is killed with its whole process group, and the query still
+  running inside the server is cancelled; the run is recorded as `timeout`.
+- A failed run is recorded with the kind of failure (timeout, out of memory, unsupported query,
+  iteration limit, killed, error), the remaining runs of that configuration are not started, and all
+  larger sizes of the same system, graph and mode are recorded as `skipped`.
+- In the transitive-closure domain, every successful result is checked against the independent
+  closure (row count and a 64-bit order-independent hash) before the result file is deleted.
+- Input graphs that do not exist yet are generated first with `generate_db.py`.
+- Every run is appended to `results/<campaign>/<series>/runs.jsonl`, with its full output in `logs/`
+  and its timing rows in `timing/`. When the campaign ends, `analyze_verified.py` writes the tables
+  and the figures (matplotlib PDF and pgfplots/TikZ) into `results/<campaign>/analysis/`.
 
-## Why Trans-Bench v2?
+A campaign that is stopped can be started again with the same settings: configurations that already
+have records are not run twice, and the run that was interrupted is repeated. The format of the
+records and the checks are described in [docs/VERIFICATION.md](docs/VERIFICATION.md).
 
-✨ **Zero-Python Extension** — Add systems, domains, and queries entirely via YAML + rule files  
-🎯 **Multi-Domain Benchmarking** — Compare implementations of transitive closure, shortest path (with weighted graphs), reachability, etc.  
-⚡ **Demand-Driven Execution** — Built-in support for generating `queries.csv` to benchmark specific point-to-point queries.
-📊 **Hybrid Resource Profiling** — Track both runtime AND peak memory usage across distinct execution phases.
-🎨 **Modern Interactive Web UI** — System creation wizards, live progress monitoring, and an advanced **Trend Analysis** dashboard for stacked/line comparative charting.
-🧪 **Validation & Testing** — Built-in CLI commands to validate rules before benchmarking  
-📚 **Comprehensive Docs** — EXTENSION_GUIDE, RULES reference, step-by-step COOKBOOK
+## Getting started
 
----
-
-## Architecture
-
-```
-trans-bench/
-├── systems/                    ← One directory per benchmarked system
-│   ├── postgres/
-│   │   ├── descriptor.yaml     ← Single source of truth for PostgreSQL
-│   │   ├── credentials.yaml    ← Local secrets (gitignored; see credentials.example.yaml)
-│   │   └── rules/              ← SQL/Cypher/Prolog rule files
-│   ├── neo4j/  xsb/  clingo/  souffle/  mariadb/  duckdb/  mongodb/  cockroachdb/  singlestore/  alda/
-│   └── <your_new_system>/      ← Adding a system = creating this folder
-│
-├── graph_types/                ← One YAML per graph topology (15 included)
-│   ├── cycle.yaml
-│   ├── barabasi_albert.yaml
-│   └── …
-│
-├── generate_db.py              ← Generates graph facts and demand-driven queries (queries_*.csv)
-├── input/                      ← Generated inputs (≤ n=500 tracked), SHA256SUMS, expected_closures.json
-├── engine/                     ← Core framework (rarely needs editing)
-│   ├── loader.py               ← Reads descriptors at runtime
-│   ├── runner.py               ← Orchestrates experiments
-│   ├── run_one.py              ← Runs ONE trial in its own process (used by benchmark.py)
-│   ├── verify.py               ← Independent correctness check (count + order-independent hash)
-│   ├── figures_tex.py          ← matplotlib figure → standalone pgfplots/TikZ document (+ compilation)
-│   └── connectors/
-│       ├── base.py             ← Abstract connector interface (errors, cancel_running)
-│       ├── rdbms.py            ← PostgreSQL, MariaDB, CockroachDB, SingleStore
-│       ├── duckdb_conn.py
-│       ├── neo4j_conn.py
-│       ├── mongodb_conn.py
-│       └── subprocess_conn.py  ← XSB, Clingo, Soufflé, Alda
-│
-├── ui/                         ← Flask Web UI (Phase 4)
-│   ├── app.py
-│   ├── templates/
-│   └── static/css/app.css      ← Modernized responsive styling
-│
-├── config.yaml                 ← Global config (no credentials)
-├── transitive.py               ← CLI entrypoint (also launches UI)
-├── benchmark.py                ← Verified driver: time limit, isolation, per-run correctness check
-├── analyze_verified.py         ← Summary, verification, figures (PDF + pgfplots/TikZ) and LaTeX tables
-├── scripts/                    ← Campaign scripts (run_all.sh, capture_versions.sh, verify_inputs.py,
-│                                 compare_results.py, MariaDB investigation)
-├── results/verified_2026_v2/   ← The paper's campaign (per-run records incl. memory, logs, analysis)
-├── results/verified_2026/      ← The first campaign (same protocol, without memory), and its incident log
-└── docs/                       ← REPRODUCING, SYSTEMS, VERIFICATION, EXTENSION_GUIDE, RULES, COOKBOOK
-```
-
----
-
-## Quick Start
-
-### 1. Clone & install
+Python 3.12 is used throughout; `requirements.txt` pins the versions of the published campaign.
 
 ```sh
 git clone https://github.com/Sirneij/trans-bench.git
 cd trans-bench
-git checkout extends
-
 python3.12 -m venv virtualenv
 source virtualenv/bin/activate
-# mysqlclient builds against the MariaDB/MySQL client library:
+# mysqlclient is built against the MariaDB client library
 PKG_CONFIG_PATH=/opt/homebrew/opt/mariadb/lib/pkgconfig pip install -r requirements.txt
 ```
 
-### 2. Configure a system
+DuckDB runs inside the harness and needs no server. Every other system needs a running server and a
+`systems/<name>/credentials.yaml`, which is ignored by git. Copy it from the
+`credentials.example.yaml` next to it, or enter it on the system's page of the web interface.
+[docs/SYSTEMS.md](docs/SYSTEMS.md) describes how each server was installed and configured.
 
-Copy `systems/<name>/credentials.example.yaml` to `systems/<name>/credentials.yaml` and edit it (the UI also creates it on first save). How to install and configure each server: [docs/SYSTEMS.md](docs/SYSTEMS.md).
-
-```yaml
-# systems/postgres/credentials.yaml
-dbURL: postgres://user:password@localhost:5432/benchmarkdb
-```
-
-```yaml
-# systems/neo4j/credentials.yaml
-uri: neo4j://localhost:7687
-user: neo4j
-password: secret
-import_directory: /opt/homebrew/Cellar/neo4j/2026.04.0/libexec/import
-```
-
-### 3. Launch the Web UI
+### The web interface
 
 ```sh
-python transitive.py --ui
-# → Open http://127.0.0.1:5000
+python transitive.py --ui                 # http://127.0.0.1:5000
+python transitive.py --ui --ui-port 5055  # on macOS, AirPlay Receiver often holds port 5000
 ```
 
-### 4. Or run from CLI
+| Page | Address | Contents |
+| --- | --- | --- |
+| Home | `/` | Animated introduction, driven by the newest campaign: a closure growing iteration by iteration, the topologies, the race at the largest size, and the verification counts |
+| Overview | `/overview` | Campaigns and their outcomes, the leaderboard, systems and topologies |
+| Campaigns | `/campaigns`, `/campaigns/<name>` | Outcomes per series, scaling and race charts, time and memory matrices, the paper's figures, failures, README and versions |
+| Results explorer | `/results` | The timing row of every run, by campaign, series, topology, mode and size; phase-by-phase comparison of systems |
+| Systems | `/systems`, `/systems/<name>` | Descriptor, timing phases, rule files and credentials of each system |
+| Topologies | `/graphs`, `/graphs/<name>` | Every graph family drawn from its own generator, with the pairs its closure adds |
+| New experiment | `/experiment/new` | Systems, topologies, settings (campaign name, sizes, runs, time limit), review; start the campaign or copy the command |
+| Live monitor | `/experiment/live` | Progress of the running campaign, every configuration as a tile, the output; Stop ends the run in progress |
+
+Press <kbd>⌘K</kbd> or <kbd>/</kbd> to jump to any page, system, topology or campaign, <kbd>n</kbd> for a
+new experiment and <kbd>t</kbd> to change the theme. `--ui-debug` turns on Flask's debugger and
+reloader for local work.
+
+### The command line
+
+`transitive.py` takes the sizes as a range; `benchmark.py` takes them as a list, which is how
+`scripts/run_all.sh` drove the published campaign. Both run the same engine.
 
 ```sh
-# All discovered systems, all graph types
-python transitive.py
+# DuckDB and PostgreSQL on two graphs, n = 100, 200 and 300, five runs each
+python transitive.py --systems duckdb postgres --graphs cycle path --sizes 100 301 100 --campaign results/my_run
+python benchmark.py --systems duckdb postgres --graphs cycle path --sizes 100 200 300 --campaign results/my_run
 
-# Specific systems and graphs
-python transitive.py --systems postgres xsb --graphs cycle path --sizes 100 1001 100
-
-# Custom recursion modes and runs
-python transitive.py --modes right_recursion left_recursion --num-runs 5
-
-# Verified runs (time limit, isolation, correctness check), e.g. 5 runs of DuckDB on two graphs
-python benchmark.py --systems duckdb --graphs cycle path --sizes 100 200 300 --out results/my_run/duckdb
+# one series with a variant setting, as in the published campaign
+python benchmark.py --systems mariadb --sizes 100 200 --out results/my_run/mariadb_tuned --label tmp_table_size=4G
 ```
 
----
+The main options are `--runs` (or `--num-runs`), `--timeout` in seconds (default 600),
+`--modes`, `--domain`, `--query-mode` and `--no-analysis`. `python benchmark.py --help` lists all of
+them.
 
-## Web UI Guide
+## Repository layout
 
-| Page             | URL                    | What you can do                                                                                       |
-| ---------------- | ---------------------- | ----------------------------------------------------------------------------------------------------- |
-| Overview         | `/`                    | Latest campaigns with their outcomes, systems, topologies, the commands to start a campaign          |
-| Campaigns        | `/campaigns`           | Every verified campaign under `results/` (benchmark.py), with completed, failed and skipped runs     |
-| Campaign         | `/campaigns/<name>`    | Outcome per series, verification, environment; scaling chart; time/memory heat matrix; the paper's figures; filterable failures; README, versions and code patch |
-| Results explorer | `/results`             | Timing files of transitive.py runs: phase-by-phase comparison of systems, and every run of a file    |
-| Systems          | `/systems`             | Registered systems with connector, version, modes and credential status                              |
-| System           | `/systems/<name>`      | Timing phases; edit the descriptor, rule files and credentials (hidden until revealed)                |
-| Topologies       | `/graphs`              | Every graph family drawn from its own generator                                                      |
-| Topology         | `/graphs/<name>`       | Change the size of a drawn instance, overlay the pairs its transitive closure adds, definition and generator code |
-| New experiment   | `/experiment/new`      | Wizard: systems → topologies → settings → review; start here or copy the transitive.py / benchmark.py command |
-| Live monitor     | `/experiment/live`     | Progress, current configuration, per-system counts, filterable output; stop after the current configuration |
-| Domains          | `/domains/new`         | Existing query domains and a form to add one from a template                                         |
+```
+trans-bench/
+├── engine/                  the harness
+│   ├── campaign.py          the execution engine (CampaignSpec, Campaign)
+│   ├── run_one.py           one trial in its own process
+│   ├── runner.py            one trial: connect, run the rule file, write the timing row
+│   ├── connectors/          one connector per protocol (SQL databases, DuckDB, Neo4j, MongoDB, logic systems)
+│   ├── loader.py            descriptors of systems, graph types and domains
+│   ├── verify.py            the independent closure check (count and hash)
+│   ├── memory.py            memory sampling while a query runs
+│   ├── failures.py          classification of failed runs
+│   └── figures_tex.py       matplotlib figures as standalone pgfplots/TikZ documents
+├── systems/<name>/          descriptor.yaml, rules/, credentials.example.yaml
+├── graph_types/             one descriptor per graph family
+├── generate_db.py           the graph generators; writes input/
+├── input/                   generated inputs (the small sizes are tracked), SHA256SUMS, expected_closures.json
+├── benchmark.py             command line: sizes as a list
+├── transitive.py            command line: sizes as a range, the web interface, scaffolding and rule checks
+├── analyze_verified.py      tables, verification report and figures of a campaign
+├── results/                 the campaigns
+├── ui/                      the Flask web interface
+├── scripts/                 campaign scripts, input check, comparison of campaigns, checks for CI
+├── templates/               templates for new systems, rules and domains
+├── tests/
+└── docs/
+```
 
-Press <kbd>⌘K</kbd> (or <kbd>/</kbd>) anywhere to jump to a page, system, topology or campaign; <kbd>n</kbd> starts a new
-experiment and <kbd>t</kbd> switches between the system, light and dark themes. On macOS, port 5000 is often taken by
-AirPlay Receiver; use `python transitive.py --ui --ui-port 5055` then.
+## Extending the suite
 
----
+A system is described by `systems/<name>/descriptor.yaml`; the engine finds it at start-up. How much
+else is needed depends on the protocol:
 
-## Adding a New System
+DuckDB's SQL scripts (`protocol: duckdb`) need only the descriptor and one `.sql` file per mode,
+whose statements map one to one to the timing phases. The server databases (`psycopg2`,
+`mysqlclient`, `cockroachdb`, `singlestore` and `pymongo`) load Python operation classes instead: a
+shared `systems/<name>/__init__.py` holds the steps of a run, and `rules/<domain>_<mode>.py` holds one
+class per mode. Hence, copying `systems/postgres` gives a working start for another
+PostgreSQL-compatible server. The logic systems and Neo4j read their rule files (`.P`, `.lp`, `.dl`,
+`.da`, `.cypher`) directly. A new protocol needs one connector class, registered in
+`engine/connectors/__init__.py` or dropped in as `systems/<name>/connector.py`.
 
-No Python code changes required after Phase 3. Here's the complete workflow:
-
-### Step A — Create the system folder
+A new graph family needs a `generate_<name>_graph` method in `generate_db.py` and a descriptor in
+`graph_types/`. Query domains other than the transitive closure are supported through
+`domains/<name>/descriptor.yaml`; the repository ships templates for them in `templates/`, but rule
+files only for the transitive closure.
 
 ```sh
-# Option 1: use the Web UI → /systems/new
-# Option 2: CLI
-cp -r systems/postgres systems/my_new_db
-```
-
-### Step B — Edit the descriptor
-
-```yaml
-# systems/my_new_db/descriptor.yaml
-name: my_new_db
-display_name: My New Database
-category: db # db | logic | hybrid
-protocol: psycopg2 # reuse an existing connector protocol
-
-timing_phases:
-  - { id: create_table, label: CreateTable }
-  - { id: load_data, label: LoadData }
-  - { id: execute_query, label: ExecuteQuery }
-  - { id: write_result, label: WriteResult }
-
-input_format: tsv
-modes: [right_recursion, left_recursion]
-rule_extension: .sql
-
-flags:
-  requires_credentials: true
-```
-
-### Step C — Add credentials
-
-```yaml
-# systems/my_new_db/credentials.yaml  (gitignored)
-dbURL: postgres://user:pass@localhost:5433/mydb
-```
-
-### Step D — Write rule files
-
-```sql
--- systems/my_new_db/rules/transitive_right_recursion.sql
-CREATE TABLE tc_result AS
-WITH RECURSIVE tc AS (
-    SELECT x, y FROM edge
-    UNION
-    SELECT edge.x, tc.y FROM edge JOIN tc ON edge.y = tc.x
-)
-SELECT * FROM tc;
-```
-
-### Step E — Run
-
-```sh
-python transitive.py --systems my_new_db --graphs cycle path
-```
-
-> **That's it.** No edits to any Python source file.
-
----
-
-## Adding a New Graph Type
-
-### Step A — Write a generator function
-
-Add to `generate_db.py` → `DataGenerator`:
-
-```python
-def generate_my_graph(self, n: int) -> Generator[tuple, None, None]:
-    """My custom graph topology."""
-    for i in range(1, n):
-        # Yield (src, dst) for standard graphs
-        # Or (src, dst, weight) for weighted domains like shortest_path
-        yield (i, i + 2)
-```
-
-To support **Demand-Driven Queries**, graph generators automatically integrate with the sampling engine to produce `queries.csv` for targeted node-to-node evaluation.
-
-### Step B — Create the descriptor
-
-```yaml
-# graph_types/my_graph.yaml
-name: my_graph
-display_name: My Custom Graph
-description: Each node connects to the node two steps ahead.
-generator: engine.data_generator.DataGenerator.generate_my_graph
-parameters: {}
-```
-
-### Step C — Run
-
-```sh
-python transitive.py --graphs my_graph
-```
-
----
-
-## Adding a New Protocol (Connector)
-
-If your system uses a driver not yet supported, implement one connector class:
-
-```python
-# engine/connectors/my_protocol.py
-from engine.connectors.base import BaseConnector
-
-class MyProtocolConnector(BaseConnector):
-    def connect(self, credentials, descriptor):
-        self._conn = my_driver.connect(**credentials)
-
-    def run_experiment(self, rule_path, input_path, output_folder, descriptor, config, query_bindings=None):
-        phases = descriptor.timing_phases
-        measurements = [(0.0, 0.0)] * len(phases)
-        results_path = self.result_path(output_folder, descriptor, 'my_results.csv')
-        try:
-            measurements[0] = self.timed(load, input_path)[:2]   # ... time each phase ...
-        except Exception as e:
-            self._record_error(f'MyProtocol error: {e}')      # never hide a failure behind zeros
-        return self.build_timing_row(phases, measurements)
-
-    @classmethod
-    def cancel_running(cls, credentials, descriptor):
-        ...  # client/server systems: stop the query the server is still running after a timeout
-
-    def close(self):
-        if self._conn:
-            self._conn.close()
-```
-
-For verified runs with `benchmark.py`, also set `query_phase` and `result_file` in the descriptor
-(see [docs/EXTENSION_GUIDE.md](docs/EXTENSION_GUIDE.md#making-a-system-ready-for-verified-runs)).
-
-Register it in `engine/connectors/__init__.py`:
-
-```python
-from engine.connectors.my_protocol import MyProtocolConnector
-
-PROTOCOL_REGISTRY['my_protocol'] = MyProtocolConnector
-```
-
-Then set `protocol: my_protocol` in your `descriptor.yaml`. This is a **one-time** addition per driver family — all future systems using that driver need zero connector code.
-
----
-
-## Descriptor Reference
-
-```yaml
-name: system_name # snake_case, matches directory name
-display_name: Human Name # shown in Web UI
-category: db # db | logic | hybrid
-
-protocol: psycopg2 # connector to use (see engine/connectors/__init__.py)
-
-timing_phases: # defines CSV column headers AND execution order
-  - id: create_table # internal ID (snake_case)
-    label: CreateTable # CSV prefix → CreateTableRealTime, CreateTableCPUTime
-
-query_phase: execute_query # id of the phase that is the query itself (reported by analyze_verified.py)
-result_file: postgres_results.csv # file with the query result, checked by benchmark.py after every run
-
-input_format: tsv # tsv | lp | facts | pickle
-modes: # which rule files to look for
-  - right_recursion
-  - left_recursion
-rule_extension: .sql # file extension for rule files
-
-execution: {} # protocol-specific hints (see subprocess systems)
-
-flags:
-  requires_credentials: true
-  class_prefix: PostgreSQL # for Python-class-based rules (RDBMS)
-  module_prefix: postgres_rules
-```
-
----
-
-## Credential Files Reference
-
-Each system that needs credentials gets a `systems/<name>/credentials.yaml`:
-
-```yaml
-# PostgreSQL / CockroachDB
-dbURL: postgres://user:pass@host:port/db
-# CockroachDB only: = the server's --external-io-dir, with a trailing slash
-externalDirectory: /path/to/crdb-extern/
-
-# MariaDB
-host: localhost
-user: root
-password: secret
-database: benchmark
-port: 3306
-
-# Neo4j
-uri: neo4j://localhost:7687
-user: neo4j
-password: secret
-import_directory: /path/to/neo4j/import
-
-# MongoDB
-uri: mongodb://127.0.0.1:27017/
-database: test
-
-# SingleStore (MySQL protocol)
-host: 127.0.0.1
-port: 3307
-user: root
-password: secret
-database: benchmark
-```
-
-Every server system has a `credentials.example.yaml` with the values used for the published campaign.
-
-Credential files are **gitignored** by default. The Web UI saves them through the System Detail → Credentials tab.
-
----
-
-## Supported Systems (built-in)
-
-| System          | Category | Protocol           | Modes                                        |
-| --------------- | -------- | ------------------ | -------------------------------------------- |
-| PostgreSQL      | db       | psycopg2           | right, left, double (rejected by the server) |
-| MariaDB         | db       | mysqlclient        | right, left, double                          |
-| DuckDB          | db       | duckdb             | right, left, double (incomplete), doublerecurring |
-| Neo4j           | db       | neo4j              | one Cypher query (same file for all modes)   |
-| MongoDB         | db       | pymongo            | one `$graphLookup` pipeline (same for all modes) |
-| CockroachDB     | db       | cockroachdb        | right, left, double (rejected by the server) |
-| SingleStore     | db       | singlestore        | right, left (acyclic graphs only), double (rejected) |
-| XSB Prolog      | logic    | subprocess         | right, left, double                          |
-| Clingo (ASP)    | logic    | clingo_python      | right, left, double |
-| Soufflé         | logic    | souffle_subprocess | right, left, double |
-| Alda (DistAlgo) | logic    | alda_subprocess    | right, left, double |
-
-The first eight systems were measured in the published campaign; see [docs/SYSTEMS.md](docs/SYSTEMS.md) for why some modes are rejected or incomplete.
-
----
-
-## Supported Graph Topologies (built-in)
-
-`complete` · `cycle` · `cycle_with_shortcuts` · `star` · `max_acyclic` · `path` · `multi_path` · `binary_tree` · `reverse_binary_tree` · `grid` · `w` · `y` · `x` · `barabasi_albert` · `scale_free`
-
----
-
-## Legacy CLI Compatibility
-
-The original per-run programs `analyze_dbs.py` and `analyze_logic_systems.py` were replaced by the
-connectors (`engine/connectors/`) and `engine/run_one.py`. The original `transitive.py` option
-`--environments` is not accepted any more: use `--systems`.
-
-```sh
-python transitive.py --sizes 100 1001 100 --modes right_recursion left_recursion \
-  --systems postgres mariadb duckdb --num-runs 5
-```
-
----
-
-## Extensibility for Everyone
-
-**No Python knowledge required.** Trans-Bench is designed to be extended by anyone — database experts, domain researchers, or data engineers.
-
-### What you can add without touching Python code:
-
-| Extension Type          | Python? | Effort  | Method                                               | Guide                                                              |
-| ----------------------- | ------- | ------- | ---------------------------------------------------- | ------------------------------------------------------------------ |
-| New SQL/graph database  | ❌ No   | 5 min   | Copy descriptor, write SQL/Cypher rules              | [EXTENSION_GUIDE.md](docs/EXTENSION_GUIDE.md#adding-a-new-system)       |
-| New logic engine (CLI)  | ❌ No   | 5 min   | Descriptor with `protocol: subprocess`               | [EXTENSION_GUIDE.md](docs/EXTENSION_GUIDE.md#adding-a-new-system)       |
-| New connector protocol  | ⚠️ Once | 20 min  | Drop `systems/<name>/connector.py` (auto-discovered) | [EXTENSION_GUIDE.md](docs/EXTENSION_GUIDE.md#adding-a-new-protocol)     |
-| New graph topology      | ⚠️ Once | 15 min  | Add Python method in `generate_db.py`                | [EXTENSION_GUIDE.md](docs/EXTENSION_GUIDE.md#adding-a-new-graph-type)   |
-| New query domain        | ❌ No   | 20 min  | Create `domains/<name>/descriptor.yaml`, write rules | [EXTENSION_GUIDE.md](docs/EXTENSION_GUIDE.md#adding-a-new-query-domain) |
-| Custom query rules      | ❌ No   | 10 min  | Edit SQL/Cypher/Datalog files                        | [RULES.md](docs/RULES.md)                                               |
-
-> **Note on graph topologies**: The YAML descriptor still needs a Python generator method as its backing implementation. The method is a ~5-line function that yields `(src, dst)` tuples — minimal Python, but honest about the requirement.
-
-### Quick-start for extensions
-
-**Via CLI:**
-
-```sh
-# Bootstrap a new SQL system from template
 python transitive.py --bootstrap-system my_database --bootstrap-system-template descriptor_sql_database.yaml
-
-# Create a new query domain
-python transitive.py --bootstrap-domain my_domain
-
-# Validate all rule files for a system
-python transitive.py --validate-rules my_system
-
-# Validate a domain against all systems (checks every system has the right rule files)
-python transitive.py --validate-domain shortest_path
-
-# Validate a domain against specific systems only
-python transitive.py --validate-domain shortest_path --systems postgres clingo
-
-# Test a single rule file (static syntax check)
-python transitive.py --test-rule systems/postgres/rules/transitive_right_recursion.sql
-
-# Test a rule file with live dry-run against a connected system
-python transitive.py --test-rule systems/postgres/rules/transitive_right_recursion.sql --system postgres
-
-# Run with domain-specific modes (any mode string accepted — invalid modes skipped per system)
-python transitive.py --domain shortest_path --modes dijkstra_style iterative_deepening
+python transitive.py --validate-rules my_database
+python transitive.py --test-rule systems/duckdb/rules/transitive_left_recursion.sql
 ```
 
-**Via Web UI:**
+The step-by-step guide is [docs/EXTENSION_GUIDE.md](docs/EXTENSION_GUIDE.md); rule examples are in
+[docs/RULES.md](docs/RULES.md), and worked recipes in [docs/COOKBOOK.md](docs/COOKBOOK.md).
 
-1. Launch the UI: `python transitive.py --ui`
-2. Navigate to **Systems** → **Register a system**
-3. Enter name, choose template, customize descriptor
-4. Add credentials and rule files
-5. Run experiments
+### Descriptor reference
 
-### Extension Documentation
-
-| Document                                     | Topic                                              | Audience          |
-| -------------------------------------------- | -------------------------------------------------- | ----------------- |
-| [**EXTENSION_GUIDE.md**](docs/EXTENSION_GUIDE.md) | Complete how-to for all extension types            | Everyone          |
-| [**RULES.md**](docs/RULES.md)                     | Query rule examples for SQL, Datalog, Cypher, etc. | Rule writers      |
-| [**COOKBOOK.md**](docs/COOKBOOK.md)               | Step-by-step recipes (SQLite, shortest path, etc.) | Hands-on learners |
-| [**SYSTEMS.md**](docs/SYSTEMS.md)                 | Setup and pitfalls of every measured system        | Benchmark runners |
-| [**REPRODUCING.md**](docs/REPRODUCING.md)         | Verify or re-run the published campaign            | Reviewers         |
-| [**VERIFICATION.md**](docs/VERIFICATION.md)       | Correctness check, run protocol, record format     | Everyone          |
-| [**templates/**](templates/)                 | Ready-to-customize YAML and rule templates         | Quick starters    |
-
-### Bootstrap Templates
-
-Pre-built templates for common scenarios:
-
-```
-templates/
-├── descriptor_sql_database.yaml           # PostgreSQL, MySQL, CockroachDB
-├── descriptor_graph_database.yaml         # Neo4j, Memgraph
-├── descriptor_logic_engine.yaml           # XSB, Clingo, Soufflé
-├── rule_template_sql_right_recursion.sql
-├── rule_template_datalog_right_recursion.lp
-├── rule_template_cypher_right_recursion.cypher
-├── domain_shortest_path.yaml
-├── domain_reachability_with_avoidance.yaml
-└── README.md                              # Template usage guide
+```yaml
+name: postgres                  # the directory name
+display_name: PostgreSQL
+category: db                    # db | logic | hybrid
+protocol: psycopg2              # connector (engine/connectors/__init__.py)
+timing_phases:                  # the CSV columns, in the order the phases run
+  - { id: create_table, label: CreateTable }   # -> CreateTableRealTime, CreateTableCPUTime, CreateTableMaxRAM_MB
+  - { id: execute_query, label: ExecuteQuery }
+query_phase: execute_query      # the phase that is the query itself (what the analysis reports)
+result_file: postgres_results.csv  # the result, checked after every run
+input_format: tsv               # tsv | lp | facts | pickle
+modes: [right_recursion, left_recursion, double_recursion]
+rule_extension: .py
+flags:
+  requires_credentials: true
+  class_prefix: PostgreSQL      # class PostgreSQLLeftRecursion in rules/transitive_left_recursion.py
+  module_prefix: postgres_rules # the name the rule modules import the shared operations under
 ```
 
-Copy, customize, and deploy — no Python edits required.
+### Systems and topologies
 
----
+| System | Protocol | Modes |
+| --- | --- | --- |
+| PostgreSQL | psycopg2 | right, left; double recursion is rejected by the server |
+| MariaDB | mysqlclient | right, left, double |
+| DuckDB | duckdb | right, left, double (incomplete results), doublerecurring |
+| CockroachDB | cockroachdb | right, left; double recursion is rejected |
+| SingleStore | singlestore | right and left on acyclic graphs only; double recursion is rejected |
+| MongoDB | pymongo | one `$graphLookup` pipeline |
+| Neo4j | neo4j | one Cypher query |
+| XSB | subprocess | right, left, double |
+| Clingo | clingo_python | right, left, double |
+| Soufflé | souffle_subprocess | right, left, double |
+| ALDA | alda_subprocess | right, left, double |
 
-## Running Tests
+The first eight were measured in the published campaigns; [docs/SYSTEMS.md](docs/SYSTEMS.md)
+explains why some modes are rejected or incomplete. The graph families are `complete`,
+`max_acyclic`, `cycle`, `cycle_with_shortcuts`, `path`, `multi_path`, `grid`, `binary_tree`,
+`reverse_binary_tree`, `x`, `y`, `w`, `star`, `scale_free` and `barabasi_albert`.
+
+## Development
+
+The tests need no database server: the end-to-end tests run DuckDB on the tracked inputs, and the
+analysis tests derive the published tables again. The static checks follow the setup of my Django
+series on dev.to: black and isort for formatting, prospector (pylint, pycodestyle, pydocstyle,
+mccabe) at very high strictness, bandit for security and mypy for types.
 
 ```sh
-python -m pytest -q tests
+pip install -r requirements_dev.txt
+scripts/static_validation.sh
+scripts/test.sh            # in parallel, with coverage
 ```
 
-The tests need no database server. The end-to-end tests of `benchmark.py` and `engine/run_one.py`
-use DuckDB on the tracked inputs, and `TestAnalysis` re-derives the published tables from
-`results/verified_2026`.
+GitHub Actions runs both scripts on every push and pull request (`.github/workflows/ci.yml`).
 
----
+## Public deployment
 
-## Requirements
+The web interface is deployed read-only on Railway from the `Dockerfile`, as described in
+`railway.json`. Its image holds the descriptors and the published campaigns, but no database. In
+read-only mode the site refuses every request that would start a campaign or change a file, as well
+as the rule checks that contact a server. Credentials are hidden, and a banner says why. The mode is
+on when `TRANS_BENCH_READ_ONLY=1` (set in the Dockerfile) or when the app runs on Railway. On Railway, the build and start commands come from
+the Dockerfile, so neither needs to be set; only a `SECRET_KEY` variable has to be added.
 
-`requirements.txt` pins the versions of the published campaign (Python 3.12). The pins matter most
-for `duckdb` (results and the `recurring` feature), `networkx` (the seeded scale-free and
-Barabási-Albert generators) and `numpy` (verification). Install everything with
-`pip install -r requirements.txt`.
+```sh
+docker build -t trans-bench-ui .
+docker run --rm -p 10000:10000 trans-bench-ui
+```
+
+## Further documentation
+
+| Document | Contents |
+| --- | --- |
+| [REPRODUCING.md](docs/REPRODUCING.md) | Checking the published data, and repeating the campaign |
+| [VERIFICATION.md](docs/VERIFICATION.md) | The correctness check, the run protocol and the record format |
+| [SYSTEMS.md](docs/SYSTEMS.md) | Installation, configuration and pitfalls of every measured system |
+| [EXTENSION_GUIDE.md](docs/EXTENSION_GUIDE.md) | Adding systems, protocols, graph types and domains |
+| [RULES.md](docs/RULES.md) | Rule files for each language |
+| [COOKBOOK.md](docs/COOKBOOK.md) | Worked recipes |
+| [ui_features.md](docs/ui_features.md) | The web interface in detail |
+| [scale_free_findings.md](docs/scale_free_findings.md) | Notes on the scale-free and Barabási-Albert graphs |
+| [templates/README.md](templates/README.md) | The templates for new systems, rules and domains |

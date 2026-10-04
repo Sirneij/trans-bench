@@ -1,672 +1,257 @@
-# Query Rules Reference & Cookbook
+# Rule files
 
-> Practical examples and patterns for writing query rules for different systems and domains.
+A rule file holds the recursive query of one system for one mode. This document explains how rule
+files are named, defines the three recursion modes the suite measures, and then shows the shipped
+rule files of every language. All the examples are copied from `systems/*/rules/`, so they are known
+to give the correct closure; where a system needs something unusual, the reason is given.
 
----
+## Naming
 
-## Table of Contents
+A rule file is named `<domain>_<mode><extension>`, for example `transitive_left_recursion.sql`.
+The domain of every shipped rule file is `transitive`; the extension is the `rule_extension` of the
+system's descriptor. The engine looks first for the full name, then for the first word of the domain
+(`transitive_closure` becomes `transitive`), and finally for the mode alone (`left_recursion.sql`).
 
-1. [Rule File Naming Convention](#rule-file-naming-convention)
-2. [SQL Rules (PostgreSQL, MySQL, DuckDB, CockroachDB)](#sql-rules)
-3. [Datalog Rules (Clingo, XSB, Soufflé)](#datalog-rules)
-4. [Cypher Rules (Neo4j)](#cypher-rules)
-5. [JavaScript Rules (MongoDB)](#javascript-rules)
-6. [Prolog Rules (XSB)](#prolog-rules)
-7. [DistAlgo Rules (Alda)](#distalgo-rules)
-8. [Parameter Substitution](#parameter-substitution)
-9. [Cookbook: Domain Patterns](#cookbook-domain-patterns)
+## The three modes
 
----
+All three modes compute the same relation, the transitive closure `path` of `edge`. They differ in
+where the recursive reference sits in the rule:
 
-## Rule File Naming Convention
+| Mode | Rule | What one iteration does |
+| --- | --- | --- |
+| `left_recursion` | `path(X, Y) :- path(X, Z), edge(Z, Y).` | extends every known path by one edge at its end |
+| `right_recursion` | `path(X, Y) :- edge(X, Z), path(Z, Y).` | puts one edge in front of every known path |
+| `double_recursion` | `path(X, Y) :- path(X, Z), path(Z, Y).` | joins two known paths, so path lengths can double |
 
-All rule files follow this naming pattern:
+Each mode also has the base rule `path(X, Y) :- edge(X, Y).` Left and right recursion are linear,
+since the rule refers to `path` once; double recursion is non-linear. SQL:1999 requires recursive
+queries to be linear, and that is why PostgreSQL and CockroachDB reject double recursion. DuckDB has a
+fourth mode, `doublerecurring_recursion`, explained under SQL below.
 
-```
-{domain}_{recursion_mode}{extension}
-```
+## SQL
 
-### Examples:
+The SQL systems express the closure as a recursive common table expression with `UNION`, which
+removes duplicates in every iteration. Hence the query reaches a fixed point on cyclic graphs as
+well. With `UNION ALL`, the same query would follow the cycles for ever; SingleStore, which accepts
+only `UNION ALL`, is the exception discussed below.
 
-```
-rules/
-├── transitive_right_recursion.sql          # SQL: transitive closure, right recursion
-├── transitive_left_recursion.sql
-├── transitive_double_recursion.sql
-├── shortest_path_dijkstra_style.lp         # Datalog: shortest path, Dijkstra-style
-├── reachability_avoid_constrained.cypher   # Cypher: constrained reachability
-└── same_generation_level_sync.pl           # Prolog: peer relation
-```
+### DuckDB (plain SQL script)
 
-### Components:
-
-| Component | Examples                                                                                         | Notes                               |
-| --------- | ------------------------------------------------------------------------------------------------ | ----------------------------------- |
-| Domain    | `transitive`, `shortest_path`, `reachability_avoid`, `same_generation`                           | Must match a domain descriptor name |
-| Mode      | `right_recursion`, `left_recursion`, `double_recursion`, `iterative_deepening`, `dijkstra_style` | Defines the recursion strategy      |
-| Extension | `.sql`, `.lp`, `.cypher`, `.js`, `.pl`, `.da`                                                    | Determines protocol                 |
-
----
-
-## SQL Rules
-
-SQL rules use **Common Table Expressions (CTEs)** with `WITH RECURSIVE` for transitive queries.
-
-### Pattern 1: Right Recursion (Forward Chaining)
-
-Build the closure by extending found paths.
+DuckDB's rule file is a complete script; each statement is one timing phase, and `{data_file}` and
+`{output_file}` are replaced by the connector. Left recursion:
 
 ```sql
--- systems/postgres/rules/transitive_right_recursion.sql
-CREATE TEMP TABLE tc_result AS
-WITH RECURSIVE tc AS (
-    -- Base: all direct edges
-    SELECT x, y FROM edge
-
-    UNION ALL
-
-    -- Recursive: extend paths
-    SELECT tc.x, edge.y
-    FROM tc
-    JOIN edge ON tc.y = edge.x
-)
-SELECT x, y FROM tc;
-
--- Output for verification
-SELECT COUNT(*) FROM tc_result;
-```
-
-### Pattern 2: Left Recursion (Backward Chaining)
-
-Find all predecessors.
-
-```sql
-CREATE TEMP TABLE tc_result AS
+CREATE TABLE edge (x INTEGER, y INTEGER);
+COPY edge FROM '{data_file}' (DELIMITER '\t');
+CREATE INDEX edge_yx ON edge (y, x);
+ANALYZE;
+CREATE TABLE tc_result AS
 WITH RECURSIVE tc AS (
     SELECT x, y FROM edge
-    UNION ALL
-    SELECT edge.x, tc.y
-    FROM edge
-    JOIN tc ON edge.y = tc.x
-)
-SELECT x, y FROM tc;
-```
-
-### Pattern 3: Double Recursion (Bidirectional)
-
-Search from both endpoints simultaneously (more complex, harder to optimize).
-
-```sql
-CREATE TEMP TABLE tc_result AS
-WITH RECURSIVE
-forward AS (
-    SELECT x, y FROM edge
-    UNION ALL
-    SELECT forward.x, edge.y
-    FROM forward
-    JOIN edge ON forward.y = edge.x
-),
-backward AS (
-    SELECT x, y FROM edge
-    UNION ALL
-    SELECT edge.x, backward.y
-    FROM edge
-    JOIN backward ON edge.y = backward.x
-)
-SELECT DISTINCT f.x, b.y
-FROM forward f
-JOIN backward b ON f.y = b.x;
-```
-
-### Pattern 4: Iterative Deepening (Breadth-First)
-
-Process paths layer by layer.
-
-```sql
-CREATE TEMP TABLE tc_result AS
-WITH RECURSIVE layers AS (
-    -- Layer 0: direct edges
-    SELECT x, y, 1 AS depth FROM edge
-
-    UNION ALL
-
-    -- Layer k+1: paths of depth k+1
-    SELECT layers.x, edge.y, layers.depth + 1
-    FROM layers
-    JOIN edge ON layers.y = edge.x
-    WHERE layers.depth < 100  -- Limit recursion depth
-)
-SELECT DISTINCT x, y FROM layers;
-```
-
-### Pattern 5: Shortest Path (with weights)
-
-```sql
-CREATE TEMP TABLE tc_result AS
-WITH RECURSIVE sp AS (
-    SELECT x, y, weight AS dist, ARRAY[x, y] AS path
-    FROM edge
-
-    UNION ALL
-
-    SELECT sp.x, edge.y, sp.dist + edge.weight, sp.path || edge.y
-    FROM sp
-    JOIN edge ON sp.y = edge.x
-    WHERE sp.dist + edge.weight < 1000000  -- Avoid infinite loops
-        AND NOT (edge.y = ANY(sp.path))     -- Prevent cycles
-)
-SELECT DISTINCT x, y, MIN(dist) AS min_dist
-FROM sp
-GROUP BY x, y;
-```
-
-### Common Optimizations
-
-**Add a CYCLE detection clause** (PostgreSQL 13+):
-
-```sql
-WITH RECURSIVE tc AS (
-    SELECT x, y FROM edge
-    UNION ALL
-    SELECT tc.x, edge.y
-    FROM tc
-    JOIN edge ON tc.y = edge.x
-    WHERE NOT CYCLE  -- Built-in cycle detection
+    UNION
+    SELECT tc.x, edge.y FROM tc JOIN edge ON tc.y = edge.x
 )
 SELECT * FROM tc;
+COPY (SELECT * FROM tc_result) TO '{output_file}' WITH (HEADER, DELIMITER ',');
 ```
 
-**Use LATERAL joins** (faster in some systems):
+Right recursion differs only in the recursive term,
+`SELECT edge.x, tc.y FROM edge JOIN tc ON edge.y = tc.x`, and double recursion joins `tc` with itself:
+`SELECT tc1.x, tc2.y FROM tc AS tc1, tc AS tc2 WHERE tc1.y = tc2.x`. In DuckDB, however, each
+self-reference sees only the rows of the previous iteration, so this double recursion misses pairs on
+7 of the 12 graph families. The mode `doublerecurring_recursion` reads both references as
+`recurring.tc`, which DuckDB provides since version 1.5, and is correct:
 
 ```sql
-WITH RECURSIVE tc AS (
-    SELECT x, y FROM edge
-    UNION ALL
-    SELECT tc.x, new_edges.y
-    FROM tc,
-    LATERAL (
-        SELECT y FROM edge WHERE x = tc.y
-    ) new_edges
-)
-SELECT * FROM tc;
+SELECT tc1.x, tc2.y FROM recurring.tc AS tc1, recurring.tc AS tc2 WHERE tc1.y = tc2.x
 ```
 
----
+### PostgreSQL, MariaDB, CockroachDB and SingleStore (Python classes)
 
-## Datalog Rules
+These systems run the steps of a trial from Python. The shared `systems/<name>/__init__.py` defines
+the operations (creating, loading, indexing and analyzing the edge table, exporting the result,
+dropping the tables), and each rule file adds the recursive query as `run_recursive_query()` in a
+class named `<class_prefix><Mode>Recursion`. MariaDB's double recursion:
 
-Datalog is a logic programming language used by Clingo, XSB, and Soufflé.
+```python
+from mariadb_rules import MariaDBOperations
 
-### Pattern 1: Right Recursion
 
-Forward chaining (standard).
-
-```prolog
-% systems/clingo/rules/transitive_right_recursion.lp
-tc(X, Y) :- edge(X, Y).
-tc(X, Z) :- tc(X, Y), edge(Y, Z).
-
-#show tc/2.
+class MariaDBDoubleRecursion(MariaDBOperations):
+    def run_recursive_query(self) -> None:
+        """Run the double recursion query for transitive closure."""
+        self.execute_query(
+            """
+        CREATE TABLE tc_result AS
+        WITH RECURSIVE tc AS (
+            SELECT x, y FROM edge
+            UNION
+            SELECT tc1.x, tc2.y FROM tc AS tc1, tc AS tc2 WHERE tc1.y = tc2.x
+        )
+        SELECT * FROM tc;
+        """
+        )
 ```
 
-### Pattern 2: Left Recursion
-
-Backward chaining (less common in Datalog).
-
-```prolog
-% Alternative: explicit backward chaining
-tc(X, Y) :- edge(X, Y).
-tc(X, Y) :- edge(X, Z), tc(Z, Y).
-
-#show tc/2.
-```
-
-### Pattern 3: Double Recursion
-
-```prolog
-% Transitive closure via forward and backward rules
-forward(X, Y) :- edge(X, Y).
-forward(X, Z) :- forward(X, Y), edge(Y, Z).
-
-backward(X, Y) :- edge(X, Y).
-backward(X, Y) :- edge(X, Z), backward(Z, Y).
-
-tc(X, Y) :- forward(X, Y).
-tc(X, Y) :- backward(X, Y).
-
-#show tc/2.
-```
-
-### Pattern 4: Shortest Path (with arithmetic)
-
-```prolog
-% systems/clingo/rules/shortest_path_iterative.lp
-sp(X, Y, D) :- edge(X, Y, W), D = W.
-sp(X, Z, D1 + D2) :- sp(X, Y, D1), edge(Y, Z, D2), D1 + D2 < max_dist.
-
-% Remove suboptimal paths
-shortest(X, Y, D) :- sp(X, Y, D), not shorter(X, Y, D).
-shorter(X, Y, D) :- shortest(X, Y, D1), sp(X, Y, D2), D2 < D1.
-
-#show shortest/3.
-```
-
-### Pattern 5: Reachability with Avoidance
-
-```prolog
-% Reachable nodes avoiding forbidden set
-reachable(X, Y) :- edge(X, Y), not forbidden(Y).
-reachable(X, Z) :- reachable(X, Y), edge(Y, Z), not forbidden(Z).
-
-#show reachable/2.
-```
-
-### Common Features
-
-**Use aggregates for statistics:**
-
-```prolog
-% Count reachable destinations per source
-count_reach(X, N) :- N = #count { Y : tc(X, Y) }.
-
-#show count_reach/2.
-```
-
-**Use constraints to filter:**
-
-```prolog
-% Only paths of length ≤ 5
-tc(X, Y, 1) :- edge(X, Y).
-tc(X, Z, L+1) :- tc(X, Y, L), edge(Y, Z), L < 5.
-
-#show tc/3.
-```
-
----
-
-## Cypher Rules
-
-Cypher is the query language for Neo4j.
-
-### Pattern 1: Right Recursion (Variable-Length Paths)
-
-```cypher
--- systems/neo4j/rules/transitive_right_recursion.cypher
-MATCH (start)-[:EDGE*..100]->(end)
-WHERE start <> end
-RETURN start, end
-ORDER BY start.id, end.id;
-```
-
-### Pattern 2: Left Recursion (Reversed Paths)
-
-```cypher
-MATCH (start)<-[:EDGE*..100]-(end)
-RETURN start, end
-ORDER BY start.id, end.id;
-```
-
-### Pattern 3: Double Recursion (Bidirectional)
-
-```cypher
-MATCH (start)-[:EDGE*..50]->(middle)-[:EDGE*..50]->(end)
-RETURN DISTINCT start, end
-ORDER BY start.id, end.id;
-```
-
-### Pattern 4: Shortest Path (with APOC)
-
-Requires APOC library to be installed:
-
-```cypher
-CALL apoc.algo.allShortestPaths('MATCH (n)-[r:EDGE]->(m) RETURN n, r, m', {});
-```
-
-Or without APOC (simpler but slower):
-
-```cypher
-MATCH path = (start)-[:EDGE*..100]->(end)
-WHERE start <> end
-RETURN start, end, length(path) AS distance
-ORDER BY distance ASC, start.id, end.id;
-```
-
-### Pattern 5: Reachability with Node Filtering
-
-```cypher
--- Paths avoiding a set of "blocked" nodes
-MATCH (start)-[:EDGE*..100]->(end)
-WHERE start <> end
-  AND NOT any(node IN nodes(path) WHERE node.blocked = true)
-RETURN start, end
-ORDER BY start.id, end.id;
-```
-
-### Common Features
-
-**Limit path length:**
-
-```cypher
-MATCH (start)-[:EDGE*1..5]->(end)  -- 1 to 5 hops
-RETURN start, end;
-```
-
-**Use WHERE for filtering:**
-
-```cypher
-MATCH (start)-[:EDGE*..100]->(end)
-WHERE toInteger(start.id) < toInteger(end.id)  -- Avoid duplicates
-RETURN start, end;
-```
-
----
-
-## JavaScript Rules
-
-JavaScript rules are used by MongoDB for aggregation pipelines.
-
-### Pattern 1: Map-Reduce (Right Recursion)
-
-```javascript
-// systems/mongodb/rules/transitive_right_recursion.js
-db.edges.mapReduce(
-  function () {
-    emit(this.x, [this.y]);
-  },
-  function (key, values) {
-    var result = [];
-    values.forEach(function (v) {
-      result = result.concat(v);
-    });
-    return result;
-  },
-  {
-    out: "tc_result",
-    finalize: function (key, value) {
-      return { source: key, targets: value };
-    },
-  },
-);
-```
-
-### Pattern 2: Aggregation Pipeline (Recommended)
-
-```javascript
-db.edges.aggregate([
-  {
-    $group: {
-      _id: "$x",
-      reachable: { $push: "$y" },
-    },
-  },
-  {
-    $out: "tc_result",
-  },
-]);
-```
-
----
-
-## Prolog Rules
-
-Prolog rules (for XSB Prolog engine).
-
-### Pattern 1: Basic Facts and Rules
-
-```prolog
-% systems/xsb/rules/transitive_right_recursion.pl
-:- table(tc/2).  % Tabling for left recursion
-
-tc(X, Y) :- edge(X, Y).
-tc(X, Z) :- tc(X, Y), edge(Y, Z).
-
-?- tc(X, Y), write(X), write(' -> '), write(Y), nl, fail.
-```
-
-### Pattern 2: With Negation (Complex)
-
-```prolog
-:- table(reachable/2).
-
-% Paths avoiding forbidden nodes
-reachable(X, Y) :- edge(X, Y), \+ forbidden(Y).
-reachable(X, Z) :- reachable(X, Y), edge(Y, Z), \+ forbidden(Z).
-
-forbidden(node_5).
-forbidden(node_10).
-
-?- reachable(X, Y), write_result(X, Y), fail.
-```
-
----
-
-## DistAlgo Rules
-
-DistAlgo rules (for Alda engine).
-
-### Pattern 1: Iterative Fixed-Point Computation
-
-```distalgo
-# systems/alda/rules/transitive_right_recursion.da
-def compute_transitive_closure():
-    # Initialize with direct edges
-    tc = set(edge)
-
-    # Iterate until no new pairs found
-    changed = True
-    while changed:
-        changed = False
-        new_pairs = set()
-
-        for (x, y) in tc:
-            for (z, w) in tc:
-                if y == z and (x, w) not in tc:
-                    new_pairs.add((x, w))
-                    changed = True
-
-        tc.update(new_pairs)
-
-    return tc
-
-def output_results():
-    tc = compute_transitive_closure()
-    for (x, y) in sorted(tc):
-        send(('result', x, y), to=output_handler)
-```
-
----
-
-## Parameter Substitution
-
-Rules can use **placeholders** that the engine substitutes at runtime.
-
-### Supported placeholders:
-
-| Placeholder     | Meaning             | Example                         |
-| --------------- | ------------------- | ------------------------------- |
-| `?param_name`   | Query parameter     | `WHERE source = ?start_node`    |
-| `{input_file}`  | Path to input TSV   | `LOAD DATA FROM '{input_file}'` |
-| `{output_file}` | Path to output CSV  | `OUTPUT TO '{output_file}'`     |
-| `{domain}`      | Current domain name | `--domain {domain}`             |
-
-### Example with parameters:
+The connector calls the operations in a fixed order, one timing phase each:
+`create_tc_path_table`, the import, `create_tc_path_index`, `analyze_tc_path_table`,
+`run_recursive_query` and the export. MariaDB first sets `standard_compliant_cte=0`, without which it
+rejects double recursion, and SingleStore first raises its iteration limit.
+
+SingleStore rejects `UNION` and `DISTINCT` inside the recursive term. Its rule files therefore
+combine the terms with `UNION ALL` and remove duplicates once, at the end:
 
 ```sql
--- SQL with parameter substitution
-CREATE TEMP TABLE shortest_paths AS
-WITH RECURSIVE sp AS (
-    SELECT x, y, weight AS dist
-    FROM edge
-    WHERE x = ?source_node
-
-    UNION ALL
-
-    SELECT sp.x, edge.y, sp.dist + edge.weight
-    FROM sp
-    JOIN edge ON sp.y = edge.x
-    WHERE sp.dist + edge.weight < ?max_distance
-)
-SELECT x, y, MIN(dist) FROM sp GROUP BY x, y;
-```
-
-The engine will replace:
-
-- `?source_node` with the actual start node (e.g., 5)
-- `?max_distance` with the cutoff value (e.g., 1000)
-
----
-
-## Cookbook: Domain Patterns
-
-Real-world query patterns for common domains.
-
-### Domain 1: Transitive Closure (Basic)
-
-**SQL (Right Recursion):**
-
-```sql
-CREATE TEMP TABLE tc_result AS
+CREATE TABLE tc_result AS
 WITH RECURSIVE tc AS (
     SELECT x, y FROM edge
     UNION ALL
     SELECT tc.x, edge.y FROM tc JOIN edge ON tc.y = edge.x
 )
-SELECT x, y FROM tc;
+SELECT DISTINCT x, y FROM tc;
 ```
 
-**Datalog:**
+This enumerates every path, so it terminates only on acyclic graphs, and even there it runs out of
+memory when the paths are many (max_acyclic, larger grids). [SYSTEMS.md](SYSTEMS.md) gives the
+details.
+
+## Prolog and Datalog
+
+### XSB (`.P`)
+
+XSB evaluates the rules top-down with tabling, which `:- auto_table.` turns on for every predicate.
+Without tabling, left recursion would loop for ever. Left recursion:
 
 ```prolog
-tc(X, Y) :- edge(X, Y).
-tc(X, Z) :- tc(X, Y), edge(Y, Z).
+:- auto_table.
+path(X, Y) :- edge(X, Y).
+path(X, Y) :- path(X, Z), edge(Z, Y).
 ```
 
-**Cypher:**
+The right and double rule files change only the second rule, to `edge(X, Z), path(Z, Y)` and
+`path(X, Z), path(Z, Y)`. The facts and the query are supplied by `xsb_export/extfilequery.P`, so
+the rule file holds nothing else.
+
+### Clingo (`.lp`)
+
+Clingo grounds the program and computes its single answer set. The rules are those of XSB, followed
+by a directive that selects the output:
+
+```prolog
+path(X, Y) :- edge(X, Y).
+path(X, Y) :- path(X, Z), edge(Z, Y).
+
+#show path/2.
+```
+
+### Souffle (`.dl`)
+
+Souffle compiles the program to C++ and evaluates it bottom-up. Its relations are declared with
+their types, and `.input` and `.output` name the files to read and write:
+
+```prolog
+.decl edge(x:number, y:number)
+.input edge
+
+.decl path(x:number, y:number)
+path(x,y) :- edge(x,y).
+path(x,y) :- path(x,z), edge(z,y).
+
+.output path
+```
+
+### ALDA (`.da`)
+
+ALDA, the DistAlgo language with rules, states the same two rules inside a process class; the
+right-recursion rule set reads:
+
+```python
+path(x, y), if_(edge(x, y))
+path(x, y), if_(edge(x, z), path(z, y))
+```
+
+The rule set is evaluated with `infer(rules=..., bindings=[('edge', E)], queries=['path'])`. The full
+files in `systems/alda/rules/` are adapted from the benchmarks of Liu et al.
+(https://github.com/DistAlgo/alda).
+
+## Cypher (Neo4j)
+
+A Cypher rule file is a script of statements separated by `;`. All statements but the last two
+prepare the graph, the second to last is the timed query, and the last one exports the result
+(`systems/neo4j/rules/transitive_left_recursion.cypher`):
 
 ```cypher
-MATCH (a)-[:EDGE*..100]->(b) RETURN a, b;
-```
+MATCH (n) DETACH DELETE n;
 
----
+LOAD CSV FROM "file:///{data_file}" AS line FIELDTERMINATOR '\t'
+MERGE (a:Node {id: toInteger(line[0])})
+MERGE (b:Node {id: toInteger(trim(line[1]))})
+CREATE (a)-[:EDGE]->(b);
 
-### Domain 2: Shortest Path
+CREATE INDEX IF NOT EXISTS FOR (n:Node) ON (n.id);
 
-**SQL (with weights):**
+MATCH (start:Node)-[:EDGE*1..]->(end:Node)
+WITH DISTINCT start.id AS x, end.id AS y
+RETURN count(*) AS pairs;
 
-```sql
-WITH RECURSIVE sp AS (
-    SELECT x, y, weight AS dist FROM weighted_edge
-    UNION ALL
-    SELECT sp.x, e.y, sp.dist + e.weight
-    FROM sp JOIN weighted_edge e ON sp.y = e.x
-    WHERE sp.dist + e.weight < 999999
+CALL apoc.export.csv.query(
+    "MATCH (start:Node)-[:EDGE*1..]->(end:Node) RETURN DISTINCT start.id AS x, end.id AS y",
+    "{output_file}",
+    {}
 )
-SELECT x, y, MIN(dist) FROM sp GROUP BY x, y;
+YIELD file, nodes, relationships, properties, time, rows, batchSize, batches, done, data
+RETURN file, rows;
 ```
 
-**Datalog (Clingo):**
+The variable-length pattern `[:EDGE*1..]` has one formulation, so the three mode files are identical,
+and only `left_recursion` is measured. The timed query returns only the number of distinct pairs,
+because the export writes the pairs themselves.
 
-```prolog
-sp(X, Y, W) :- edge(X, Y, W).
-sp(X, Z, D) :- sp(X, Y, D1), edge(Y, Z, W), D = D1 + W, D < 999999.
-```
+## MongoDB
 
----
+MongoDB's rule files are Python classes, like those of the SQL systems, and the closure is one
+aggregation pipeline:
 
-### Domain 3: Same Generation (Graph Hierarchy)
-
-Find nodes at the same level in a tree or DAG.
-
-**SQL:**
-
-```sql
-WITH RECURSIVE depth AS (
-    SELECT id, parent_id, 0 AS level FROM nodes WHERE parent_id IS NULL
-    UNION ALL
-    SELECT n.id, n.parent_id, d.level + 1
-    FROM nodes n JOIN depth d ON n.parent_id = d.id
+```python
+self.db[input_collection].aggregate(
+    [
+        {'$graphLookup': {'from': input_collection, 'startWith': '$x', 'connectFromField': 'y',
+                          'connectToField': 'x', 'as': 'paths', 'restrictSearchWithMatch': {}}},
+        {'$unwind': '$paths'},
+        {'$project': {'_id': 0, 'x': '$x', 'y': '$paths.y'}},
+        {'$group': {'_id': {'x': '$x', 'y': '$y'}, 'x': {'$first': '$x'}, 'y': {'$first': '$y'}}},
+        {'$project': {'_id': 0, 'x': 1, 'y': 1}},
+        {'$out': output_collection},
+    ],
+    allowDiskUse=True,
 )
-SELECT d1.id, d2.id
-FROM depth d1
-JOIN depth d2 ON d1.level = d2.level AND d1.id < d2.id;
 ```
 
-**Datalog:**
+`$graphLookup` performs one fixed search per document, so, as with Neo4j, the three mode files hold
+the same pipeline.
 
-```prolog
-depth(ID, Level) :- root(ID), Level = 0.
-depth(ID, Level) :- depth(Parent, Level - 1), child(ID, Parent).
+## Placeholders
 
-same_gen(X, Y) :- depth(X, L), depth(Y, L), X < Y.
-```
+| Placeholder | Replaced by | Used by |
+| --- | --- | --- |
+| `{data_file}` | the input file (for Neo4j, its name in the import directory) | DuckDB, Neo4j |
+| `{output_file}` | the result file | DuckDB, Neo4j |
+| `?<name>` | the value of `<name>` in the input's `queries_<n>.csv` (header `X`) | DuckDB, Neo4j |
 
----
+The server databases receive the same bindings in `config['query_bindings']`, and the logic systems
+get their input and output paths from their connectors.
 
-### Domain 4: Reachability with Avoidance
+## When a rule gives a wrong result
 
-Find paths that avoid certain "forbidden" nodes.
+The campaign engine checks every result against the closure computed in Python, so a wrong rule shows
+up as `"correct": false` in `runs.jsonl`. The usual causes are these:
 
-**SQL:**
+1. `UNION ALL` where `UNION` is meant, which repeats pairs on graphs with several paths between two
+   nodes and never ends on a cycle;
+2. a recursive term that joins the wrong columns, which computes some other relation;
+3. an engine-specific limit that ends the recursion early without an error, as MariaDB's temporary
+   tables and DuckDB's double recursion did in 2026 ([SYSTEMS.md](SYSTEMS.md)).
 
-```sql
-WITH RECURSIVE reach AS (
-    SELECT x, y FROM edge WHERE y NOT IN (select forbidden_node from forbidden_nodes)
-    UNION ALL
-    SELECT reach.x, edge.y FROM reach JOIN edge ON reach.y = edge.x
-    WHERE edge.y NOT IN (select forbidden_node from forbidden_nodes)
-)
-SELECT x, y FROM reach;
-```
-
-**Datalog:**
-
-```prolog
-reachable(X, Y) :- edge(X, Y), \+ forbidden(Y).
-reachable(X, Z) :- reachable(X, Y), edge(Y, Z), \+ forbidden(Z).
-```
-
----
-
-## Debugging Tips
-
-### Rule not producing output?
-
-1. **Check file extension**: Must match `rule_extension` in descriptor
-2. **Check file naming**: Must be `{domain}_{mode}{extension}`
-3. **Verify syntax**: Run `python transitive.py --validate-rules {system}`
-4. **Test with simple data**: Use small test files first
-
-### Query runs but gives wrong result?
-
-1. **Check UNION vs UNION ALL**: UNION removes duplicates
-2. **Check recursion termination**: Add depth limits if infinite loop suspected
-3. **Verify base case**: Ensure base query returns expected results
-4. **Test incrementally**: Run base case alone, then add recursion
-
-### Performance issues?
-
-1. **Add indexes**: `CREATE INDEX ON edge(y)` for recursive joins
-2. **Limit recursion depth**: Use `WHERE depth < 100`
-3. **Use materialized views** for intermediate results
-4. **Consider rewriting**: Some patterns are inherently slower in certain systems
-
----
-
-## Testing a Rule Locally
-
-Before running the benchmark, test your rule:
-
-```sh
-# For SQL systems, use direct client:
-psql -U user -d benchmark -f systems/postgres/rules/transitive_right_recursion.sql
-
-# For Datalog/Clingo:
-clingo systems/clingo/rules/transitive_right_recursion.lp 0
-
-# For Neo4j (via cypher-shell):
-cypher-shell < systems/neo4j/rules/transitive_right_recursion.cypher
-```
-
----
-
-**Next**: See [EXTENSION_GUIDE.md](EXTENSION_GUIDE.md) for full system/domain setup instructions.
+A single result can be checked by hand with
+`python -m engine.verify input/souffle/<graph>/<n>/edge.facts <result file>`, and a rule file's syntax
+with `python transitive.py --test-rule <file>`.

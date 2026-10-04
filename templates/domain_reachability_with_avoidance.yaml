@@ -42,11 +42,10 @@ example_rules:
   sql: |
     WITH RECURSIVE reach AS (
       SELECT x, y FROM edge WHERE x = ?source AND y NOT IN ?forbidden_nodes
-      UNION ALL
+      UNION
       SELECT reach.x, edge.y
       FROM reach
       JOIN edge ON reach.y = edge.x
       WHERE edge.y NOT IN ?forbidden_nodes
-        AND reach.x < reach.y
     )
     SELECT x, y, true AS valid_path_exists FROM reach;

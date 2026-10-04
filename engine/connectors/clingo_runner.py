@@ -22,7 +22,7 @@ def _estimate_os_times(
 
 
 def main():
-    """Load the rules and facts, ground, solve, write every model, and print the phase times."""
+    """Load the rules and facts, ground, solve, write the shown atoms as pairs, and print the phase times."""
     if len(sys.argv) < 4:
         print("Usage: clingo_runner.py <rule_path> <input_path> <output_file>")
         sys.exit(1)
@@ -34,7 +34,7 @@ def main():
     import clingo
 
     ctl = clingo.Control()
-    models: list[str] = []
+    models: list[list] = []
 
     t0 = os.times()
     ctl.load(rule_path)
@@ -53,14 +53,16 @@ def main():
 
     ctl.configuration.solve.models = '0'
     t0 = os.times()
-    ctl.solve(on_model=lambda m: models.append(str(m)))
+    ctl.solve(on_model=lambda m: models.append(m.symbols(shown=True)))
     t1 = os.times()
     solve_real, solve_cpu = _estimate_os_times(t0, t1)
 
     t0 = os.times()
+    # one pair per line, "x,y", the format engine/verify.py reads (the shown atoms are path(x, y))
     with open(output_file, 'w', newline='', encoding='utf-8') as f:
         for model in models:
-            f.write(model + '\n')
+            for atom in model:
+                f.write(','.join(str(a) for a in atom.arguments) + '\n')
     t1 = os.times()
     write_real, write_cpu = _estimate_os_times(t0, t1)
 

@@ -3,9 +3,7 @@ display_name: Logic Programming Engine (Template)
 category: logic
 description: Template for logic programming systems (Clingo, XSB, Soufflé, etc.)
 
-protocol:
-  subprocess # For external CLI tools like XSB, Soufflé
-  # Change to: clingo_python | etc. for Python-bound engines
+protocol: subprocess # XSB; or souffle_subprocess, clingo_python, alda_subprocess
 
 timing_phases:
   - id: load_facts
@@ -15,7 +13,7 @@ timing_phases:
   - id: write_result
     label: WriteResult
 
-input_format: lp # lp = Datalog/ASP, facts = fact file, pickle
+input_format: lp # lp: Prolog/ASP facts; facts: Souffle's edge.facts; pickle: ALDA
 modes:
   - right_recursion
   - left_recursion
@@ -24,15 +22,9 @@ modes:
 # For verified runs with benchmark.py (docs/EXTENSION_GUIDE.md#making-a-system-ready-for-verified-runs):
 query_phase: execute_query  # id of the timing phase that is the query itself
 # result_file: <name>_results.csv  # file the connector writes the result to (checked after every run)
-rule_extension: .lp # Change to: .da (Alda) | .pl (Prolog) | etc.
+rule_extension: .lp # .P (XSB), .dl (Souffle), .da (ALDA)
 
 flags:
   requires_credentials: false
-  # Subprocess systems often need an executable path
 
-execution:
-  # For subprocess systems, specify how to invoke the engine:
-  # executable: /path/to/xsb              # or 'clingo', 'soufflé', 'alda'
-  # timeout_seconds: 300
-  # environment_vars:
-  #   MY_VAR: value
+execution: {} # passed to the connector as config['execution']; the shipped connectors find their binaries on PATH

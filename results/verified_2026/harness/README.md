@@ -1,17 +1,21 @@
-# Harness changes used for the 2026 campaign
+# Harness of the first 2026 campaign
 
-The campaign ran on upstream `main` at commit 92ecc775 (the original harness, with `analyze_dbs.py`
-and `analyze_logic_systems.py`), plus the commits in this directory, applied in file-name order
-(the file names are the commit subjects). The patches are the output
-of `git format-patch` and apply with `git am` on 92ecc775. Patches 0006 and 0007 are not included:
-they only added the scale-free/Barabási-Albert input files (about 90 MB of diff), which
-`generate_db.py` regenerates byte for byte (`scripts/verify_inputs.py`, `input/SHA256SUMS`). The
-15 patches apply cleanly without them and give exactly the code that produced the records:
+The first verified campaign ran on upstream `main` at commit 92ecc775, the original harness with
+`analyze_dbs.py` and `analyze_logic_systems.py`, together with the commits stored here as patches.
+The patches were written by `git format-patch`; their file names are the commit subjects, and they
+are applied in the order of those names.
+
+Patches 0006 and 0007 are left out. They only added the input files of the scale-free and
+Barabási-Albert graphs, about 90 MB of diff, and `generate_db.py` writes the same files byte for
+byte (`scripts/verify_inputs.py` checks them against `input/SHA256SUMS`). The other 15 patches apply
+cleanly without them and give the exact code that produced the records:
 
 ```sh
-cp -R results/verified_2026/harness /tmp/harness-2026   # this directory does not exist at 92ecc775
+cp -R results/verified_2026/harness /tmp/harness-2026   # the directory does not exist at 92ecc775
 git checkout -b rerun-2026 92ecc775
 git am /tmp/harness-2026/*.patch
 ```
 
-How each change maps to the current code: [docs/REPRODUCING.md](../../../docs/REPRODUCING.md#harness-used-in-2026-and-how-it-maps-to-this-code).
+The copy is needed because `git checkout` removes this directory. How each change appears in the
+present code is described in
+[docs/REPRODUCING.md](../../../docs/REPRODUCING.md#the-2026-harness-and-where-its-changes-live-now).

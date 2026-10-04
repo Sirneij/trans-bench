@@ -1,23 +1,28 @@
-// Cypher Template: Right Recursion (Neo4j)
-// Description: Neo4j pattern matching for transitive closure
-// Execution model: Index-aware traversal with variable-length paths
+// Template: transitive closure in Cypher, for Neo4j.
 //
-// How to use this template:
-// 1. Neo4j imports data as nodes and relationships
-// 2. Pattern: (source)-[:EDGE*..N]->(target) matches paths of up to N hops
-// 3. Adjust ..100 to limit recursion depth (prevents runaway queries)
-// 4. Use APOC procedures for additional capabilities if installed
+// The statements are separated by semicolons, so no comment may contain one. All statements but the
+// last two prepare the graph, the second to last is the timed query, and the last exports the
+// result. The connector replaces {data_file} and {output_file}. The pattern [:EDGE*1..] has no upper
+// bound, since a bound would leave out the pairs joined only by longer paths. Cypher has one
+// formulation of the closure, so the files of the three modes are the same.
 
-MATCH (start)-[:EDGE*..100]->(end)
-WHERE start <> end  // Exclude self-loops if not desired
-RETURN DISTINCT start, end
-ORDER BY start, end;
+MATCH (n) DETACH DELETE n;
 
-// Alternative with aggregation (count reachability stats):
-// MATCH (start)-[:EDGE*..100]->(end)
-// WHERE start <> end
-// RETURN 
-//   start,
-//   COUNT(DISTINCT end) AS reachable_count,
-//   COLLECT(end) AS reachable_nodes
-// ORDER BY start;
+LOAD CSV FROM "file:///{data_file}" AS line FIELDTERMINATOR '\t'
+MERGE (a:Node {id: toInteger(line[0])})
+MERGE (b:Node {id: toInteger(trim(line[1]))})
+CREATE (a)-[:EDGE]->(b);
+
+CREATE INDEX IF NOT EXISTS FOR (n:Node) ON (n.id);
+
+MATCH (start:Node)-[:EDGE*1..]->(end:Node)
+WITH DISTINCT start.id AS x, end.id AS y
+RETURN count(*) AS pairs;
+
+CALL apoc.export.csv.query(
+    "MATCH (start:Node)-[:EDGE*1..]->(end:Node) RETURN DISTINCT start.id AS x, end.id AS y",
+    "{output_file}",
+    {}
+)
+YIELD file, nodes, relationships, properties, time, rows, batchSize, batches, done, data
+RETURN file, rows;

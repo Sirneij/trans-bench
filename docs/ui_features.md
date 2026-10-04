@@ -1,81 +1,137 @@
-# Web UI
+# Web interface
 
-`python transitive.py --ui` (add `--ui-port 5055` on macOS, where AirPlay Receiver uses port 5000) serves the UI from
-`ui/app.py`. Templates are in `ui/templates/`, the design system in `ui/static/css/app.css` (colour, type, spacing and
-motion tokens with light and dark values) and the shared behaviour in `ui/static/js/app.js` (`window.TB`). Data shaping
-for the pages lives in `ui/data.py`.
+The web interface is started with `python transitive.py --ui`. On macOS, `--ui-port 5055` should be
+added, since AirPlay Receiver already listens on port 5000. The application is built in `ui/app.py`
+from four groups of views: `ui/pages.py` (landing page, overview, systems and topologies),
+`ui/results.py` (campaigns and the results explorer), `ui/experiments.py` (the wizard and the live
+monitor) and `ui/editing.py` (every view that writes a file). The data each page needs is prepared in
+`ui/data.py` and `ui/site.py`, while the templates are in `ui/templates/`, the design tokens (colour, type,
+spacing and motion, with light and dark values) in `ui/static/css/app.css`, and the shared scripts in
+`ui/static/js/app.js`.
 
-## Overview (`/`)
+A campaign started from the interface runs on the same engine as `benchmark.py` and
+`transitive.py --campaign` (`engine/campaign.py`). Hence a run started with the Start button gives the
+same `runs.jsonl` records as one started from a terminal, and either can be resumed from the other.
 
-- **Closure flow** (`ui/static/js/flow.js`): a live drawing of what the suite measures. From a source node the reachable
-  set grows one breadth-first wave at a time (the iterations of a semi-naive evaluation): pulses run along the edges,
-  reached nodes light up and the pairs the closure adds arc in. Hovering a node starts a wave from it.
-- **Fastest at the largest graphs**: from the latest analyzed campaign, for each structured topology with left and
-  right recursion at its largest n, the fastest completed system wins (`ui/data.py` `leaderboard`); each row has a
-  sparkline of the geometric mean time over topologies as n grows.
-- The latest campaign's verified share, and every topology, whose closure appears on hover.
+## Landing page (`/`)
 
-## Verified campaigns (`/campaigns`)
+The landing page introduces the suite to a first-time reader, and every drawing on it is computed
+from data. In the hero, breadth-first waves spread from one start node over a random graph, in the way
+a semi-naive evaluation adds the pairs of each iteration; a counter beside the rule `tc(X, Z) :-
+tc(X, Y), e(Y, Z)` reports the pairs derived so far. Further down the page, the following sections
+appear as they are scrolled into view:
 
-A campaign is a directory `results/<name>/` with one `<series>/runs.jsonl` per system, written by `benchmark.py`, and
-the `analysis/` that `analyze_verified.py` produces from it. Each campaign page has:
+1. how a closure grows, where a small fixed graph is evaluated pair by pair next to the closure
+   drawn as a matrix;
+2. the fourteen topologies, each drawn from its own generator and linked to its page;
+3. a race on the complete, cycle, path or grid graph at its largest size in the latest analyzed
+   campaign, where bars grow on a log-scale clock until each system's mean query time, and a system
+   that failed is shown with the size where it first failed;
+4. the verification figures: runs executed, results checked, the wrong results found, and the
+   failures by kind;
+5. a short account of the engine that the site and the command line share.
 
-- **Overview**: runs executed, completed, failed (by kind: timeout, out of memory, unsupported, iteration limit, error)
-  and skipped after a failure, per series; whether every completed run returned the correct closure
-  (`verification.json`), cross-system agreement on the scale-free and Barabási–Albert graphs, and the captured versions.
-- **Race**: a bar race through the graph sizes for one topology and mode. Bars are mean times on one log scale
-  for all n, systems re-sort as n grows, and a system that timed out or ran out of memory hits the limit and stays out,
-  with the size where it failed.
-- **Scaling**: mean time or memory against n for one topology and mode, one curve per system in its paper colour and
-  marker, failures drawn as ✕ at the time limit, legend in the order the curves end (`engine/plot_style.py`).
-- **Matrix**: a heat map of every topology × system at one size (or every size × system for the scale-free and
-  Barabási–Albert graphs), log-scaled, with TO/OOM/unsupported cells, skipped cells marked with their cause, the fastest
-  system per row outlined and incorrect results flagged. Clicking a cell opens its curve.
-- **Figures**: the matplotlib and pgfplots PDFs of the paper, rendered with pdf.js, with a keyboard-navigable viewer.
-- **Failures**: `failures.csv`, filterable by kind and text, sortable, with the full error message on click.
-- **Files**: README, versions, pip freeze, the code patch the campaign ran with (as a diff), `summary.csv`,
-  `failures.csv`, `verification.json` and the LaTeX tables.
+The page has its own template (`landing.html`), style sheet (`landing.css`) and script (`landing.js`).
+With `prefers-reduced-motion`, each drawing shows its final state at once.
 
-JSON behind these views: `/api/campaigns/<name>/matrix` and `/api/campaigns/<name>/series`.
+## Overview (`/overview`)
 
-## Experiments started from the UI
+The overview is the working home of the interface. It shows the fastest systems at the largest
+graphs of the latest campaign (the fastest completed system for each structured topology, with left
+and right recursion), the outcome and verification of that campaign, the topologies with their edge
+and closure counts, the registered systems, and the commands that start a campaign from a terminal.
 
-- **New experiment** (`/experiment/new`): systems → topologies (each with a drawing) → settings (domain, modes, sizes,
-  runs) → review. The review shows the number of runs and the equivalent `transitive.py` command, and a `benchmark.py`
-  loop for a verified campaign. Links from a system or topology page preselect it (`?systems=`, `?graphs=`).
-- **Live monitor** (`/experiment/live`): progress ring, elapsed and remaining time, the configuration being run,
-  configurations finished per system, a mosaic with one tile per configuration (system × topology × size × mode) that
-  pulses while it runs and takes a colour by its duration when it finishes, and the output stream with level filters,
-  search, follow, download and clear. The stream replays the run from its start (`/experiment/stream` with
-  Last-Event-ID), so any number of pages can follow it and a page opened late shows everything.
-  **Stop** ends the run after the configuration that is running (`ExperimentRunner(should_stop=...)`).
-- **Results explorer** (`/results`): the timing CSVs of `transitive.py` runs. Compare systems phase by phase (stacked
-  bars per mode) or as a trend of one phase, in real time, CPU time or memory; open a file to see each run and the
-  average.
+## Campaigns (`/campaigns`)
 
-## Configuration
+A campaign is a directory `results/<name>/` with one `<series>/runs.jsonl` per system and the
+`analysis/` that `analyze_verified.py` writes from those records. Each campaign page has seven tabs.
 
-- **Systems** (`/systems`, `/systems/<name>`): connector, detected version, modes and credential status; the timing
-  phases with the one reported as query time highlighted; editors for `descriptor.yaml` (validated before saving), the
-  rule files and `credentials.yaml` (hidden until revealed). ⌘S saves; unsaved editors are marked and guarded.
-- **Topologies** (`/graphs`, `/graphs/<name>`): every graph family drawn from its own generator. Each topology page is
-  a closure lab:
-  - *Fixpoint* plays the evaluation iteration by iteration, drawing the pairs each iteration adds, with a histogram of
-    new pairs per iteration. *Linear* (T ∘ E, left or right recursion) adds the pairs whose shortest path has k edges at
-    iteration k; *doubling* (T ∘ T, double recursion) doubles the path length per iteration, so it needs about
-    log₂ of the longest shortest path; both iteration counts are shown side by side.
-  - *Reach* lights up, wave by wave, everything a node reaches (its rows of the closure); nodes on a cycle reach
-    themselves.
-  - The size n can be changed; the definition (KaTeX) and the generator's source are below.
-- **Register a system**, **Add a topology**, **Domains**: forms that bootstrap a system from an existing one, a graph
-  descriptor (with a generator stub to implement) or a query domain from a template.
+| Tab | Content |
+| --- | --- |
+| Overview | runs executed, completed, failed by kind (timeout, out of memory, unsupported, iteration limit, error) and skipped after a failure, per series; whether every completed result was correct; agreement between systems on the scale-free and Barabási-Albert graphs; the captured versions |
+| Race | a bar race through the sizes of one topology and mode, on one log scale for all n; a system that fails stops at the time limit, with the size where it failed |
+| Scaling | mean time or memory against n, one curve per system in its paper colour and marker, failures drawn at the time limit |
+| Matrix | a heat map of every topology and system at one size (or every size and system for the two random families), with failed, skipped and incorrect cells marked; a click opens the curve |
+| Figures | the matplotlib and pgfplots PDFs of the paper, shown with pdf.js |
+| Failures | `failures.csv`, filtered by kind or text and sorted by any column |
+| Files | README, versions, pip freeze, the code patch the campaign ran with, `summary.csv`, `failures.csv`, `verification.json` and the LaTeX tables |
 
-## Interaction
+The Matrix and Scaling tabs read `/api/campaigns/<name>/matrix` and `/api/campaigns/<name>/series`.
+The legend of every chart lists the systems in the order in which their curves end
+(`engine/plot_style.py`), as in the paper.
 
-- ⌘K or `/` opens a command palette (pages, actions, systems, topologies, campaigns); `g` then `d`/`s`/`t`/`c`/`r`/`l`
-  jumps to a page, `n` starts a new experiment, `t` cycles the theme (system, light, dark).
-- Confirmations and messages are in-page dialogs and toasts; the top bar shows when an experiment is running.
-- Motion respects `prefers-reduced-motion`. Pages morph into each other where they share an element (a topology's
-  drawing, a system's mark, a campaign's title); sections rise in as they scroll into view; cards carry a light that
-  follows the pointer; switching the theme grows the new theme as a circle from the switch; a thin bar shows a page
-  loading. The layout works down to phone width, with the navigation in a drawer.
+## Results explorer (`/results`)
+
+This page reads the timing files of every campaign. On the left, a tree is ordered by campaign,
+series, topology and mode, with one leaf per size; it is sent to the browser as JSON and built only
+when a branch is opened, which keeps the page small even for the 2026 campaigns. A leaf opens the
+phases of each run and their mean. The Compare tab sets systems against one another, either phase by
+phase as stacked bars or as the trend of one phase over n, in real time, CPU time or memory.
+
+## Starting a campaign
+
+The wizard (`/experiment/new`) asks four questions in turn: the systems, the topologies (each with
+its drawing), the settings (domain, query mode, modes, sizes, number of runs, campaign name and time
+limit per run), and a review. At the end, the review gives the number of runs and the equivalent `transitive.py`
+and `benchmark.py` commands. A link from a system or topology page selects that system or topology in
+advance (`?systems=` or `?graphs=`).
+
+The live monitor (`/experiment/live`) follows the campaign while it runs. It shows a progress ring,
+the elapsed and remaining time, the configuration being run, the configurations finished per system,
+and a mosaic with one tile per configuration (system, topology, size and mode). A tile pulses while
+its configuration runs and then takes the colour of its outcome: a shade from fast to slow if it
+completed, or the mark of a failure, a skip or an unsupported mode. Below the mosaic is the output of
+the engine, with filters by level, search, follow, download and clear. The stream is replayed from
+the start of the campaign (`/experiment/stream` with `Last-Event-ID`), so a page opened late shows
+everything, and several pages can follow one campaign. Stop ends the run in progress at once; that run
+is not recorded, and the same campaign resumes from it.
+
+## Systems and topologies
+
+On a system's page (`/systems/<name>`) the connector, the detected version, the supported modes and
+the state of the credentials are shown, together with the timing phases, among which the phase
+reported as query time is marked. The descriptor, the rule files and `credentials.yaml` can be edited
+there; a descriptor is validated before it is saved, the credentials stay hidden until they are
+revealed, and ⌘S saves the open editor.
+
+Each topology page (`/graphs/<name>`) is a small laboratory for the closure. The fixpoint view plays
+the evaluation one iteration at a time, with a histogram of the pairs each iteration adds. Linear
+recursion (left or right) adds at iteration k the pairs whose shortest path has k edges, while double
+recursion doubles the path length per iteration and so needs about log₂ of the longest shortest
+path; both counts are shown. The reach view lights up everything one node reaches, wave by wave. The
+size can be changed, and the definition of the family and the source of its generator are given
+below the drawing.
+
+New systems, topologies and query domains are registered from `/systems/new`, `/graphs/new` and
+`/domains/new`. Each form copies a template or an existing entry, so that only the differences have
+to be written.
+
+## Read-only mode
+
+On a public deployment, the interface runs read-only. This mode is set by `TRANS_BENCH_READ_ONLY=1`,
+which the Docker image defines, and it is also turned on wherever `RAILWAY_PROJECT_ID` is defined,
+that is, on Railway. In this mode:
+
+- every request that would write a file or start a run is refused with status 403;
+- the validation endpoints, which would connect to the databases, are refused as well;
+- credentials are never sent to the browser;
+- a banner on every page says that the copy only shows the published campaigns, and that
+  benchmarks are run from a clone of the repository.
+
+The one POST that stays open is `/api/compare/trends`, which only reads; its body carries the
+selection. Every response carries the headers `X-Content-Type-Options`, `X-Frame-Options` and
+`Referrer-Policy`, and `/healthz` answers the health check of the platform. The deployment itself is
+described in the README.
+
+## Keyboard and motion
+
+⌘K or `/` opens a command palette with the pages, actions, systems, topologies and campaigns. The
+key `g` followed by `h`, `d`, `s`, `t`, `c`, `r` or `l` opens the landing page, the overview, the
+systems, the topologies, the campaigns, the results explorer or the live monitor; `n` starts a new
+campaign, and `t` cycles through the themes (system, light, dark). Confirmations and messages appear
+inside the page, and the top bar shows when a campaign is running.
+
+Pages that share an element, such as the drawing of a topology or the title of a campaign, change
+into each other with a view transition, and sections rise into place as they are scrolled into view.
+All of this motion is dropped under `prefers-reduced-motion`. The layout works down to the width of
+a phone, where the navigation moves into a drawer.

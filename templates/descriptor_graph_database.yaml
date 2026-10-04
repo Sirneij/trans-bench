@@ -3,7 +3,7 @@ display_name: Graph Database (Template)
 category: db
 description: Template for graph-native database systems (Neo4j, etc.)
 
-protocol: neo4j # Change to: pymongo | etc.
+protocol: neo4j # or pymongo; the protocols are listed in engine/connectors/__init__.py
 
 timing_phases:
   - id: load_data
@@ -24,11 +24,10 @@ modes:
 # For verified runs with benchmark.py (docs/EXTENSION_GUIDE.md#making-a-system-ready-for-verified-runs):
 query_phase: execute_query  # id of the timing phase that is the query itself
 # result_file: <name>_results.csv  # file the connector writes the result to (checked after every run)
-rule_extension: .cypher # Change to: .js (MongoDB) | etc.
+rule_extension: .cypher # .py for MongoDB, whose rule files are Python classes
 
 flags:
   requires_credentials: true
   supports_transactions: true
 
-execution:
-  # Graph DB specific options can go here
+execution: {} # passed to the connector as config['execution']; no shipped connector reads it

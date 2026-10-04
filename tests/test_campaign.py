@@ -168,3 +168,17 @@ class TestRun:
         runs_file = tmp_path / 'camp' / 'duckdb' / 'runs.jsonl'
         assert not runs_file.exists() or runs_file.read_text() == ''
         assert any(e['type'] == 'log' and 'Stopped on request' in e['message'] for e in events)
+
+
+def test_clingo_results_are_verified(tmp_path):
+    """Clingo's runner writes one "x,y" pair per line, so its results can be checked like the others."""
+    pytest.importorskip('clingo')
+    spec = _spec(
+        tmp_path, systems=['clingo'], graphs=['cycle'], modes=['left_recursion', 'double_recursion'], sizes=[10], runs=1
+    )
+    Campaign(spec).run()
+    recs = _records(tmp_path / 'camp' / 'clingo' / 'runs.jsonl')
+    assert [(r['mode'], r['status'], r['correct']) for r in recs] == [
+        ('left_recursion', 'ok', True),
+        ('double_recursion', 'ok', True),
+    ]

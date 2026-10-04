@@ -1,27 +1,17 @@
--- SQL Template: Left Recursion (bottom-up build)
--- Description: Recursive query that builds results by accumulating predecessors
--- Recursion direction: Z → Y → X (backward chaining)
--- 
--- How to use this template:
--- 1. This pattern is less common in SQL but useful for some analytical queries
--- 2. Ensure your 'edge' table has columns (x, y) with appropriate types
--- 3. This builds the transitive closure by finding all nodes that can reach each target
+-- Template: transitive closure with left recursion, in SQL.
+--
+-- The recursive term extends every known path by one edge at its end, as in the rule
+-- path(X, Y) :- path(X, Z), edge(Z, Y). UNION, not UNION ALL, removes the duplicates of every
+-- iteration, so the query also ends on graphs with cycles.
+--
+-- For DuckDB, a rule file is a whole script, one statement per timing phase (systems/duckdb/rules/).
+-- For PostgreSQL, MariaDB and CockroachDB, the statement below is the body of run_recursive_query()
+-- in a Python class (systems/postgres/rules/). The table edge has the columns x and y.
 
-CREATE TEMP TABLE tc_result AS
+CREATE TABLE tc_result AS
 WITH RECURSIVE tc AS (
-    -- Base case: all direct edges
-    SELECT x, y
-    FROM edge
-    
-    UNION ALL
-    
-    -- Recursive case: find predecessors
-    -- For each reachable node, add all nodes that can reach it
-    SELECT edge.x, tc.y
-    FROM edge
-    JOIN tc ON edge.y = tc.x
+    SELECT x, y FROM edge
+    UNION
+    SELECT tc.x, edge.y FROM tc JOIN edge ON tc.y = edge.x
 )
-SELECT x, y FROM tc;
-
--- Validation: Count reachable pairs
-SELECT COUNT(*) AS reachable_pairs FROM tc_result;
+SELECT * FROM tc;

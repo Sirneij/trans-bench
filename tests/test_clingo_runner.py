@@ -42,8 +42,10 @@ def test_clingo_runner_main(mock_open, mock_control, mock_times, tmp_path):
 
     # Mock solve callback execution
     def mock_solve(on_model):
+        atom = MagicMock()
+        atom.arguments = [1, 2]
         model = MagicMock()
-        model.__str__.return_value = "path(1,2)"
+        model.symbols.return_value = [atom]
         on_model(model)
 
     ctl.solve.side_effect = mock_solve

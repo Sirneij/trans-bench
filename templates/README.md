@@ -1,129 +1,86 @@
-# Bootstrap Templates
+# Templates
 
-This folder contains reusable **templates** for quickly extending Trans-Bench. Templates are starting points — copy, customize, and deploy.
+This directory holds the starting points for a new system, query domain or rule file. A template
+only saves typing: the quickest way to add a server that speaks a protocol the suite already
+supports is still to copy a shipped system, as [docs/EXTENSION_GUIDE.md](../docs/EXTENSION_GUIDE.md)
+explains. `python transitive.py --list-templates` lists the files below.
 
-## How to use templates
+## System descriptors
 
-### 1. System descriptors
+| Template | Starting point for | Protocol in the template |
+| --- | --- | --- |
+| `descriptor_sql_database.yaml` | a relational server whose rule files are Python classes | `psycopg2` |
+| `descriptor_graph_database.yaml` | a graph or document database | `neo4j` |
+| `descriptor_logic_engine.yaml` | a logic system run as a separate program | `subprocess` |
 
-Choose a descriptor template based on your system type:
-
-```sh
-# For SQL-based systems
-cp templates/descriptor_sql_database.yaml systems/my_system/descriptor.yaml
-edit systems/my_system/descriptor.yaml  # Customize name, protocol, etc.
-
-# For graph databases
-cp templates/descriptor_graph_database.yaml systems/my_graph_db/descriptor.yaml
-
-# For logic engines
-cp templates/descriptor_logic_engine.yaml systems/my_logic_engine/descriptor.yaml
-```
-
-### 2. Query rule templates
-
-Copy and modify rule templates:
+A new system directory is created from one of them with
 
 ```sh
-# For SQL right-recursion
-cp templates/rule_template_sql_right_recursion.sql systems/my_system/rules/transitive_right_recursion.sql
-
-# For Datalog
-cp templates/rule_template_datalog_right_recursion.lp systems/my_system/rules/transitive_right_recursion.lp
-
-# For Neo4j Cypher
-cp templates/rule_template_cypher_right_recursion.cypher systems/my_system/rules/transitive_right_recursion.cypher
+python transitive.py --bootstrap-system my_db --bootstrap-system-template descriptor_sql_database.yaml
 ```
 
-### 3. Domain templates
+which writes `systems/my_db/descriptor.yaml`, with `name` set to `my_db`, and an empty `rules/`
+directory. The Register a system page of the web interface does the same. The descriptor is written
+back through PyYAML, so the comments of the template are not copied; they remain here for
+reference. The fields that usually change are these:
 
-Create multi-domain benchmarks:
+- `display_name`, the name shown in tables, figures and the interface;
+- `protocol`, which selects the connector, among those registered in
+  `engine/connectors/__init__.py`;
+- `timing_phases` and `query_phase`, the phases the connector times and the one reported as the
+  query time;
+- `result_file`, the file the connector writes the result to, which the engine checks after every
+  run;
+- `rule_extension`, and for the relational servers `class_prefix` and `module_prefix` under `flags`.
+
+## Rule files
+
+The rule templates compute the transitive closure correctly; each was checked against a closure
+computed in Python on a graph with cycles. A rule file of a system is named
+`<domain>_<mode><extension>`, so a template must be renamed when it is copied:
 
 ```sh
-# Copy a domain descriptor
-cp templates/domain_shortest_path.yaml domains/shortest_path/descriptor.yaml
-
-# Create rule files for each system
-for system in postgres mysql neo4j; do
-  mkdir -p systems/$system/rules/shortest_path
-  cp templates/rule_template_sql_right_recursion.sql systems/$system/rules/shortest_path_iterative_deepening.sql
-done
+cp templates/rule_template_sql_left_recursion.sql systems/my_db/rules/transitive_left_recursion.sql
 ```
 
-## Template files reference
+| Template | Content |
+| --- | --- |
+| `rule_template_sql_left_recursion.sql` | the recursive common table expression with left recursion |
+| `rule_template_sql_right_recursion.sql` | the same with right recursion |
+| `rule_template_datalog_right_recursion.lp` | the two rules of right recursion for Clingo, with `#show path/2` |
+| `rule_template_cypher_right_recursion.cypher` | the complete Neo4j script: clear, load, index, timed query and export |
 
-### System Descriptors
+The SQL templates hold only the statement that builds `tc_result`. For DuckDB, that statement goes
+into a script like those in `systems/duckdb/rules/`, where every statement is one timing phase. On
+the servers that use Python classes, it becomes the body of `run_recursive_query()`, as in
+`systems/postgres/rules/`. Both SQL templates use `UNION`. With `UNION ALL`, the query would repeat
+pairs on graphs with several paths between two nodes and would never end on a cycle.
+[docs/RULES.md](../docs/RULES.md) shows the shipped rule file of every language and explains the
+three modes.
 
-- `descriptor_sql_database.yaml` — PostgreSQL, MySQL, CockroachDB, DuckDB
-- `descriptor_graph_database.yaml` — Neo4j, Memgraph
-- `descriptor_logic_engine.yaml` — XSB, Clingo, Soufflé, Alda
+## Query domains
 
-### Query Rule Templates
-
-- `rule_template_sql_right_recursion.sql` — Standard SQL recursive CTE (top-down)
-- `rule_template_sql_left_recursion.sql` — Backward-chaining SQL pattern
-- `rule_template_datalog_right_recursion.lp` — Datalog/Clingo/Soufflé forward chaining
-- `rule_template_cypher_right_recursion.cypher` — Neo4j pattern matching
-
-### Domain Templates
-
-- `domain_shortest_path.yaml` — Multi-source shortest path computation
-- `domain_reachability_with_avoidance.yaml` — Constrained reachability queries
-
-## Customization guide
-
-### When editing a descriptor
-
-Look for these common changes:
-
-| Field            | Typical Changes                                                                                                      |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `name`           | Keep as-is (matches directory name)                                                                                  |
-| `display_name`   | Change to your system's actual name                                                                                  |
-| `protocol`       | Pick from: `psycopg2`, `mysqlclient`, `duckdb`, `neo4j`, `pymongo`, `subprocess`, `clingo_python`, `alda_subprocess` |
-| `timing_phases`  | Usually pre-configured; add/remove based on your system's workflow                                                   |
-| `rule_extension` | `.sql` (SQL), `.cypher` (Neo4j), `.lp` (Datalog), `.da` (Alda), `.pl` (Prolog)                                       |
-| `modes`          | Keep standard: `right_recursion`, `left_recursion`, `double_recursion`                                               |
-| `flags`          | System-specific behavior flags (rarely needs change)                                                                 |
-
-### When editing a rule template
-
-1. **Parameter substitution**: Replace `?source` with actual parameter names used in your system
-2. **Table names**: Change `edge`, `tc_result` to match your schema
-3. **Data types**: Adjust `INT`, `FLOAT` to match your system's types
-4. **Recursion depth**: Adjust limits (e.g., `..100` in Cypher) based on dataset size
-
-## Testing your customizations
+`domain_shortest_path.yaml` and `domain_reachability_with_avoidance.yaml` describe two recursive
+queries other than the transitive closure: their parameters, output columns, modes and data needs,
+with an example rule in SQL (and in Datalog for the shortest path). A domain is created from one of
+them with
 
 ```sh
-# Validate all descriptors in a system
-python transitive.py --validate-rules my_system
-
-# Test a specific rule
-python transitive.py --test-rule systems/my_system/rules/transitive_right_recursion.sql
-
-# Run a quick benchmark
-python transitive.py --systems my_system --graphs cycle --sizes 10 11 1 --num-runs 1
+python transitive.py --bootstrap-domain shortest_path --bootstrap-domain-template domain_shortest_path.yaml
 ```
 
-## Getting help
+No system ships rule files for these domains yet, and for the shortest path the engine does not yet
+find the weighted input that `generate_db.py` writes. [docs/EXTENSION_GUIDE.md](../docs/EXTENSION_GUIDE.md) describes
+what remains to be done for such a domain.
 
-If a template doesn't fit your use case:
+## Checking a new system
 
-1. Check [EXTENSION_GUIDE.md](../EXTENSION_GUIDE.md) for detailed instructions
-2. Review existing systems in `systems/` for real-world examples
-3. Open an issue with your use case — we'll add templates as needed
-
----
-
-**Pro tip**: Keep your customizations organized. Name rule files clearly:
-
-```
-rules/
-├── transitive_right_recursion.sql       ← Domain_Mode pattern
-├── transitive_left_recursion.sql
-├── shortest_path_dijkstra_style.sql
-└── reachability_avoid_constrained.sql
+```sh
+python transitive.py --validate-rules my_db
+python transitive.py --test-rule systems/my_db/rules/transitive_left_recursion.sql
+python benchmark.py --systems my_db --graphs cycle path --sizes 10 20 --runs 1 --campaign results/my_db_check
 ```
 
-This makes it easy to find rules later and helps others understand your benchmarks.
+The first command checks the descriptor and that every declared mode has a rule file, the second
+checks the syntax of one rule file, and the third runs a small campaign in which every result is
+compared with the closure computed in Python.

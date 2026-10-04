@@ -466,7 +466,7 @@
     if (typing || e.metaKey || e.ctrlKey || e.altKey || document.querySelector('dialog[open]')) return;
     if (e.key === '/') { e.preventDefault(); palette.open(); return; }
     if (gPending && Date.now() - gPending < 900) {
-      const to = { d: '/', s: '/systems', t: '/graphs', c: '/campaigns', r: '/results', l: '/experiment/live' }[e.key];
+      const to = { h: '/', d: '/overview', s: '/systems', t: '/graphs', c: '/campaigns', r: '/results', l: '/experiment/live' }[e.key];
       gPending = 0;
       if (to) location.href = to;
       return;
