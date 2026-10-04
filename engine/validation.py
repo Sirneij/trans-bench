@@ -1,8 +1,7 @@
 """
-engine/validation.py
+Check rule files and system descriptors for common errors without running a benchmark.
 
-Validation tools for custom rule files and system configurations.
-Checks for common errors without running actual queries.
+transitive.py (--validate-rules, --validate-domain, --test-rule) and the Web UI call these checks.
 """
 
 from __future__ import annotations
@@ -21,6 +20,7 @@ class RuleValidator:
     """Validates rule files and system configurations."""
 
     def __init__(self, base_dir: Path):
+        """Load the descriptors found under `base_dir`."""
         self.base_dir = Path(base_dir)
         from engine.loader import DescriptorLoader
 
@@ -43,6 +43,7 @@ class RuleValidator:
         -------
         bool
             True if all checks pass, False otherwise
+
         """
         log.info(f'Validating system: {system_name}')
 
@@ -68,8 +69,7 @@ class RuleValidator:
 
     def validate_domain(self, domain_name: str, system_names: list[str] | None = None) -> bool:
         """
-        Validate that every (requested) system has rule files for all modes
-        declared in the domain descriptor.
+        Validate that every requested system has rule files for all modes of the domain.
 
         Parameters
         ----------
@@ -82,6 +82,7 @@ class RuleValidator:
         -------
         bool
             True if all checks pass, False otherwise
+
         """
         log.info(f'Validating domain: {domain_name}')
 
@@ -129,6 +130,7 @@ class RuleValidator:
         -------
         bool
             True if all checks pass.
+
         """
         rule_path = Path(rule_path)
         log.info(f'Testing rule file: {rule_path}')
@@ -137,9 +139,9 @@ class RuleValidator:
             log.error(f'  ✗ File not found: {rule_path}')
             return False
 
-        content = rule_path.read_text()
+        content = rule_path.read_text(encoding='utf-8')
         if not content.strip():
-            log.error(f'  ✗ Rule file is empty')
+            log.error('  ✗ Rule file is empty')
             return False
 
         log.info(f'  ✓ File exists ({len(content)} bytes)')
@@ -287,9 +289,9 @@ class RuleValidator:
         lower = content.lower()
         ok = True
         if 'select' not in lower:
-            log.warning('  ⚠ SQL file has no SELECT — is this intentional?')
+            log.warning('  ⚠ SQL file has no SELECT; is this intentional?')
         if 'recursive' in lower and 'union' not in lower:
-            log.warning('  ⚠ WITH RECURSIVE without UNION — recursion may not terminate correctly')
+            log.warning('  ⚠ WITH RECURSIVE without UNION; recursion may not terminate correctly')
         single_count = content.count("'") - content.count("\\'")
         if single_count % 2 != 0:
             log.error("  ✗ Unclosed single-quoted string literal")
@@ -302,7 +304,7 @@ class RuleValidator:
         if not has_rule and not has_fact:
             log.warning('  ⚠ No Datalog rules (:-) or facts found')
         if '#show' not in content and '.output' not in content:
-            log.warning('  ⚠ No output directive (#show or .output) — results may be empty')
+            log.warning('  ⚠ No output directive (#show or .output); results may be empty')
         return True
 
     def _check_cypher(self, content: str) -> bool:
@@ -310,7 +312,7 @@ class RuleValidator:
         if 'match' not in lower:
             log.warning('  ⚠ Cypher file has no MATCH clause')
         if 'return' not in lower:
-            log.warning('  ⚠ Cypher file has no RETURN clause — query may not output anything')
+            log.warning('  ⚠ Cypher file has no RETURN clause; query may not output anything')
         return True
 
     def _check_prolog(self, content: str) -> bool:
@@ -329,7 +331,7 @@ class RuleValidator:
             log.error('  ✗ Unbalanced curly braces')
             ok = False
         if 'function' not in content and '=>' not in content and 'db.' not in content:
-            log.warning('  ⚠ JS file has no function or db. call — may not execute correctly')
+            log.warning('  ⚠ JS file has no function or db. call; may not execute correctly')
         return ok
 
     # ------------------------------------------------------------------
@@ -337,22 +339,23 @@ class RuleValidator:
     # ------------------------------------------------------------------
 
     def _live_dry_run(self, rule_path: Path, content: str, ext: str, system_name: str) -> bool:
+        """Ask a running server to parse the rule (EXPLAIN); systems without such a check pass."""
         descriptor = self.loader.get_system(system_name)
         if descriptor is None:
-            log.warning(f'  ⚠ System "{system_name}" not found — skipping live dry-run')
+            log.warning(f'  ⚠ System "{system_name}" not found; skipping live dry-run')
             return True
 
         protocol = descriptor.protocol
 
         if protocol in ('psycopg2', 'cockroachdb'):
             return self._dry_run_postgres(content, descriptor.credentials)
-        elif protocol == 'duckdb':
+        if protocol == 'duckdb':
             return self._dry_run_duckdb(content, descriptor.credentials)
-        else:
-            log.info(f'  ℹ Live dry-run not supported for protocol "{protocol}" — skipping')
-            return True
+        log.info(f'  ℹ Live dry-run not supported for protocol "{protocol}"; skipped')
+        return True
 
     def _dry_run_postgres(self, content: str, credentials: dict) -> bool:
+        """EXPLAIN the statement in a transaction that is rolled back."""
         try:
             import psycopg2
 
@@ -373,17 +376,17 @@ class RuleValidator:
                 conn.close()
             return result
         except ImportError:
-            log.warning('  ⚠ psycopg2 not installed — skipping PostgreSQL dry-run')
+            log.warning('  ⚠ psycopg2 not installed; skipping PostgreSQL dry-run')
             return True
         except Exception as e:
             log.warning(f'  ⚠ Could not connect to PostgreSQL for dry-run: {e}')
             return True
 
     def _dry_run_duckdb(self, content: str, credentials: dict) -> bool:
+        """EXPLAIN the statement in an in-memory DuckDB database."""
         try:
             import duckdb
 
-            db_path = credentials.get('database', ':memory:')
             conn = duckdb.connect(':memory:')
             try:
                 stmt = content.strip().rstrip(';')
@@ -397,7 +400,7 @@ class RuleValidator:
                 conn.close()
             return result
         except ImportError:
-            log.warning('  ⚠ duckdb not installed — skipping DuckDB dry-run')
+            log.warning('  ⚠ duckdb not installed; skipping DuckDB dry-run')
             return True
         except Exception as e:
             log.warning(f'  ⚠ Could not connect to DuckDB for dry-run: {e}')
@@ -408,7 +411,7 @@ class RuleValidator:
     # ------------------------------------------------------------------
 
     def validate_rule_file(self, rule_path: Path) -> bool:
-        """Legacy API — delegates to test_rule_file."""
+        """Legacy API; delegates to test_rule_file."""
         return self.test_rule_file(rule_path)
 
     @staticmethod

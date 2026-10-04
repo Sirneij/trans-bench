@@ -16,38 +16,38 @@
   .mode-chart h4 { font-size: var(--fs-sm); text-transform: uppercase; letter-spacing: .06em; color: var(--ink-2); margin-bottom: 8px; }
   .phase-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: var(--fs-xs); color: var(--ink-2); }
   .phase-legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; margin-right: 6px; vertical-align: -1px; }
+  .leafrow { display: grid; grid-template-columns: minmax(52px, max-content) minmax(0, 1fr); gap: 8px; align-items: start; padding: 4px 0 4px 8px; }
+  .leafrow .md { font: 500 11px var(--font-mono); color: var(--ink-3); padding-top: 4px; }
+  .nchips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .tree .leaf.n { width: auto; min-width: 0; height: 22px; padding: 0 6px; font: 500 11px var(--font-mono); border-radius: 6px; justify-content: center; }
   @media (max-width: 1000px) { .explorer { grid-template-columns: minmax(0, 1fr); } .explorer-side { position: static; max-height: 360px; } }
 </style>
 {% endblock %}
 
 {% block content %}
-{% call m.page_head('Results explorer', 'Timing files written by transitive.py under timing/, ' ~ file_count ~ ' in total. Compare systems phase by phase, or open a file to see every run.', 'Results', 'chart-line') %}
-  <a class="btn" href="{{ url_for('campaigns_list') }}"><i data-lucide="flask-conical"></i>Verified campaigns</a>
+{% call m.page_head('Results explorer', 'The timing row of every run in every campaign under results/ (' ~ config_count ~ ' configurations). Compare systems phase by phase, or open one configuration to see each run.', 'Results', 'chart-line') %}
+  <a class="btn" href="{{ url_for('campaigns_list') }}"><i data-lucide="flask-conical"></i>Campaigns</a>
 {% endcall %}
 
 {% if tree %}
 <div class="explorer">
-  <aside class="card explorer-side" aria-label="Timing files">
+  <aside class="card explorer-side" aria-label="Configurations">
     <div class="card-head" style="min-height:0;padding:12px">
-      <label class="search" style="width:100%"><i data-lucide="search"></i><input class="input" id="tree-q" type="search" placeholder="Filter files" aria-label="Filter files" style="height:34px"></label>
+      <label class="search" style="width:100%"><i data-lucide="search"></i><input class="input" id="tree-q" type="search" placeholder="Filter, e.g. duckdb cycle 500" aria-label="Filter configurations" style="height:34px"></label>
     </div>
     <div class="tree" id="tree">
-      {% for domain_name, systems in tree.items() %}
-      <details open data-node>
-        <summary><i data-lucide="chevron-right" class="chev"></i><i data-lucide="boxes"></i>{{ domain_name }}</summary>
+      {% for campaign, series in tree.items() %}
+      <details {{ 'open' if loop.first }} data-node>
+        <summary><i data-lucide="chevron-right" class="chev"></i><i data-lucide="flask-conical"></i>{{ campaign }}</summary>
         <div class="branch">
-          {% for system_name, graphs in systems.items() %}
-          <details data-node data-system="{{ system_name }}">
-            <summary><i data-lucide="chevron-right" class="chev"></i>{{ m.marker(plot_styles.get(system_name)) }}{{ plot_styles[system_name].label if plot_styles.get(system_name) else system_name }}<span class="count">{{ graphs.values()|map('length')|sum }}</span></summary>
+          {% for sr, graphs in series.items() %}
+          <details data-node data-system="{{ sr }}">
+            <summary><i data-lucide="chevron-right" class="chev"></i>{{ m.marker(plot_styles.get(sr)) }}{{ plot_styles[sr].label if plot_styles.get(sr) else sr }}<span class="count" title="topologies">{{ graphs|length }}</span></summary>
             <div class="branch">
-              {% for graph_name, files in graphs.items() %}
-              <details data-node>
-                <summary><i data-lucide="chevron-right" class="chev"></i><i data-lucide="share-2"></i>{{ graph_labels.get(graph_name, graph_name) }}<span class="count">{{ files|length }}</span></summary>
-                <div class="branch">
-                  {% for fname in files %}
-                  <button class="leaf" type="button" data-domain="{{ domain_name }}" data-system="{{ system_name }}" data-graph="{{ graph_name }}" data-file="{{ fname }}" data-q="{{ (domain_name ~ ' ' ~ system_name ~ ' ' ~ graph_name ~ ' ' ~ fname)|lower }}"><i data-lucide="file-spreadsheet"></i><span title="{{ fname }}">{{ fname }}</span></button>
-                  {% endfor %}
-                </div>
+              {% for graph in graphs %}
+              <details data-node data-c="{{ campaign }}" data-s="{{ sr }}" data-g="{{ graph }}">
+                <summary><i data-lucide="chevron-right" class="chev"></i><i data-lucide="share-2"></i>{{ graph_labels.get(graph, graph) }}</summary>
+                <div class="branch"></div>
               </details>
               {% endfor %}
             </div>
@@ -62,12 +62,12 @@
   <section class="card" style="min-width:0">
     <div class="tabs" role="tablist" aria-label="Views" style="padding:0 12px">
       <button class="tab" role="tab" id="t-compare" data-tab="compare" aria-controls="p-compare" aria-selected="true"><i data-lucide="chart-column-stacked"></i>Compare systems</button>
-      <button class="tab" role="tab" id="t-file" data-tab="file" aria-controls="p-file"><i data-lucide="file-spreadsheet"></i><span id="file-tab-label">File</span></button>
+      <button class="tab" role="tab" id="t-file" data-tab="file" aria-controls="p-file"><i data-lucide="table-2"></i><span id="file-tab-label">Runs</span></button>
     </div>
 
     <div id="p-compare" role="tabpanel" aria-labelledby="t-compare" class="tab-panel card-body">
       <div class="controls">
-        <div class="field"><label class="hint" for="c-domain">Domain</label><select class="select" id="c-domain">{% for d in all_domains %}<option>{{ d }}</option>{% endfor %}</select></div>
+        <div class="field"><label class="hint" for="c-campaign">Campaign</label><select class="select" id="c-campaign">{% for c in all_campaigns %}<option>{{ c }}</option>{% endfor %}</select></div>
         <div class="field"><label class="hint" for="c-graph">Topology</label><select class="select" id="c-graph">{% for g in all_graphs %}<option value="{{ g }}">{{ graph_labels.get(g, g) }}</option>{% endfor %}</select></div>
         <div class="field"><span class="hint">Chart</span><div class="seg" id="c-view"><button type="button" value="stacked" aria-pressed="true"><i data-lucide="chart-column-stacked"></i>Phases</button><button type="button" value="line" aria-pressed="false"><i data-lucide="chart-line"></i>Trend</button></div></div>
         <div class="field"><span class="hint">Measure</span><div class="seg" id="c-metric"><button type="button" value="RealTime" aria-pressed="true">Real</button><button type="button" value="CPUTime" aria-pressed="false">CPU</button><button type="button" value="MaxRAM_MB" aria-pressed="false">Memory</button></div></div>
@@ -76,26 +76,26 @@
       <div class="grid grid-2 mt-4" style="gap:14px 24px">
         <div class="field"><span class="hint">Modes</span><div class="chipset" id="c-modes">{% for md in all_modes %}<button type="button" class="chip chip-accent" data-v="{{ md }}" aria-pressed="{{ 'true' if loop.first else 'false' }}">{{ md.replace('_recursion', '') }}</button>{% endfor %}</div></div>
         <div class="field"><span class="hint cluster" style="justify-content:space-between">Systems <span class="cluster" style="gap:10px"><button type="button" class="btn btn-ghost btn-sm" data-pick="all" style="height:22px;padding:0 6px">all</button><button type="button" class="btn btn-ghost btn-sm" data-pick="logic" style="height:22px;padding:0 6px">logic</button><button type="button" class="btn btn-ghost btn-sm" data-pick="db" style="height:22px;padding:0 6px">databases</button></span></span>
-          <div class="chipset" id="c-systems">{% for s in all_systems %}<button type="button" class="chip chip-outline" data-v="{{ s }}" data-cat="{{ categories.get(s, '') }}" aria-pressed="true">{{ m.marker(plot_styles.get(s)) }}{{ plot_styles[s].label if plot_styles.get(s) else s }}</button>{% endfor %}</div></div>
+          <div class="chipset" id="c-systems">{% for s in all_series %}<button type="button" class="chip chip-outline" data-v="{{ s }}" data-cat="{{ categories.get(s, '') }}" aria-pressed="true">{{ m.marker(plot_styles.get(s)) }}{{ plot_styles[s].label if plot_styles.get(s) else s }}</button>{% endfor %}</div></div>
       </div>
       <div id="c-out" class="mt-6"></div>
     </div>
 
     <div id="p-file" role="tabpanel" aria-labelledby="t-file" class="tab-panel card-body" hidden>
-      <div id="f-empty">{{ m.empty('No file open', 'Pick a timing file on the left to see each run and the average.') }}</div>
+      <div id="f-empty">{{ m.empty('No configuration open', 'Pick a size on the left to see each run and the average.') }}</div>
       <div id="f-view" hidden>
         <div class="cluster" style="justify-content:space-between;margin-bottom:12px">
           <div><div class="mono" style="font-weight:600" id="f-name"></div><div class="small muted" id="f-path"></div></div>
           <div class="cluster"><div class="seg" id="f-metric"><button type="button" value="RealTime" aria-pressed="true">Real</button><button type="button" value="CPUTime" aria-pressed="false">CPU</button><button type="button" value="MaxRAM_MB" aria-pressed="false">Memory</button></div><button class="btn btn-sm" type="button" id="f-copy"><i data-lucide="copy"></i>Copy CSV</button></div>
         </div>
-        <div class="chart-box"><canvas id="f-chart" role="img" aria-label="Runs of this file"></canvas></div>
+        <div class="chart-box"><canvas id="f-chart" role="img" aria-label="Phases of each run"></canvas></div>
         <div class="table-wrap scroll-y mt-4" style="border:1px solid var(--line);border-radius:var(--radius)"><table class="table" id="f-table"></table></div>
       </div>
     </div>
   </section>
 </div>
 {% else %}
-<div class="card">{{ m.empty('No timing files yet', 'Run an experiment from this UI or with transitive.py; its timing files appear here.', url_for('experiment_new'), 'New experiment', 'play') }}</div>
+<div class="card">{{ m.empty('No runs yet', 'Run a campaign from this UI, transitive.py or benchmark.py; the timing of every run appears here.', url_for('experiment_new'), 'New experiment', 'play') }}</div>
 {% endif %}
 {% endblock %}
 
@@ -114,14 +114,39 @@
   const unit = (metric) => (metric === 'MaxRAM_MB' ? 'MB' : 's');
   const fmtV = (v, metric) => (metric === 'MaxRAM_MB' ? `${TB.fmt(v, 1)} MB` : TB.fmtSeconds(v));
 
-  // ── tree ──────────────────────────────────────────────────────────
+  // ── tree: the sizes of a topology are drawn when it is opened, or when the filter matches them ──
+  const TREE = {{ tree | tojson }};
+  let words = [];
+  const matches = (det, md, n) => {
+    const text = `${det.dataset.c} ${det.dataset.s} ${det.dataset.g} ${md} ${n}`.toLowerCase();
+    return words.every((w) => text.includes(w));
+  };
+  function fill(det) {
+    const modes = TREE[det.dataset.c][det.dataset.s][det.dataset.g];
+    let count = 0;
+    const html = Object.entries(modes).map(([md, sizes]) => {
+      const shown = sizes.filter((n) => matches(det, md, n));
+      count += shown.length;
+      return shown.length ? `<div class="leafrow" data-mode="${TB.esc(md)}"><span class="md" title="${TB.esc(md)}">${TB.esc(md.replace('_recursion', ''))}</span><div class="nchips">${shown.map((n) => `<button class="leaf n" type="button">${n}</button>`).join('')}</div></div>` : '';
+    }).join('');
+    det.querySelector('.branch').innerHTML = html;
+    det.dataset.filled = words.join(' ');
+    return count;
+  }
+  const graphNodes = $$('#tree details[data-g]');
+  graphNodes.forEach((det) => det.addEventListener('toggle', () => { if (det.open && det.dataset.filled !== words.join(' ')) fill(det); }));
   $('#tree-q').addEventListener('input', (e) => {
-    const q = e.target.value.trim().toLowerCase();
-    $$('#tree .leaf').forEach((l) => { l.hidden = !!q && !l.dataset.q.includes(q); });
-    $$('#tree details[data-node]').reverse().forEach((d) => {
-      const any = d.querySelector('.leaf:not([hidden])');
+    words = e.target.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    graphNodes.forEach((det) => {
+      if (!words.length) { det.hidden = false; if (det.open) fill(det); return; }
+      const n = fill(det);
+      det.hidden = !n;
+      det.open = n > 0;
+    });
+    $$('#tree details[data-node]:not([data-g])').reverse().forEach((d) => {
+      const any = d.querySelector('details[data-g]:not([hidden])');
       d.hidden = !any;
-      if (q && any) d.open = true;
+      if (words.length && any) d.open = true;
     });
   });
 
@@ -140,7 +165,7 @@
     $$('#c-systems .chip').forEach((c) => c.setAttribute('aria-pressed', String(k === 'all' || (k === 'logic' ? c.dataset.cat === 'logic' : c.dataset.cat !== 'logic'))));
     queue();
   }));
-  ['c-domain', 'c-graph', 'c-phase'].forEach((id) => $(`#${id}`).addEventListener('change', queue));
+  ['c-campaign', 'c-graph', 'c-phase'].forEach((id) => $(`#${id}`).addEventListener('change', queue));
   $('#c-metric').addEventListener('segchange', queue);
   $('#c-view').addEventListener('segchange', () => {
     const line = segVal('c-view') === 'line';
@@ -164,9 +189,9 @@
     out.innerHTML = '<div class="skeleton" style="height:340px"></div>';
     let data;
     try {
-      data = await fetch('/api/compare/trends', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ domain: $('#c-domain').value, graph_type: $('#c-graph').value, modes, systems }) }).then((r) => r.json());
+      data = await fetch('/api/compare/trends', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ campaign: $('#c-campaign').value, graph_type: $('#c-graph').value, modes, systems }) }).then((r) => r.json());
     } catch { out.innerHTML = '<div class="empty"><h3>Could not load the data</h3></div>'; return; }
-    if (data.error || !data.length) { out.innerHTML = `<div class="empty"><h3>No data for this choice</h3><p>${TB.esc(data.error || 'None of the selected systems has timing files for this topology and mode.')}</p></div>`; return; }
+    if (data.error || !data.length) { out.innerHTML = `<div class="empty"><h3>No data for this choice</h3><p>${TB.esc(data.error || 'None of the selected systems has successful runs for this topology and mode in this campaign.')}</p></div>`; return; }
     TB.chartTheme();
     const metric = segVal('c-metric');
     const sizes = data.map((d) => d.size);
@@ -211,7 +236,7 @@
   }
   TB.onTheme(() => compare());
 
-  // ── file view ─────────────────────────────────────────────────────
+  // ── runs of one configuration ─────────────────────────────────────────────────────
   let fchart = null; let fdata = null;
   function drawFile() {
     if (!fdata) return;
@@ -225,21 +250,26 @@
   }
   async function openFile(btn) {
     $$('#tree .leaf').forEach((l) => l.setAttribute('aria-current', String(l === btn)));
-    const { domain, system, graph, file } = btn.dataset;
-    const d = await fetch(`/results/data/${domain}/${system}/${graph}/${file}`).then((r) => r.json()).catch(() => ({ error: 'Could not load the file' }));
+    const { c: campaign, s: system, g: graph } = btn.closest('details[data-g]').dataset;
+    const { mode } = btn.closest('.leafrow').dataset;
+    const n = btn.textContent.trim();
+    const url = `/api/results/${[campaign, system, graph, mode, n].map(encodeURIComponent).join('/')}`;
+    const d = await fetch(url).then((r) => r.json()).catch(() => ({ error: 'Could not load the runs' }));
     if (d.error) { TB.toast(d.error, 'error'); return; }
-    if (!d.rows.length) { TB.toast('The file has no rows', 'warn'); return; }
+    if (!d.rows.length) { TB.toast('This configuration has no runs', 'warn'); return; }
     fdata = d;
+    const name = `${mode.replace('_recursion', '')} · n = ${n}`;
     $('#f-empty').hidden = true; $('#f-view').hidden = false;
-    $('#f-name').textContent = file;
-    $('#f-path').textContent = `${domain} / ${label(system)} / ${graph}`;
-    $('#file-tab-label').textContent = file.length > 28 ? `${file.slice(0, 26)}…` : file;
+    $('#f-name').textContent = name;
+    $('#f-path').textContent = `${campaign} / ${label(system)} / ${graph}`;
+    $('#file-tab-label').textContent = name;
     const keys = d.columns;
-    $('#f-table').innerHTML = `<thead><tr>${keys.map((k) => `<th class="${k === keys[0] ? '' : 'r'}">${TB.esc(k)}</th>`).join('')}</tr></thead><tbody>${d.rows.map((r) => `<tr class="${r[keys[0]] === 'Average' ? 'row-average' : ''}">${keys.map((k, i) => { const v = parseFloat(r[k]); return `<td class="${i ? 'r mono' : ''}">${i && !isNaN(v) ? v.toFixed(4) : TB.esc(r[k])}</td>`; }).join('')}</tr>`).join('')}</tbody>`;
+    const cell = (k, i, r) => { const v = parseFloat(r[k]); return `<td class="${i ? 'r mono' : ''}">${i && k !== 'Status' && !isNaN(v) ? v.toFixed(4) : TB.esc(r[k])}</td>`; };
+    $('#f-table').innerHTML = `<thead><tr>${keys.map((k) => `<th class="${k === keys[0] ? '' : 'r'}">${TB.esc(k)}</th>`).join('')}</tr></thead><tbody>${d.rows.map((r) => `<tr class="${r[keys[0]] === 'Average' ? 'row-average' : ''}">${keys.map((k, i) => cell(k, i, r)).join('')}</tr>`).join('')}</tbody>`;
     $('.tabs')._select('file');
     setTimeout(drawFile, 30);
   }
-  $$('#tree .leaf').forEach((b) => b.addEventListener('click', () => openFile(b)));
+  $('#tree').addEventListener('click', (e) => { const b = e.target.closest('.leaf'); if (b) openFile(b); });
   $('#f-metric').addEventListener('segchange', drawFile);
   $('#f-copy').addEventListener('click', () => { if (fdata) TB.copyText([fdata.columns.join(','), ...fdata.rows.map((r) => fdata.columns.map((c) => r[c]).join(','))].join('\n')); });
 

@@ -1,0 +1,72 @@
+# Prospector settings, adapted from the ones in my Django authentication series
+# (dev.to/sirneij): very high strictness, with the few checks that do not suit this code base
+# switched off. Run it with scripts/static_validation.sh.
+inherits:
+  - strictness_veryhigh
+
+ignore-patterns:
+  - ^virtualenv/
+  - ^alda/
+  - ^results/
+  - ^input/
+  - ^tests/
+  - ^__init__\.py$
+
+pylint:
+  disable:
+    - too-few-public-methods
+    - too-many-ancestors
+    - unused-argument               # connector methods keep the signature of their base class
+    - broad-exception-caught        # a failure of a system under test is a result to record, not a crash
+    - logging-fstring-interpolation
+    - import-outside-toplevel       # heavy modules (matplotlib, drivers) are imported only when used
+    - consider-using-f-string
+  options:
+    max-locals: 25
+    max-returns: 6
+    max-branches: 20
+    max-statements: 60
+    min-public-methods: 1
+    max-public-methods: 24
+    max-line-length: 120
+    max-args: 10
+    max-positional-arguments: 10
+    max-module-lines: 1200
+    max-attributes: 12
+    argument-rgx: '[a-z_][a-z0-9_]{0,60}$'
+    attr-rgx: '[a-z_][a-z0-9_]{0,60}$'
+    function-rgx: '[a-z_][a-z0-9_]{1,60}$'
+    method-rgx: '[a-z_][a-z0-9_]{1,60}$'
+    variable-rgx: '[a-z_][a-z0-9_]{0,60}$'
+
+pycodestyle:
+  options:
+    max-line-length: 140
+  disable:
+    - E402                           # imports after sys.path or matplotlib.use()
+    - W503                           # line break before a binary operator (black's style)
+    - E203                           # whitespace before ':' (black's style)
+
+pydocstyle:
+  run: true
+  disable:
+    - D100
+    - D101
+    - D104
+    - D106
+    - D202
+    - D203
+    - D212
+
+mccabe:
+  options:
+    max-complexity: 20
+
+pyroma:
+  run: false
+
+dodgy:
+  run: false
+
+pyflakes:
+  run: false

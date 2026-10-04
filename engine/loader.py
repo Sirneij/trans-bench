@@ -1,11 +1,11 @@
 """
-engine/loader.py
+Load the descriptors of systems, graph types and domains into typed objects.
 
-Scans the filesystem for system descriptors (systems/*/descriptor.yaml) and
+The loader scans the filesystem for system descriptors (systems/*/descriptor.yaml) and
 graph type descriptors (graph_types/*.yaml), parses them into typed Python
 objects, and optionally merges legacy config.json credentials.
 
-No Python source edits required to add new systems — just drop a descriptor.
+A new system needs no change to the Python code, only a descriptor.
 """
 
 from __future__ import annotations
@@ -23,88 +23,65 @@ import yaml
 log = logging.getLogger(__name__)
 
 
+# The command that prints a system's version, the text that comes before the version on its line
+# (None: the first line of the output is the version), and whether the version ends at a comma.
+_VERSION_COMMANDS: dict[str, tuple[list[str], Optional[str], bool]] = {
+    'clingo': (['clingo', '--version'], None, False),
+    'souffle': (['souffle', '--version'], 'Version:', False),
+    'xsb': (['xsb', '--version'], 'XSB Version', False),
+    'mariadb': (['mariadb', '--version'], 'mariadb from', True),
+    'postgres': (['psql', '--version'], 'psql (PostgreSQL)', False),
+    'duckdb': (['duckdb', '--version'], None, False),
+    'cockroachdb': (['cockroach', 'version'], 'Build Tag:', False),
+    'mongodb': (['mongod', '--version'], 'db version', False),
+    'neo4j': (['neo4j-admin', '--version'], None, False),
+    'alda': (['alda', '--version'], None, False),
+}
+# The Python driver whose version stands in when the system's own command is not installed.
+_DRIVER_PACKAGES = {
+    'neo4j': 'neo4j',
+    'postgres': 'psycopg2',
+    'cockroachdb': 'psycopg2',
+    'mongodb': 'pymongo',
+    'duckdb': 'duckdb',
+    'mariadb': 'mysqlclient',
+    'singlestore': 'mysqlclient',
+    'clingo': 'clingo',
+}
+
+
+def _command_version(sys_name: str) -> Optional[str]:
+    """Return the version printed by the system's own command, or None."""
+    if sys_name not in _VERSION_COMMANDS:
+        return None
+    cmd, marker, until_comma = _VERSION_COMMANDS[sys_name]
+    try:
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=2, check=False)
+    except Exception:  # not installed, timed out, or unreadable output: no version from the command
+        return None
+    if res.returncode != 0:
+        return None
+    lines = [line.strip() for line in (res.stdout.strip() or res.stderr.strip()).split('\n') if line.strip()]
+    if marker is None:
+        return lines[0] if lines else None
+    for line in lines:
+        if marker in line:
+            version = line.split(marker, 1)[1]
+            return (version.split(',')[0] if until_comma else version).strip()
+    return None
+
+
 def get_system_version(sys_name: str) -> str:
-    cmd_map = {
-        'clingo': ['clingo', '--version'],
-        'souffle': ['souffle', '--version'],
-        'xsb': ['xsb', '--version'],
-        'mariadb': ['mariadb', '--version'],
-        'postgres': ['psql', '--version'],
-        'duckdb': ['duckdb', '--version'],
-        'cockroachdb': ['cockroach', 'version'],
-        'mongodb': ['mongod', '--version'],
-        'neo4j': ['neo4j-admin', '--version'],
-        'alda': ['alda', '--version'],
-    }
-
-    version = None
-    if sys_name in cmd_map:
-        try:
-            res = subprocess.run(cmd_map[sys_name], capture_output=True, text=True, timeout=2)
-            if res.returncode == 0:
-                out = res.stdout.strip()
-                if not out:
-                    out = res.stderr.strip()
-                lines = [l.strip() for l in out.split('\n') if l.strip()]
-                log.info(f"DEBUG: {sys_name} version output: {lines}")
-                if sys_name == 'souffle':
-                    for l in lines:
-                        if l.startswith('Version:'):
-                            version = l.replace('Version:', '').strip()
-                            break
-                elif sys_name == 'xsb':
-                    for l in lines:
-                        if l.startswith('XSB Version'):
-                            version = l.replace('XSB Version', '').strip()
-                            break
-                elif sys_name == 'postgres':
-                    for l in lines:
-                        if 'psql (PostgreSQL)' in l:
-                            version = l.replace('psql (PostgreSQL)', '').strip()
-                            break
-                elif sys_name == 'mariadb':
-                    for l in lines:
-                        if 'mariadb from' in l:
-                            version = l.split('from')[1].split(',')[0].strip()
-                            break
-                elif sys_name == 'cockroachdb':
-                    for l in lines:
-                        if l.startswith('Build Tag:'):
-                            version = l.replace('Build Tag:', '').strip()
-                            break
-                elif sys_name == 'mongodb':
-                    for l in lines:
-                        if l.startswith('db version'):
-                            version = l.replace('db version', '').strip()
-                            break
-                else:
-                    version = lines[0] if lines else 'Unknown'
-        except Exception:
-            pass
-
-    if version and version != 'Unknown' and not version.startswith('---'):
+    """Return the version of a system: from its own command, else from its Python driver, else 'Unknown'."""
+    version = _command_version(sys_name)
+    if version and not version.startswith('---'):
         return version
-
-    pkg = None
-    if sys_name == 'neo4j':
-        pkg = 'neo4j'
-    elif sys_name in ('postgres', 'cockroachdb'):
-        pkg = 'psycopg2'
-    elif sys_name == 'mongodb':
-        pkg = 'pymongo'
-    elif sys_name == 'duckdb':
-        pkg = 'duckdb'
-    elif sys_name in ('mariadb', 'singlestore'):
-        pkg = 'mysqlclient'
-    elif sys_name == 'clingo':
-        pkg = 'clingo'
-
-    if pkg:
+    package = _DRIVER_PACKAGES.get(sys_name)
+    if package:
         try:
-            return importlib.metadata.version(pkg)
-        except Exception:
+            return importlib.metadata.version(package)
+        except Exception:  # the driver is not installed
             pass
-
     return 'Unknown'
 
 
@@ -122,7 +99,7 @@ class TimingPhase:
 
 
 @dataclass
-class SystemDescriptor:
+class SystemDescriptor:  # pylint: disable=too-many-instance-attributes  # one field per descriptor.yaml key
     """Everything the engine needs to know about a benchmarked system."""
 
     name: str
@@ -141,7 +118,7 @@ class SystemDescriptor:
     credentials: dict[str, Any]
     enabled: bool = True
     version: str = "Unknown"
-    # Name of the file (in the run's output folder) that holds the query result; benchmark.py
+    # Name of the file (in the run's output folder) that holds the query result; engine/campaign.py
     # verifies it after every run. Empty = unknown (the run is then not verified).
     result_file: str = ''
     # id of the timing phase that is the query itself (what the paper reports), e.g. execute_query.
@@ -159,9 +136,11 @@ class SystemDescriptor:
 
     @property
     def system_dir(self) -> Path:
+        """Return the directory of the system (the one that holds descriptor.yaml)."""
         return self.descriptor_path.parent
 
     def to_dict(self) -> dict:
+        """Return the descriptor as plain data (for the JSON API of the Web UI)."""
         return {
             'name': self.name,
             'display_name': self.display_name,
@@ -200,6 +179,7 @@ class GraphTypeDescriptor:
     parameters: dict[str, Any]
 
     def to_dict(self) -> dict:
+        """Return the descriptor as plain data (for the JSON API of the Web UI)."""
         return {
             'name': self.name,
             'display_name': self.display_name,
@@ -244,9 +224,11 @@ class DomainDescriptor:
 
     @property
     def domain_dir(self) -> Path:
+        """Return the directory of the domain (the one that holds descriptor.yaml)."""
         return self.descriptor_path.parent
 
     def to_dict(self) -> dict:
+        """Return the descriptor as plain data (for the JSON API of the Web UI)."""
         return {
             'name': self.name,
             'display_name': self.display_name,
@@ -286,6 +268,7 @@ class DescriptorLoader:
     def __init__(
         self, base_dir: Optional[Path] = None, config_path: Optional[Path] = None, detect_versions: bool = True
     ):
+        """Use the repository (or `base_dir`) and its config.yaml (or `config_path`)."""
         self.base_dir = Path(base_dir) if base_dir else Path(__file__).parent.parent
         self.config_path = config_path or (self.base_dir / 'config.yaml')
         self._global_config: Optional[dict] = None
@@ -344,7 +327,7 @@ class DescriptorLoader:
         descriptors: list[DomainDescriptor] = []
 
         if not domains_dir.exists():
-            log.debug(f'domains/ directory not found at {domains_dir} — no custom domains loaded')
+            log.debug(f'domains/ directory not found at {domains_dir}; no custom domains loaded')
             return descriptors
 
         for desc_file in sorted(domains_dir.glob('*/descriptor.yaml')):
@@ -372,16 +355,16 @@ class DescriptorLoader:
             return self._global_config
 
         if self.config_path.exists() and self.config_path.suffix in ('.yaml', '.yml'):
-            with open(self.config_path) as f:
+            with open(self.config_path, encoding='utf-8') as f:
                 self._global_config = yaml.safe_load(f) or {}
         elif self.config_path.exists() and self.config_path.suffix == '.json':
-            with open(self.config_path) as f:
+            with open(self.config_path, encoding='utf-8') as f:
                 self._global_config = json.load(f)
         else:
             # Fallback: legacy config.json
             legacy_path = self.base_dir / 'config.json'
             if legacy_path.exists():
-                with open(legacy_path) as f:
+                with open(legacy_path, encoding='utf-8') as f:
                     self._global_config = json.load(f)
             else:
                 self._global_config = {}
@@ -398,7 +381,7 @@ class DescriptorLoader:
     def save_system_credentials(self, name: str, credentials: dict) -> None:
         """Persist credentials to systems/<name>/credentials.yaml."""
         cred_path = self.base_dir / 'systems' / name / 'credentials.yaml'
-        with open(cred_path, 'w') as f:
+        with open(cred_path, 'w', encoding='utf-8') as f:
             yaml.dump(credentials, f, default_flow_style=False)
         log.info(f'Saved credentials for {name}')
 
@@ -420,7 +403,7 @@ class DescriptorLoader:
             data['result_file'] = descriptor.result_file
         if descriptor.query_phase:
             data['query_phase'] = descriptor.query_phase
-        with open(descriptor.descriptor_path, 'w') as f:
+        with open(descriptor.descriptor_path, 'w', encoding='utf-8') as f:
             yaml.dump(data, f, default_flow_style=False, sort_keys=False)
         log.info(f'Saved descriptor for {descriptor.name}')
 
@@ -429,7 +412,7 @@ class DescriptorLoader:
     # ------------------------------------------------------------------
 
     def _parse_system(self, path: Path) -> SystemDescriptor:
-        with open(path) as f:
+        with open(path, encoding='utf-8') as f:
             data = yaml.safe_load(f)
 
         # Load credentials from credentials.yaml if it exists
@@ -459,7 +442,7 @@ class DescriptorLoader:
         )
 
     def _parse_graph_type(self, path: Path) -> GraphTypeDescriptor:
-        with open(path) as f:
+        with open(path, encoding='utf-8') as f:
             data = yaml.safe_load(f)
         return GraphTypeDescriptor(
             name=data['name'],
@@ -470,7 +453,7 @@ class DescriptorLoader:
         )
 
     def _parse_domain(self, path: Path) -> DomainDescriptor:
-        with open(path) as f:
+        with open(path, encoding='utf-8') as f:
             data = yaml.safe_load(f)
 
         raw_params = data.get('query_parameters', [])
@@ -503,13 +486,14 @@ class DescriptorLoader:
 
     def _load_credentials(self, system_dir: Path, system_name: str) -> dict:
         """
-        Load credentials from two possible sources (first wins):
-        1. systems/<name>/credentials.yaml
-        2. global config.yaml / config.json (legacy)
+        Load the credentials of a system.
+
+        systems/<name>/credentials.yaml is used if it exists; otherwise the system's section of the
+        global config.yaml (or the legacy config.json).
         """
         cred_file = system_dir / 'credentials.yaml'
         if cred_file.exists():
-            with open(cred_file) as f:
+            with open(cred_file, encoding='utf-8') as f:
                 return yaml.safe_load(f) or {}
 
         # Fall back to global config

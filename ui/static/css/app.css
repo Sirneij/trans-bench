@@ -815,3 +815,7 @@ a.card:hover .gdiag .n { stroke: var(--accent); transition: stroke var(--t-med);
   .app { display: block; }
   .card { box-shadow: none; break-inside: avoid; }
 }
+
+/* read-only public copy: no controls that write */
+.read-only [data-write] { display: none !important; }
+.ro-banner { border-color: color-mix(in srgb, var(--accent) 30%, transparent); }

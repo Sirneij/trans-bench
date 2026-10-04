@@ -40,7 +40,7 @@
   <div class="card kpi"><div class="kpi-label"><i data-lucide="file-input"></i>Input format</div><div class="kpi-value" style="font-size:1.4rem">{{ system.input_format }}</div><div class="kpi-sub">rules end in <code>{{ system.rule_extension }}</code></div></div>
   <div class="card kpi"><div class="kpi-label"><i data-lucide="repeat"></i>Recursion modes</div><div class="kpi-value" style="font-size:1.4rem">{{ system.modes|length }}</div><div class="kpi-sub">{{ system.modes|map('replace', '_recursion', '')|join(', ') }}</div></div>
   <div class="card kpi"><div class="kpi-label"><i data-lucide="key-round"></i>Credentials</div>
-    <div class="kpi-value" style="font-size:1.4rem">{% if cred_yaml.strip() %}set{% elif system.flags.get('requires_credentials', False) %}<span style="color:var(--warn)">missing</span>{% else %}not needed{% endif %}</div>
+    <div class="kpi-value" style="font-size:1.4rem">{% if read_only %}local only{% elif cred_yaml.strip() %}set{% elif system.flags.get('requires_credentials', False) %}<span style="color:var(--warn)">missing</span>{% else %}not needed{% endif %}</div>
     <div class="kpi-sub">systems/{{ system.name }}/credentials.yaml</div></div>
 </div>
 
@@ -62,13 +62,13 @@
   <div class="tabs" role="tablist" aria-label="System files" data-hash style="padding:0 12px">
     <button class="tab" role="tab" id="t-descriptor" data-tab="descriptor" aria-controls="p-descriptor" aria-selected="true"><i data-lucide="file-cog"></i>Descriptor</button>
     <button class="tab" role="tab" id="t-rules" data-tab="rules" aria-controls="p-rules"><i data-lucide="file-code-2"></i>Rule files <span class="count">{{ rule_files|length }}</span></button>
-    <button class="tab" role="tab" id="t-credentials" data-tab="credentials" aria-controls="p-credentials"><i data-lucide="lock"></i>Credentials</button>
+    {% if not read_only %}<button class="tab" role="tab" id="t-credentials" data-tab="credentials" aria-controls="p-credentials"><i data-lucide="lock"></i>Credentials</button>{% endif %}
   </div>
 
   <div id="p-descriptor" role="tabpanel" aria-labelledby="t-descriptor" class="tab-panel">
     <div class="card-head" style="border-bottom:0">
       <div><div class="mono" style="font-weight:600">descriptor.yaml</div><div class="small muted">Changes apply on the next run. YAML is validated before saving.</div></div>
-      <div class="cluster"><span class="small muted hide-sm"><kbd>⌘</kbd><kbd>S</kbd></span><button class="btn btn-primary btn-sm" id="save-desc" type="button"><i data-lucide="save"></i>Save</button></div>
+      <div class="cluster"><span class="small muted hide-sm"><kbd>⌘</kbd><kbd>S</kbd></span><button class="btn btn-primary btn-sm" id="save-desc" type="button" data-write><i data-lucide="save"></i>Save</button></div>
     </div>
     <div class="editor"><textarea id="descriptor-editor" spellcheck="false" aria-label="descriptor.yaml">{{ descriptor_yaml }}</textarea></div>
   </div>
@@ -84,7 +84,7 @@
       <div class="rules-main">
         <div class="card-head" style="min-height:52px">
           <div class="cluster mono" style="font-weight:600" id="rule-title"><span class="muted" style="font-family:var(--font-body);font-weight:400">Choose a file on the left</span></div>
-          <button class="btn btn-primary btn-sm" id="save-rule" type="button" hidden><i data-lucide="save"></i>Save</button>
+          <button class="btn btn-primary btn-sm" id="save-rule" type="button" hidden data-write><i data-lucide="save"></i>Save</button>
         </div>
         <div id="rule-empty" class="empty" style="flex:1">
           <i data-lucide="mouse-pointer-click" style="width:28px;height:28px;color:var(--ink-3)"></i>
@@ -98,6 +98,7 @@
     {% endif %}
   </div>
 
+  {% if not read_only %}
   <div id="p-credentials" role="tabpanel" aria-labelledby="t-credentials" class="tab-panel" hidden>
     <div class="card-head" style="border-bottom:0">
       <div><div class="cluster mono" style="font-weight:600">credentials.yaml <span class="chip chip-muted" style="font-family:var(--font-body)">git-ignored</span></div>
@@ -111,6 +112,7 @@
     </div>
     <div class="editor" id="cred-wrap" hidden><textarea id="cred-editor" spellcheck="false" aria-label="credentials.yaml">{{ cred_yaml }}</textarea></div>
   </div>
+  {% endif %}
 </section>
 {% endblock %}
 
@@ -143,7 +145,7 @@
   const make = (id, mode, save, key) => {
     const cm = CodeMirror.fromTextArea(document.getElementById(id), {
       mode, theme: 'tb', lineNumbers: true, tabSize: 2, indentWithTabs: false, autoCloseBrackets: true,
-      styleActiveLine: true, lineWrapping: false, extraKeys: saveKeys,
+      styleActiveLine: true, lineWrapping: false, extraKeys: saveKeys, readOnly: {{ read_only | tojson }},
     });
     cm._save = save;
     cm.on('change', () => markDirty(key, !cm.isClean()));
@@ -160,6 +162,7 @@
   editors.desc = make('descriptor-editor', 'yaml', saveDesc, 'desc');
   TB.$('#save-desc').addEventListener('click', saveDesc);
 
+{% if not read_only %}
   // credentials (revealed on request)
   const saveCred = () => withLoading(TB.$('#save-cred'), async () => {
     const d = await post(`/systems/${systemName}/creds`, { cred_yaml: editors.cred.getValue() });
@@ -173,6 +176,7 @@
     editors.cred.focus();
   });
   TB.$('#save-cred').addEventListener('click', saveCred);
+  {% endif %}
 
   // rule files
   let currentRule = null;

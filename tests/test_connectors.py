@@ -1,4 +1,3 @@
-
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -26,8 +25,10 @@ from engine.loader import SystemDescriptor, TimingPhase
 class DummyConnector(BaseConnector):
     def connect(self, credentials, descriptor):
         pass
+
     def run_experiment(self, rule_path, input_path, output_folder, descriptor, config, query_bindings=None):
         return {}
+
     def close(self):
         pass
 
@@ -47,6 +48,7 @@ def test_base_connector_utilities():
     # Test timed helper
     def test_func(x):
         return x + 1
+
     real, cpu, res = conn.timed(test_func, 5)
     assert res == 6
     assert isinstance(real, float)
@@ -79,20 +81,22 @@ def test_base_connector_timed_subprocess(mock_popen):
     # Mock psutil
     with patch('psutil.Process') as mock_ps_proc:
         ps_proc = MagicMock()
-        ps_proc.memory_info.return_value.rss = 1024 * 1024 * 5 # 5 MB
+        ps_proc.memory_info.return_value.rss = 1024 * 1024 * 5  # 5 MB
         ps_proc.children.return_value = []
         mock_ps_proc.return_value = ps_proc
 
         real, cpu, mem, result = BaseConnector.timed_subprocess(["ls", "-la"])
-        
+
         assert result.stdout == "stdout_test"
         assert result.stderr == "stderr_test"
         assert result.returncode == 0
         assert mem >= 5.0
 
+
 @patch('subprocess.Popen')
 def test_base_connector_timed_subprocess_exceptions(mock_popen):
     import psutil
+
     proc = MagicMock()
     proc.pid = 12345
     proc.communicate.return_value = ("stdout", "stderr")
@@ -109,7 +113,7 @@ def test_base_connector_timed_subprocess_exceptions(mock_popen):
         ps_proc.memory_info.side_effect = psutil.NoSuchProcess(12345)
         mock_ps_proc.return_value = ps_proc
         BaseConnector.timed_subprocess(["ls"])
-        
+
     # Test child memory adding
     with patch('psutil.Process') as mock_ps_proc:
         ps_proc = MagicMock()
@@ -121,15 +125,24 @@ def test_base_connector_timed_subprocess_exceptions(mock_popen):
         BaseConnector.timed_subprocess(["ls"])
 
 
-
 @patch('duckdb.connect')
 def test_duckdb_connector(mock_duckdb_connect, tmp_path):
     conn = DuckDBConnector()
     desc = SystemDescriptor(
-        name="duckdb", display_name="DuckDB", category="db", protocol="duckdb",
+        name="duckdb",
+        display_name="DuckDB",
+        category="db",
+        protocol="duckdb",
         timing_phases=[TimingPhase("load", "Load"), TimingPhase("query", "Query")],
-        input_format="tsv", modes=["mode1"], rule_extension=".sql", flags={}, execution={},
-        descriptor_path=Path("dummy"), rules_dir=Path("dummy"), credentials={}, version="0.1"
+        input_format="tsv",
+        modes=["mode1"],
+        rule_extension=".sql",
+        flags={},
+        execution={},
+        descriptor_path=Path("dummy"),
+        rules_dir=Path("dummy"),
+        credentials={},
+        version="0.1",
     )
 
     db_conn = MagicMock()
@@ -144,9 +157,7 @@ def test_duckdb_connector(mock_duckdb_connect, tmp_path):
     input_file = tmp_path / "facts.tsv"
     input_file.write_text("1\t2\n")
 
-    results = conn.run_experiment(
-        rule_file, input_file, tmp_path, desc, {}, query_bindings={"table": "edge"}
-    )
+    results = conn.run_experiment(rule_file, input_file, tmp_path, desc, {}, query_bindings={"table": "edge"})
 
     # Since conn.run_experiment derives _db_path from rule_path, it will call duckdb.connect
     mock_duckdb_connect.assert_called_once()
@@ -159,10 +170,20 @@ def test_duckdb_connector(mock_duckdb_connect, tmp_path):
 def test_mongodb_connector(mock_mongo_client, tmp_path):
     conn = MongoDBConnector()
     desc = SystemDescriptor(
-        name="mongodb", display_name="Mongo", category="db", protocol="pymongo",
+        name="mongodb",
+        display_name="Mongo",
+        category="db",
+        protocol="pymongo",
         timing_phases=[TimingPhase("load", "Load"), TimingPhase("query", "Query")],
-        input_format="json", modes=["mode1"], rule_extension=".py", flags={}, execution={},
-        descriptor_path=Path("dummy"), rules_dir=Path("dummy"), credentials={}, version="0.1"
+        input_format="json",
+        modes=["mode1"],
+        rule_extension=".py",
+        flags={},
+        execution={},
+        descriptor_path=Path("dummy"),
+        rules_dir=Path("dummy"),
+        credentials={},
+        version="0.1",
     )
 
     client = MagicMock()
@@ -176,7 +197,8 @@ def test_mongodb_connector(mock_mongo_client, tmp_path):
 
     # Test run_experiment via mocked rules (must name file transitive_mode1.py so split does not fail)
     rule_file = tmp_path / "transitive_mode1.py"
-    rule_file.write_text("""
+    rule_file.write_text(
+        """
 class MongoDBMode1Recursion:
     def __init__(self, db, config):
         pass
@@ -190,23 +212,26 @@ class MongoDBMode1Recursion:
         pass
     def export_to_csv(self, c, p):
         pass
-""")
+"""
+    )
     # We patch importlib/sys to load this rule file
     with patch('sys.path', [str(tmp_path)] + sys.path):
         results = conn.run_experiment(rule_file, tmp_path, tmp_path, desc, {}, query_bindings={"q": 1})
         assert "LoadRealTime" in results
         assert "QueryRealTime" in results
-        
+
         # Test exception path
         bad_rule = tmp_path / "transitive_bad.py"
-        bad_rule.write_text("""
+        bad_rule.write_text(
+            """
 class MongoDBBadRecursion:
     def __init__(self, db, config):
         pass
     def create_collection(self, c1, c2):
         raise Exception("Bad collection")
 
-""")
+"""
+        )
         results = conn.run_experiment(bad_rule, tmp_path, tmp_path, desc, {})
         assert results["LoadRealTime"] == 0.0
 
@@ -214,14 +239,25 @@ class MongoDBBadRecursion:
     conn.close()
     assert getattr(conn, '_client', None) is None
 
+
 @patch('neo4j.GraphDatabase.driver')
 def test_neo4j_connector(mock_neo_driver, tmp_path):
     conn = Neo4jConnector()
     desc = SystemDescriptor(
-        name="neo4j", display_name="Neo4j", category="db", protocol="neo4j",
+        name="neo4j",
+        display_name="Neo4j",
+        category="db",
+        protocol="neo4j",
         timing_phases=[TimingPhase("load", "Load"), TimingPhase("query", "Query")],
-        input_format="tsv", modes=["mode1"], rule_extension=".cypher", flags={}, execution={},
-        descriptor_path=Path("dummy"), rules_dir=Path("dummy"), credentials={}, version="0.1"
+        input_format="tsv",
+        modes=["mode1"],
+        rule_extension=".cypher",
+        flags={},
+        execution={},
+        descriptor_path=Path("dummy"),
+        rules_dir=Path("dummy"),
+        credentials={},
+        version="0.1",
     )
 
     driver = MagicMock()
@@ -234,7 +270,9 @@ def test_neo4j_connector(mock_neo_driver, tmp_path):
 
     # Test run_experiment
     rule_file = tmp_path / "rule.cypher"
-    rule_file.write_text("MATCH (n) WHERE n.id = ?q RETURN n;\nCREATE INDEX;\nMATCH (n) RETURN n;\nEXPORT TO {output_file};")
+    rule_file.write_text(
+        "MATCH (n) WHERE n.id = ?q RETURN n;\nCREATE INDEX;\nMATCH (n) RETURN n;\nEXPORT TO {output_file};"
+    )
     input_file = tmp_path / "facts.tsv"
     input_file.write_text("1\t2\n")
 
@@ -243,15 +281,15 @@ def test_neo4j_connector(mock_neo_driver, tmp_path):
         mock_result = MagicMock()
         mock_result.__iter__.return_value = ['record1']
         session.run.return_value = mock_result
-        
+
         results = conn.run_experiment(rule_file, input_file, tmp_path, desc, {}, query_bindings={"q": 1})
         assert "LoadRealTime" in results
         assert "QueryRealTime" in results
-        
+
         # Test Neo4j exception
         session.run.side_effect = Exception("Neo4j error")
         conn.run_experiment(rule_file, input_file, tmp_path, desc, {})
-        
+
         # Test import/export subproc errors
         mock_run.side_effect = Exception("Subproc error")
         conn.run_experiment(rule_file, input_file, tmp_path, desc, {})
@@ -264,17 +302,27 @@ def test_neo4j_connector(mock_neo_driver, tmp_path):
 def test_postgres_connector(mock_pg_connect, tmp_path):
     conn = PostgreSQLConnector()
     desc = SystemDescriptor(
-        name="postgres", display_name="Postgres", category="db", protocol="psycopg2",
+        name="postgres",
+        display_name="Postgres",
+        category="db",
+        protocol="psycopg2",
         timing_phases=[
             TimingPhase("create", "Create"),
             TimingPhase("import", "Import"),
             TimingPhase("index", "Index"),
             TimingPhase("analyze", "Analyze"),
             TimingPhase("query", "Query"),
-            TimingPhase("write", "Write")
+            TimingPhase("write", "Write"),
         ],
-        input_format="tsv", modes=["mode1"], rule_extension=".py", flags={}, execution={},
-        descriptor_path=Path("dummy"), rules_dir=Path("dummy"), credentials={}, version="0.1"
+        input_format="tsv",
+        modes=["mode1"],
+        rule_extension=".py",
+        flags={},
+        execution={},
+        descriptor_path=Path("dummy"),
+        rules_dir=Path("dummy"),
+        credentials={},
+        version="0.1",
     )
 
     db_conn = MagicMock()
@@ -285,7 +333,8 @@ def test_postgres_connector(mock_pg_connect, tmp_path):
 
     # Mock rule implementation
     rule_file = tmp_path / "transitive_mode1.py"
-    rule_file.write_text("""
+    rule_file.write_text(
+        """
 class PostgreSQLMode1Recursion:
     def __init__(self, config, conn):
         pass
@@ -303,7 +352,8 @@ class PostgreSQLMode1Recursion:
         pass
     def export_transitive_closure_results(self, path):
         pass
-""")
+"""
+    )
     with patch('sys.path', [str(tmp_path)] + sys.path):
         results = conn.run_experiment(rule_file, tmp_path, tmp_path, desc, {})
         assert "CreateRealTime" in results
@@ -315,10 +365,20 @@ class TestSubprocessConnectors:
     @pytest.fixture
     def mock_sys_desc(self):
         return SystemDescriptor(
-            name="xsb", display_name="XSB", category="logic", protocol="subprocess",
+            name="xsb",
+            display_name="XSB",
+            category="logic",
+            protocol="subprocess",
             timing_phases=[TimingPhase("load", "Load"), TimingPhase("solve", "Solve")],
-            input_format="tsv", modes=["mode1"], rule_extension=".P", flags={}, execution={},
-            descriptor_path=Path("dummy"), rules_dir=Path("dummy"), credentials={}, version="0.1"
+            input_format="tsv",
+            modes=["mode1"],
+            rule_extension=".P",
+            flags={},
+            execution={},
+            descriptor_path=Path("dummy"),
+            rules_dir=Path("dummy"),
+            credentials={},
+            version="0.1",
         )
 
     @patch('engine.connectors.base.BaseConnector.timed_subprocess')
@@ -344,16 +404,26 @@ class TestSubprocessConnectors:
     def test_clingo_connector(self, mock_timed_subproc, tmp_path):
         conn = ClingoConnector()
         desc = SystemDescriptor(
-            name="clingo", display_name="Clingo", category="logic", protocol="clingo_python",
+            name="clingo",
+            display_name="Clingo",
+            category="logic",
+            protocol="clingo_python",
             timing_phases=[
                 TimingPhase("load_rules", "LoadRules"),
                 TimingPhase("load_facts", "LoadFacts"),
                 TimingPhase("ground", "Ground"),
                 TimingPhase("query", "Query"),
-                TimingPhase("write_result", "Write")
+                TimingPhase("write_result", "Write"),
             ],
-            input_format="lp", modes=["mode1"], rule_extension=".lp", flags={}, execution={},
-            descriptor_path=Path("dummy"), rules_dir=Path("dummy"), credentials={}, version="0.1"
+            input_format="lp",
+            modes=["mode1"],
+            rule_extension=".lp",
+            flags={},
+            execution={},
+            descriptor_path=Path("dummy"),
+            rules_dir=Path("dummy"),
+            credentials={},
+            version="0.1",
         )
         conn.connect({}, desc)
 
@@ -374,10 +444,20 @@ class TestSubprocessConnectors:
     def test_souffle_connector(self, mock_timed_subproc, tmp_path):
         conn = SouffleConnector()
         desc = SystemDescriptor(
-            name="souffle", display_name="Souffle", category="logic", protocol="souffle_subprocess",
+            name="souffle",
+            display_name="Souffle",
+            category="logic",
+            protocol="souffle_subprocess",
             timing_phases=[TimingPhase("compile", "Compile"), TimingPhase("solve", "Solve")],
-            input_format="facts", modes=["mode1"], rule_extension=".dl", flags={}, execution={},
-            descriptor_path=Path("dummy"), rules_dir=Path("dummy"), credentials={}, version="0.1"
+            input_format="facts",
+            modes=["mode1"],
+            rule_extension=".dl",
+            flags={},
+            execution={},
+            descriptor_path=Path("dummy"),
+            rules_dir=Path("dummy"),
+            credentials={},
+            version="0.1",
         )
         conn.connect({}, desc)
 
@@ -386,7 +466,9 @@ class TestSubprocessConnectors:
         mock_timed_subproc.return_value = (1.5, 1.2, 20.0, out_mock)
 
         rule_file = tmp_path / "rule.dl"
-        rule_file.write_text(".decl edge(x:number, y:number)\n.input edge\n.decl path(x:number, y:number)\npath(x,y) :- edge(x,y).\n.output path")
+        rule_file.write_text(
+            ".decl edge(x:number, y:number)\n.input edge\n.decl path(x:number, y:number)\npath(x,y) :- edge(x,y).\n.output path"
+        )
         input_dir = tmp_path / "facts"
         input_dir.mkdir(parents=True)
         (input_dir / "edge.facts").write_text("1\t2\n")
@@ -399,15 +481,25 @@ class TestSubprocessConnectors:
     def test_alda_connector(self, mock_timed_subproc, tmp_path):
         conn = AldaConnector()
         desc = SystemDescriptor(
-            name="alda", display_name="Alda", category="logic", protocol="alda_subprocess",
+            name="alda",
+            display_name="Alda",
+            category="logic",
+            protocol="alda_subprocess",
             timing_phases=[
                 TimingPhase("load_rules", "LoadRules"),
                 TimingPhase("load_facts", "LoadFacts"),
                 TimingPhase("query", "Query"),
-                TimingPhase("write", "Write")
+                TimingPhase("write", "Write"),
             ],
-            input_format="tsv", modes=["mode1"], rule_extension=".da", flags={}, execution={},
-            descriptor_path=Path("dummy"), rules_dir=Path("dummy"), credentials={}, version="0.1"
+            input_format="tsv",
+            modes=["mode1"],
+            rule_extension=".da",
+            flags={},
+            execution={},
+            descriptor_path=Path("dummy"),
+            rules_dir=Path("dummy"),
+            credentials={},
+            version="0.1",
         )
         conn.connect({}, desc)
 
@@ -426,24 +518,23 @@ class TestSubprocessConnectors:
         assert results["QueryMaxRAM_MB"] == 20.0
 
 
-
 class TestPluginLoading:
     """Test plugin discovery and connector registry."""
 
     def test_get_connector_builtin_protocol(self):
         """Test getting builtin connector by protocol."""
         from engine.connectors import get_connector
-        
+
         conn_class = get_connector('psycopg2')
         assert conn_class == PostgreSQLConnector
 
     def test_get_connector_unknown_protocol(self):
         """Test getting unknown protocol raises error."""
         from engine.connectors import get_connector
-        
+
         with pytest.raises(ValueError) as exc_info:
             get_connector('nonexistent_protocol_xyz')
-        
+
         assert 'nonexistent_protocol_xyz' in str(exc_info.value)
         assert 'Unknown protocol' in str(exc_info.value)
 
@@ -461,9 +552,10 @@ class TestPluginLoading:
         # Create a drop-in connector
         system_dir = tmp_path / 'test_system'
         system_dir.mkdir()
-        
+
         # Create descriptor
-        (system_dir / 'descriptor.yaml').write_text('''
+        (system_dir / 'descriptor.yaml').write_text(
+            '''
 name: test_system
 display_name: Test System
 category: test
@@ -473,10 +565,12 @@ input_format: tsv
 modes: []
 rule_extension: .sql
 flags: {}
-''')
-        
+'''
+        )
+
         # Create connector
-        (system_dir / 'connector.py').write_text('''
+        (system_dir / 'connector.py').write_text(
+            '''
 from engine.connectors.base import BaseConnector
 
 class TestSystemConnector(BaseConnector):
@@ -486,13 +580,14 @@ class TestSystemConnector(BaseConnector):
         return {}
     def close(self):
         pass
-''')
-        
+'''
+        )
+
         # Load plugins
         original_registry = PROTOCOL_REGISTRY.copy()
         try:
             _load_plugin_connectors(tmp_path)
-            
+
             # Check if loaded
             assert 'test_plugin_protocol' in PROTOCOL_REGISTRY
         finally:
@@ -503,22 +598,24 @@ class TestSystemConnector(BaseConnector):
     def test_load_plugin_connectors_missing_descriptor(self, tmp_path):
         """Test _load_plugin_connectors skips connector without descriptor."""
         from engine.connectors import PROTOCOL_REGISTRY, _load_plugin_connectors
-        
+
         system_dir = tmp_path / 'no_desc_system'
         system_dir.mkdir()
-        
+
         # Create connector but no descriptor
-        (system_dir / 'connector.py').write_text('''
+        (system_dir / 'connector.py').write_text(
+            '''
 from engine.connectors.base import BaseConnector
 
 class NoDescConnector(BaseConnector):
     pass
-''')
-        
+'''
+        )
+
         original_registry = PROTOCOL_REGISTRY.copy()
         try:
             _load_plugin_connectors(tmp_path)
-            
+
             # Should not load any plugin without descriptor
             assert len([p for p in PROTOCOL_REGISTRY if 'no_desc' in p.lower()]) == 0
         finally:
@@ -528,27 +625,31 @@ class NoDescConnector(BaseConnector):
     def test_load_plugin_connectors_missing_protocol_field(self, tmp_path):
         """Test _load_plugin_connectors skips connector without protocol field."""
         from engine.connectors import PROTOCOL_REGISTRY, _load_plugin_connectors
-        
+
         system_dir = tmp_path / 'no_protocol_system'
         system_dir.mkdir()
-        
+
         # Create descriptor without protocol
-        (system_dir / 'descriptor.yaml').write_text('''
+        (system_dir / 'descriptor.yaml').write_text(
+            '''
 name: no_protocol_system
 display_name: No Protocol System
-''')
-        
-        (system_dir / 'connector.py').write_text('''
+'''
+        )
+
+        (system_dir / 'connector.py').write_text(
+            '''
 from engine.connectors.base import BaseConnector
 
 class NoProtocolConnector(BaseConnector):
     pass
-''')
-        
+'''
+        )
+
         original_registry = PROTOCOL_REGISTRY.copy()
         try:
             _load_plugin_connectors(tmp_path)
-            
+
             # Should not load without protocol
             assert len([p for p in PROTOCOL_REGISTRY if 'no_protocol' in p.lower()]) == 0
         finally:
@@ -558,29 +659,33 @@ class NoProtocolConnector(BaseConnector):
     def test_load_plugin_connectors_duplicate_protocol(self, tmp_path):
         """Test _load_plugin_connectors skips when protocol already registered."""
         from engine.connectors import PROTOCOL_REGISTRY, _load_plugin_connectors
-        
+
         system_dir = tmp_path / 'duplicate_system'
         system_dir.mkdir()
-        
+
         # Create descriptor with already-registered protocol
-        (system_dir / 'descriptor.yaml').write_text('''
+        (system_dir / 'descriptor.yaml').write_text(
+            '''
 name: duplicate_system
 display_name: Duplicate System
 protocol: psycopg2
-''')
-        
-        (system_dir / 'connector.py').write_text('''
+'''
+        )
+
+        (system_dir / 'connector.py').write_text(
+            '''
 from engine.connectors.base import BaseConnector
 
 class DuplicateConnector(BaseConnector):
     pass
-''')
-        
+'''
+        )
+
         original_registry = PROTOCOL_REGISTRY.copy()
         original_psycopg2 = PROTOCOL_REGISTRY.get('psycopg2')
         try:
             _load_plugin_connectors(tmp_path)
-            
+
             # Should not overwrite existing protocol
             assert PROTOCOL_REGISTRY['psycopg2'] == original_psycopg2
         finally:
@@ -590,22 +695,26 @@ class DuplicateConnector(BaseConnector):
     def test_load_plugin_connectors_malformed_descriptor(self, tmp_path):
         """Test _load_plugin_connectors handles invalid YAML gracefully."""
         from engine.connectors import PROTOCOL_REGISTRY, _load_plugin_connectors
-        
+
         system_dir = tmp_path / 'malformed_system'
         system_dir.mkdir()
-        
+
         # Create malformed descriptor
-        (system_dir / 'descriptor.yaml').write_text('''
+        (system_dir / 'descriptor.yaml').write_text(
+            '''
 this is not valid yaml: [
-''')
-        
-        (system_dir / 'connector.py').write_text('''
+'''
+        )
+
+        (system_dir / 'connector.py').write_text(
+            '''
 from engine.connectors.base import BaseConnector
 
 class MalformedConnector(BaseConnector):
     pass
-''')
-        
+'''
+        )
+
         original_registry = PROTOCOL_REGISTRY.copy()
         try:
             # Should not raise exception
@@ -617,26 +726,30 @@ class MalformedConnector(BaseConnector):
     def test_load_plugin_connectors_no_connector_class(self, tmp_path):
         """Test _load_plugin_connectors handles connector without proper class."""
         from engine.connectors import PROTOCOL_REGISTRY, _load_plugin_connectors
-        
+
         system_dir = tmp_path / 'no_class_system'
         system_dir.mkdir()
-        
-        (system_dir / 'descriptor.yaml').write_text('''
+
+        (system_dir / 'descriptor.yaml').write_text(
+            '''
 name: no_class_system
 display_name: No Class System
 protocol: no_class_protocol
-''')
-        
+'''
+        )
+
         # Create connector with no class ending in 'Connector'
-        (system_dir / 'connector.py').write_text('''
+        (system_dir / 'connector.py').write_text(
+            '''
 class NotAConnector:
     pass
-''')
-        
+'''
+        )
+
         original_registry = PROTOCOL_REGISTRY.copy()
         try:
             _load_plugin_connectors(tmp_path)
-            
+
             # Should not load
             assert 'no_class_protocol' not in PROTOCOL_REGISTRY
         finally:
@@ -646,24 +759,28 @@ class NotAConnector:
     def test_load_plugin_connectors_import_error(self, tmp_path):
         """Test _load_plugin_connectors handles import errors gracefully."""
         from engine.connectors import PROTOCOL_REGISTRY, _load_plugin_connectors
-        
+
         system_dir = tmp_path / 'error_system'
         system_dir.mkdir()
-        
-        (system_dir / 'descriptor.yaml').write_text('''
+
+        (system_dir / 'descriptor.yaml').write_text(
+            '''
 name: error_system
 display_name: Error System
 protocol: error_protocol
-''')
-        
+'''
+        )
+
         # Create connector with syntax error
-        (system_dir / 'connector.py').write_text('''
+        (system_dir / 'connector.py').write_text(
+            '''
 from engine.connectors.base import BaseConnector
 
 class ErrorConnector(BaseConnector):
     def invalid syntax here
-''')
-        
+'''
+        )
+
         original_registry = PROTOCOL_REGISTRY.copy()
         try:
             # Should not raise exception
@@ -679,10 +796,20 @@ class TestSubprocessConnectorAdvanced:
     @pytest.fixture
     def xsb_descriptor(self):
         return SystemDescriptor(
-            name="xsb", display_name="XSB", category="logic", protocol="subprocess",
+            name="xsb",
+            display_name="XSB",
+            category="logic",
+            protocol="subprocess",
             timing_phases=[TimingPhase("load", "Load"), TimingPhase("solve", "Solve")],
-            input_format="tsv", modes=["mode1"], rule_extension=".P", flags={}, execution={},
-            descriptor_path=Path("dummy"), rules_dir=Path("dummy"), credentials={}, version="0.1"
+            input_format="tsv",
+            modes=["mode1"],
+            rule_extension=".P",
+            flags={},
+            execution={},
+            descriptor_path=Path("dummy"),
+            rules_dir=Path("dummy"),
+            credentials={},
+            version="0.1",
         )
 
     @patch('engine.connectors.base.BaseConnector.timed_subprocess')
@@ -690,25 +817,27 @@ class TestSubprocessConnectorAdvanced:
         """Test XSB connector patches queries correctly."""
         conn = XSBConnector()
         conn.connect({}, xsb_descriptor)
-        
+
         mock_result = MagicMock()
         mock_result.stdout = ""
         mock_timed_subproc.return_value = (1.0, 0.8, 15.0, mock_result)
-        
+
         # Create rule file with custom query directive
         rule_file = tmp_path / "transitive_mode1.P"
-        rule_file.write_text('''
+        rule_file.write_text(
+            '''
 %% :- ?query_placeholder
 edge(1, 2).
 path(X, Y) :- edge(X, Y).
-''')
-        
+'''
+        )
+
         input_file = tmp_path / "facts.tsv"
         input_file.write_text('3\t4\n')
-        
+
         # Run with custom query
         results = conn.run_experiment(rule_file, input_file, tmp_path, xsb_descriptor, {})
-        
+
         # Should return timing dict
         assert "LoadRealTime" in results
         assert "SolveRealTime" in results
@@ -717,28 +846,40 @@ path(X, Y) :- edge(X, Y).
     def test_clingo_temp_file_handling(self, mock_timed_subproc, tmp_path):
         """Test Clingo connector manages temporary files."""
         desc = SystemDescriptor(
-            name="clingo", display_name="Clingo", category="logic", protocol="clingo_python",
+            name="clingo",
+            display_name="Clingo",
+            category="logic",
+            protocol="clingo_python",
             timing_phases=[TimingPhase("ground", "Ground"), TimingPhase("solve", "Solve")],
-            input_format="lp", modes=["mode1"], rule_extension=".py", flags={}, execution={},
-            descriptor_path=Path("dummy"), rules_dir=Path("dummy"), credentials={}, version="0.1"
+            input_format="lp",
+            modes=["mode1"],
+            rule_extension=".py",
+            flags={},
+            execution={},
+            descriptor_path=Path("dummy"),
+            rules_dir=Path("dummy"),
+            credentials={},
+            version="0.1",
         )
-        
+
         conn = ClingoConnector()
         conn.connect({}, desc)
-        
+
         mock_result = MagicMock()
         mock_result.stdout = ""
         mock_timed_subproc.return_value = (2.0, 1.5, 25.0, mock_result)
-        
+
         rule_file = tmp_path / "transitive_mode1.py"
-        rule_file.write_text('''
+        rule_file.write_text(
+            '''
 import clingo
 # Rule file content
-''')
-        
+'''
+        )
+
         input_file = tmp_path / "input.lp"
         input_file.write_text('#base.\n')
-        
+
         results = conn.run_experiment(rule_file, input_file, tmp_path, desc, {})
         assert "GroundRealTime" in results
 
@@ -751,30 +892,42 @@ class TestDuckDBConnectorAdvanced:
         """Test DuckDB connector with complex SQL queries."""
         conn = DuckDBConnector()
         desc = SystemDescriptor(
-            name="duckdb", display_name="DuckDB", category="db", protocol="duckdb",
+            name="duckdb",
+            display_name="DuckDB",
+            category="db",
+            protocol="duckdb",
             timing_phases=[TimingPhase("load", "Load"), TimingPhase("query", "Query")],
-            input_format="tsv", modes=["mode1"], rule_extension=".sql", flags={}, execution={},
-            descriptor_path=Path("dummy"), rules_dir=Path("dummy"), credentials={}, version="0.1"
+            input_format="tsv",
+            modes=["mode1"],
+            rule_extension=".sql",
+            flags={},
+            execution={},
+            descriptor_path=Path("dummy"),
+            rules_dir=Path("dummy"),
+            credentials={},
+            version="0.1",
         )
-        
+
         db_conn = MagicMock()
         mock_duckdb_connect.return_value = db_conn
-        
+
         conn.connect({"database": ":memory:"}, desc)
-        
+
         rule_file = tmp_path / "rule.sql"
-        rule_file.write_text('''
+        rule_file.write_text(
+            '''
 WITH RECURSIVE tc AS (
     SELECT src, dst FROM edge
     UNION ALL
     SELECT tc.src, edge.dst FROM tc JOIN edge ON tc.dst = edge.src
 )
 SELECT COUNT(*) as cnt FROM tc;
-''')
-        
+'''
+        )
+
         input_file = tmp_path / "edge.tsv"
         input_file.write_text("1\t2\n2\t3\n3\t4\n")
-        
+
         results = conn.run_experiment(rule_file, input_file, tmp_path, desc, {})
         assert "LoadRealTime" in results
 
@@ -782,23 +935,33 @@ SELECT COUNT(*) as cnt FROM tc;
     def test_duckdb_exceptions_and_phases(self, mock_duckdb_connect, tmp_path, caplog):
         conn = DuckDBConnector()
         desc = SystemDescriptor(
-            name="duckdb", display_name="DuckDB", category="db", protocol="duckdb",
-            timing_phases=[TimingPhase("load", "Load")], # 1 phase but 2 queries -> triggers i >= len(phases)
-            input_format="tsv", modes=["mode1"], rule_extension=".sql", flags={}, execution={},
-            descriptor_path=Path("dummy"), rules_dir=Path("dummy"), credentials={}, version="0.1"
+            name="duckdb",
+            display_name="DuckDB",
+            category="db",
+            protocol="duckdb",
+            timing_phases=[TimingPhase("load", "Load")],  # 1 phase but 2 queries -> triggers i >= len(phases)
+            input_format="tsv",
+            modes=["mode1"],
+            rule_extension=".sql",
+            flags={},
+            execution={},
+            descriptor_path=Path("dummy"),
+            rules_dir=Path("dummy"),
+            credentials={},
+            version="0.1",
         )
-        
+
         db_conn = MagicMock()
         db_conn.execute.side_effect = [Exception("Execute fail"), None]
         mock_duckdb_connect.return_value = db_conn
-        
+
         conn.connect({"database": ":memory:"}, desc)
-        
+
         rule_file = tmp_path / "rule.sql"
         rule_file.write_text("SELECT 1;\nSELECT 2;")
         input_file = tmp_path / "edge.tsv"
         input_file.write_text("1\t2\n")
-        
+
         # Test command error and loop break
         conn.run_experiment(rule_file, input_file, tmp_path, desc, {})
         assert "Execute fail" in caplog.text
@@ -811,7 +974,6 @@ SELECT COUNT(*) as cnt FROM tc;
         assert "Unlink fail" in caplog.text
 
 
-
 class TestMongoDBConnectorAdvanced:
     """Advanced tests for MongoDB connector."""
 
@@ -820,31 +982,43 @@ class TestMongoDBConnectorAdvanced:
         """Test MongoDB connector with aggregation pipelines."""
         conn = MongoDBConnector()
         desc = SystemDescriptor(
-            name="mongodb", display_name="MongoDB", category="db", protocol="pymongo",
+            name="mongodb",
+            display_name="MongoDB",
+            category="db",
+            protocol="pymongo",
             timing_phases=[TimingPhase("load", "Load"), TimingPhase("query", "Query")],
-            input_format="json", modes=["mode1"], rule_extension=".py", flags={}, execution={},
-            descriptor_path=Path("dummy"), rules_dir=Path("dummy"), credentials={}, version="0.1"
+            input_format="json",
+            modes=["mode1"],
+            rule_extension=".py",
+            flags={},
+            execution={},
+            descriptor_path=Path("dummy"),
+            rules_dir=Path("dummy"),
+            credentials={},
+            version="0.1",
         )
-        
+
         client = MagicMock()
         db = MagicMock()
         client.__getitem__.return_value = db
         mock_mongo_client.return_value = client
-        
+
         conn.connect({"uri": "mongodb://localhost:27017", "database": "test"}, desc)
-        
+
         rule_file = tmp_path / "transitive_mode1.py"
-        rule_file.write_text('''
+        rule_file.write_text(
+            '''
 class MongoDBMode1Recursion:
     def __init__(self, db, config):
         self.db = db
     def run_recursive_query(self):
         pass
-''')
-        
+'''
+        )
+
         input_file = tmp_path / "data.json"
         input_file.write_text('{"src": 1, "dst": 2}\n')
-        
+
         with patch('sys.path', [str(tmp_path)] + sys.path):
             results = conn.run_experiment(rule_file, input_file, tmp_path, desc, {})
             assert "LoadRealTime" in results
@@ -858,26 +1032,37 @@ class TestRDBMSConnectorAdvanced:
         """Test PostgreSQL connector with multiple timing phases."""
         conn = PostgreSQLConnector()
         desc = SystemDescriptor(
-            name="postgres", display_name="Postgres", category="db", protocol="psycopg2",
+            name="postgres",
+            display_name="Postgres",
+            category="db",
+            protocol="psycopg2",
             timing_phases=[
                 TimingPhase("create", "Create"),
                 TimingPhase("import", "Import"),
                 TimingPhase("index", "Index"),
                 TimingPhase("analyze", "Analyze"),
                 TimingPhase("query", "Query"),
-                TimingPhase("write", "Write")
+                TimingPhase("write", "Write"),
             ],
-            input_format="tsv", modes=["mode1"], rule_extension=".py", flags={}, execution={},
-            descriptor_path=Path("dummy"), rules_dir=Path("dummy"), credentials={}, version="0.1"
+            input_format="tsv",
+            modes=["mode1"],
+            rule_extension=".py",
+            flags={},
+            execution={},
+            descriptor_path=Path("dummy"),
+            rules_dir=Path("dummy"),
+            credentials={},
+            version="0.1",
         )
-        
+
         db_conn = MagicMock()
         mock_pg_connect.return_value = db_conn
-        
+
         conn.connect({"dbURL": "postgresql://localhost:5432/test"}, desc)
-        
+
         rule_file = tmp_path / "transitive_mode1.py"
-        rule_file.write_text('''
+        rule_file.write_text(
+            '''
 class PostgreSQLMode1Recursion:
     def __init__(self, config, conn):
         self.conn = conn
@@ -895,11 +1080,12 @@ class PostgreSQLMode1Recursion:
         pass
     def export_transitive_closure_results(self, path):
         pass
-''')
-        
+'''
+        )
+
         input_file = tmp_path / "data.tsv"
         input_file.write_text("1\t2\n")
-        
+
         with patch('sys.path', [str(tmp_path)] + sys.path):
             results = conn.run_experiment(rule_file, input_file, tmp_path, desc, {})
             # Should have all 6 timing phases
@@ -914,26 +1100,37 @@ class PostgreSQLMode1Recursion:
         """Test MariaDB connector multi-phase timing."""
         conn = MariaDBConnector()
         desc = SystemDescriptor(
-            name="mariadb", display_name="MariaDB", category="db", protocol="mysqlclient",
+            name="mariadb",
+            display_name="MariaDB",
+            category="db",
+            protocol="mysqlclient",
             timing_phases=[
                 TimingPhase("create", "Create"),
                 TimingPhase("import", "Import"),
                 TimingPhase("index", "Index"),
                 TimingPhase("analyze", "Analyze"),
                 TimingPhase("query", "Query"),
-                TimingPhase("write", "Write")
+                TimingPhase("write", "Write"),
             ],
-            input_format="tsv", modes=["mode1"], rule_extension=".py", flags={}, execution={},
-            descriptor_path=Path("dummy"), rules_dir=Path("dummy"), credentials={}, version="0.1"
+            input_format="tsv",
+            modes=["mode1"],
+            rule_extension=".py",
+            flags={},
+            execution={},
+            descriptor_path=Path("dummy"),
+            rules_dir=Path("dummy"),
+            credentials={},
+            version="0.1",
         )
-        
+
         db_conn = MagicMock()
         mock_connect.return_value = db_conn
-        
+
         conn.connect({"database": "test", "user": "u", "password": "p", "host": "localhost", "port": 3306}, desc)
-        
+
         rule_file = tmp_path / "transitive_mode1.py"
-        rule_file.write_text('''
+        rule_file.write_text(
+            '''
 class MariaDBMode1Recursion:
     def __init__(self, config, conn):
         self.conn = conn
@@ -953,11 +1150,12 @@ class MariaDBMode1Recursion:
         pass
     def export_data_to_file(self):
         pass
-''')
-        
+'''
+        )
+
         input_file = tmp_path / "data.tsv"
         input_file.write_text("1\t2\n")
-        
+
         with patch('sys.path', [str(tmp_path)] + sys.path):
             results = conn.run_experiment(rule_file, input_file, tmp_path, desc, {})
             expected_phases = ['Create', 'Import', 'Index', 'Analyze', 'Query', 'Write']
@@ -970,26 +1168,37 @@ class MariaDBMode1Recursion:
         """Test CockroachDB connector."""
         conn = CockroachDBConnector()
         desc = SystemDescriptor(
-            name="cockroachdb", display_name="CockroachDB", category="db", protocol="cockroachdb",
+            name="cockroachdb",
+            display_name="CockroachDB",
+            category="db",
+            protocol="cockroachdb",
             timing_phases=[
                 TimingPhase("create", "Create"),
                 TimingPhase("import", "Import"),
                 TimingPhase("index", "Index"),
                 TimingPhase("analyze", "Analyze"),
                 TimingPhase("query", "Query"),
-                TimingPhase("write", "Write")
+                TimingPhase("write", "Write"),
             ],
-            input_format="tsv", modes=["mode1"], rule_extension=".py", flags={}, execution={},
-            descriptor_path=Path("dummy"), rules_dir=Path("dummy"), credentials={"externalDirectory": f"{tmp_path}/extern/"}, version="0.1"
+            input_format="tsv",
+            modes=["mode1"],
+            rule_extension=".py",
+            flags={},
+            execution={},
+            descriptor_path=Path("dummy"),
+            rules_dir=Path("dummy"),
+            credentials={"externalDirectory": f"{tmp_path}/extern/"},
+            version="0.1",
         )
-        
+
         db_conn = MagicMock()
         mock_connect.return_value = db_conn
-        
+
         conn.connect({"dbURL": "postgresql://localhost:26257/test"}, desc)
-        
+
         rule_file = tmp_path / "transitive_mode1.py"
-        rule_file.write_text('''
+        rule_file.write_text(
+            '''
 class CockroachDBMode1Recursion:
     def __init__(self, config, conn):
         self.conn = conn
@@ -1012,15 +1221,17 @@ class CockroachDBMode1Recursion:
         os.makedirs(d, exist_ok=True)
         open(os.path.join(d, "n1.0.csv"), "w").write("1,2\\n")
         open(os.path.join(d, "n1.1.csv"), "w").write("2,3\\n")
-''')
-        
+'''
+        )
+
         input_file = tmp_path / "data.tsv"
         input_file.write_text("1\t2\n")
-        
+
         out = tmp_path / "out"
         out.mkdir()
-        with patch('sys.path', [str(tmp_path)] + sys.path), patch.dict(
-            'os.environ', {"CRDB_TEST_EXTERN": str(tmp_path / "extern")}
+        with (
+            patch('sys.path', [str(tmp_path)] + sys.path),
+            patch.dict('os.environ', {"CRDB_TEST_EXTERN": str(tmp_path / "extern")}),
         ):
             results = conn.run_experiment(rule_file, input_file, out, desc, {})
             expected_phases = ['Create', 'Import', 'Index', 'Analyze', 'Query', 'Write']
@@ -1035,41 +1246,32 @@ class CockroachDBMode1Recursion:
 class TestRDBMSAdvanced:
     """Advanced RDBMS connector tests with actual implementation simulation."""
 
-    @patch('importlib.util.spec_from_file_location')
-    def test_rdbms_dynamic_import_success(self, mock_spec, tmp_path):
-        """Test successful dynamic import of RDBMS operation classes."""
-        from engine.connectors.rdbms import _dynamic_import_class
-
-        # Create a test class file
-        test_file = tmp_path / 'ops.py'
-        test_file.write_text('''
-class PostgreSQLRightRecursion:
-    def __init__(self, config, conn):
-        self.config = config
-        self.conn = conn
-''')
-        
-        # We can test the function by creating a simpler version
-        # that the function would find
-        # For now, skip the mock setup which is complex
-        pass
-
     @patch('psycopg2.connect')
     def test_postgres_connector_connect(self, mock_pg_connect):
         """Test PostgreSQL connector connection."""
         conn = PostgreSQLConnector()
         desc = SystemDescriptor(
-            name="postgres", display_name="Postgres", category="db", protocol="psycopg2",
+            name="postgres",
+            display_name="Postgres",
+            category="db",
+            protocol="psycopg2",
             timing_phases=[TimingPhase("load", "Load")],
-            input_format="tsv", modes=["mode1"], rule_extension=".py", flags={}, execution={},
-            descriptor_path=Path("dummy"), rules_dir=Path("dummy"), credentials={}, version="0.1"
+            input_format="tsv",
+            modes=["mode1"],
+            rule_extension=".py",
+            flags={},
+            execution={},
+            descriptor_path=Path("dummy"),
+            rules_dir=Path("dummy"),
+            credentials={},
+            version="0.1",
         )
-        
+
         mock_db_conn = MagicMock()
         mock_pg_connect.return_value = mock_db_conn
-        
+
         conn.connect({"dbURL": "postgresql://localhost:5432/test"}, desc)
-        
+
         mock_pg_connect.assert_called_once_with("postgresql://localhost:5432/test")
         assert conn._connection == mock_db_conn
 
@@ -1078,18 +1280,28 @@ class PostgreSQLRightRecursion:
         """Test PostgreSQL connector close."""
         conn = PostgreSQLConnector()
         desc = SystemDescriptor(
-            name="postgres", display_name="Postgres", category="db", protocol="psycopg2",
+            name="postgres",
+            display_name="Postgres",
+            category="db",
+            protocol="psycopg2",
             timing_phases=[TimingPhase("load", "Load")],
-            input_format="tsv", modes=["mode1"], rule_extension=".py", flags={}, execution={},
-            descriptor_path=Path("dummy"), rules_dir=Path("dummy"), credentials={}, version="0.1"
+            input_format="tsv",
+            modes=["mode1"],
+            rule_extension=".py",
+            flags={},
+            execution={},
+            descriptor_path=Path("dummy"),
+            rules_dir=Path("dummy"),
+            credentials={},
+            version="0.1",
         )
-        
+
         mock_db_conn = MagicMock()
         mock_pg_connect.return_value = mock_db_conn
-        
+
         conn.connect({"dbURL": "postgresql://localhost:5432/test"}, desc)
         conn.close()
-        
+
         mock_db_conn.close.assert_called_once()
 
     @patch('psycopg2.connect')
@@ -1100,22 +1312,32 @@ class PostgreSQLRightRecursion:
         # Create descriptor path in a subdirectory
         system_dir = tmp_path / 'postgres'
         system_dir.mkdir()
-        
+
         desc = SystemDescriptor(
-            name="postgres", display_name="Postgres", category="db", protocol="psycopg2",
+            name="postgres",
+            display_name="Postgres",
+            category="db",
+            protocol="psycopg2",
             timing_phases=[TimingPhase("load", "Load"), TimingPhase("solve", "Solve")],
-            input_format="tsv", modes=["right_recursion"], rule_extension=".py", flags={}, 
-            execution={}, descriptor_path=system_dir / 'descriptor.yaml', 
-            rules_dir=system_dir, credentials={}, version="0.1"
+            input_format="tsv",
+            modes=["right_recursion"],
+            rule_extension=".py",
+            flags={},
+            execution={},
+            descriptor_path=system_dir / 'descriptor.yaml',
+            rules_dir=system_dir,
+            credentials={},
+            version="0.1",
         )
-        
+
         # Create __init__.py in system dir
         init_file = system_dir / '__init__.py'
         init_file.write_text('class PostgreSQLOperations: pass')
-        
+
         # Create rule file with operation class
         rule_file = system_dir / 'transitive_right_recursion.py'
-        rule_file.write_text('''
+        rule_file.write_text(
+            '''
 class PostgreSQLRightRecursion:
     def __init__(self, config, conn):
         self.config = config
@@ -1141,25 +1363,26 @@ class PostgreSQLRightRecursion:
     
     def export_transitive_closure_results(self, *args, **kwargs):
         pass
-''')
-        
+'''
+        )
+
         # Setup mock database connection
         mock_db_conn = MagicMock()
         mock_pg_connect.return_value = mock_db_conn
-        
+
         conn = PostgreSQLConnector()
         conn.connect({"dbURL": "postgresql://localhost:5432/test"}, desc)
-        
+
         # Create input and output files
         input_file = system_dir / 'edge.tsv'
         input_file.write_text('1\t2\n2\t3\n')
-        
+
         output_folder = system_dir / 'output'
         output_folder.mkdir()
-        
+
         # Run experiment
         results = conn.run_experiment(rule_file, input_file, output_folder, desc, {})
-        
+
         # Verify results structure
         assert 'LoadRealTime' in results
         assert 'SolveRealTime' in results
@@ -1172,22 +1395,32 @@ class PostgreSQLRightRecursion:
         # Create descriptor path in a subdirectory
         system_dir = tmp_path / 'postgres'
         system_dir.mkdir()
-        
+
         desc = SystemDescriptor(
-            name="postgres", display_name="Postgres", category="db", protocol="psycopg2",
+            name="postgres",
+            display_name="Postgres",
+            category="db",
+            protocol="psycopg2",
             timing_phases=[TimingPhase("load", "Load"), TimingPhase("solve", "Solve")],
-            input_format="tsv", modes=["right_recursion"], rule_extension=".py", flags={}, 
-            execution={}, descriptor_path=system_dir / 'descriptor.yaml', 
-            rules_dir=system_dir, credentials={}, version="0.1"
+            input_format="tsv",
+            modes=["right_recursion"],
+            rule_extension=".py",
+            flags={},
+            execution={},
+            descriptor_path=system_dir / 'descriptor.yaml',
+            rules_dir=system_dir,
+            credentials={},
+            version="0.1",
         )
-        
+
         # Create __init__.py in system dir
         init_file = system_dir / '__init__.py'
         init_file.write_text('class PostgreSQLOperations: pass')
-        
+
         # Create rule file with operation class that raises an exception
         rule_file = system_dir / 'transitive_right_recursion.py'
-        rule_file.write_text('''
+        rule_file.write_text(
+            '''
 class PostgreSQLRightRecursion:
     def __init__(self, config, conn):
         self.config = config
@@ -1195,53 +1428,43 @@ class PostgreSQLRightRecursion:
     
     def drop_tc_path_tc_result_tables(self):
         raise RuntimeError("Connection failed")
-''')
-        
+'''
+        )
+
         # Setup mock database connection
         mock_db_conn = MagicMock()
         mock_pg_connect.return_value = mock_db_conn
-        
+
         conn = PostgreSQLConnector()
         conn.connect({"dbURL": "postgresql://localhost:5432/test"}, desc)
-        
+
         # Create input and output files
         input_file = system_dir / 'edge.tsv'
         input_file.write_text('1\t2\n2\t3\n')
-        
+
         output_folder = system_dir / 'output'
         output_folder.mkdir()
-        
+
         # Run experiment - should handle the exception gracefully
         results = conn.run_experiment(rule_file, input_file, output_folder, desc, {})
-        
+
         # Verify we got a result structure even with the exception
         assert isinstance(results, dict)
 
-    def test_dynamic_import_class(self, tmp_path):
-        """Test _dynamic_import_class function."""
-        from engine.connectors.rdbms import _dynamic_import_class
+    def test_import_file(self, tmp_path):
+        """import_file loads a class from any file, as the connectors load the rule modules."""
+        import sys
 
-        # Create a test module with a class
+        from engine.connectors.base import import_file
+
         test_file = tmp_path / 'test_ops.py'
-        test_file.write_text('''
-class TestOperations:
-    def __init__(self):
-        self.name = "test"
-    
-    def method(self):
-        return 42
-''')
-        
-        # Import the class
-        OpClass = _dynamic_import_class(test_file, 'TestOperations')
-        
-        # Verify the class was imported correctly
-        assert OpClass.__name__ == 'TestOperations'
-        
-        # Create instance and test
-        instance = OpClass()
-        assert instance.name == 'test'
-        assert instance.method() == 42
+        test_file.write_text('class TestOperations:\n    def method(self):\n        return 42\n')
+        module = import_file('trans_bench_test_ops', test_file)
+        assert module.TestOperations().method() == 42
+        assert sys.modules.pop('trans_bench_test_ops') is module
+        assert 'other_name' not in sys.modules or import_file('other_name', test_file, register=False)
+        with pytest.raises(ImportError):
+            import_file('missing', tmp_path / 'missing.txt')
 
     @patch('psycopg2.connect')
     def test_postgres_run_experiment_with_query_bindings(self, mock_pg_connect, tmp_path):
@@ -1251,22 +1474,32 @@ class TestOperations:
         # Create descriptor path
         system_dir = tmp_path / 'postgres'
         system_dir.mkdir()
-        
+
         desc = SystemDescriptor(
-            name="postgres", display_name="Postgres", category="db", protocol="psycopg2",
+            name="postgres",
+            display_name="Postgres",
+            category="db",
+            protocol="psycopg2",
             timing_phases=[TimingPhase("load", "Load"), TimingPhase("solve", "Solve")],
-            input_format="tsv", modes=["right_recursion"], rule_extension=".py", flags={}, 
-            execution={}, descriptor_path=system_dir / 'descriptor.yaml', 
-            rules_dir=system_dir, credentials={}, version="0.1"
+            input_format="tsv",
+            modes=["right_recursion"],
+            rule_extension=".py",
+            flags={},
+            execution={},
+            descriptor_path=system_dir / 'descriptor.yaml',
+            rules_dir=system_dir,
+            credentials={},
+            version="0.1",
         )
-        
+
         # Create __init__.py
         init_file = system_dir / '__init__.py'
         init_file.write_text('class PostgreSQLOperations: pass')
-        
+
         # Create rule file
         rule_file = system_dir / 'transitive_right_recursion.py'
-        rule_file.write_text('''
+        rule_file.write_text(
+            '''
 class PostgreSQLRightRecursion:
     def __init__(self, config, conn):
         self.config = config
@@ -1294,26 +1527,27 @@ class PostgreSQLRightRecursion:
     
     def export_transitive_closure_results(self, *args, **kwargs):
         pass
-''')
-        
+'''
+        )
+
         # Setup mock connection
         mock_db_conn = MagicMock()
         mock_pg_connect.return_value = mock_db_conn
-        
+
         conn = PostgreSQLConnector()
         conn.connect({"dbURL": "postgresql://localhost:5432/test"}, desc)
-        
+
         # Create input/output files
         input_file = system_dir / 'edge.tsv'
         input_file.write_text('1\t2\n2\t3\n')
-        
+
         output_folder = system_dir / 'output'
         output_folder.mkdir()
-        
+
         # Run with query bindings
         bindings = {'param1': 'value1', 'param2': 'value2'}
         results = conn.run_experiment(rule_file, input_file, output_folder, desc, {}, query_bindings=bindings)
-        
+
         # Verify results
         assert isinstance(results, dict)
         assert 'LoadRealTime' in results
@@ -1326,32 +1560,42 @@ class TestSubprocessConnectorsAdvanced:
     def test_xsb_with_query_bindings(self, mock_timed_subproc, tmp_path):
         """Test XSB connector with query bindings."""
         from engine.connectors.subprocess_conn import XSBConnector
-        
+
         conn = XSBConnector()
         desc = SystemDescriptor(
-            name="xsb", display_name="XSB", category="logic", protocol="subprocess",
+            name="xsb",
+            display_name="XSB",
+            category="logic",
+            protocol="subprocess",
             timing_phases=[TimingPhase("load", "Load"), TimingPhase("solve", "Solve")],
-            input_format="tsv", modes=["mode1"], rule_extension=".P", flags={}, execution={},
-            descriptor_path=Path("dummy"), rules_dir=Path("dummy"), credentials={}, version="0.1"
+            input_format="tsv",
+            modes=["mode1"],
+            rule_extension=".P",
+            flags={},
+            execution={},
+            descriptor_path=Path("dummy"),
+            rules_dir=Path("dummy"),
+            credentials={},
+            version="0.1",
         )
-        
+
         conn.connect({}, desc)
-        
+
         mock_result = MagicMock()
         mock_result.stdout = ""
         mock_result.stderr = ""
         mock_result.returncode = 0
         mock_timed_subproc.return_value = (1.0, 0.8, 10.0, mock_result)
-        
+
         rule_file = tmp_path / "transitive_mode1.P"
         rule_file.write_text('edge(1,2). path(X,Y) :- edge(X,Y).')
-        
+
         input_file = tmp_path / "edge.tsv"
         input_file.write_text('1\t2\n')
-        
+
         bindings = {'query_file': 'test.out', 'query_predicate': 'path'}
         results = conn.run_experiment(rule_file, input_file, tmp_path, desc, {}, query_bindings=bindings)
-        
+
         assert "LoadRealTime" in results
         assert "SolveRealTime" in results
 
@@ -1360,28 +1604,38 @@ class TestSubprocessConnectorsAdvanced:
         """Test Clingo connector with statistics output."""
         conn = ClingoConnector()
         desc = SystemDescriptor(
-            name="clingo", display_name="Clingo", category="logic", protocol="clingo_python",
+            name="clingo",
+            display_name="Clingo",
+            category="logic",
+            protocol="clingo_python",
             timing_phases=[TimingPhase("ground", "Ground"), TimingPhase("solve", "Solve")],
-            input_format="lp", modes=["mode1"], rule_extension=".py", flags={}, execution={},
-            descriptor_path=Path("dummy"), rules_dir=Path("dummy"), credentials={}, version="0.1"
+            input_format="lp",
+            modes=["mode1"],
+            rule_extension=".py",
+            flags={},
+            execution={},
+            descriptor_path=Path("dummy"),
+            rules_dir=Path("dummy"),
+            credentials={},
+            version="0.1",
         )
-        
+
         conn.connect({}, desc)
-        
+
         mock_result = MagicMock()
         mock_result.stdout = "Answer: 1\nModels       : 1\n"
         mock_result.stderr = ""
         mock_result.returncode = 0
         mock_timed_subproc.return_value = (2.0, 1.5, 20.0, mock_result)
-        
+
         rule_file = tmp_path / "transitive_mode1.py"
         rule_file.write_text('import clingo')
-        
+
         input_file = tmp_path / "input.lp"
         input_file.write_text('edge(1,2).')
-        
+
         results = conn.run_experiment(rule_file, input_file, tmp_path, desc, {})
-        
+
         assert "GroundRealTime" in results
         assert "SolveRealTime" in results
 
@@ -1390,28 +1644,38 @@ class TestSubprocessConnectorsAdvanced:
         """Test Souffle connector with compile and solve phases."""
         conn = SouffleConnector()
         desc = SystemDescriptor(
-            name="souffle", display_name="Souffle", category="logic", protocol="souffle_subprocess",
+            name="souffle",
+            display_name="Souffle",
+            category="logic",
+            protocol="souffle_subprocess",
             timing_phases=[TimingPhase("compile", "Compile"), TimingPhase("solve", "Solve")],
-            input_format="facts", modes=["mode1"], rule_extension=".dl", flags={}, execution={},
-            descriptor_path=Path("dummy"), rules_dir=Path("dummy"), credentials={}, version="0.1"
+            input_format="facts",
+            modes=["mode1"],
+            rule_extension=".dl",
+            flags={},
+            execution={},
+            descriptor_path=Path("dummy"),
+            rules_dir=Path("dummy"),
+            credentials={},
+            version="0.1",
         )
-        
+
         conn.connect({}, desc)
-        
+
         mock_result = MagicMock()
         mock_result.stdout = ""
         mock_result.stderr = ""
         mock_result.returncode = 0
         mock_timed_subproc.return_value = (1.5, 1.2, 15.0, mock_result)
-        
+
         rule_file = tmp_path / "transitive_mode1.dl"
         rule_file.write_text('.input edge\n.output path\npath(X,Y) :- edge(X,Y).')
-        
+
         facts_dir = tmp_path / "facts"
         facts_dir.mkdir()
         (facts_dir / "edge.facts").write_text('1\t2\n')
-        
+
         results = conn.run_experiment(rule_file, facts_dir, tmp_path, desc, {})
-        
+
         assert "CompileRealTime" in results
         assert "SolveRealTime" in results

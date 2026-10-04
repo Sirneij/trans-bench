@@ -1,5 +1,5 @@
 """
-engine/data_generator.py
+Re-export the graph generators under the import path used by graph_types/*.yaml.
 
 Import path for the graph generators referenced by graph_types/*.yaml (`generator:` field). The
 generators are the `generate_<graph_type>_graph` methods of `DataGenerator` in generate_db.py,
@@ -12,6 +12,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from generate_db import DataGenerator  # noqa: E402
+from generate_db import DataGenerator  # noqa: E402  # pylint: disable=wrong-import-position
 
 __all__ = ['DataGenerator']

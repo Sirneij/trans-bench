@@ -1,11 +1,12 @@
+# mariadb_rules is registered in sys.modules by the connector at run time (engine/connectors/), so
+# pylint cannot resolve it statically
+# pylint: disable=import-error
 from mariadb_rules import MariaDBOperations
 
 
 class MariaDBRightRecursion(MariaDBOperations):
     def run_recursive_query(self) -> None:
-        """
-        Runs the left recursion query for transitive closure.
-        """
+        """Run the right recursion query for transitive closure."""
         self.execute_query(
             """
         CREATE TABLE tc_result AS

@@ -1,3 +1,13 @@
+"""
+Run one Clingo trial in a separate process and print the time of each phase.
+
+ClingoConnector (engine/connectors/subprocess_conn.py) starts this script, so that Clingo's memory
+and time are measured apart from the process that drives the benchmark. Each phase is timed with
+os.times(): elapsed real time, and the CPU time of this process and its children.
+
+    python clingo_runner.py <rule_path> <input_path> <output_file>
+"""
+
 import os
 import sys
 
@@ -5,12 +15,14 @@ import sys
 def _estimate_os_times(
     t1: tuple[float, float, float, float, float], t2: tuple[float, float, float, float, float]
 ) -> tuple[float, float]:
+    """Return (real, cpu) seconds between two os.times() readings."""
     u1, s1, cu1, cs1, e1 = t1
     u2, s2, cu2, cs2, e2 = t2
     return e2 - e1, (u2 - u1) + (s2 - s1) + (cu2 - cu1) + (cs2 - cs1)
 
 
 def main():
+    """Load the rules and facts, ground, solve, write every model, and print the phase times."""
     if len(sys.argv) < 4:
         print("Usage: clingo_runner.py <rule_path> <input_path> <output_file>")
         sys.exit(1)
@@ -46,7 +58,7 @@ def main():
     solve_real, solve_cpu = _estimate_os_times(t0, t1)
 
     t0 = os.times()
-    with open(output_file, 'w', newline='') as f:
+    with open(output_file, 'w', newline='', encoding='utf-8') as f:
         for model in models:
             f.write(model + '\n')
     t1 = os.times()

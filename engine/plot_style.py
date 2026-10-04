@@ -1,7 +1,7 @@
 """
-engine/plot_style.py — how every system is drawn in every figure of the suite.
+Define how every system is drawn in every figure of the suite.
 
-Two rules, used by analyze_verified.py and analyze.py (and checked by the tests):
+Two rules, used by analyze_verified.py and the Web UI (and checked by the tests):
 
 1. One style per system, the same in every figure: colour, marker and line style. The marker is
    what tells the systems apart in black-and-white print, so no two systems share one, and a

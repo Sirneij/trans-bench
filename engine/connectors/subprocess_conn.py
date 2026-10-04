@@ -1,8 +1,7 @@
 """
-engine/connectors/subprocess_conn.py
+Run trials on the logic systems, which run as separate processes.
 
-Connectors for logic programming systems that run as subprocesses or via
-Python library bindings:
+The connectors are:
   - XSBConnector       (protocol: subprocess)
   - ClingoConnector    (protocol: clingo_python)
   - SouffleConnector   (protocol: souffle_subprocess)
@@ -15,6 +14,7 @@ import gc
 import logging
 import os
 import re
+import sys
 import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
@@ -27,15 +27,15 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
-def _estimate_os_times(t1: tuple, t2: tuple) -> tuple[float, float]:
-    u1, s1, cu1, cs1, e1 = t1
-    u2, s2, cu2, cs2, e2 = t2
-    return e2 - e1, (u2 - u1) + (s2 - s1) + (cu2 - cu1) + (cs2 - cs1)
-
-
 def _extract(pattern: str, text: str) -> float:
+    """Return the number captured by `pattern` in `text`, or 0.0 if it does not occur."""
     m = re.search(pattern, text)
     return float(m.group(1)) if m else 0.0
+
+
+def _field(key: str, text: str) -> float:
+    """Return the number printed as `<key>: <number>` in a system's output, or 0.0."""
+    return _extract(rf'{key}:\s+(-?\d+\.?\d*(?:e[+-]?\d+)?)', text or '')
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -47,6 +47,7 @@ class XSBConnector(BaseConnector):
     """Runs transitive closure via XSB Prolog subprocesses."""
 
     def connect(self, credentials: dict[str, Any], descriptor: 'SystemDescriptor') -> None:
+        """Do nothing: every XSB run is a new process."""
         log.info('XSB connector ready (no persistent connection needed)')
 
     def run_experiment(
@@ -58,56 +59,36 @@ class XSBConnector(BaseConnector):
         config: dict[str, Any],
         query_bindings: dict[str, Any] | None = None,
     ) -> dict[str, float]:
-        queries = config.get('queries', '[[query1, path(X, Y)]]')
+        """Run XSB twice (query only, then query and write) and split the times into four phases."""
         xsb_export_path = rule_path.parent / 'xsb_export'
-        results_path = self.result_path(output_folder, descriptor, 'xsb_results.txt')
-
-        base_args = [
-            'xsb',
-            '--nobanner',
-            '--quietload',
-            '--noprompt',
-            '-e',
-            f"add_lib_dir('{xsb_export_path}').",
-        ]
-        cmd1 = base_args + [
-            '-e',
-            f"extfilequery:external_file_query_only('{rule_path}','{input_path}',{queries},'{results_path}').",
-        ]
-        cmd2 = base_args + [
-            '-e',
-            f"extfilequery:external_file_query('{rule_path}','{input_path}',{queries},'{results_path}').",
-        ]
+        cmd1, cmd2 = self._commands(
+            rule_path,
+            input_path,
+            config.get('queries', '[[query1, path(X, Y)]]'),
+            self.result_path(output_folder, descriptor, 'xsb_results.txt'),
+        )
 
         # XSB evaluates the query twice: once without writing (query time) and once with writing
         # the result (write time = difference). Timings are printed by xsb_export/extfilequery.P.
         samples: list[tuple[float, float]] = []
-        real1, cpu1, mem1, out1 = self.timed_subprocess(cmd1, samples=samples)
-        real2, cpu2, mem2, out2 = self.timed_subprocess(cmd2)
-        for label, out, key in (('query only', out1, 'QueryOnlyTime'), ('query and write', out2, 'QueryAndWriteTime')):
-            if out.returncode != 0 or f'{key}:' not in (out.stdout or ''):
-                tail = ' '.join(((out.stderr or '') + (out.stdout or '')).split())[-500:]
-                self._record_error(f'XSB {label} run failed (exit code {out.returncode}): {tail}')
+        real1, _, mem1, out1 = self.timed_subprocess(cmd1, samples=samples)
+        _, _, mem2, out2 = self.timed_subprocess(cmd2)
+        self._check_output('query only', out1, 'QueryOnlyTime')
+        self._check_output('query and write', out2, 'QueryAndWriteTime')
 
-        def t(key, text):
-            return _extract(rf'{key}:\s+(-?\d+\.?\d*(?:e[+-]?\d+)?)', text)
-
-        phases = descriptor.timing_phases
-        qonly_real = t('QueryOnlyTime', out1.stdout)
-        qonly_cpu = t('CPUQueryOnlyTime', out1.stdout)
-        qwrite_real = t('QueryAndWriteTime', out2.stdout)
-        qwrite_cpu = t('CPUTimeQueryAndWriteTime', out2.stdout)
-        write_real = qwrite_real - qonly_real
-        write_cpu = qwrite_cpu - qonly_cpu
-
+        qonly_real = _field('QueryOnlyTime', out1.stdout)
+        qonly_cpu = _field('CPUQueryOnlyTime', out1.stdout)
+        # write time = (query and write) - (query only)
         measurements = [
-            (t('LoadRuleTime', out1.stdout), t('CPULoadRuleTime', out1.stdout)),
-            (t('LoadFactsTime', out1.stdout), t('CPULoadFactsTime', out1.stdout)),
+            (_field('LoadRuleTime', out1.stdout), _field('CPULoadRuleTime', out1.stdout)),
+            (_field('LoadFactsTime', out1.stdout), _field('CPULoadFactsTime', out1.stdout)),
             (qonly_real, qonly_cpu),
-            (write_real, write_cpu),
+            (
+                _field('QueryAndWriteTime', out2.stdout) - qonly_real,
+                _field('CPUTimeQueryAndWriteTime', out2.stdout) - qonly_cpu,
+            ),
         ]
 
-        memory = [0.0, 0.0, mem1, max(0.0, mem2 - mem1)]
         self.memory = self._query_memory(samples, real1, qonly_real)
 
         # Cleanup compiled .xwam files
@@ -117,25 +98,59 @@ class XSBConnector(BaseConnector):
             f.unlink(missing_ok=True)
 
         gc.collect()
-        return self.build_timing_row(phases, measurements[: len(phases)], memory=memory[: len(phases)])
+        n = len(descriptor.timing_phases)
+        memory = [0.0, 0.0, mem1, max(0.0, mem2 - mem1)]
+        return self.build_timing_row(descriptor.timing_phases, measurements[:n], memory=memory[:n])
+
+    def _check_output(self, label: str, out, key: str) -> None:
+        """Record an error if an XSB run failed or did not print its `key` timing."""
+        if out.returncode != 0 or f'{key}:' not in (out.stdout or ''):
+            tail = ' '.join(((out.stderr or '') + (out.stdout or '')).split())[-500:]
+            self._record_error(f'XSB {label} run failed (exit code {out.returncode}): {tail}')
+
+    @staticmethod
+    def _commands(rule_path: Path, input_path: Path, queries: str, results_path: Path) -> tuple[list, list]:
+        """Return the XSB command lines of the query-only run and of the query-and-write run."""
+        base_args = [
+            'xsb',
+            '--nobanner',
+            '--quietload',
+            '--noprompt',
+            '-e',
+            f"add_lib_dir('{rule_path.parent / 'xsb_export'}').",
+        ]
+        args = f"('{rule_path}','{input_path}',{queries},'{results_path}')."
+        return (
+            base_args + ['-e', f'extfilequery:external_file_query_only{args}'],
+            base_args + ['-e', f'extfilequery:external_file_query{args}'],
+        )
 
     @staticmethod
     def _query_memory(samples: list, run_s: float, query_s: float) -> dict:
-        """Memory of the query from the RSS samples (every 10 ms) of the query-only XSB process:
-        peak RSS minus the RSS just before the query started. The query ends right before XSB
-        prints its timings and halts, so it started at about run_s - query_s after the process."""
+        """
+        Compute the memory of the query from the RSS samples (every 10 ms) of the query-only process.
+
+        The value is the peak RSS minus the RSS just before the query started. The query ends right
+        before XSB prints its timings and halts, so it started about run_s - query_s seconds after
+        the process.
+        """
         if not samples:
             return {'probe': 'xsb process RSS (query-only run)', 'error': 'no samples'}
         t_query = max(0.0, run_s - query_s)
         before = max((m for t, m in samples if t <= t_query), default=samples[0][1])
         peak = max(m for _, m in samples)
         mb = 1024 * 1024
-        return {'probe': 'xsb process RSS (query-only run)', 'before_mb': round(before / mb, 3),
-                'peak_mb': round(peak / mb, 3), 'used_mb': round((peak - before) / mb, 3),
-                'samples': len(samples), 'interval_s': 0.01}
+        return {
+            'probe': 'xsb process RSS (query-only run)',
+            'before_mb': round(before / mb, 3),
+            'peak_mb': round(peak / mb, 3),
+            'used_mb': round((peak - before) / mb, 3),
+            'samples': len(samples),
+            'interval_s': 0.01,
+        }
 
     def close(self) -> None:
-        pass
+        """Do nothing: there is no connection to close."""
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -147,6 +162,7 @@ class ClingoConnector(BaseConnector):
     """Runs transitive closure via the clingo Python library."""
 
     def connect(self, credentials: dict[str, Any], descriptor: 'SystemDescriptor') -> None:
+        """Do nothing: every Clingo run is a new process (clingo_runner.py)."""
         log.info('Clingo connector ready')
 
     def _patch_rule_file(self, rule_path: Path, queries: str) -> Optional[str]:
@@ -159,13 +175,13 @@ class ClingoConnector(BaseConnector):
         if query.lower() in ('path(x, y)', 'path(x,y)'):
             return None
 
-        content = rule_path.read_text()
+        content = rule_path.read_text(encoding='utf-8')
         content = re.sub(
             r'#show path/\d+\.',
             f'ppath(X) :- {query}.\n\n#show ppath/1.',
             content,
         )
-        with tempfile.NamedTemporaryFile(delete=False, mode='w', suffix='.lp') as f:
+        with tempfile.NamedTemporaryFile(delete=False, mode='w', suffix='.lp', encoding='utf-8') as f:
             f.write(content)
             return f.name
 
@@ -178,11 +194,10 @@ class ClingoConnector(BaseConnector):
         config: dict[str, Any],
         query_bindings: dict[str, Any] | None = None,
     ) -> dict[str, float]:
+        """Run clingo_runner.py in its own process and read the five phase times it prints."""
         queries = config.get('queries', '[[query1, path(X, Y)]]')
         temp_path = self._patch_rule_file(rule_path, queries)
         effective_rule = temp_path if temp_path else str(rule_path)
-
-        import sys
 
         phases = descriptor.timing_phases
         measurements: list[tuple[float, float]] = [(0.0, 0.0)] * len(phases)
@@ -193,16 +208,17 @@ class ClingoConnector(BaseConnector):
             runner_script = Path(__file__).parent / 'clingo_runner.py'
 
             cmd = [sys.executable, str(runner_script), effective_rule, str(input_path), str(output_file)]
-            real, cpu, mem, result = self.timed_subprocess(cmd)
-
-            def t(key):
-                return _extract(rf'{key}:\s+(-?\d+\.?\d*(?:e[+-]?\d+)?)', result.stdout)
-
-            measurements[0] = (t('LoadRuleTime') or 0.0, t('CPULoadRuleTime') or 0.0)
-            measurements[1] = (t('LoadFactsTime') or 0.0, t('CPULoadFactsTime') or 0.0)
-            measurements[2] = (t('GroundTime') or 0.0, t('CPUGroundTime') or 0.0)
-            measurements[3] = (t('QueryTime') or 0.0, t('CPUQueryTime') or 0.0)
-            measurements[4] = (t('WriteTime') or 0.0, t('CPUWriteTime') or 0.0)
+            _, _, mem, result = self.timed_subprocess(cmd)
+            for i, (real_key, cpu_key) in enumerate(
+                (
+                    ('LoadRuleTime', 'CPULoadRuleTime'),
+                    ('LoadFactsTime', 'CPULoadFactsTime'),
+                    ('GroundTime', 'CPUGroundTime'),
+                    ('QueryTime', 'CPUQueryTime'),
+                    ('WriteTime', 'CPUWriteTime'),
+                )
+            ):
+                measurements[i] = (_field(real_key, result.stdout), _field(cpu_key, result.stdout))
 
             # Attribute peak memory to the Solve (Query) phase
             memory[3] = mem
@@ -217,7 +233,7 @@ class ClingoConnector(BaseConnector):
         return self.build_timing_row(phases, measurements[: len(phases)], memory=memory[: len(phases)])
 
     def close(self) -> None:
-        pass
+        """Do nothing: there is no connection to close."""
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -229,9 +245,11 @@ class SouffleConnector(BaseConnector):
     """Compiles and runs Soufflé Datalog programs."""
 
     def connect(self, credentials: dict[str, Any], descriptor: 'SystemDescriptor') -> None:
+        """Do nothing: every Souffle step is a new process."""
         log.info('Soufflé connector ready')
 
     def _patch_rule_file(self, rule_path: Path, queries: str) -> Optional[str]:
+        """Return a patched temp file path if query substitution is needed, else None."""
         queries_pattern = re.compile(r'path\(\s*\w+\s*,\s*\w+\s*\)')
         match = queries_pattern.search(queries)
         if not match:
@@ -240,28 +258,28 @@ class SouffleConnector(BaseConnector):
         if query in ('path(x, y)', 'path(x,y)'):
             return None
 
-        content = rule_path.read_text()
+        content = rule_path.read_text(encoding='utf-8')
         content = re.sub(
             r'\.output path',
             f'.decl ppath(x:number)\nppath(x) :- {query}.\n\n.output ppath',
             content,
         )
-        with tempfile.NamedTemporaryFile(delete=False, mode='w', suffix='.dl') as f:
+        with tempfile.NamedTemporaryFile(delete=False, mode='w', suffix='.dl', encoding='utf-8') as f:
             f.write(content)
             return f.name
 
-    def _run_cmd(self, cmd: str) -> tuple[str, dict, float]:
-        """Run a shell command, return (real_cpu_str, parsed_timing_dict, max_rss_mb)."""
+    def _run_cmd(self, cmd: list[Any]) -> tuple[tuple[float, float], dict, float]:
+        """Run one step; return ((real, cpu), the times the step printed, max_rss_mb), zeros on failure."""
         try:
-            real, cpu, max_rss, result = self.timed_subprocess(cmd, shell=True)
+            real, cpu, max_rss, result = self.timed_subprocess([str(c) for c in cmd])
             if result.returncode != 0:
                 log.error(f'Soufflé cmd failed: {result.stderr}')
-                return '0,0', {}, 0.0
+                return (0.0, 0.0), {}, 0.0
             timing = {k: float(v) for k, v in re.findall(r'(\w+ time): (\d+\.\d+) seconds', result.stdout)}
-            return f'{real},{cpu}', timing, max_rss
+            return (real, cpu), timing, max_rss
         except Exception as e:
             log.error(f'Soufflé cmd failed: {e}')
-            return '0,0', {}, 0.0
+            return (0.0, 0.0), {}, 0.0
 
     def run_experiment(
         self,
@@ -272,6 +290,7 @@ class SouffleConnector(BaseConnector):
         config: dict[str, Any],
         query_bindings: dict[str, Any] | None = None,
     ) -> dict[str, float]:
+        """Translate the program to C++, compile it, run the binary, and read the times it prints."""
         queries = config.get('queries', '[[query1, path(X, Y)]]')
         include_dir = config.get('souffle_include_dir', '/opt/homebrew/Cellar/souffle/HEAD-8abf896/include')
         export_path = rule_path.parent / 'souffle_export'
@@ -286,25 +305,26 @@ class SouffleConnector(BaseConnector):
         memory: list[float] = [0.0] * len(phases)
 
         try:
-            # Phase 0: Datalog → C++
-            dtc_str, _, mem0 = self._run_cmd(
-                f'souffle {effective_rule} -F {input_path} -w -g {generated_cpp} -D {output_folder}'
+            # phase 0: Datalog to C++
+            measurements[0], _, memory[0] = self._run_cmd(
+                ['souffle', effective_rule, '-F', input_path, '-w', '-g', generated_cpp, '-D', output_folder]
             )
-            r, c = [float(x) for x in dtc_str.split(',')]
-            measurements[0] = (r, c)
-            memory[0] = mem0
-
-            # Phase 1: Compile C++
-            compile_str, _, mem1 = self._run_cmd(
-                f'g++ {export_file}.cpp {generated_cpp} -std=c++17 -I {include_dir} '
-                f'-o {export_file} -D__EMBEDDED_SOUFFLE__'
+            # phase 1: compile the C++ program
+            measurements[1], _, memory[1] = self._run_cmd(
+                [
+                    'g++',
+                    f'{export_file}.cpp',
+                    generated_cpp,
+                    '-std=c++17',
+                    '-I',
+                    include_dir,
+                    '-o',
+                    export_file,
+                    '-D__EMBEDDED_SOUFFLE__',
+                ]
             )
-            r, c = [float(x) for x in compile_str.split(',')]
-            measurements[1] = (r, c)
-            memory[1] = mem1
-
-            # Phase 2-5: Run compiled binary (timing from stdout)
-            run_str, run_timing, run_mem = self._run_cmd(f'{export_file} {input_path}')
+            # phases 2 to 5: run the binary, which prints the time of each of them
+            _, run_timing, run_mem = self._run_cmd([export_file, input_path])
             measurements[2] = (run_timing.get('Instance time', 0.0), run_timing.get('InstanceCPU time', 0.0))
             measurements[3] = (run_timing.get('LoadingFacts time', 0.0), run_timing.get('LoadingFactsCPU time', 0.0))
             measurements[4] = (run_timing.get('Query time', 0.0), run_timing.get('QueryCPU time', 0.0))
@@ -322,7 +342,7 @@ class SouffleConnector(BaseConnector):
         return self.build_timing_row(phases, measurements[: len(phases)], memory=memory[: len(phases)])
 
     def close(self) -> None:
-        pass
+        """Do nothing: there is no connection to close."""
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -334,6 +354,7 @@ class AldaConnector(BaseConnector):
     """Runs transitive closure via Alda (DistAlgo) subprocesses."""
 
     def connect(self, credentials: dict[str, Any], descriptor: 'SystemDescriptor') -> None:
+        """Do nothing: every ALDA run is a new process."""
         log.info('Alda connector ready')
 
     def run_experiment(
@@ -345,6 +366,7 @@ class AldaConnector(BaseConnector):
         config: dict[str, Any],
         query_bindings: dict[str, Any] | None = None,
     ) -> dict[str, float]:
+        """Run the ALDA program once and split its time into the four phases."""
         # Parse size from input path for buffer sizing
         try:
             size = int(input_path.stem.split('_')[-1])
@@ -358,7 +380,7 @@ class AldaConnector(BaseConnector):
         graph_type = input_path.parent.name if input_path.parent.name != 'alda' else 'cycle'
 
         cmd = [
-            'python',
+            sys.executable,
             '-m',
             'da',
             '-r',
@@ -379,14 +401,12 @@ class AldaConnector(BaseConnector):
 
         real, cpu, mem, result = self.timed_subprocess(cmd)
 
-        # Alda outputs timing to stdout; parse if available
-        def t(key):
-            return _extract(rf'{key}:\s+(-?\d+\.?\d*(?:e[+-]?\d+)?)', result.stdout)
-
-        load_rules_real = t('LoadRuleTime') or (real * 0.1)
-        load_facts_real = t('LoadFactsTime') or (real * 0.2)
-        query_real = t('QueryOnlyTime') or (real * 0.6)
-        write_real = t('WriteTime') or (real * 0.1)
+        # ALDA prints its phase times when it can. When it does not, the whole run's time is split
+        # 10/20/60/10 over the phases: an estimate, not a measurement. The CPU time is always split.
+        load_rules_real = _field('LoadRuleTime', result.stdout) or (real * 0.1)
+        load_facts_real = _field('LoadFactsTime', result.stdout) or (real * 0.2)
+        query_real = _field('QueryOnlyTime', result.stdout) or (real * 0.6)
+        write_real = _field('WriteTime', result.stdout) or (real * 0.1)
 
         measurements = [
             (load_rules_real, cpu * 0.1),
@@ -401,4 +421,4 @@ class AldaConnector(BaseConnector):
         return self.build_timing_row(phases, measurements[: len(phases)], memory=memory[: len(phases)])
 
     def close(self) -> None:
-        pass
+        """Do nothing: there is no connection to close."""

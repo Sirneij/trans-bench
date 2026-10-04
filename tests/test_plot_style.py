@@ -1,5 +1,7 @@
-"""The figure rules of the suite (engine/plot_style.py): one marker per system in every figure, and
-legends in the order of the systems' last data points."""
+"""
+The figure rules of the suite (engine/plot_style.py): one marker per system in every figure, and
+legends in the order of the systems' last data points.
+"""
 
 import re
 from pathlib import Path
@@ -24,8 +26,13 @@ def test_every_system_has_its_own_marker_and_colour():
 
 def test_legend_order_is_the_order_of_the_last_points():
     # the reviewer's example (original Fig. 4a): PostgreSQL ends above Neo4j, so it is listed first
-    last = {'cockroachdb': (1000, 18), 'neo4j': (1000, 11), 'postgres': (1000, 12.5), 'xsb': (1000, 5),
-            'duckdb': (1000, 2.4)}
+    last = {
+        'cockroachdb': (1000, 18),
+        'neo4j': (1000, 11),
+        'postgres': (1000, 12.5),
+        'xsb': (1000, 5),
+        'duckdb': (1000, 2.4),
+    }
     assert legend_order(last) == ['cockroachdb', 'postgres', 'neo4j', 'xsb', 'duckdb']
     # failure markers (at the time limit) end at the top; the one further right first
     last = {'mongodb': (200, 600), 'mariadb': (1000, 600), 'duckdb': (1000, 2)}
@@ -39,12 +46,14 @@ def published_figures():
 
     import analyze_verified as av
 
-    av.RESULTS = BASE / 'results' / 'verified_2026'
-    rows = av.summarize(av.load(av.RESULTS))
+    av.SETTINGS['results'] = BASE / 'results' / 'verified_2026'
+    rows = av.summarize(av.load(av.SETTINGS['results']))
     av.apply_agreement(rows)
     figs = []
-    with patch.object(av.plt, 'close', lambda f: figs.append(f)), \
-            plt.rc_context({'figure.max_open_warning': 0}):  # the test keeps all 28 figures open
+    with (
+        patch.object(av.plt, 'close', lambda f: figs.append(f)),
+        plt.rc_context({'figure.max_open_warning': 0}),
+    ):  # the test keeps all 28 figures open
         for g in av.GRAPHS:
             for cpu in (False, True):
                 av.plot_graph(rows, g, list(range(100, 1001, 100)), Path('/nonexistent'), cpu=cpu, formats=())
@@ -75,17 +84,3 @@ def test_published_figures_follow_the_rules(published_figures):
                 prev = system
             labels = [t.get_text() for t in ax.get_legend().get_texts()]
             assert labels == [SYSTEM_STYLE[s][0] for s in legend_order(last)], ax.get_title()  # rule 2
-
-
-def test_analyze_py_uses_the_same_rules():
-    import pandas as pd
-
-    import analyze
-
-    df = pd.DataFrame([dict(environment=e, size=n, real_time=t) for e, pts in {
-        'cockroachdb': [(100, 1), (1000, 18)], 'postgres': [(100, 1), (1000, 12.5)], 'neo4j': [(100, 2), (1000, 11)],
-        'xsb': [(100, .1), (1000, 5)], 'duckdb': [(100, .1), (1000, 2.4)]}.items() for n, t in pts])
-    tex = analyze.generate_pgfplots(df, 'max_acyclic', 'left_recursion', 'real_time', 20)
-    assert re.findall(r'addlegendentry\{([^}]*)\}', tex) == ['CockroachDB', 'PostgreSQL', 'Neo4j', 'XSB', 'DuckDB']
-    assert re.findall(r'mark=mpl-(\S+?),', tex) == ['D', 's', 'P', 'x', '^']
-    assert '\\addplot+' not in tex  # no cycle list: the marker never depends on the plot order

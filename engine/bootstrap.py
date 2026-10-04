@@ -1,8 +1,8 @@
 """
-engine/bootstrap.py
+Create new systems, domains and graph types from the templates in templates/.
 
-Tools for bootstrapping new systems, domains, and graph types without Python code.
-Provides CLI commands to scaffold new components from templates.
+transitive.py (--bootstrap-*) and the Web UI use these functions, so a new component can be added
+without writing Python code first.
 """
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ class BootstrapManager:
     """Handles creation of new systems, domains, and graphs from templates."""
 
     def __init__(self, base_dir: Path):
+        """Locate the templates, systems, domains and graph types under `base_dir`."""
         self.base_dir = base_dir
         self.templates_dir = base_dir / 'templates'
         self.systems_dir = base_dir / 'systems'
@@ -41,6 +42,7 @@ class BootstrapManager:
         -------
         Path
             Path to the newly created system directory
+
         """
         system_dir = self.systems_dir / system_name
         if system_dir.exists():
@@ -57,17 +59,17 @@ class BootstrapManager:
             raise FileNotFoundError(f'Template not found: {template_path}')
 
         # Read template and update name
-        with open(template_path) as f:
+        with open(template_path, encoding='utf-8') as f:
             descriptor = yaml.safe_load(f)
 
         descriptor['name'] = system_name
         descriptor_path = system_dir / 'descriptor.yaml'
-        with open(descriptor_path, 'w') as f:
+        with open(descriptor_path, 'w', encoding='utf-8') as f:
             yaml.dump(descriptor, f, default_flow_style=False, sort_keys=False)
 
         log.info(f'✓ Created system directory at {system_dir}')
         log.info(f'  Descriptor: {descriptor_path}')
-        log.info(f'  Next steps:')
+        log.info('  Next steps:')
         log.info(f'    1. Edit {descriptor_path} to set protocol, timing_phases, etc.')
         log.info(f'    2. Create {system_dir}/credentials.yaml with connection details')
         log.info(f'    3. Add rule files to {rules_dir}')
@@ -90,6 +92,7 @@ class BootstrapManager:
         -------
         Path
             Path to the newly created domain directory
+
         """
         domain_dir = self.domains_dir / domain_name
         if domain_dir.exists():
@@ -102,17 +105,17 @@ class BootstrapManager:
         if not template_path.exists():
             raise FileNotFoundError(f'Template not found: {template_path}')
 
-        with open(template_path) as f:
+        with open(template_path, encoding='utf-8') as f:
             domain = yaml.safe_load(f)
 
         domain['name'] = domain_name
         descriptor_path = domain_dir / 'descriptor.yaml'
-        with open(descriptor_path, 'w') as f:
+        with open(descriptor_path, 'w', encoding='utf-8') as f:
             yaml.dump(domain, f, default_flow_style=False, sort_keys=False)
 
         log.info(f'✓ Created domain directory at {domain_dir}')
         log.info(f'  Descriptor: {descriptor_path}')
-        log.info(f'  Next steps:')
+        log.info('  Next steps:')
         log.info(f'    1. Edit {descriptor_path} to define query parameters and output schema')
         log.info(f'    2. Create rule files in systems/*/rules/{domain_name}_*.sql (or .lp, .cypher, etc.)')
         log.info(f'    3. Test: python transitive.py --domains {domain_name} --systems postgres')
@@ -137,6 +140,7 @@ class BootstrapManager:
         -------
         Path
             Path to the newly created graph descriptor
+
         """
         graph_file = self.graph_types_dir / f'{graph_name}.yaml'
         if graph_file.exists():
@@ -150,11 +154,11 @@ class BootstrapManager:
             'parameters': {},
         }
 
-        with open(graph_file, 'w') as f:
+        with open(graph_file, 'w', encoding='utf-8') as f:
             yaml.dump(descriptor, f, default_flow_style=False, sort_keys=False)
 
         log.info(f'✓ Created graph descriptor at {graph_file}')
-        log.info(f'  Next steps:')
+        log.info('  Next steps:')
         log.info(f'    1. Implement DataGenerator.generate_{graph_name}_graph in generate_db.py')
         log.info(f'    2. Test: python transitive.py --graphs {graph_name} --systems postgres --sizes 10 11 1')
 
@@ -175,6 +179,7 @@ class BootstrapManager:
         -------
         Path
             Path to the copied rule file
+
         """
         template_path = self.templates_dir / template_name
         if not template_path.exists():

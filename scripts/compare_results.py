@@ -1,4 +1,5 @@
-"""Compares a new campaign with a reference campaign (by default the published one).
+"""
+Compare a new campaign with a reference campaign (by default the published one).
 
     python scripts/compare_results.py results/my_run [--reference results/verified_2026]
 
@@ -10,6 +11,7 @@ For every (series, graph, mode, n) present in both:
   * time: ratio of the median query times (new / reference), summarized per series.
 Exit code 1 if any result differs.
 """
+
 import argparse
 import json
 import statistics
@@ -19,19 +21,21 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import analyze_verified  # noqa: E402
+import analyze_verified  # noqa: E402  # pylint: disable=wrong-import-position
 
 
 def load(results: Path) -> dict:
+    """Group the run records of a campaign by (series, graph, mode, n)."""
     groups = defaultdict(list)
     for f in sorted(results.glob('*/runs.jsonl')):
-        for line in f.read_text().splitlines():
+        for line in f.read_text(encoding='utf-8').splitlines():
             r = json.loads(line)
             groups[(f.parent.name, r['graph'], r['mode'], r['n'])].append(r)
     return groups
 
 
 def status(runs: list) -> str:
+    """Return the status of a configuration from its runs: skipped, timeout, error or ok."""
     for s in ('skipped', 'timeout', 'error'):
         if any(r.get('status') == s for r in runs):
             return s
@@ -39,6 +43,7 @@ def status(runs: list) -> str:
 
 
 def main() -> int:
+    """Compare the campaigns; return 1 if any result differs."""
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('results')
     ap.add_argument('--reference', default=str(Path(__file__).resolve().parent.parent / 'results' / 'verified_2026_v2'))
@@ -51,7 +56,9 @@ def main() -> int:
 
     mismatches, status_diff, ratios = [], [], defaultdict(list)
     for key in common:
-        ref_results = {json.dumps(r['result'], sort_keys=True) for r in ref[key] if r.get('status') == 'ok' and r.get('result')}
+        ref_results = {
+            json.dumps(r['result'], sort_keys=True) for r in ref[key] if r.get('status') == 'ok' and r.get('result')
+        }
         for r in new[key]:
             if r.get('status') == 'ok' and r.get('result') and ref_results:
                 if json.dumps(r['result'], sort_keys=True) not in ref_results:

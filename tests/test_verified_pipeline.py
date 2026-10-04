@@ -21,8 +21,8 @@ from engine.connectors import PROTOCOL_REGISTRY, get_connector
 from engine.connectors.neo4j_conn import Neo4jConnector
 from engine.connectors.rdbms import (
     CockroachDBConnector,
-    PostgreSQLConnector,
     MariaDBConnector,
+    PostgreSQLConnector,
     SingleStoreConnector,
     concatenate_chunks,
 )
@@ -136,7 +136,10 @@ class TestInputGeneration:
         from generate_db import GraphGenerator
 
         GraphGenerator(str(tmp_path / 'input'), {}).generate_and_save_graphs(graph, size)
-        tsv = [tuple(map(int, l.split('\t'))) for l in (tmp_path / f'input/souffle/{graph}/{size}/edge.facts').read_text().splitlines()]
+        tsv = [
+            tuple(map(int, l.split('\t')))
+            for l in (tmp_path / f'input/souffle/{graph}/{size}/edge.facts').read_text().splitlines()
+        ]
         lp = (tmp_path / f'input/clingo_xsb/{graph}/graph_{size}.lp').read_text().splitlines()
         return tsv, lp
 
@@ -208,11 +211,20 @@ class TestDescriptors:
 
 def _desc(name, protocol, phases, **kw):
     return SystemDescriptor(
-        name=name, display_name=name, category='db', protocol=protocol,
-        timing_phases=[TimingPhase(p.lower(), p) for p in phases], input_format='tsv', modes=['left_recursion'],
-        rule_extension=kw.pop('rule_extension', '.py'), flags=kw.pop('flags', {}), execution={},
-        descriptor_path=kw.pop('descriptor_path', Path('dummy/descriptor.yaml')), rules_dir=Path('dummy'),
-        credentials=kw.pop('credentials', {}), **kw,
+        name=name,
+        display_name=name,
+        category='db',
+        protocol=protocol,
+        timing_phases=[TimingPhase(p.lower(), p) for p in phases],
+        input_format='tsv',
+        modes=['left_recursion'],
+        rule_extension=kw.pop('rule_extension', '.py'),
+        flags=kw.pop('flags', {}),
+        execution={},
+        descriptor_path=kw.pop('descriptor_path', Path('dummy/descriptor.yaml')),
+        rules_dir=Path('dummy'),
+        credentials=kw.pop('credentials', {}),
+        **kw,
     )
 
 
@@ -232,15 +244,20 @@ class TestNeo4jTiming:
             return res
 
         session.run.side_effect = run
-        desc = _desc('neo4j', 'neo4j', ['DeleteData', 'LoadData', 'CreateIndexX', 'CreateIndexY', 'Query', 'WriteResult'],
-                     rule_extension='.cypher', result_file='neo4j_results.csv')
+        desc = _desc(
+            'neo4j',
+            'neo4j',
+            ['DeleteData', 'LoadData', 'CreateIndexX', 'CreateIndexY', 'Query', 'WriteResult'],
+            rule_extension='.cypher',
+            result_file='neo4j_results.csv',
+        )
         conn = Neo4jConnector()
         conn.connect({'import_directory': str(tmp_path)}, desc)
         rule = BASE / 'systems/neo4j/rules/transitive_left_recursion.cypher'
         facts = tmp_path / 'in' / 'edge.facts'
         facts.parent.mkdir()
         facts.write_text('1\t2\n')
-        with patch('subprocess.run'):
+        with patch('engine.connectors.neo4j_conn.shutil.copy'):
             conn.run_experiment(rule, facts, tmp_path, desc, {})
         assert [e[0] for e in events] == ['consume', 'consume', 'consume', 'fetch', 'fetch']
         assert events[3][1] == 'MATCH' and events[4][1] == 'CALL'
@@ -254,12 +271,15 @@ class TestSingleStoreConnector:
         cursor.fetchall.return_value = [(1, 2), (2, 3)]
         mconn = MagicMock()
         mconn.cursor.return_value = cursor
-        with patch('MySQLdb.connect', return_value=mconn), \
-                patch.object(SingleStoreConnector, 'memory_sampler', return_value=None):
+        with (
+            patch('MySQLdb.connect', return_value=mconn),
+            patch.object(SingleStoreConnector, 'memory_sampler', return_value=None),
+        ):
             c = SingleStoreConnector()
             c.connect({'host': 'h', 'port': 3307, 'user': 'u', 'password': 'p', 'database': 'benchmark'}, desc)
-            row = c.run_experiment(desc.rules_dir / 'transitive_left_recursion.py', Path('/data/edge.facts'), tmp_path,
-                                   desc, {})
+            row = c.run_experiment(
+                desc.rules_dir / 'transitive_left_recursion.py', Path('/data/edge.facts'), tmp_path, desc, {}
+            )
         sql = [' '.join(str(call.args[0]).split()) for call in cursor.execute.call_args_list]
         assert sql[:2] == ['DROP TABLE IF EXISTS tc_result;', 'DROP TABLE IF EXISTS edge;']
         assert sql[2] == 'SET SESSION max_recursive_cte_iterations = 10000;'
@@ -273,12 +293,22 @@ class TestSingleStoreConnector:
     def test_failure_is_recorded(self, tmp_path):
         desc = DescriptorLoader(base_dir=BASE, detect_versions=False).get_system('singlestore')
         cursor = MagicMock()
-        cursor.execute.side_effect = [None, None, None, None, None, None, None,
-                                      Exception('(2741, "recursive CTE iteration limit")')]
+        cursor.execute.side_effect = [
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Exception('(2741, "recursive CTE iteration limit")'),
+        ]
         mconn = MagicMock()
         mconn.cursor.return_value = cursor
-        with patch('MySQLdb.connect', return_value=mconn), \
-                patch.object(SingleStoreConnector, 'memory_sampler', return_value=None):
+        with (
+            patch('MySQLdb.connect', return_value=mconn),
+            patch.object(SingleStoreConnector, 'memory_sampler', return_value=None),
+        ):
             c = SingleStoreConnector()
             c.connect({}, desc)
             c.run_experiment(desc.rules_dir / 'transitive_left_recursion.py', Path('x'), tmp_path, desc, {})
@@ -326,14 +356,17 @@ class TestCockroachChunks:
 class TestErrorReporting:
     def test_mariadb_error_is_recorded(self, tmp_path):
         rule = tmp_path / 'transitive_left_recursion.py'
-        rule.write_text('class MariaDBLeftRecursion:\n'
-                        '    def __init__(self, config, conn): pass\n'
-                        '    def drop_tc_path_tc_result_tables(self): pass\n'
-                        '    def set_standard_cte_to_zero(self): pass\n'
-                        '    def create_tc_path_table(self): raise RuntimeError("boom")\n')
+        rule.write_text(
+            'class MariaDBLeftRecursion:\n'
+            '    def __init__(self, config, conn): pass\n'
+            '    def drop_tc_path_tc_result_tables(self): pass\n'
+            '    def set_standard_cte_to_zero(self): pass\n'
+            '    def create_tc_path_table(self): raise RuntimeError("boom")\n'
+        )
         (tmp_path / '__init__.py').write_text('')
-        desc = _desc('mariadb', 'mysqlclient', ['A', 'B', 'C', 'D', 'E', 'F'],
-                     descriptor_path=tmp_path / 'descriptor.yaml')
+        desc = _desc(
+            'mariadb', 'mysqlclient', ['A', 'B', 'C', 'D', 'E', 'F'], descriptor_path=tmp_path / 'descriptor.yaml'
+        )
         c = MariaDBConnector()
         c._connection = MagicMock()
         c.run_experiment(rule, Path('x'), tmp_path, desc, {})
@@ -349,7 +382,7 @@ class TestErrorReporting:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# engine/run_one.py and benchmark.py (end to end, DuckDB)
+# engine/run_one.py and benchmark.py, the CLI of engine/campaign.py (end to end, DuckDB)
 # ─────────────────────────────────────────────────────────────────────────────
 
 
@@ -357,39 +390,95 @@ def _run(cmd, **kw):
     return subprocess.run(cmd, cwd=BASE, capture_output=True, text=True, timeout=300, **kw)
 
 
+@pytest.mark.xdist_group('duckdb')  # DuckDB trials share systems/duckdb/rules/duckdb/duckdb_file.db
 class TestRunOne:
     def test_one_trial_writes_timing_and_correct_result(self, tmp_path):
-        p = _run([PY, '-m', 'engine.run_one', '--system', 'duckdb', '--graph', 'cycle', '--mode', 'left_recursion',
-                  '--size', '100', '--timing-dir', str(tmp_path)])
+        p = _run(
+            [
+                PY,
+                '-m',
+                'engine.run_one',
+                '--system',
+                'duckdb',
+                '--graph',
+                'cycle',
+                '--mode',
+                'left_recursion',
+                '--size',
+                '100',
+                '--timing-dir',
+                str(tmp_path),
+            ]
+        )
         assert p.returncode == 0, p.stdout + p.stderr
         outcome = json.loads(p.stdout.strip().splitlines()[-1].split(' ', 1)[1])
         assert outcome['errors'] == []
         rows = list(csv.DictReader(open(outcome['timing_path'])))
         assert len(rows) == 1 and float(rows[0]['ExecuteQueryRealTime']) > 0
         c, h = verify.summarize_file(Path(outcome['result_path']))
-        assert {'count': c, 'hash': f'{h:016x}'} == verify.cached_expected(Path('input/souffle/cycle/100/edge.facts'),
-                                                                            BASE / 'input/expected_closures.json')
+        assert {'count': c, 'hash': f'{h:016x}'} == verify.cached_expected(
+            Path('input/souffle/cycle/100/edge.facts'), BASE / 'input/expected_closures.json'
+        )
 
     def test_setup_failure_exit_code(self, tmp_path):
-        p = _run([PY, '-m', 'engine.run_one', '--system', 'duckdb', '--graph', 'cycle', '--mode', 'left_recursion',
-                  '--size', '123', '--timing-dir', str(tmp_path)])
+        p = _run(
+            [
+                PY,
+                '-m',
+                'engine.run_one',
+                '--system',
+                'duckdb',
+                '--graph',
+                'cycle',
+                '--mode',
+                'left_recursion',
+                '--size',
+                '123',
+                '--timing-dir',
+                str(tmp_path),
+            ]
+        )
         assert p.returncode == 2
         assert 'not found' in p.stdout
 
 
+@pytest.mark.xdist_group('duckdb')  # DuckDB trials share systems/duckdb/rules/duckdb/duckdb_file.db
 class TestBenchmarkDriver:
     def _records(self, out):
         return [json.loads(l) for l in (out / 'runs.jsonl').read_text().splitlines()]
 
     def test_ok_runs_are_verified(self, tmp_path):
         out = tmp_path / 'duckdb'
-        p = _run([PY, 'benchmark.py', '--systems', 'duckdb', '--graphs', 'path', '--modes', 'left_recursion',
-                  'double_recursion', 'doublerecurring_recursion', '--sizes', '100', '--runs', '2', '--timeout', '120',
-                  '--out', str(out), '--expected-cache', str(tmp_path / 'cache.json'), '--no-analysis'])
+        p = _run(
+            [
+                PY,
+                'benchmark.py',
+                '--systems',
+                'duckdb',
+                '--graphs',
+                'path',
+                '--modes',
+                'left_recursion',
+                'double_recursion',
+                'doublerecurring_recursion',
+                '--sizes',
+                '100',
+                '--runs',
+                '2',
+                '--timeout',
+                '120',
+                '--out',
+                str(out),
+                '--expected-cache',
+                str(tmp_path / 'cache.json'),
+                '--no-analysis',
+            ]
+        )
         assert p.returncode == 0, p.stderr
         recs = self._records(out)
         assert [(r['mode'], r['run'], r['status']) for r in recs] == [
-            (m, i, 'ok') for m in ('left_recursion', 'double_recursion', 'doublerecurring_recursion') for i in (1, 2)]
+            (m, i, 'ok') for m in ('left_recursion', 'double_recursion', 'doublerecurring_recursion') for i in (1, 2)
+        ]
         correct = {r['mode']: r['correct'] for r in recs}
         # DuckDB's plain double recursion is incomplete on Path; with recurring.tc it is correct
         assert correct == {'left_recursion': True, 'double_recursion': False, 'doublerecurring_recursion': True}
@@ -399,17 +488,55 @@ class TestBenchmarkDriver:
         assert (out / 'logs' / 'duckdb_path_left_recursion_100_run1.log').exists()
 
         # restarting with the same arguments runs nothing again
-        p = _run([PY, 'benchmark.py', '--systems', 'duckdb', '--graphs', 'path', '--modes', 'left_recursion',
-                  '--sizes', '100', '--runs', '2', '--out', str(out), '--expected-cache', str(tmp_path / 'cache.json'),
-                  '--no-analysis'])
+        p = _run(
+            [
+                PY,
+                'benchmark.py',
+                '--systems',
+                'duckdb',
+                '--graphs',
+                'path',
+                '--modes',
+                'left_recursion',
+                '--sizes',
+                '100',
+                '--runs',
+                '2',
+                '--out',
+                str(out),
+                '--expected-cache',
+                str(tmp_path / 'cache.json'),
+                '--no-analysis',
+            ]
+        )
         assert len(self._records(out)) == len(recs)
 
     def test_campaign_is_analyzed_at_the_end(self, tmp_path):
         """benchmark.py analyzes the campaign directory: tables, matplotlib and LaTeX figures."""
         out = tmp_path / 'campaign' / 'duckdb'
-        p = _run([PY, 'benchmark.py', '--systems', 'duckdb', '--graphs', 'cycle', '--modes', 'left_recursion',
-                  'right_recursion', '--sizes', '100', '200', '--runs', '2', '--out', str(out),
-                  '--expected-cache', str(tmp_path / 'cache.json'), '--no-latex-compile'])
+        p = _run(
+            [
+                PY,
+                'benchmark.py',
+                '--systems',
+                'duckdb',
+                '--graphs',
+                'cycle',
+                '--modes',
+                'left_recursion',
+                'right_recursion',
+                '--sizes',
+                '100',
+                '200',
+                '--runs',
+                '2',
+                '--out',
+                str(out),
+                '--expected-cache',
+                str(tmp_path / 'cache.json'),
+                '--no-latex-compile',
+            ]
+        )
         assert p.returncode == 0, p.stdout + p.stderr
         analysis = tmp_path / 'campaign' / 'analysis'
         assert (analysis / 'summary.csv').exists() and (analysis / 'figures' / 'cycle_elapsed.pdf').exists()
@@ -417,15 +544,49 @@ class TestBenchmarkDriver:
         assert tex.startswith('\\documentclass') and 'DuckDB' in tex and 'ymode=log' in tex
 
     def test_one_series_per_output_directory(self, tmp_path):
-        p = _run([PY, 'benchmark.py', '--systems', 'duckdb', 'xsb', '--graphs', 'cycle', '--sizes', '100',
-                  '--out', str(tmp_path / 'duckdb')])
-        assert p.returncode == 2 and 'its own directory' in p.stderr
+        p = _run(
+            [
+                PY,
+                'benchmark.py',
+                '--systems',
+                'duckdb',
+                'xsb',
+                '--graphs',
+                'cycle',
+                '--sizes',
+                '100',
+                '--out',
+                str(tmp_path / 'duckdb'),
+            ]
+        )
+        assert p.returncode == 2 and 'series directory' in p.stderr
 
     def test_timeout_kills_and_skips_larger_sizes(self, tmp_path):
-        out = tmp_path / 'to'
-        p = _run([PY, 'benchmark.py', '--systems', 'duckdb', '--graphs', 'cycle', '--modes', 'left_recursion',
-                  '--sizes', '100', '200', '--runs', '3', '--timeout', '0.01', '--out', str(out),
-                  '--expected-cache', str(tmp_path / 'cache.json'), '--no-analysis'])
+        out = tmp_path / 'to' / 'duckdb'
+        p = _run(
+            [
+                PY,
+                'benchmark.py',
+                '--systems',
+                'duckdb',
+                '--graphs',
+                'cycle',
+                '--modes',
+                'left_recursion',
+                '--sizes',
+                '100',
+                '200',
+                '--runs',
+                '3',
+                '--timeout',
+                '0.01',
+                '--out',
+                str(out),
+                '--expected-cache',
+                str(tmp_path / 'cache.json'),
+                '--no-analysis',
+            ]
+        )
         assert p.returncode == 0, p.stderr
         recs = self._records(out)
         assert [(r['n'], r['run'], r['status']) for r in recs] == [(100, 1, 'timeout'), (200, None, 'skipped')]
@@ -434,12 +595,36 @@ class TestBenchmarkDriver:
         if (BASE / 'systems/singlestore/credentials.yaml').exists():
             pytest.skip('local SingleStore credentials would override the unreachable test server')
         cfg = tmp_path / 'cfg.json'
-        cfg.write_text(json.dumps({'singlestore': {'host': '127.0.0.1', 'port': 1, 'user': 'u', 'password': '',
-                                                   'database': 'x'}}))
+        cfg.write_text(
+            json.dumps({'singlestore': {'host': '127.0.0.1', 'port': 1, 'user': 'u', 'password': '', 'database': 'x'}})
+        )
         out = tmp_path / 's2'
-        p = _run([PY, 'benchmark.py', '--systems', 'singlestore', '--graphs', 'path', '--modes', 'left_recursion',
-                  '--sizes', '100', '200', '--runs', '5', '--timeout', '60', '--out', str(out), '--config-file', str(cfg),
-                  '--expected-cache', str(tmp_path / 'cache.json'), '--no-analysis'])
+        p = _run(
+            [
+                PY,
+                'benchmark.py',
+                '--systems',
+                'singlestore',
+                '--graphs',
+                'path',
+                '--modes',
+                'left_recursion',
+                '--sizes',
+                '100',
+                '200',
+                '--runs',
+                '5',
+                '--timeout',
+                '60',
+                '--out',
+                str(out),
+                '--config-file',
+                str(cfg),
+                '--expected-cache',
+                str(tmp_path / 'cache.json'),
+                '--no-analysis',
+            ]
+        )
         assert p.returncode == 0, p.stderr
         recs = self._records(out)
         assert [(r['n'], r['run'], r['status']) for r in recs] == [(100, 1, 'error'), (200, None, 'skipped')]
@@ -479,6 +664,14 @@ class TestAnalysis:
             assert (tmp_path / 'figures_tex' / name).read_text() == (published / 'figures_tex' / name).read_text(), name
         v = json.loads((tmp_path / 'verification.json').read_text())
         assert v['incorrect_results'] == {
-            'duckdb/double_recursion': ['binary_tree', 'cycle', 'grid', 'multi_path', 'path', 'reverse_binary_tree', 'y'],
+            'duckdb/double_recursion': [
+                'binary_tree',
+                'cycle',
+                'grid',
+                'multi_path',
+                'path',
+                'reverse_binary_tree',
+                'y',
+            ],
             'mariadb/right_recursion': ['scale_free'],
         }

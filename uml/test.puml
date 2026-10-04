@@ -1,7 +1,0 @@
-@startuml
-skinparam packageStyle rectangle
-skinparam monochrome true
-
-component "DataGenerator" as generate_input_data
-
-@enduml

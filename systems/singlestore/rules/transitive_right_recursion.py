@@ -1,3 +1,6 @@
+# singlestore_rules is registered in sys.modules by the connector at run time (engine/connectors/), so
+# pylint cannot resolve it statically
+# pylint: disable=import-error
 from singlestore_rules import SingleStoreOperations
 
 

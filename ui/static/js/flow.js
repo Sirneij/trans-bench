@@ -1,6 +1,6 @@
 /* Closure flow: the overview's live drawing of what a transitive closure computes.
    A layered graph (with a few back edges, so it has cycles) is drawn left to right. From a source node the
-   reachable set grows one breadth-first wave at a time — the same waves a semi-naive evaluation of
+   reachable set grows one breadth-first wave at a time, the same waves a semi-naive evaluation of
    tc(X, Z) :- tc(X, Y), e(Y, Z) adds per iteration. Pulses travel along the edges, reached nodes light up and
    the pairs the closure adds arc in. Hovering a node starts a wave from it. */
 (() => {

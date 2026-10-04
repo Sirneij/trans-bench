@@ -1,0 +1,40 @@
+# Tool settings for trans-bench. The checks themselves run from scripts/static_validation.sh and
+# scripts/test.sh, locally and in GitHub Actions (.github/workflows/ci.yml).
+
+[tool.black]
+line-length = 120
+skip-string-normalization = true
+target-version = ['py312']
+extend-exclude = '''
+/(
+    virtualenv
+  | alda          # vendored DistAlgo package
+  | results
+  | input
+)/
+'''
+
+[tool.isort]
+profile = 'black'
+line_length = 120
+extend_skip = ['virtualenv', 'alda', 'results', 'input']
+
+[tool.mypy]
+python_version = '3.12'
+# the repository root is the import root (it also holds an __init__.py, which mypy must not follow)
+explicit_package_bases = true
+mypy_path = '.'
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+exclude = ['^virtualenv/', '^alda/', '^results/', '^input/', '^tests/']
+
+[tool.bandit]
+exclude_dirs = ['virtualenv', 'alda', 'results', 'input', 'tests']
+
+[tool.pytest.ini_options]
+testpaths = ['tests']
+
+[tool.coverage.run]
+source = ['engine', 'ui', 'benchmark', 'transitive', 'analyze_verified', 'generate_db', 'common']
+omit = ['virtualenv/*', 'alda/*', 'tests/*']

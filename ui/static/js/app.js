@@ -1,4 +1,4 @@
-/* trans-bench UI — shared behaviour (theme, navigation, toasts, dialogs, tabs, palette, motion helpers).
+/* trans-bench UI: shared behaviour (theme, navigation, toasts, dialogs, tabs, palette, motion helpers).
    Everything hangs off window.TB; pages add their own scripts after this file. */
 (() => {
   'use strict';
@@ -350,7 +350,8 @@
   const palette = {
     d: null, items: [], filtered: [], sel: 0, loaded: false,
     base: [
-      { group: 'Go to', label: 'Dashboard', href: '/', icon: 'layout-dashboard', hint: 'g d' },
+      { group: 'Go to', label: 'Home', href: '/', icon: 'house' },
+      { group: 'Go to', label: 'Overview', href: '/overview', icon: 'layout-dashboard', hint: 'g d' },
       { group: 'Go to', label: 'Systems', href: '/systems', icon: 'database', hint: 'g s' },
       { group: 'Go to', label: 'Topologies', href: '/graphs', icon: 'share-2', hint: 'g t' },
       { group: 'Go to', label: 'Campaigns', href: '/campaigns', icon: 'flask-conical', hint: 'g c' },

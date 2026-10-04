@@ -1,8 +1,8 @@
 """
-engine/connectors/duckdb_conn.py
+Run DuckDB trials: SQL scripts executed in-process through the DuckDB Python driver.
 
-DuckDB connector — executes SQL scripts directly via the DuckDB Python driver.
-The SQL rule files use {data_file} and {output_file} placeholders.
+The SQL rule files use {data_file} and {output_file} placeholders; each statement of a script is
+one timing phase of the descriptor, in order.
 """
 
 from __future__ import annotations
@@ -26,12 +26,13 @@ class DuckDBConnector(BaseConnector):
     """Runs transitive closure experiments on DuckDB using raw SQL files."""
 
     def __init__(self):
+        """Start without a database file; run_experiment creates one per run."""
         super().__init__()
         self._db_path: Path | None = None
+        self._credentials: dict[str, Any] = {}
 
     def connect(self, credentials: dict[str, Any], descriptor: 'SystemDescriptor') -> None:
-        # DuckDB needs no credentials — connection is created per-experiment
-        # to ensure isolation.  We store credentials for future use.
+        """Keep the credentials; DuckDB needs no server, and its database is created per run."""
         self._credentials = credentials
         log.info('DuckDB connector ready (connection created per run)')
 
@@ -44,6 +45,7 @@ class DuckDBConnector(BaseConnector):
         config: dict[str, Any],
         query_bindings: dict[str, Any] | None = None,
     ) -> dict[str, float]:
+        """Execute the rule file statement by statement, timing each as one phase."""
         # Per-run db file to avoid cross-contamination. A run that was killed leaves the file (and
         # its WAL) behind; the next run would then fail on CREATE TABLE edge, so remove them first.
         self._db_path = rule_path.parent / 'duckdb' / 'duckdb_file.db'
@@ -54,7 +56,7 @@ class DuckDBConnector(BaseConnector):
         conn = duckdb.connect(database=str(self._db_path))
         results_path = self.result_path(output_folder, descriptor, 'duckdb_results.csv')
 
-        with open(rule_path) as f:
+        with open(rule_path, encoding='utf-8') as f:
             sql_script = f.read()
 
         sql_script = sql_script.replace('{data_file}', str(input_path))
@@ -87,13 +89,15 @@ class DuckDBConnector(BaseConnector):
         return self.build_timing_row(phases, measurements)
 
     def memory_sampler(self):
-        """RSS of this process: DuckDB runs in-process (one process per run)."""
+        """Sample the RSS of this process: DuckDB runs in-process (one process per run)."""
         return sampler_or_none(rss_of_self, 'duckdb process RSS')
 
     def close(self) -> None:
+        """Remove the run's database file."""
         self._cleanup()
 
     def _cleanup(self) -> None:
+        """Delete the database file and its write-ahead log, if they exist."""
         if self._db_path:
             # the database file and its write-ahead log (duckdb_file.db.wal)
             for f in [self._db_path, *self._db_path.parent.glob(f'{self._db_path.name}.*')]:

@@ -43,6 +43,6 @@
   {% endfor %}
 </div>
 {% else %}
-<div class="card">{{ m.empty('No campaigns yet', 'A campaign is a directory results/<name>/ with one <system>/runs.jsonl per series, written by benchmark.py. Plan one in the experiment wizard and copy the command.', url_for('experiment_new') ~ '#step-4', 'Plan a campaign', 'square-terminal') }}</div>
+<div class="card">{{ m.empty('No campaigns yet', 'A campaign is a directory results/<name>/ with one <system>/runs.jsonl per series, written by the campaign engine (the wizard, transitive.py or benchmark.py). Plan one in the experiment wizard.', url_for('experiment_new') ~ '#step-4', 'Plan a campaign', 'square-terminal') }}</div>
 {% endif %}
 {% endblock %}

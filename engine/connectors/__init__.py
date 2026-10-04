@@ -1,27 +1,23 @@
 """
-engine/connectors/__init__.py
+Map protocol strings (from descriptor.yaml) to connector classes.
 
-Maps protocol strings (from descriptor.yaml) to connector classes.
+A new protocol can be added in two ways.
 
-There are two ways to add a new protocol:
+  Option A, edit this file:
+    1. Implement a class extending BaseConnector in a new file.
+    2. Import it here and add it to PROTOCOL_REGISTRY.
 
-  Option A — Edit this file (existing workflow):
-    1. Implement a class extending BaseConnector in a new file
-    2. Import it here and add it to PROTOCOL_REGISTRY
-
-  Option B — Drop-in connector file (zero edits to this file):
-    1. Place systems/<name>/connector.py next to the system's descriptor.yaml
-    2. Define a single class that ends in "Connector" and extends BaseConnector
-    3. Set  protocol: <your_protocol_name>  in descriptor.yaml
-    The engine auto-discovers and registers it at startup.
+  Option B, a drop-in connector file (this file stays as it is):
+    1. Place systems/<name>/connector.py next to the system's descriptor.yaml.
+    2. Define a single class whose name ends in "Connector" and that extends BaseConnector.
+    3. Set `protocol: <your_protocol_name>` in descriptor.yaml.
+    The engine finds and registers such connectors when it starts.
 """
 
-import importlib.util
 import logging
-import sys
 from pathlib import Path
 
-from engine.connectors.base import BaseConnector
+from engine.connectors.base import BaseConnector, import_file
 from engine.connectors.duckdb_conn import DuckDBConnector
 from engine.connectors.mongodb_conn import MongoDBConnector
 from engine.connectors.neo4j_conn import Neo4jConnector
@@ -84,7 +80,7 @@ def _load_plugin_connectors(systems_dir: Path) -> None:
             continue
 
         try:
-            with open(descriptor_file) as f:
+            with open(descriptor_file, encoding='utf-8') as f:
                 descriptor_data = yaml.safe_load(f) or {}
         except Exception as e:
             log.warning(f'Skipping drop-in connector {connector_file}: cannot read descriptor ({e})')
@@ -96,15 +92,12 @@ def _load_plugin_connectors(systems_dir: Path) -> None:
             continue
 
         if protocol in PROTOCOL_REGISTRY:
-            log.debug(f'Protocol "{protocol}" already registered — skipping {connector_file}')
+            log.debug(f'Protocol "{protocol}" already registered; skipping {connector_file}')
             continue
 
         try:
             module_name = f'_plugin_connector_{system_dir.name}'
-            spec = importlib.util.spec_from_file_location(module_name, connector_file)
-            module = importlib.util.module_from_spec(spec)
-            sys.modules[module_name] = module
-            spec.loader.exec_module(module)
+            module = import_file(module_name, connector_file)
 
             # Find the first class ending in 'Connector' that isn't BaseConnector
             cls = None
@@ -122,7 +115,7 @@ def _load_plugin_connectors(systems_dir: Path) -> None:
             if cls is None:
                 log.warning(
                     f'Drop-in connector {connector_file} has no class ending '
-                    f'in "Connector" that subclasses BaseConnector — skipped'
+                    f'in "Connector" that subclasses BaseConnector; skipped'
                 )
                 continue
 

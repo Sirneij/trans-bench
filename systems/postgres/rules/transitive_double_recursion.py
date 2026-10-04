@@ -1,11 +1,12 @@
+# postgres_rules is registered in sys.modules by the connector at run time (engine/connectors/), so
+# pylint cannot resolve it statically
+# pylint: disable=import-error
 from postgres_rules import PostgresOperations
 
 
 class PostgreSQLDoubleRecursion(PostgresOperations):
     def run_recursive_query(self) -> None:
-        """
-        Runs the double recursion query for transitive closure.
-        """
+        """Run the double recursion query for transitive closure."""
         self.execute_query(
             """
         CREATE TABLE tc_result AS

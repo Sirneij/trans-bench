@@ -1,5 +1,7 @@
-"""Memory measurement (engine/memory.py), failure classification (engine/failures.py), and how the
-analysis reports both."""
+"""
+Memory measurement (engine/memory.py), failure classification (engine/failures.py), and how the
+analysis reports both.
+"""
 
 import os
 import time
@@ -16,14 +18,14 @@ def test_sampler_reports_before_peak_and_used():
     with s:
         time.sleep(0.02)
     r = s.result()
-    assert r['before_mb'] == round(100 / 2 ** 20, 3) and r['peak_mb'] == round(400 / 2 ** 20, 3)
-    assert r['used_mb'] == round(300 / 2 ** 20, 3) and r['samples'] >= 4
+    assert r['before_mb'] == round(100 / 2**20, 3) and r['peak_mb'] == round(400 / 2**20, 3)
+    assert r['used_mb'] == round(300 / 2**20, 3) and r['samples'] >= 4
 
 
 def test_sampler_sees_an_allocation():
     s = MemorySampler(rss_of_self(), 'self', interval=0.005)
     with s:
-        block = bytearray(64 * 2 ** 20)  # 64 MB, touched
+        block = bytearray(64 * 2**20)  # 64 MB, touched
         for i in range(0, len(block), 4096):
             block[i] = 1
         time.sleep(0.05)
@@ -34,6 +36,7 @@ def test_sampler_sees_an_allocation():
 def test_sampler_never_breaks_the_query():
     def broken():
         raise RuntimeError('process ended')
+
     s = MemorySampler(broken, 'broken', interval=0.001)
     with s:
         time.sleep(0.005)
@@ -41,24 +44,56 @@ def test_sampler_never_breaks_the_query():
 
 
 def test_find_server_pid_requires_exactly_one_process():
+    import subprocess
+    import sys
+    import uuid
+
     import psutil
 
     with pytest.raises(RuntimeError):
         find_server_pid('no-such-process-name')
-    me = psutil.Process(os.getpid())
-    assert find_server_pid(me.name(), ' '.join(me.cmdline())) == os.getpid()
+    # a process with a command line of its own (parallel test workers share the test runner's)
+    token = f'trans-bench-probe-{uuid.uuid4().hex}'
+    with subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)', token]) as probe:
+        try:
+            # on macOS the framework Python re-executes itself, so the name changes once after the start
+            for _ in range(100):
+                try:
+                    assert find_server_pid(psutil.Process(probe.pid).name(), token) == probe.pid
+                    break
+                except RuntimeError:
+                    time.sleep(0.05)
+            else:
+                pytest.fail('the probe process was never found')
+        finally:
+            probe.kill()
 
 
-@pytest.mark.parametrize('errors,expected', [
-    (['DuckDB command 4 error: Out of Memory Error: failed to allocate data of size 8.0 GiB'], 'oom'),
-    (['Neo4j experiment error: {neo4j_code: Neo.TransientError.General.MemoryPoolOutOfMemoryError}'], 'oom'),
-    (["SingleStore experiment error: (1712, \"Leaf Error: Memory used by MemSQL has reached the "
-      "'maximum_memory' setting (6000 Mb)\")"], 'oom'),
-    (['PostgreSQL experiment error: recursive reference to query "tc" must not appear more than once'], 'unsupported'),
-    (['(2741, "The query failed because a recursive common table expression exceeded the max number of iterations")'],
-     'iteration_limit'),
-    (['connection refused'], 'error'),
-])
+@pytest.mark.parametrize(
+    'errors,expected',
+    [
+        (['DuckDB command 4 error: Out of Memory Error: failed to allocate data of size 8.0 GiB'], 'oom'),
+        (['Neo4j experiment error: {neo4j_code: Neo.TransientError.General.MemoryPoolOutOfMemoryError}'], 'oom'),
+        (
+            [
+                "SingleStore experiment error: (1712, \"Leaf Error: Memory used by MemSQL has reached the "
+                "'maximum_memory' setting (6000 Mb)\")"
+            ],
+            'oom',
+        ),
+        (
+            ['PostgreSQL experiment error: recursive reference to query "tc" must not appear more than once'],
+            'unsupported',
+        ),
+        (
+            [
+                '(2741, "The query failed because a recursive common table expression exceeded the max number of iterations")'
+            ],
+            'iteration_limit',
+        ),
+        (['connection refused'], 'error'),
+    ],
+)
 def test_failure_classification(errors, expected):
     assert classify_failure('error', 1, errors) == expected
 

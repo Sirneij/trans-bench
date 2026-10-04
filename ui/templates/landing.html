@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <title>trans-bench · recursive queries, timed and checked</title>
+  <meta name="description" content="trans-bench runs one transitive-closure query on database and logic systems over fourteen kinds of graph, and checks every answer."/>
+  <meta name="color-scheme" content="light dark"/>
+  <script>
+    (function () { document.documentElement.classList.add('js'); try { var p = localStorage.getItem('tb-theme') || 'auto'; document.documentElement.setAttribute('data-theme-pref', p); if (p !== 'auto') document.documentElement.setAttribute('data-theme', p); } catch (e) {} })();
+  </script>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2310141b'/%3E%3Cpath d='M9 22L16 10L23 22' fill='none' stroke='%23fff' stroke-width='2'/%3E%3Cpath d='M9 22L23 22' stroke='%238199ff' stroke-width='2' stroke-dasharray='2 2.5'/%3E%3Ccircle cx='9' cy='22' r='3' fill='%23fff'/%3E%3Ccircle cx='16' cy='10' r='3' fill='%23fff'/%3E%3Ccircle cx='23' cy='22' r='3' fill='%23fff'/%3E%3C/svg%3E"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Geist:wght@400..700&family=Geist+Mono:wght@400..600&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}?v={{ asset_version }}"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}?v={{ asset_version }}"/>
+</head>
+<body class="lp{% if read_only %} read-only{% endif %}">
+<a class="skip-link" href="#lp-main">Skip to content</a>
+
+<header class="lp-nav" id="lp-nav">
+  <a class="lp-brand" href="{{ url_for('landing') }}" aria-label="trans-bench home">
+    <svg class="brand-mark" viewBox="0 0 30 30" aria-hidden="true" fill="none" stroke-width="1.8">
+      <path class="bm-edge" d="M7 21L15 7L23 21"/>
+      <path class="bm-close" d="M7 21H23" stroke-dasharray="2.4 2.6"/>
+      <circle class="bm-node" cx="7" cy="21" r="3.4"/><circle class="bm-node" cx="15" cy="7" r="3.4"/><circle class="bm-node" cx="23" cy="21" r="3.4"/>
+    </svg>
+    <span>trans-bench</span>
+  </a>
+  <nav class="lp-links" aria-label="Sections">
+    <a href="#grow">How it works</a>
+    <a href="#shapes">Topologies</a>
+    <a href="#race">Race</a>
+    <a href="#checks">Checks</a>
+  </nav>
+  <div class="lp-nav-actions">
+    <button class="btn btn-ghost btn-icon btn-sm theme-btn" type="button" data-theme-toggle aria-label="Switch theme (auto, light, dark)" title="Theme"><i data-lucide="sun-moon"></i></button>
+    <a class="btn btn-primary btn-sm" href="{{ url_for('dashboard') }}">Open the app<i data-lucide="arrow-up-right"></i></a>
+  </div>
+</header>
+
+<main id="lp-main">
+  <!-- 1 · hero: a closure grows across the screen, one wave per iteration -->
+  <section class="lp-hero" id="top">
+    <canvas class="lp-field" id="lp-field" aria-hidden="true"></canvas>
+    <div class="lp-hero-glow" aria-hidden="true"></div>
+    <div class="lp-hero-inner">
+      <p class="lp-kicker"><span class="lp-dot" aria-hidden="true"></span>Transitive closure benchmark</p>
+      <h1 class="lp-title" data-split>Recursive queries, timed and checked on {{ ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'][facts.systems|length] if facts and facts.systems|length <= 10 else (facts.systems|length if facts else 'eight') }} systems.</h1>
+      <p class="lp-lede">trans-bench runs one transitive-closure query on SQL, NoSQL and NewSQL databases and on the logic system XSB, over fourteen kinds of graph. Every result is compared with a closure computed independently, so a fast answer that is wrong is reported as wrong.</p>
+      <div class="lp-cta">
+        <a class="btn btn-primary btn-lg" href="{{ url_for('dashboard') }}"><i data-lucide="layout-dashboard"></i>Open the overview</a>
+        {% if facts %}<a class="btn btn-lg" href="{{ url_for('campaign_detail', name=facts.campaign) }}"><i data-lucide="flask-conical"></i>See the campaign</a>{% endif %}
+      </div>
+    </div>
+    <div class="lp-hud" aria-hidden="true">
+      <code class="lp-rule"><span class="h-head">tc(X, Z)</span> :- <span class="h-tc">tc(X, Y)</span>, <span class="h-e">e(Y, Z)</span>.</code>
+      <div class="lp-hud-row"><span>iteration <b id="hud-iter">0</b></span><span><b id="hud-new">0</b> new</span><span><b id="hud-total">0</b> nodes reached from the start</span></div>
+    </div>
+    <a class="lp-scroll" href="#grow" aria-label="Scroll to how it works"><span></span></a>
+  </section>
+
+  <!-- 2 · how a closure grows: scroll through a semi-naive evaluation -->
+  <section class="lp-section lp-grow" id="grow" aria-labelledby="grow-h">
+    <div class="lp-head" data-reveal>
+      <p class="lp-kicker">How it works</p>
+      <h2 id="grow-h">How a closure grows</h2>
+      <p>A semi-naive evaluation joins only the pairs found in the last iteration with the edges, and it stops at the first iteration that adds nothing: the fixed point. Scroll to step through it.</p>
+    </div>
+    <div class="lp-grow-body">
+      <div class="lp-grow-visual">
+        <div class="lp-panel">
+          <svg id="grow-graph" viewBox="0 0 420 260" role="img" aria-label="A graph of seven nodes; the pairs of its closure are drawn as they are derived"></svg>
+          <div class="lp-panel-foot"><span class="lp-chip lp-chip-e">edge</span><span class="lp-chip lp-chip-new">new this iteration</span><span class="lp-chip lp-chip-old">found earlier</span></div>
+        </div>
+        <div class="lp-panel lp-matrix-panel">
+          <div class="lp-matrix" id="grow-matrix" role="img" aria-label="The closure as a matrix: a cell is filled when the pair is derived"></div>
+          <div class="lp-panel-foot mono" id="grow-count">0 pairs</div>
+        </div>
+      </div>
+      <ol class="lp-steps" id="grow-steps"></ol>
+    </div>
+  </section>
+
+  <!-- 3 · the topologies, drawn as they come into view -->
+  <section class="lp-section" id="shapes" aria-labelledby="shapes-h">
+    <div class="lp-head" data-reveal>
+      <p class="lp-kicker">Workloads</p>
+      <h2 id="shapes-h">Fourteen kinds of graph</h2>
+      <p>Each topology tests recursion in its own way. A path needs as many iterations as it has edges, while a complete graph is finished after one, although its closure has n² pairs. Point at a tile to see the pairs its closure adds.</p>
+    </div>
+    <div class="lp-shapes" id="lp-shapes">
+      {% for g in graph_types if previews.get(g.name) %}
+      <a class="lp-shape" href="{{ url_for('graph_detail', name=g.name) }}" data-graph="{{ g.name }}" style="--i:{{ loop.index0 }}">
+        <svg viewBox="0 0 100 100" aria-hidden="true"></svg>
+        <span class="lp-shape-name">{{ g.display_name }}</span>
+        <span class="lp-shape-meta mono">{{ previews[g.name].edge_count }} edges · {{ previews[g.name].closure_count }} pairs</span>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+
+  {% if facts %}
+  <!-- 4 · the race: real mean times at the largest size, on a log-scale clock -->
+  <section class="lp-section lp-race-section" id="race" aria-labelledby="race-h">
+    <div class="lp-head" data-reveal>
+      <p class="lp-kicker">Results</p>
+      <h2 id="race-h">The race at n = <span id="race-n">1,000</span></h2>
+      <p>Mean query time over five runs, left recursion. The clock runs on a log scale, so the {{ facts.limit_s|int }} second limit passes in a few seconds. A system that failed is shown with the reason.</p>
+    </div>
+    <div class="lp-race-card" data-reveal>
+      <div class="lp-race-top">
+        <div class="seg" id="race-graph" role="group" aria-label="Topology">
+          {% for g, r in facts.race.items() %}<button type="button" value="{{ g }}" aria-pressed="{{ 'true' if loop.first else 'false' }}">{{ graph_labels.get(g, g)|replace(' Graph', '') }}</button>{% endfor %}
+        </div>
+        <div class="lp-clock mono" aria-live="off"><span id="race-clock">0.00</span> s</div>
+        <button class="btn btn-sm" type="button" id="race-replay"><i data-lucide="rotate-ccw"></i>Replay</button>
+      </div>
+      <div class="lp-race" id="lp-race" role="img" aria-label="Bars that grow until each system's mean query time"></div>
+      <p class="lp-note">Campaign {{ facts.campaign }}. Neo4j and MongoDB have one formulation of the query, recorded as left recursion.</p>
+    </div>
+  </section>
+
+  <!-- 5 · every answer is checked -->
+  <section class="lp-section" id="checks" aria-labelledby="checks-h">
+    <div class="lp-head" data-reveal>
+      <p class="lp-kicker">Verification</p>
+      <h2 id="checks-h">Every answer is checked</h2>
+      <p>A run counts only if its result has the same number of pairs and the same 64-bit hash as the closure computed in Python. Wrong results are kept and marked, because a database that returns an incomplete closure without an error is a finding in itself.</p>
+    </div>
+    <div class="lp-stats" data-stagger>
+      <div class="lp-stat"><b data-count="{{ facts.executed }}">0</b><span>runs executed</span></div>
+      <div class="lp-stat"><b data-count="{{ facts.checked }}">0</b><span>results checked against the closure</span></div>
+      <div class="lp-stat lp-stat-bad"><b data-count="{{ facts.incorrect|length }}">0</b><span>system and mode pairs with wrong results</span></div>
+    </div>
+    <div class="lp-receipts" id="lp-receipts" data-stagger>
+      {% for key, graphs in facts.incorrect.items() %}
+      {% set series, mode = key.split('/') %}
+      <div class="lp-receipt">
+        <span class="lp-receipt-mark" aria-hidden="true"><i data-lucide="circle-alert"></i></span>
+        <div><b>{{ plot_styles[series].label if plot_styles.get(series) else series }}</b>, {{ mode.replace('_recursion', ' recursion').replace('_', ' ') }}
+          <div class="small">wrong result on {% for g in graphs %}{{ graph_labels.get(g, g)|replace(' Graph', '') }}{{ ', ' if not loop.last }}{% endfor %}</div></div>
+      </div>
+      {% endfor %}
+      {% for kind, count in facts.failures.items() %}
+      <div class="lp-receipt lp-receipt-muted">
+        <span class="lp-receipt-mark" aria-hidden="true"><i data-lucide="{{ 'timer-off' if kind == 'timeout' else 'memory-stick' if kind == 'oom' else 'ban' if kind == 'unsupported' else 'repeat' }}"></i></span>
+        <div><b>{{ count }}</b> {{ {'timeout': 'runs over the time limit', 'oom': 'runs out of memory', 'unsupported': 'runs of a query the system rejects', 'iteration_limit': 'runs stopped by an iteration limit', 'killed': 'runs killed by the system', 'error': 'runs with other errors'}.get(kind, kind) }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <!-- 6 · one engine -->
+  <section class="lp-section" id="engine" aria-labelledby="engine-h">
+    <div class="lp-head" data-reveal>
+      <p class="lp-kicker">Harness</p>
+      <h2 id="engine-h">The same engine for the site and the command line</h2>
+      <p>A campaign started from this site, from transitive.py or from benchmark.py goes through engine/campaign.py. Each run is a separate process with a time limit, and its record is appended to runs.jsonl.</p>
+    </div>
+    <div class="lp-engine" data-reveal>
+      <svg id="lp-engine" viewBox="0 0 960 300" role="img" aria-label="Three entry points feed one engine, which starts one process per run and writes runs.jsonl"></svg>
+    </div>
+  </section>
+
+  <section class="lp-final" aria-labelledby="final-h">
+    <h2 id="final-h" data-reveal>Read the measurements, or run your own.</h2>
+    <div class="lp-cta" data-reveal>
+      <a class="btn btn-primary btn-lg" href="{{ url_for('dashboard') }}"><i data-lucide="layout-dashboard"></i>Open the overview</a>
+      <a class="btn btn-lg" href="https://github.com/Sirneij/trans-bench" rel="noopener"><i data-lucide="github"></i>Clone the repository</a>
+    </div>
+  </section>
+</main>
+
+<footer class="lp-footer">
+  <span>trans-bench</span>
+  <span class="muted">{% if facts %}Data from campaign {{ facts.campaign }}{% if facts.first %}, {{ facts.first[:10] }} to {{ facts.last[:10] }}{% endif %}.{% endif %}</span>
+</footer>
+
+<script>
+  window.LANDING = {
+    facts: {{ facts | tojson }},
+    styles: {{ plot_styles | tojson }},
+    labels: {{ graph_labels | tojson }},
+    previews: {{ previews | tojson }},
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}?v={{ asset_version }}"></script>
+<script src="{{ url_for('static', filename='js/landing.js') }}?v={{ asset_version }}"></script>
+</body>
+</html>

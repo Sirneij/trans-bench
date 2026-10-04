@@ -1,5 +1,5 @@
-"""
-analyze_verified.py — analysis of a verified campaign (runs recorded by benchmark.py).
+r"""
+Analyze a campaign: summary tables, verification report, and figures as PDF and as LaTeX.
 
     python analyze_verified.py results/verified_2026 --out results/verified_2026/analysis
 
@@ -13,13 +13,16 @@ ExecuteQueryRealTime for the SQL systems and MongoDB (the statement that compute
 closure), QueryRealTime for XSB (query without writing) and for Neo4j (the count of the distinct
 pairs, fetched). CPU time uses the corresponding *CPUTime column and is shown only for XSB and
 DuckDB, whose query runs inside the measured process. A configuration's value is the mean over its
-runs (5 in the campaign, --runs), reported only if all of them completed; medians, standard deviations, minima and maxima are
-in summary.csv. Every figure is written twice: figures/<name>.pdf (matplotlib) and
+runs (5 in the campaign, --runs), reported only if all of them completed; medians, standard
+deviations, minima and maxima are in summary.csv. Every figure is written twice: figures/<name>.pdf (matplotlib) and
 figures_tex/<name>.tex (the same figure as a standalone pgfplots/TikZ document, compiled to
 figures_tex/<name>.pdf if a LaTeX engine is installed; see engine/figures_tex.py). Figures and
-tables are laid out for the paper (graph families, system order and
-LaTeX macros such as \\gname are those of the paper).
+tables are laid out for the paper (graph families, system order and LaTeX macros such as \gname
+are those of the paper); a figure shows the sizes that the campaign has for its graph.
+
+The campaign engine (engine/campaign.py) runs this script when a campaign ends.
 """
+
 import argparse
 import csv
 import json
@@ -29,44 +32,88 @@ import tarfile
 from collections import defaultdict
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
 import matplotlib
 
 matplotlib.use('Agg')
+# pylint: disable=wrong-import-position  # the backend must be chosen before pyplot is imported
 import matplotlib.pyplot as plt  # noqa: E402
 import matplotlib.ticker  # noqa: E402
 
-from engine.figures_tex import compile_tex, figure_to_tex, find_engine  # noqa: E402
 from engine.failures import classify_failure  # noqa: E402
+from engine.figures_tex import compile_tex, figure_to_tex, find_engine  # noqa: E402
 from engine.plot_style import legend_order, style  # noqa: E402
 
-GRAPHS = ['complete', 'max_acyclic', 'cycle', 'cycle_with_shortcuts', 'path', 'multi_path',
-          'grid', 'binary_tree', 'reverse_binary_tree', 'x', 'y', 'w']
-GNAME = {'complete': r'\gname{Cmpl}{n}', 'max_acyclic': r'\gname{MaxAcyc}{n}', 'cycle': r'\gname{Cyc}{n}',
-         'cycle_with_shortcuts': r'\gname{CycExtra}{n,k}', 'path': r'\gname{Path}{n}',
-         'multi_path': r'\gname{PathDisj}{n,k}', 'grid': r'\gname{Grid}{n}', 'binary_tree': r'\gname{BinTree}{n}',
-         'reverse_binary_tree': r'\gname{BinTreeRev}{n}', 'x': r'\gname{X}{n,k}', 'y': r'\gname{Y}{n,k}',
-         'w': r'\gname{W}{n,k}', 'scale_free': 'scale-free', 'barabasi_albert': 'Barab\\\'asi-Albert'}
-TITLE = {'complete': 'Cmpl', 'max_acyclic': 'MaxAcyc', 'cycle': 'Cyc', 'cycle_with_shortcuts': 'CycExtra',
-         'path': 'Path', 'multi_path': 'PathDisj', 'grid': 'Grid', 'binary_tree': 'BinTree',
-         'reverse_binary_tree': 'BinTreeRev', 'x': 'X', 'y': 'Y', 'w': 'W', 'scale_free': 'Scale-free',
-         'barabasi_albert': 'Barabási-Albert'}
-RESULTS = Path('.')
-# time limit of a run in seconds, for records written before benchmark.py stored it (the 2026 campaign)
+# pylint: enable=wrong-import-position
+
+GRAPHS = [
+    'complete',
+    'max_acyclic',
+    'cycle',
+    'cycle_with_shortcuts',
+    'path',
+    'multi_path',
+    'grid',
+    'binary_tree',
+    'reverse_binary_tree',
+    'x',
+    'y',
+    'w',
+]
+GNAME = {
+    'complete': r'\gname{Cmpl}{n}',
+    'max_acyclic': r'\gname{MaxAcyc}{n}',
+    'cycle': r'\gname{Cyc}{n}',
+    'cycle_with_shortcuts': r'\gname{CycExtra}{n,k}',
+    'path': r'\gname{Path}{n}',
+    'multi_path': r'\gname{PathDisj}{n,k}',
+    'grid': r'\gname{Grid}{n}',
+    'binary_tree': r'\gname{BinTree}{n}',
+    'reverse_binary_tree': r'\gname{BinTreeRev}{n}',
+    'x': r'\gname{X}{n,k}',
+    'y': r'\gname{Y}{n,k}',
+    'w': r'\gname{W}{n,k}',
+    'scale_free': 'scale-free',
+    'barabasi_albert': 'Barab\\\'asi-Albert',
+}
+TITLE = {
+    'complete': 'Cmpl',
+    'max_acyclic': 'MaxAcyc',
+    'cycle': 'Cyc',
+    'cycle_with_shortcuts': 'CycExtra',
+    'path': 'Path',
+    'multi_path': 'PathDisj',
+    'grid': 'Grid',
+    'binary_tree': 'BinTree',
+    'reverse_binary_tree': 'BinTreeRev',
+    'x': 'X',
+    'y': 'Y',
+    'w': 'W',
+    'scale_free': 'Scale-free',
+    'barabasi_albert': 'Barabási-Albert',
+}
+# time limit of a run in seconds, for records written before the driver stored it (the 2026 campaign)
 DEFAULT_LIMIT_S = 600
-RUNS = 5  # runs per configuration; a mean is reported only if all of them completed (--runs)
+# the campaign directory, and the runs per configuration (a mean is reported only if all of them
+# completed); main() sets both from the command line
+SETTINGS: dict[str, Any] = {'results': Path('.'), 'runs': 5}
+# the sizes of the paper's figures, used when a campaign has no runs of a graph
+LINEAR_SIZES = list(range(100, 1001, 100))
+LARGE_SIZES = {'scale_free': list(range(10000, 90001, 10000)), 'barabasi_albert': list(range(10000, 100001, 10000))}
 BASE_DIR = Path(__file__).resolve().parent
 
 
 @lru_cache(maxsize=None)
 def descriptors() -> dict:
+    """Return the system descriptors by name (loaded once)."""
     from engine.loader import DescriptorLoader
 
     return {d.name: d for d in DescriptorLoader(base_dir=BASE_DIR, detect_versions=False).load_systems()}
 
 
 def base_system(series: str) -> str:
-    """mariadb_tuned -> mariadb: the longest system name that the series name starts with."""
+    """Return the system of a series (mariadb_tuned -> mariadb): the longest system name it starts with."""
     names = [n for n in descriptors() if series == n or series.startswith(n + '_')]
     if not names:
         raise ValueError(f'series {series!r} does not start with a system name ({sorted(descriptors())})')
@@ -74,30 +121,32 @@ def base_system(series: str) -> str:
 
 
 def query_columns(series: str) -> tuple[str, str]:
-    """(real, cpu) timing columns of the system's query phase, from its descriptor.yaml."""
+    """Return the (real, cpu) timing columns of the system's query phase, from its descriptor.yaml."""
     return descriptors()[base_system(series)].query_columns
 
 
 def read_log(series: str, name: str) -> str | None:
-    """A run's log from <results>/<series>/logs/, or from logs.tar.gz as shipped in the repository."""
-    path = RESULTS / series / 'logs' / name
+    """Return a run's log from <results>/<series>/logs/, or from logs.tar.gz as shipped in the repository."""
+    path = SETTINGS['results'] / series / 'logs' / name
     if path.exists():
         return path.read_text(errors='replace')
-    archive = RESULTS / series / 'logs.tar.gz'
+    archive = SETTINGS['results'] / series / 'logs.tar.gz'
     if archive.exists():
         with tarfile.open(archive) as tf:
             try:
-                return tf.extractfile(f'logs/{name}').read().decode(errors='replace')
+                member = tf.extractfile(f'logs/{name}')
             except KeyError:
                 return None
+            return member.read().decode(errors='replace') if member else None
     return None
 
 
 def load(results: Path):
+    """Return every run record of the campaign, each with its series name added."""
     runs = []
     for f in sorted(results.glob('*/runs.jsonl')):
         sysdir = f.parent.name
-        for line in f.read_text().splitlines():
+        for line in f.read_text(encoding='utf-8').splitlines():
             r = json.loads(line)
             r['series'] = sysdir  # e.g. mariadb_tuned
             runs.append(r)
@@ -105,6 +154,7 @@ def load(results: Path):
 
 
 def summarize(runs):
+    """Return one row per configuration (series, graph, mode, n): status, failure, times, memory, correctness."""
     groups = defaultdict(list)
     for r in runs:
         groups[(r['series'], r['graph'], r['mode'], r['n'])].append(r)
@@ -130,9 +180,9 @@ def summarize(runs):
             if text is not None:
                 i = text.find(' - ERROR: ')
                 if i >= 0:
-                    err = ' '.join(text[i + 10:].split())
+                    err = ' '.join(text[i + 10 :].split())
         limit = max((r.get('timeout_s') or DEFAULT_LIMIT_S) for r in rs)
-        # why the configuration failed: recorded by benchmark.py since the 2026 rerun, else derived
+        # why the configuration failed: recorded by the driver since the 2026 rerun, else derived
         # from the error text with the same rules
         failed = next((r for r in rs if r.get('status') in ('timeout', 'error')), None)
         failure = None
@@ -140,34 +190,53 @@ def summarize(runs):
             failure = failed.get('failure') or classify_failure(failed['status'], failed.get('exit_code'), [err])
         # memory used by the query (peak minus before, engine/memory.py), mean over the completed runs
         mem = [r['memory']['used_mb'] for r in ok if isinstance(r.get('memory'), dict) and 'used_mb' in r['memory']]
-        mem_peak = [r['memory']['peak_mb'] for r in ok if isinstance(r.get('memory'), dict) and 'peak_mb' in r['memory']]
-        complete_mem = len(mem) == RUNS and status == 'ok'
-        rows[key] = dict(series=series, graph=key[1], mode=key[2], n=key[3], status=status, runs=len(ok), limit=limit,
-                         failure=failure,
-                         mem_used_mb=statistics.mean(mem) if complete_mem else None,
-                         mem_used_sd=statistics.stdev(mem) if complete_mem and len(mem) > 1 else None,
-                         mem_peak_mb=statistics.mean(mem_peak) if complete_mem and len(mem_peak) == RUNS else None,
-                         mem_probe=next((r['memory'].get('probe') for r in ok if isinstance(r.get('memory'), dict)), None),
-                         mean=statistics.mean(t) if len(t) == RUNS and status == 'ok' else None,
-                         median=statistics.median(t) if t else None,
-                         sd=statistics.stdev(t) if len(t) > 1 else None, min=min(t) if t else None,
-                         max=max(t) if t else None,
-                         cpu_mean=statistics.mean(c) if len(c) == RUNS and status == 'ok' else None,
-                         all_correct=(None if all(x is None for x in correct) else all(x is True for x in correct)) if correct else None,
-                         any_incorrect=any(x is False for x in correct),
-                         unverified=sum(1 for x in correct if x is None),
-                         result=(ok[0].get('result') if ok else None), error=err[:600])
+        mem_peak = [
+            r['memory']['peak_mb'] for r in ok if isinstance(r.get('memory'), dict) and 'peak_mb' in r['memory']
+        ]
+        runs_needed = SETTINGS['runs']
+        complete_mem = len(mem) == runs_needed and status == 'ok'
+        rows[key] = {
+            'series': series,
+            'graph': key[1],
+            'mode': key[2],
+            'n': key[3],
+            'status': status,
+            'runs': len(ok),
+            'limit': limit,
+            'failure': failure,
+            'mem_used_mb': statistics.mean(mem) if complete_mem else None,
+            'mem_used_sd': statistics.stdev(mem) if complete_mem and len(mem) > 1 else None,
+            'mem_peak_mb': statistics.mean(mem_peak) if complete_mem and len(mem_peak) == runs_needed else None,
+            'mem_probe': next((r['memory'].get('probe') for r in ok if isinstance(r.get('memory'), dict)), None),
+            'mean': statistics.mean(t) if len(t) == runs_needed and status == 'ok' else None,
+            'median': statistics.median(t) if t else None,
+            'sd': statistics.stdev(t) if len(t) > 1 else None,
+            'min': min(t) if t else None,
+            'max': max(t) if t else None,
+            'cpu_mean': statistics.mean(c) if len(c) == runs_needed and status == 'ok' else None,
+            'all_correct': (
+                (None if all(x is None for x in correct) else all(x is True for x in correct)) if correct else None
+            ),
+            'any_incorrect': any(x is False for x in correct),
+            'unverified': sum(1 for x in correct if x is None),
+            'result': (ok[0].get('result') if ok else None),
+            'error': err[:600],
+        }
     return rows
 
 
 def apply_agreement(rows):
-    """Large scale-free/BA instances have no Python ground truth; a result there counts as correct if
-    it equals the result on which all other systems (at least two) agree, and as incorrect otherwise."""
+    """
+    Check the large scale-free and Barabási-Albert results by agreement between systems.
+
+    These instances have no Python ground truth; a result there counts as correct if it equals the
+    result on which all other systems (at least two) agree, and as incorrect otherwise.
+    """
     groups = defaultdict(dict)
     for k, r in rows.items():
         if r['graph'] in ('scale_free', 'barabasi_albert') and r['result'] and r['unverified']:
             groups[(r['graph'], r['n'])][k] = (r['result']['count'], r['result']['hash'])
-    for (g, n), d in groups.items():
+    for d in groups.values():
         for k, v in d.items():
             others = {x for kk, x in d.items() if kk[0] != k[0]}
             if len(others) == 1 and len({kk[0] for kk in d if kk[0] != k[0]}) >= 2:
@@ -177,22 +246,55 @@ def apply_agreement(rows):
 
 
 def warn_near_limit(rows, fraction: float = 0.5) -> list:
-    """Reported times above `fraction` of the time limit. A time limit should be clearly larger than
-    every reported time, otherwise "TO" and the slowest reported times are hard to tell apart; the
-    remedy is a campaign with a larger benchmark.py --timeout."""
-    near = sorted(((r['mean'], r['limit'], k) for k, r in rows.items()
-                   if r['mean'] is not None and r['mean'] > fraction * r['limit']), reverse=True)
+    """
+    Return (and print) the reported times above `fraction` of the time limit.
+
+    A time limit should be clearly larger than every reported time, otherwise "TO" and the slowest
+    reported times are hard to tell apart; the remedy is a campaign with a larger --timeout.
+    """
+    near = sorted(
+        (
+            (r['mean'], r['limit'], k)
+            for k, r in rows.items()
+            if r['mean'] is not None and r['mean'] > fraction * r['limit']
+        ),
+        reverse=True,
+    )
     if near:
-        print(f'WARNING: {len(near)} reported times exceed {fraction:.0%} of the time limit, e.g. '
-              + '; '.join(f'{"/".join(map(str, k))}: {m:.0f} s of {lim:.0f} s' for m, lim, k in near[:3]))
+        print(
+            f'WARNING: {len(near)} reported times exceed {fraction:.0%} of the time limit, e.g. '
+            + '; '.join(f'{"/".join(map(str, k))}: {m:.0f} s of {lim:.0f} s' for m, lim, k in near[:3])
+        )
     return near
 
 
 def write_summary(rows, out: Path):
-    keys = ['series', 'graph', 'mode', 'n', 'status', 'failure', 'runs', 'mean', 'median', 'sd', 'min', 'max',
-            'cpu_mean', 'mem_used_mb', 'mem_used_sd', 'mem_peak_mb', 'mem_probe', 'all_correct', 'any_incorrect',
-            'unverified', 'checked_by', 'error']
-    with open(out / 'summary.csv', 'w', newline='') as f:
+    """Write summary.csv: one line per configuration."""
+    keys = [
+        'series',
+        'graph',
+        'mode',
+        'n',
+        'status',
+        'failure',
+        'runs',
+        'mean',
+        'median',
+        'sd',
+        'min',
+        'max',
+        'cpu_mean',
+        'mem_used_mb',
+        'mem_used_sd',
+        'mem_peak_mb',
+        'mem_probe',
+        'all_correct',
+        'any_incorrect',
+        'unverified',
+        'checked_by',
+        'error',
+    ]
+    with open(out / 'summary.csv', 'w', newline='', encoding='utf-8') as f:
         w = csv.DictWriter(f, fieldnames=keys, extrasaction='ignore')
         w.writeheader()
         for k in sorted(rows, key=lambda k: (k[0], k[1], k[2], k[3])):
@@ -200,8 +302,9 @@ def write_summary(rows, out: Path):
 
 
 def verification(runs, rows, out: Path):
-    v = defaultdict(int)
-    incorrect = defaultdict(set)
+    """Write verification.json: run counts by status, incorrect results, and cross-system agreement."""
+    v: dict[str, int] = defaultdict(int)
+    incorrect: dict[str, set] = defaultdict(set)
     for r in runs:
         v[f"status_{r.get('status')}"] += 1
         if r.get('status') == 'ok':
@@ -210,64 +313,102 @@ def verification(runs, rows, out: Path):
                 incorrect[f"{r['series']}/{r['mode']}"].add(r['graph'])
     # large scale-free/BA instances have no Python ground truth: check that systems agree
     consensus = {}
-    by = defaultdict(dict)
+    by: dict[tuple, dict] = defaultdict(dict)
     for k, row in rows.items():
         if row['graph'] in ('scale_free', 'barabasi_albert') and row['result'] and row['series'] != 'mariadb_tuned':
-            by[(row['graph'], row['n'])][f"{row['series']}/{row['mode']}"] = (row['result']['count'], row['result']['hash'])
+            by[(row['graph'], row['n'])][f"{row['series']}/{row['mode']}"] = (
+                row['result']['count'],
+                row['result']['hash'],
+            )
     for (g, n), d in sorted(by.items()):
-        consensus[f'{g}/{n}'] = {'systems': len(d), 'agree': len(set(d.values())) == 1,
-                                 'count': sorted(set(x[0] for x in d.values()))}
-    res = {'counts': dict(v), 'incorrect_results': {k: sorted(s) for k, s in incorrect.items()},
-           'scale_free_ba_cross_system_agreement': consensus}
-    (out / 'verification.json').write_text(json.dumps(res, indent=1))
+        consensus[f'{g}/{n}'] = {
+            'systems': len(d),
+            'agree': len(set(d.values())) == 1,
+            'count': sorted(set(x[0] for x in d.values())),
+        }
+    res = {
+        'counts': dict(v),
+        'incorrect_results': {k: sorted(s) for k, s in incorrect.items()},
+        'scale_free_ba_cross_system_agreement': consensus,
+    }
+    (out / 'verification.json').write_text(json.dumps(res, indent=1), encoding='utf-8')
     return res
 
 
 def val(rows, s, g, m, n):
+    """Return the reported mean of a configuration, or None if it failed or its result is wrong."""
     r = rows.get((s, g, m, n))
     return r['mean'] if r and r['status'] == 'ok' and r['all_correct'] is not False else None
 
 
+def _series_points(rows, s, g, mode, sizes, cpu):
+    """Return (xs, ys, first failed n or None, time limit) of one system's curve."""
+    xs, ys, to_x, limit = [], [], None, DEFAULT_LIMIT_S
+    for n in sizes:
+        r = rows.get((s, g, mode, n))
+        if r is None:
+            continue
+        if r['status'] == 'ok' and r['all_correct'] is not False:
+            y = r['cpu_mean'] if cpu else r['mean']
+            if y is not None:
+                xs.append(n)
+                ys.append(max(y, 1e-5))
+        elif r['status'] in ('timeout', 'error') and to_x is None:
+            to_x, limit = n, r['limit']
+    return xs, ys, to_x, limit
+
+
+def sizes_of(rows, g: str) -> list[int]:
+    """Return the sizes of graph `g` in the campaign (the paper's sizes if it has none)."""
+    present = sorted({k[3] for k in rows if k[1] == g})
+    return present or LARGE_SIZES.get(g, LINEAR_SIZES)
+
+
+def _draw_panel(ax, rows, g, m, sizes, cpu) -> bool:
+    """Draw every system's curve of one mode into `ax`, with its legend; return whether anything was drawn."""
+    series = ['xsb', 'duckdb'] if cpu else ['xsb', 'postgres', 'mariadb', 'duckdb', 'cockroachdb', 'neo4j', 'mongodb']
+    handles, last = {}, {}
+    for s in series:
+        mm = 'left_recursion' if s in ('neo4j', 'mongodb') else m
+        xs, ys, to_x, limit = _series_points(rows, s, g, mm, sizes, cpu)
+        if not xs and to_x is None:
+            continue
+        label, col, mk, ls = style(s)
+        handles[s] = ax.plot(xs, ys, color=col, marker=mk, linestyle=ls, markersize=3.5, linewidth=1.1, label=label)[0]
+        if xs:
+            last[s] = (xs[-1], ys[-1])
+        if to_x is not None:  # first size that exceeded the time limit or failed: hollow marker at the limit
+            ax.plot([to_x], [limit], color=col, marker=mk, markersize=6, markerfacecolor='none', linestyle='')
+            last[s] = (to_x, limit)
+    if not handles:
+        return False
+    order = legend_order(last)
+    ax.legend(
+        [handles[s] for s in order],
+        [handles[s].get_label() for s in order],
+        loc='center left',
+        bbox_to_anchor=(1.0, 0.5),
+        fontsize=6.5,
+        frameon=False,
+        handlelength=2.0,
+        borderaxespad=0.4,
+    )
+    return True
+
+
 def plot_graph(rows, g, sizes, out: Path, cpu=False, formats=('pdf', 'tex')):
-    """One figure: (a) left and (b) right recursion side by side. Every system is drawn in its own
-    style from engine/plot_style.py (same marker in every figure), and each panel has its own
-    legend, listing the systems in the order of their last data points. Written as
-    out/figures/<name>.pdf (matplotlib) and/or out/figures_tex/<name>.tex (the same figure
-    transcribed to pgfplots by engine/figures_tex.py); returns the .tex path, if written."""
+    """
+    Draw one figure: (a) left and (b) right recursion side by side.
+
+    Every system is drawn in its own style from engine/plot_style.py (same marker in every figure),
+    and each panel has its own legend, listing the systems in the order of their last data points.
+    The figure is written as out/figures/<name>.pdf (matplotlib) and/or out/figures_tex/<name>.tex
+    (the same figure transcribed to pgfplots by engine/figures_tex.py); returns the .tex path, if written.
+    """
     fig, axes = plt.subplots(1, 2, figsize=(7.2, 2.9), sharey=True)
     drawn_any = False
     for i, (ax, m) in enumerate(zip(axes, ['left_recursion', 'right_recursion'])):
-        series = ['xsb', 'duckdb'] if cpu else ['xsb', 'postgres', 'mariadb', 'duckdb', 'cockroachdb', 'neo4j', 'mongodb']
-        handles, last = {}, {}
-        for s in series:
-            mm = 'left_recursion' if s in ('neo4j', 'mongodb') else m
-            xs, ys, to_x, limit = [], [], None, DEFAULT_LIMIT_S
-            for n in sizes:
-                r = rows.get((s, g, mm, n))
-                if r is None:
-                    continue
-                if r['status'] == 'ok' and r['all_correct'] is not False:
-                    y = r['cpu_mean'] if cpu else r['mean']
-                    if y is not None:
-                        xs.append(n)
-                        ys.append(max(y, 1e-5))
-                elif r['status'] in ('timeout', 'error') and to_x is None:
-                    to_x, limit = n, r['limit']
-            if not xs and to_x is None:
-                continue
-            label, col, mk, ls = style(s)
-            handles[s] = ax.plot(xs, ys, color=col, marker=mk, linestyle=ls, markersize=3.5, linewidth=1.1,
-                                 label=label)[0]
-            if xs:
-                last[s] = (xs[-1], ys[-1])
-            if to_x is not None:  # first size that exceeded the time limit or failed: hollow marker at the limit
-                ax.plot([to_x], [limit], color=col, marker=mk, markersize=6, markerfacecolor='none', linestyle='')
-                last[s] = (to_x, limit)
-        if handles:
-            drawn_any = True
-            order = legend_order(last)
-            ax.legend([handles[s] for s in order], [handles[s].get_label() for s in order], loc='center left',
-                      bbox_to_anchor=(1.0, 0.5), fontsize=6.5, frameon=False, handlelength=2.0, borderaxespad=0.4)
+        drawn_any = _draw_panel(ax, rows, g, m, sizes, cpu) or drawn_any
         ax.set_yscale('log')
         ax.set_title(f"({'ab'[i]}) {TITLE[g]}: {'left' if m.startswith('left') else 'right'} recursion", fontsize=9)
         ax.set_xlabel('n' if g not in ('scale_free', 'barabasi_albert') else 'number of nodes', fontsize=8)
@@ -288,12 +429,13 @@ def plot_graph(rows, g, sizes, out: Path, cpu=False, formats=('pdf', 'tex')):
     if 'tex' in formats:
         (out / 'figures_tex').mkdir(parents=True, exist_ok=True)
         tex = out / 'figures_tex' / f'{name}.tex'
-        tex.write_text(figure_to_tex(fig))
+        tex.write_text(figure_to_tex(fig), encoding='utf-8')
     plt.close(fig)
     return tex
 
 
 def fmt(v):
+    """Format a time in seconds for a table, with fewer decimals for larger values."""
     if v is None:
         return '--'
     if v >= 100:
@@ -307,14 +449,23 @@ def fmt(v):
     return f'{v:.5f}'
 
 
-FAILURE_LABEL = {'timeout': 'TO', 'oom': 'OOM', 'unsupported': 'n/s', 'iteration_limit': 'IL',
-                 'killed': 'KILL', 'error': 'ERR'}
+FAILURE_LABEL = {
+    'timeout': 'TO',
+    'oom': 'OOM',
+    'unsupported': 'n/s',
+    'iteration_limit': 'IL',
+    'killed': 'KILL',
+    'error': 'ERR',
+}
 
 
 def apply_skip_causes(rows):
-    """A configuration that was not run (skipped) gets the failure of the largest smaller n of the
-    same series, graph and mode, so that the tables show why: TO^s after a timeout, OOM^s after
-    running out of memory, and so on."""
+    """
+    Give every skipped configuration the failure of the largest smaller n of the same series, graph and mode.
+
+    The tables then show why it was not run: TO^s after a timeout, OOM^s after running out of
+    memory, and so on.
+    """
     for k, r in rows.items():
         if r['status'] != 'skipped':
             continue
@@ -323,6 +474,7 @@ def apply_skip_causes(rows):
 
 
 def failure_cell(r):
+    """Return the table label of a failed or skipped configuration (TO, OOM, ...; ^s when skipped)."""
     label = FAILURE_LABEL.get(r['failure'], 'ERR')
     if r['status'] == 'skipped' and label != 'n/s':
         return label + '$^{s}$'
@@ -330,6 +482,7 @@ def failure_cell(r):
 
 
 def cell(rows, s, g, m, n):
+    """Return the table cell of a configuration: its time, a failure label, or a dagger for a wrong result."""
     r = rows.get((s, g, m, n))
     if r is None:
         return '--'
@@ -341,6 +494,7 @@ def cell(rows, s, g, m, n):
 
 
 def fmt_mb(v):
+    """Format a memory value in MB for a table."""
     if v is None:
         return '--'
     if v >= 100:
@@ -351,7 +505,7 @@ def fmt_mb(v):
 
 
 def mem_cell(rows, s, g, m, n):
-    """Memory used by the query (MB, mean of the runs), or the failure label."""
+    """Return the memory used by the query (MB, mean of the runs), or the failure label."""
     r = rows.get((s, g, m, n))
     if r is None:
         return '--'
@@ -362,33 +516,34 @@ def mem_cell(rows, s, g, m, n):
 
 
 def table_memory_linear(rows, n, out: Path):
-    """Memory used by the query for n (same layout as table_linear)."""
+    """Write the table of the memory used by the query for n (same layout as table_linear)."""
     systems = ['xsb', 'postgres', 'mariadb', 'duckdb', 'cockroachdb']
     lines = []
     for g in GRAPHS:
         cells = [mem_cell(rows, s, g, m, n) for m in ('left_recursion', 'right_recursion') for s in systems]
         cells.append(mem_cell(rows, 'neo4j', g, 'left_recursion', n))  # MongoDB: no memory probe
         lines.append(GNAME[g] + ' & ' + ' & '.join(cells) + r' \\')
-    (out / f'table_memory_linear_n{n}.tex').write_text('\n'.join(lines) + '\n')
+    (out / f'table_memory_linear_n{n}.tex').write_text('\n'.join(lines) + '\n', encoding='utf-8')
 
 
 def table_memory_large(rows, g, sizes, mode, out: Path):
+    """Write the memory table of a large graph: one line per size, one column per system."""
     systems = ['cockroachdb', 'neo4j', 'mariadb', 'postgres', 'duckdb', 'xsb']  # MongoDB, SingleStore: no probe
     lines = []
     for n in sizes:
         cs = [mem_cell(rows, s, g, 'left_recursion' if s in ('neo4j', 'mongodb') else mode, n) for s in systems]
         lines.append(f'{n:,} & ' + ' & '.join(cs) + r' \\')
-    (out / f'table_memory_{g}_{mode}.tex').write_text('\n'.join(lines) + '\n')
+    (out / f'table_memory_{g}_{mode}.tex').write_text('\n'.join(lines) + '\n', encoding='utf-8')
 
 
 def write_failures(rows, out: Path):
-    """failures.csv: for every series, graph and mode, the first n that did not complete and why."""
+    """Write failures.csv: for every series, graph and mode, the first n that did not complete and why."""
     first = {}
     for k in sorted(rows, key=lambda k: (k[0], k[1], k[2], k[3])):
         r = rows[k]
         if r['status'] in ('timeout', 'error') and k[:3] not in first:
             first[k[:3]] = r
-    with open(out / 'failures.csv', 'w', newline='') as f:
+    with open(out / 'failures.csv', 'w', newline='', encoding='utf-8') as f:
         w = csv.writer(f)
         w.writerow(['series', 'graph', 'mode', 'first_failed_n', 'failure', 'limit_s', 'error'])
         for (s, g, m), r in sorted(first.items()):
@@ -396,6 +551,7 @@ def write_failures(rows, out: Path):
 
 
 def table_linear(rows, n, out: Path):
+    """Write the time table of the twelve linear graphs for n, with the fastest system in bold."""
     systems = ['xsb', 'postgres', 'mariadb', 'duckdb', 'cockroachdb']
     lines = []
     for g in GRAPHS:
@@ -408,47 +564,59 @@ def table_linear(rows, n, out: Path):
                 cells.append(r'\textbf{' + c + '}' if vals[s] is not None and vals[s] == best else c)
         single = [cell(rows, s, g, 'left_recursion', n) for s in ('neo4j', 'mongodb')]
         lines.append(GNAME[g] + ' & ' + ' & '.join(cells + single) + r' \\')
-    (out / f'table_linear_n{n}.tex').write_text('\n'.join(lines) + '\n')
+    (out / f'table_linear_n{n}.tex').write_text('\n'.join(lines) + '\n', encoding='utf-8')
 
 
 def table_double(rows, n, out: Path):
+    """Write the table of double recursion for n, next to XSB's left recursion."""
     lines = []
     for g in GRAPHS:
         cells = [cell(rows, s, g, 'double_recursion', n) for s in ('xsb', 'mariadb', 'duckdb')]
         cells.append(cell(rows, 'duckdb', g, 'doublerecurring_recursion', n))
         cells.append(cell(rows, 'xsb', g, 'left_recursion', n))
         lines.append(GNAME[g] + ' & ' + ' & '.join(cells) + r' \\')
-    (out / f'table_double_n{n}.tex').write_text('\n'.join(lines) + '\n')
+    (out / f'table_double_n{n}.tex').write_text('\n'.join(lines) + '\n', encoding='utf-8')
 
 
 def table_large(rows, g, sizes, mode, out: Path):
+    """Write the time table of a large graph: one line per size, one column per system."""
     systems = ['cockroachdb', 'neo4j', 'mariadb', 'postgres', 'duckdb', 'xsb', 'mongodb', 'singlestore']
     lines = []
     for n in sizes:
         cs = [cell(rows, s, g, 'left_recursion' if s in ('neo4j', 'mongodb') else mode, n) for s in systems]
         lines.append(f'{n:,} & ' + ' & '.join(cs) + r' \\')
-    (out / f'table_{g}_{mode}.tex').write_text('\n'.join(lines) + '\n')
+    (out / f'table_{g}_{mode}.tex').write_text('\n'.join(lines) + '\n', encoding='utf-8')
 
 
 def main(argv=None):
+    """Parse the options, then write the tables, the verification report and the figures."""
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('results')
     ap.add_argument('--out', default=None, help='output directory (default: <results>/analysis)')
-    ap.add_argument('--figures', nargs='*', choices=['pdf', 'tex'], default=['pdf', 'tex'],
-                    help='figure formats: pdf = matplotlib (figures/), tex = pgfplots/TikZ (figures_tex/); '
-                         'default both; none: --figures with no value')
-    ap.add_argument('--runs', type=int, default=5,
-                    help='runs per configuration of the campaign (default 5); a configuration is reported only '
-                         'if all of them completed')
-    ap.add_argument('--no-compile', action='store_true',
-                    help='write the LaTeX figures without compiling them to PDF')
-    ap.add_argument('--latex-engine', choices=['tectonic', 'lualatex', 'xelatex', 'pdflatex'],
-                    help='default: the first one found in this order')
+    ap.add_argument(
+        '--figures',
+        nargs='*',
+        choices=['pdf', 'tex'],
+        default=['pdf', 'tex'],
+        help='figure formats: pdf = matplotlib (figures/), tex = pgfplots/TikZ (figures_tex/); '
+        'default both; none: --figures with no value',
+    )
+    ap.add_argument(
+        '--runs',
+        type=int,
+        default=5,
+        help='runs per configuration of the campaign (default 5); a configuration is reported only '
+        'if all of them completed',
+    )
+    ap.add_argument('--no-compile', action='store_true', help='write the LaTeX figures without compiling them to PDF')
+    ap.add_argument(
+        '--latex-engine',
+        choices=['tectonic', 'lualatex', 'xelatex', 'pdflatex'],
+        help='default: the first one found in this order',
+    )
     a = ap.parse_args(argv)
-    global RESULTS, RUNS
-    RUNS = a.runs
     results = Path(a.results)
-    RESULTS = results
+    SETTINGS.update(results=results, runs=a.runs)
     out = Path(a.out) if a.out else results / 'analysis'
     out.mkdir(parents=True, exist_ok=True)
     runs = load(results)
@@ -462,14 +630,15 @@ def main(argv=None):
     warn_near_limit(rows)
     texs = []
     for g in GRAPHS:
-        texs.append(plot_graph(rows, g, list(range(100, 1001, 100)), out, formats=a.figures))
-        texs.append(plot_graph(rows, g, list(range(100, 1001, 100)), out, cpu=True, formats=a.figures))
-    for g, sizes in (('scale_free', range(10000, 90001, 10000)), ('barabasi_albert', range(10000, 100001, 10000))):
-        texs.append(plot_graph(rows, g, list(sizes), out, formats=a.figures))
-        texs.append(plot_graph(rows, g, list(sizes), out, cpu=True, formats=a.figures))
+        texs.append(plot_graph(rows, g, sizes_of(rows, g), out, formats=a.figures))
+        texs.append(plot_graph(rows, g, sizes_of(rows, g), out, cpu=True, formats=a.figures))
+    for g in ('scale_free', 'barabasi_albert'):
+        sizes = sizes_of(rows, g)
+        texs.append(plot_graph(rows, g, sizes, out, formats=a.figures))
+        texs.append(plot_graph(rows, g, sizes, out, cpu=True, formats=a.figures))
         for m in ('left_recursion', 'right_recursion'):
-            table_large(rows, g, list(sizes), m, out)
-            table_memory_large(rows, g, list(sizes), m, out)
+            table_large(rows, g, sizes, m, out)
+            table_memory_large(rows, g, sizes, m, out)
     for n in (500, 1000):
         table_linear(rows, n, out)
         table_double(rows, n, out)
@@ -478,11 +647,14 @@ def main(argv=None):
     if texs and not a.no_compile:
         engine = a.latex_engine or find_engine()
         if engine is None:
-            print('no LaTeX engine found (tectonic, lualatex, xelatex, pdflatex): '
-                  f'{len(texs)} LaTeX figures written to {out / "figures_tex"} but not compiled')
+            print(
+                'no LaTeX engine found (tectonic, lualatex, xelatex, pdflatex): '
+                f'{len(texs)} LaTeX figures written to {out / "figures_tex"} but not compiled'
+            )
         else:
             failed = {t: e for t, e in compile_tex(texs, engine).items() if e}
-            print(f'LaTeX figures: {len(texs) - len(failed)} of {len(texs)} compiled with {engine} in {out / "figures_tex"}')
+            done = len(texs) - len(failed)
+            print(f'LaTeX figures: {done} of {len(texs)} compiled with {engine} in {out / "figures_tex"}')
             for t, e in failed.items():
                 print(f'  FAILED {t.name}: {e}')
             if failed:

@@ -1,34 +1,35 @@
-virtualenv
-timing/*.tsv
-timing/*/*/*_recursion
-timing_*/*/*/*_recursion
-t.tex
-__pycache__
-*/*__pycache__
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+virtualenv/
+.venv/
 
-*/*DS_Store
-*/*/*DS_Store
-*/*/*/*DS_Store
-*/*/*/*/*DS_Store
-*/*/*/*/*/*DS_Store
-*/*/*/*/*/*/*DS_Store
-*/*/*/*/*/*/*/*DS_Store
-*/*/*/*/*/*/*/*/*DS_Store
-*/*/*/*/*/*/*/*/*/*DS_Store
-cockroach-data
-coverage
-# trans-bench credentials (never commit these)
+# Operating system and editor files
+.DS_Store
+.idea/
+.vscode/
+
+# Credentials (never commit these)
 systems/*/credentials.yaml
 config.yaml
 
-# Python engine cache
-engine/__pycache__/
-engine/connectors/__pycache__/
-ui/__pycache__/
+# Generated benchmark inputs: regenerate with generate_db.py. input/SHA256SUMS pins them and
+# scripts/verify_inputs.py checks them. Files already tracked under input/ are not affected.
+/input/
 
-# DuckDB per-run database file (removed after each run)
+# Output of the old in-process runner (now results/<campaign>/<series>/timing/)
+/timing/
+/timing_*/
+
+# Database files written while a benchmark runs
+cockroach-data/
 systems/duckdb/rules/duckdb/
 
-# Generated benchmark inputs beyond the tracked small sizes: regenerate with generate_db.py
-# (input/SHA256SUMS pins them, scripts/verify_inputs.py checks). Tracked files are unaffected.
-/input/
+# Scratch LaTeX
+t.tex

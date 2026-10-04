@@ -17,7 +17,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}?v={{ asset_version }}"/>
   {% block head %}{% endblock %}
 </head>
-<body>
+<body{% if read_only %} class="read-only"{% endif %}>
 {% set ep = request.endpoint or '' %}
 {% macro nav(endpoint, icon, label, active) -%}
 <a class="nav-link" href="{{ url_for(endpoint) }}" {% if active %}aria-current="page"{% endif %}><i data-lucide="{{ icon }}"></i><span>{{ label }}</span></a>
@@ -34,7 +34,7 @@
 
 <div class="app">
   <aside class="sidebar" id="sidebar" aria-label="Main navigation">
-    <a class="brand" href="{{ url_for('dashboard') }}">
+    <a class="brand" href="{{ url_for('landing') }}">
       <svg class="brand-mark" viewBox="0 0 30 30" aria-hidden="true" fill="none" stroke-width="1.8">
         <path class="bm-edge" d="M7 21L15 7L23 21"/>
         <path class="bm-close" d="M7 21H23" stroke-dasharray="2.4 2.6"/>
@@ -86,6 +86,9 @@
     </header>
 
     <main class="content" id="main" tabindex="-1">
+      {% if read_only %}
+      <div class="callout ro-banner" role="note" style="margin-bottom:16px"><i data-lucide="eye"></i><div><b>Read-only copy.</b> {{ read_only_message }} <a href="https://github.com/Sirneij/trans-bench" rel="noopener">github.com/Sirneij/trans-bench</a></div></div>
+      {% endif %}
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% for cat, msg in messages %}
           <div class="callout {{ 'danger' if cat == 'error' else cat }}" style="margin-bottom:16px"><i data-lucide="info"></i><div>{{ msg }}</div></div>

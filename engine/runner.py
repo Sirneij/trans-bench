@@ -1,209 +1,112 @@
 """
-engine/runner.py
+Run one trial of one configuration and record its timing row.
 
-The ExperimentRunner orchestrates the full benchmarking lifecycle:
+A trial is one run of one configuration: connect to a system, run its rule file on one input graph, record the
+timing row and disconnect. engine/run_one.py calls TrialRunner.run_trial once per process, and
+engine/campaign.py starts that process for every run of a campaign, so the CLI (benchmark.py,
+transitive.py) and the Web UI measure through this same code.
 
-  1. Load system and graph-type descriptors
-  2. Generate missing input data
-  3. For each (system × graph_type × size × mode):
-       a. Resolve connector from descriptor.protocol
-       b. Find the rule file
-       c. Connect, run, collect timings, write CSV
-  4. Generate LaTeX plots
-
-Adding a new system requires ZERO changes here — only a new descriptor.yaml.
+A system is described by its descriptor.yaml only (engine/loader.py); this module has no knowledge
+of any particular system. The connector named by the descriptor's `protocol` does the work.
 """
 
 from __future__ import annotations
 
 import csv
 import gc
-import json
 import logging
-import shutil
-import subprocess
-import sys
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 
 from engine.connectors import get_connector
-from engine.loader import (
-    DescriptorLoader,
-    DomainDescriptor,
-    GraphTypeDescriptor,
-    SystemDescriptor,
-)
+from engine.loader import GraphTypeDescriptor, SystemDescriptor
 
 log = logging.getLogger(__name__)
 
+BASE_DIR = Path(__file__).resolve().parent.parent
+INPUT_DIR = Path('input')
 
-class ExperimentRunner:
+
+def input_path(system: SystemDescriptor, graph: str, size: int, input_dir: Path = INPUT_DIR) -> Path:
     """
-    Drives the entire experiment lifecycle.
+    Return where generate_db.py writes graph `graph` of size `size` in the input format of `system`.
+
+    The database systems read the tab-separated edge file of Souffle; XSB and Clingo share one
+    Prolog fact file; ALDA reads a pickled set of edges.
+    """
+    fmt = system.input_format
+    if fmt == 'tsv':
+        return input_dir / 'souffle' / graph / str(size) / 'edge.facts'
+    if fmt == 'facts':
+        return input_dir / 'souffle' / graph / str(size)
+    if fmt == 'lp':
+        return input_dir / 'clingo_xsb' / graph / f'graph_{size}.lp'
+    if fmt == 'pickle':
+        return input_dir / 'alda' / graph / f'graph_{size}.da'
+    return input_dir / system.name / graph / f'graph_{size}'
+
+
+def edge_file(graph: str, size: int, input_dir: Path = INPUT_DIR) -> Path:
+    """Return the tab-separated edge file of a graph; engine/verify.py computes the expected closure from it."""
+    return input_dir / 'souffle' / graph / str(size) / 'edge.facts'
+
+
+class TrialRunner:
+    """
+    Runs single trials and writes their timing rows.
 
     Parameters
     ----------
     config : dict
-        Global configuration (merged from config.yaml + credentials).
-    systems : list[SystemDescriptor]
-        Systems to benchmark (pre-loaded by DescriptorLoader).
-    graph_types : list[GraphTypeDescriptor]
-        Graph topologies to test.
-    size_range : list[int]
-        [start, stop, step] for range().
-    num_runs : int
-        Number of repetitions per (system, graph, size, mode) combination.
-    modes : list[str]
-        Recursion modes to benchmark.
-    progress_cb : callable, optional
-        Called with a progress dict on every step — used by the Web UI for SSE.
-    should_stop : callable, optional
-        Checked before each configuration; when it returns True the run ends there (the Web UI's Stop).
+        Global configuration (config.yaml), passed to the connectors.
+    timing_dir : Path
+        Root of the timing files: <timing_dir>/<domain>/<system>/<graph>/<mode>_graph_<n>.csv.
+    domain : str
+        Benchmark domain; selects the rule files (<domain>_<mode><extension>).
+    query_mode : str
+        full_materialization (compute the whole closure) or demand_driven (bound query).
+
     """
 
     def __init__(
         self,
         config: dict[str, Any],
-        systems: list[SystemDescriptor],
-        graph_types: list[GraphTypeDescriptor],
-        size_range: list[int],
-        num_runs: int,
-        modes: list[str],
+        timing_dir: Path,
         domain: str = 'transitive',
         query_mode: str = 'full_materialization',
-        progress_cb: Optional[Callable[[dict], None]] = None,
-        domain_descriptor: Optional[DomainDescriptor] = None,
-        should_stop: Optional[Callable[[], bool]] = None,
     ):
+        """Keep the settings; nothing is opened until run_trial."""
         self.config = config
-        self.systems = systems
-        self.graph_types = graph_types
-        self.size_range = size_range
-        self.num_runs = num_runs
+        self.timing_dir = Path(timing_dir)
         self.domain = domain
-        self.query_mode = query_mode  # full_materialization or demand_driven
-        self.progress_cb = progress_cb
-        self.should_stop = should_stop  # checked between configurations (the UI's Stop button)
-        self.timing_dir = Path(config.get('timing_dir', 'timing'))
-        self.base_dir = Path(__file__).parent.parent
-
-        # Resolve effective modes: if a domain descriptor is provided (or can be
-        # loaded from domains/<domain>/descriptor.yaml) and it declares its own
-        # modes, intersect with user-requested modes to avoid running invalid combos.
-        self.domain_descriptor: Optional[DomainDescriptor] = domain_descriptor
-        if self.domain_descriptor is None:
-            loader = DescriptorLoader(base_dir=self.base_dir)
-            self.domain_descriptor = loader.get_domain(domain)
-
-        effective_modes = modes
-        if self.domain_descriptor and self.domain_descriptor.modes:
-            domain_modes = set(self.domain_descriptor.modes)
-            effective_modes = [m for m in modes if m in domain_modes]
-            skipped = [m for m in modes if m not in domain_modes]
-            if skipped:
-                log.info(
-                    f'Domain "{domain}" declares modes {self.domain_descriptor.modes}; '
-                    f'skipping unsupported modes: {skipped}'
-                )
-            if not effective_modes:
-                log.warning(
-                    f'None of the requested modes {modes} are valid for domain "{domain}". '
-                    f'Valid modes: {self.domain_descriptor.modes}. '
-                    f'Falling back to all requested modes.'
-                )
-                effective_modes = modes
-        self.modes = effective_modes
-
-    # ------------------------------------------------------------------
-    # Public entry point
-    # ------------------------------------------------------------------
-
-    def run(self) -> None:
-        self._clean_empty_timing_dirs()
-
-        total = len(self.systems) * len(self.graph_types) * len(range(*self.size_range)) * len(self.modes)
-        done = 0
-
-        for system in self.systems:
-            self._generate_input_data(system)
-            for graph in self.graph_types:
-                for size in range(*self.size_range):
-                    # Skip if all modes already have data
-                    if self._all_modes_exist(system, graph, size):
-                        log.info(f'Skipping {system.name}/{graph.name}/{size} — data exists')
-                        done += len(self.modes)
-                        continue
-
-                    for mode in self.modes:
-                        if self.should_stop and self.should_stop():
-                            self._emit_log('Stopped on request, after the last configuration finished.', 'warn')
-                            return
-                        if mode not in system.modes:
-                            done += 1
-                            continue
-
-                        rule_path = self._resolve_rule_path(system, mode)
-                        if rule_path is None:
-                            log.warning(f'No rule file for {system.name}/{mode} — skipping')
-                            done += 1
-                            continue
-
-                        input_path = self._resolve_input_path(system, graph, size)
-                        output_folder = self._prepare_output_folder(system, graph, size, mode)
-                        timing_path = self._timing_path(system, graph, size, mode)
-
-                        log.info(f'Running: {system.name} / {graph.name} / {size} / {mode}')
-                        self._emit(done, total, system.name, graph.name, size, mode, 'running')
-
-                        for _ in range(self.num_runs):
-                            self._run_single(system, rule_path, input_path, output_folder, timing_path, size)
-
-                        self._append_average(timing_path)
-                        done += 1
-                        self._emit(done, total, system.name, graph.name, size, mode, 'done')
-
-        max_x = list(range(*self.size_range))[-1] if self.size_range else 1000
-        config_str = json.dumps(self.config)
-        subprocess.run(
-            [
-                sys.executable,  # the interpreter running the suite, so its virtualenv is used
-                'generate_plot_table.py',
-                '--config',
-                config_str,
-                '--domain',
-                self.domain,
-                '--max-x-axis',
-                str(max_x),
-            ]
-        )
-
-    # ------------------------------------------------------------------
-    # Private helpers
-    # ------------------------------------------------------------------
+        self.query_mode = query_mode
+        self.base_dir = BASE_DIR
 
     def run_trial(self, system: SystemDescriptor, graph: GraphTypeDescriptor, size: int, mode: str) -> dict:
         """
-        Run exactly one trial of (system, graph, size, mode) and return its outcome (see
-        _run_single). Unlike run(), this neither generates missing input nor skips existing
-        timing files: engine/run_one.py uses it to run one trial per process for benchmark.py.
+        Run exactly one trial of (system, graph, size, mode).
+
+        Returns {'timing': <row or None>, 'errors': [...], 'memory': ..., 'rule_path', 'input_path',
+        'timing_path', 'result_path'}. A missing mode, rule file or input file is reported as an error
+        without connecting to the system.
         """
         if mode not in system.modes:
             return {'timing': None, 'errors': [f'{system.name} does not declare mode {mode}']}
-        rule_path = self._resolve_rule_path(system, mode)
+        rule_path = self.resolve_rule_path(system, mode)
         if rule_path is None:
             return {'timing': None, 'errors': [f'no rule file for {system.name}/{self.domain}_{mode}']}
-        input_path = self._resolve_input_path(system, graph, size)
-        if not input_path.exists():
+        source = input_path(system, graph.name, size)
+        if not source.exists():
             return {
                 'timing': None,
-                'errors': [f'input {input_path} not found; create it with generate_db.py (see docs/REPRODUCING.md)'],
+                'errors': [f'input {source} not found; create it with generate_db.py (see docs/REPRODUCING.md)'],
             }
-        output_folder = self._prepare_output_folder(system, graph, size, mode)
-        timing_path = self._timing_path(system, graph, size, mode)
-        outcome = self._run_single(system, rule_path, input_path, output_folder, timing_path, size)
+        output_folder = self.output_folder(system, graph, size, mode)
+        timing_path = self.timing_path(system, graph, size, mode)
+        outcome = self._run_single(system, rule_path, source, output_folder, timing_path, size)
         outcome.update(
             rule_path=str(rule_path),
-            input_path=str(input_path),
+            input_path=str(source),
             timing_path=str(timing_path),
             result_path=str(output_folder / system.result_file) if system.result_file else None,
         )
@@ -213,7 +116,7 @@ class ExperimentRunner:
         self,
         system: SystemDescriptor,
         rule_path: Path,
-        input_path: Path,
+        source: Path,
         output_folder: Path,
         timing_path: Path,
         size: int,
@@ -221,242 +124,94 @@ class ExperimentRunner:
         """
         Connect, run one trial, append its timing row, disconnect.
 
-        Returns {'timing': <row dict or None>, 'errors': [...]}. A trial whose connector recorded
-        errors still gets its timing row (the phases that ran are measured; the others are 0), but
-        callers must treat it as failed. If connecting fails, no row is written.
+        A trial whose connector recorded errors still gets its timing row (the phases that ran are
+        measured; the others are 0), but callers must treat it as failed. If connecting fails, no row
+        is written.
         """
-        ConnectorClass = get_connector(system.protocol)
-        connector = ConnectorClass()
+        connector = get_connector(system.protocol)()
         outcome: dict = {'timing': None, 'errors': []}
         try:
             connector.connect(system.credentials, system)
-
-            query_bindings = None
-            query_file = input_path.parent / f'queries_{size}.csv'
-            if query_file.exists():
-                import csv
-
-                with open(query_file, 'r') as f:
-                    reader = csv.reader(f)
-                    headers = next(reader, [])
-                    row = next(reader, [])
-                    if headers and row:
-                        query_bindings = dict(zip(headers, row))
-
-            # Add query_mode to config for the experiment
-            config_with_mode = {**self.config, 'query_mode': self.query_mode}
-
             timing = connector.run_experiment(
-                rule_path, input_path, output_folder, system, config_with_mode, query_bindings=query_bindings
+                rule_path,
+                source,
+                output_folder,
+                system,
+                {**self.config, 'query_mode': self.query_mode},
+                query_bindings=self._query_bindings(source, size),
             )
             self._write_timing(timing_path, system.csv_headers, timing)
             outcome['timing'] = timing
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-except  # any failure of a system is a result
             msg = f'Experiment failed ({system.name}): {e}'
             log.error(msg)
-            self._emit_log(msg, level='error')
             outcome['errors'].append(msg)
         finally:
             outcome['errors'] = list(getattr(connector, 'errors', [])) + outcome['errors']
-            outcome['memory'] = getattr(connector, 'memory', None) if isinstance(getattr(connector, 'memory', None), dict) else None
-            for msg in getattr(connector, 'errors', []):
-                self._emit_log(f'{system.name}: {msg}', level='error')
+            memory = getattr(connector, 'memory', None)
+            outcome['memory'] = memory if isinstance(memory, dict) else None
             try:
                 connector.close()
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-except
                 log.warning(f'close() failed ({system.name}): {e}')
             gc.collect()
         return outcome
 
-    def _resolve_rule_path(self, system: SystemDescriptor, mode: str) -> Optional[Path]:
-        """Find rule file for this system+mode for the current domain."""
-        # Generate candidates with fallback naming schemes
-        candidates = [
-            # New: domain-prefixed files in system directory
-            system.rules_dir / f'{self.domain}_{mode}{system.rule_extension}',
-            # New: domain-prefixed files in legacy location
-            self.base_dir / f'{system.name}_rules' / f'{self.domain}_{mode}{system.rule_extension}',
-        ]
+    @staticmethod
+    def _query_bindings(source: Path, size: int) -> Optional[dict[str, str]]:
+        """Read the bound query of demand-driven mode (queries_<n>.csv next to the input), if there is one."""
+        query_file = source.parent / f'queries_{size}.csv'
+        if not query_file.exists():
+            return None
+        with open(query_file, newline='', encoding='utf-8') as f:
+            reader = csv.reader(f)
+            headers = next(reader, [])
+            row = next(reader, [])
+        return dict(zip(headers, row)) if headers and row else None
 
-        # Legacy support: try shortened domain names
-        # e.g., "transitive_closure" -> "transitive_", "shortest_path" -> "shortest_"
-        domain_prefix = self.domain.split('_')[0]
-        if domain_prefix != self.domain:
-            candidates.extend(
-                [
-                    system.rules_dir / f'{domain_prefix}_{mode}{system.rule_extension}',
-                    self.base_dir / f'{system.name}_rules' / f'{domain_prefix}_{mode}{system.rule_extension}',
-                ]
-            )
+    def resolve_rule_path(self, system: SystemDescriptor, mode: str) -> Optional[Path]:
+        """
+        Find the rule file of `system` for `mode` in the current domain, or None.
 
-        # Legacy: non-prefixed files (backward compatibility)
-        candidates.extend(
-            [
-                system.rules_dir / f'{mode}{system.rule_extension}',
-                self.base_dir / f'{system.name}_rules' / f'{mode}{system.rule_extension}',
+        Tried in order: <domain>_<mode>, then the first word of the domain (transitive_closure ->
+        transitive), then <mode> alone; each in the system's rules directory and in the old
+        <system>_rules/ directory.
+        """
+        names = [f'{self.domain}_{mode}']
+        prefix = self.domain.split('_')[0]
+        if prefix != self.domain:
+            names.append(f'{prefix}_{mode}')
+        names.append(mode)
+        candidates = []
+        for name in names:
+            candidates += [
+                system.rules_dir / f'{name}{system.rule_extension}',
+                self.base_dir / f'{system.name}_rules' / f'{name}{system.rule_extension}',
             ]
-        )
-
         for path in candidates:
             if path.exists():
                 return path
         log.warning(f'Rule file not found for {system.name}/{self.domain}_{mode}. Tried: {candidates}')
         return None
 
-    def _resolve_input_path(self, system: SystemDescriptor, graph: GraphTypeDescriptor, size: int) -> Path:
-        input_dir = Path('input')
-        fmt = system.input_format
+    def timing_path(self, system: SystemDescriptor, graph: GraphTypeDescriptor, size: int, mode: str) -> Path:
+        """Return the CSV file that collects the timing rows of one configuration (its directory is created)."""
+        directory = self.timing_dir / self.domain / system.name / graph.name
+        directory.mkdir(parents=True, exist_ok=True)
+        return directory / f'{mode}_graph_{size}.csv'
 
-        if fmt == 'tsv':
-            return input_dir / 'souffle' / graph.name / str(size) / 'edge.facts'
-        elif fmt == 'lp':
-            return input_dir / 'clingo_xsb' / graph.name / f'graph_{size}.lp'
-        elif fmt == 'facts':
-            return input_dir / 'souffle' / graph.name / str(size)
-        elif fmt == 'pickle':
-            return input_dir / 'alda' / graph.name / f'graph_{size}.pkl'
-        else:
-            return input_dir / system.name / graph.name / f'graph_{size}'
-
-    def _timing_path(self, system: SystemDescriptor, graph: GraphTypeDescriptor, size: int, mode: str) -> Path:
-        d = self.timing_dir / self.domain / system.name / graph.name
-        d.mkdir(parents=True, exist_ok=True)
-        return d / f'{mode}_graph_{size}.csv'
-
-    def _prepare_output_folder(
-        self,
-        system: SystemDescriptor,
-        graph: GraphTypeDescriptor,
-        size: int,
-        mode: str,
-    ) -> Path:
+    def output_folder(self, system: SystemDescriptor, graph: GraphTypeDescriptor, size: int, mode: str) -> Path:
+        """Return the directory where the system writes its query result for one configuration (created)."""
         folder = self.timing_dir / self.domain / system.name / graph.name / mode / str(size)
         folder.mkdir(parents=True, exist_ok=True)
         return folder
 
-    def _all_modes_exist(self, system: SystemDescriptor, graph: GraphTypeDescriptor, size: int) -> bool:
-        return all(self._timing_path(system, graph, size, mode).exists() for mode in self.modes if mode in system.modes)
-
-    def _write_timing(self, timing_path: Path, headers: list[str], timing: dict[str, float]) -> None:
+    @staticmethod
+    def _write_timing(timing_path: Path, headers: list[str], timing: dict[str, float]) -> None:
+        """Append one row (and the header, for a new file) in the column order of the descriptor."""
         is_new = not timing_path.exists()
-        with open(timing_path, 'a', newline='') as f:
+        with open(timing_path, 'a', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             if is_new:
                 writer.writerow(headers)
             writer.writerow([timing.get(h, 0.0) for h in headers])
-
-    def _append_average(self, timing_path: Path) -> None:
-        if not timing_path.exists():
-            return
-        with open(timing_path, newline='') as f:
-            reader = csv.reader(f)
-            headers = next(reader, None)
-            if not headers:
-                return
-            sums = [0.0] * len(headers)
-            counts = [0] * len(headers)
-            for row in reader:
-                if row and row[0] == 'Average':
-                    continue
-                for i, val in enumerate(row):
-                    if i < len(headers):
-                        try:
-                            sums[i] += float(val)
-                            counts[i] += 1
-                        except ValueError:
-                            pass
-
-        averages = [s / c if c else 0.0 for s, c in zip(sums, counts)]
-        with open(timing_path, 'a', newline='') as f:
-            writer = csv.writer(f)
-            writer.writerow(['Average'] + averages)
-
-    def _generate_input_data(self, system: SystemDescriptor) -> None:
-        fmt = system.input_format
-        if fmt in ('tsv', 'facts'):
-            env_key = 'souffle'
-        elif fmt == 'lp':
-            env_key = 'clingo'
-        elif fmt == 'pickle':
-            env_key = 'alda'
-        else:
-            env_key = system.name
-
-        input_dir = Path('input')
-        graph_names = [g.name for g in self.graph_types]
-        missing = []
-
-        for graph in self.graph_types:
-            graph_dir = input_dir / env_key / graph.name
-            if not graph_dir.exists():
-                missing.append(graph.name)
-            else:
-                required = set(range(*self.size_range))
-                if fmt in ('tsv', 'facts'):
-                    existing = {int(d.name) for d in graph_dir.iterdir() if d.is_dir()}
-                else:
-                    existing = {int(f.stem.split('_')[-1]) for f in graph_dir.glob('*.*')}
-                if required - existing:
-                    missing.append(graph.name)
-
-        if missing:
-            log.info(f'Generating input for {system.name}: missing graphs {missing}')
-            self._emit_log(f'Generating input data for graphs: {missing}', level='info')
-            config_str = json.dumps(self.config)
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    'generate_db.py',
-                    '--config',
-                    config_str,
-                    '--sizes',
-                    str(self.size_range[0]),
-                    str(self.size_range[1]),
-                    str(self.size_range[2]),
-                    '--graph-types',
-                    *missing,
-                ],
-                capture_output=True,
-                text=True,
-            )
-            # Emit stdout lines so they appear in the Web UI live log
-            for line in (result.stdout + result.stderr).splitlines():
-                if line.strip():
-                    level = 'error' if ('error' in line.lower() or 'traceback' in line.lower()) else 'info'
-                    self._emit_log(f'[generate_db] {line}', level=level)
-            if result.returncode != 0:
-                self._emit_log(f'generate_db.py exited with code {result.returncode}', level='error')
-
-    def _clean_empty_timing_dirs(self) -> None:
-        if not self.timing_dir.exists():
-            return
-        for subdir in self.timing_dir.iterdir():
-            if subdir.is_dir() and not list(subdir.glob('**/*.csv')):
-                shutil.rmtree(subdir)
-
-    def _emit(self, done: int, total: int, system: str, graph: str, size: int, mode: str, status: str) -> None:
-        if self.progress_cb:
-            self.progress_cb(
-                {
-                    'type': 'progress',
-                    'done': done,
-                    'total': total,
-                    'pct': round(100 * done / max(total, 1), 1),
-                    'system': system,
-                    'graph': graph,
-                    'size': size,
-                    'mode': mode,
-                    'status': status,
-                }
-            )
-
-    def _emit_log(self, message: str, level: str = 'info') -> None:
-        """Emit a plain log line (not a progress update) through the progress callback."""
-        if self.progress_cb:
-            self.progress_cb(
-                {
-                    'type': 'log',
-                    'message': message,
-                    'level': level,
-                }
-            )

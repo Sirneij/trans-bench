@@ -1,0 +1,30 @@
+# Keep the image to what the read-only Web UI reads (see Dockerfile).
+.git
+.github
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.mypy_cache
+.coverage
+htmlcov
+.DS_Store
+virtualenv
+.venv
+
+# never ship credentials
+config.yaml
+**/credentials.yaml
+
+# not used by the Web UI
+input
+alda
+docs
+scripts
+tests
+requirements*.txt
+!requirements_web.txt
+results/*/harness
+results/**/*.tar.gz
+results/**/*.gz
+results/**/logs
+results/**/timing

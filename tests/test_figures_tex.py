@@ -15,10 +15,26 @@ from engine.figures_tex import compile_tex, figure_to_tex, find_engine  # noqa: 
 def sample_figure():
     fig, axes = plt.subplots(1, 2, figsize=(7.2, 2.9), sharey=True)
     for ax in axes:
-        ax.plot([100, 200, 300], [0.001, 0.02, 3.0], color='tab:blue', marker='s', linestyle='-', markersize=3.5,
-                linewidth=1.1, label='PostgreSQL')
-        ax.plot([100, 200], [0.005, 0.5], color='tab:cyan', marker='P', linestyle='--', markersize=3.5,
-                linewidth=1.1, label='Neo4j')
+        ax.plot(
+            [100, 200, 300],
+            [0.001, 0.02, 3.0],
+            color='tab:blue',
+            marker='s',
+            linestyle='-',
+            markersize=3.5,
+            linewidth=1.1,
+            label='PostgreSQL',
+        )
+        ax.plot(
+            [100, 200],
+            [0.005, 0.5],
+            color='tab:cyan',
+            marker='P',
+            linestyle='--',
+            markersize=3.5,
+            linewidth=1.1,
+            label='Neo4j',
+        )
         ax.plot([300], [600], color='tab:cyan', marker='P', markersize=6, markerfacecolor='none', linestyle='')
         ax.set_yscale('log')
         ax.set_title('Cyc: left recursion', fontsize=9)
@@ -64,6 +80,7 @@ def test_compiles_to_a_page_of_the_figure_size(tmp_path):
     assert compile_tex([tex]) == {tex: None}
     # a relative path (analyze_verified.py --out results/...) compiles too
     import os
+
     cwd = os.getcwd()
     try:
         os.chdir(tmp_path.parent)

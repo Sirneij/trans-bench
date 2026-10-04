@@ -31,6 +31,8 @@
   .mz.na { box-shadow: none; background: repeating-linear-gradient(-45deg, var(--line) 0 2px, transparent 2px 5px); }
   .mz.run { box-shadow: none; background: var(--accent); animation: mzpulse 1s ease-in-out infinite; transform: scale(1.15); }
   .mz.ok { box-shadow: none; animation: mzpop .5s var(--ease-spring); }
+  .mz.fail { box-shadow: none; background: var(--danger); animation: mzpop .5s var(--ease-spring); }
+  .mz.skip { box-shadow: inset 0 0 0 1px var(--danger); background: repeating-linear-gradient(-45deg, var(--danger-soft) 0 2px, transparent 2px 5px); }
   @keyframes mzpulse { 50% { opacity: .45; } }
   @keyframes mzpop { 0% { transform: scale(1.6); } 100% { transform: scale(1); } }
   .mz-legend { display: flex; align-items: center; gap: 8px; font-size: var(--fs-xs); color: var(--ink-3); }
@@ -45,11 +47,11 @@
   <div>
     <div class="eyebrow"><i data-lucide="activity" style="width:14px;height:14px"></i>Run</div>
     <h1>Live monitor</h1>
-    <p class="lede">Progress and output of the experiment started from this UI, streamed as it runs.</p>
+    <p class="lede">Progress and output of the campaign started from this UI, streamed as it runs.</p>
   </div>
   <div class="page-actions">
     <span class="status-pill" id="status-pill" role="status"><span class="dot"></span><span id="status-text">Connecting…</span></span>
-    <button class="btn btn-danger" type="button" id="stop-btn" disabled><i data-lucide="square"></i>Stop</button>
+    <button class="btn btn-danger" type="button" id="stop-btn" disabled data-write><i data-lucide="square"></i>Stop</button>
   </div>
 </header>
 
@@ -58,8 +60,8 @@
 </div>
 
 <div id="live">
-  <div class="callout ok" id="done-callout" hidden style="margin-bottom:16px"><i data-lucide="circle-check"></i><div><b>Finished.</b> <span id="done-text"></span> <a href="{{ url_for('results') }}">Open the results explorer</a></div></div>
-  <div class="callout danger" id="error-callout" hidden style="margin-bottom:16px"><i data-lucide="circle-x"></i><div><b>The experiment reported an error.</b> <span id="error-text" class="mono small"></span></div></div>
+  <div class="callout ok" id="done-callout" hidden style="margin-bottom:16px"><i data-lucide="circle-check"></i><div><b>Finished.</b> <span id="done-text"></span> <a id="done-link" href="{{ url_for('campaigns_list') }}">Open the campaign</a> · <a href="{{ url_for('results') }}">results explorer</a></div></div>
+  <div class="callout danger" id="error-callout" hidden style="margin-bottom:16px"><i data-lucide="circle-x"></i><div><b>The campaign could not continue.</b> <span id="error-text" class="mono small"></span></div></div>
 
   <div class="live-top">
     <section class="card card-body reveal">
@@ -91,7 +93,7 @@
   <section class="card mt-4 reveal" style="--i:2" id="mz-card" hidden>
     <div class="card-head">
       <h3><i data-lucide="grid-3x3"></i>Every configuration</h3>
-      <div class="mz-legend"><span>pending</span><span class="mz" style="width:14px;display:inline-block"></span><span>running</span><span class="mz run" style="width:14px;display:inline-block;animation:none;transform:none"></span><span>fast</span><span class="bar"></span><span>slow</span><span class="mz na" style="width:14px;display:inline-block"></span><span>mode not supported</span></div>
+      <div class="mz-legend"><span>pending</span><span class="mz" style="width:14px;display:inline-block"></span><span>running</span><span class="mz run" style="width:14px;display:inline-block;animation:none;transform:none"></span><span>fast</span><span class="bar"></span><span>slow</span><span class="mz fail" style="width:14px;display:inline-block;animation:none"></span><span>failed</span><span class="mz skip" style="width:14px;display:inline-block"></span><span>skipped</span><span class="mz na" style="width:14px;display:inline-block"></span><span>mode not supported</span></div>
     </div>
     <div class="card-body mosaic" id="mosaic"></div>
   </section>
@@ -99,9 +101,9 @@
   <section class="card mt-4 reveal" style="--i:3">
     <div class="card-head">
       <h3><i data-lucide="square-terminal"></i>Command</h3>
-      <span class="small muted">the same run from a terminal</span>
+      <span class="small muted">the same campaign from a terminal</span>
     </div>
-    <div class="card-body"><div class="cmd"><span class="prompt">$</span><code id="cli-command">python transitive.py</code><button class="btn btn-ghost btn-sm btn-icon" type="button" data-copy="#cli-command" aria-label="Copy command"><i data-lucide="copy"></i></button></div></div>
+    <div class="card-body"><div class="cmd"><span class="prompt">$</span><code id="cli-command">python benchmark.py</code><button class="btn btn-ghost btn-sm btn-icon" type="button" data-copy="#cli-command" aria-label="Copy command"><i data-lucide="copy"></i></button></div></div>
   </section>
 
   <section class="card mt-4 reveal" style="--i:3">
@@ -212,8 +214,12 @@
     if (!t) return;
     if (d.status === 'running') { startedAt[t.dataset.k] = d.t; t.classList.add('run'); return; }
     const dur = d.t && startedAt[t.dataset.k] ? d.t - startedAt[t.dataset.k] : null;
-    t.classList.remove('run'); t.classList.add('ok');
-    if (dur !== null) { t.dataset.dur = dur; durations.push(dur); t.title += ` — ${TB.fmtSeconds(dur)}`; }
+    t.classList.remove('run');
+    if (d.outcome === 'skipped') { t.classList.add('skip'); t.title += ' · skipped after a failure at a smaller n'; return; }
+    if (d.outcome && !['ok', 'resumed'].includes(d.outcome)) { t.classList.add('fail'); t.title += ` · ${d.outcome}`; return; }
+    t.classList.add('ok');
+    if (d.outcome === 'resumed') { t.title += ' · recorded earlier'; return; }
+    if (dur !== null) { t.dataset.dur = dur; durations.push(dur); t.title += ` · ${TB.fmtSeconds(dur)}`; }
     recolor();
   }
   let recolorQueued = false;
@@ -274,11 +280,11 @@
 
   // ── stop ─────────────────────────────────────────────────────────
   $('#stop-btn').addEventListener('click', async () => {
-    const ok = await TB.confirm({ title: 'Stop the experiment?', body: 'The configuration that is running finishes first; nothing after it is started. Results recorded so far are kept.', confirmLabel: 'Stop experiment', danger: true, iconName: 'octagon-x' });
+    const ok = await TB.confirm({ title: 'Stop the campaign?', body: 'The run in progress is ended now and not recorded; nothing after it is started. Runs recorded so far are kept, and starting the same campaign again resumes it.', confirmLabel: 'Stop campaign', danger: true, iconName: 'octagon-x' });
     if (!ok) return;
     const d = await fetch('/experiment/stop', { method: 'POST' }).then((r) => r.json()).catch(() => ({}));
-    if (d.ok) { append('Stop requested; finishing the current configuration.', 'warn'); setStatus('stopped', 'Stopping…'); TB.toast('Stop requested', 'warn'); }
-    else TB.toast(d.error || 'Could not stop the experiment', 'error');
+    if (d.ok) { append('Stop requested; ending the run in progress.', 'warn'); setStatus('stopped', 'Stopping…'); TB.toast('Stop requested', 'warn'); }
+    else TB.toast(d.error || 'Could not stop the campaign', 'error');
   });
 
   function finish(status) {
@@ -295,13 +301,13 @@
       $('#done-callout').hidden = false;
       $('#done-callout').className = 'callout warn';
       $('#done-callout b').textContent = 'Stopped.';
-      $('#done-text').textContent = `${progress.done || 0} of ${progress.total || '?'} configurations finished in ${fmtDur(finished - started)}; their results are kept.`;
+      $('#done-text').textContent = `${progress.done || 0} of ${progress.total || '?'} configurations finished in ${fmtDur(finished - started)}; their runs are kept.`;
     } else {
       setStatus('done', 'Finished');
       setProgress({ ...progress, pct: 100, done: progress.total || progress.done });
       $('#done-callout').hidden = false;
       $('#done-text').textContent = `${progress.total || 0} configurations in ${fmtDur(finished - started)}.`;
-      TB.toast('Experiment finished', 'success');
+      TB.toast('Campaign finished', 'success');
     }
   }
 
@@ -315,6 +321,7 @@
     started = s.started; finished = s.finished; running = s.running;
     if (!s.running && !s.started) { $('#live').hidden = true; $('#idle').hidden = false; setStatus('', 'Idle'); return; }
     if (s.cli_command) $('#cli-command').textContent = s.cli_command;
+    if (s.campaign) $('#done-link').href = `/campaigns/${encodeURIComponent(s.campaign)}`;
     buildMosaic(s.plan);
     tick();
     setStatus(s.running ? (s.stop_requested ? 'stopped' : 'running') : 'stopped', s.running ? (s.stop_requested ? 'Stopping…' : 'Running') : 'Loading…');
@@ -332,11 +339,16 @@
       const d = JSON.parse(e.data);
       if (d.status === 'heartbeat' || d.status === 'connected') return;
       if (d.status === '__done__') { end(); return; }
-      if (d.type === 'log') { append(d.message, d.level); if (d.level === 'error') { $('#error-callout').hidden = false; $('#error-text').textContent = d.message; } return; }
+      if (d.type === 'log') { append(d.message, d.level); return; }
+      if (d.type !== 'progress') return;  // per-run records: the log lines already describe them
       setProgress(d);
       tile(d);
       if (d.status === 'done') { perSys[d.system] = (perSys[d.system] || 0) + 1; renderPerSys(); }
-      append(`${label(d.system)} · ${d.graph} · n=${d.size} · ${d.mode} — ${d.status === 'done' ? 'finished' : 'running'}`, d.status === 'done' ? 'success' : 'progress');
+      if (d.outcome === 'resumed') return;
+      const what = `${label(d.system)} · ${d.graph} · n=${d.size} · ${d.mode}`;
+      if (d.status === 'running') append(`${what}: running`, 'progress');
+      else if (d.outcome === 'ok') append(`${what}: finished`, 'success');
+      else append(`${what}: ${d.outcome}`, d.outcome === 'skipped' ? 'warn' : 'error');
     };
     es.onerror = () => { if (running && !done) append('Connection interrupted; reconnecting…', 'warn'); };
     // fallback: the run can end without this page seeing the last event (server restarted, proxy buffering)

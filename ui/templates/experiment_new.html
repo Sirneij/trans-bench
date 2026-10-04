@@ -28,7 +28,7 @@
 {% endblock %}
 
 {% block content %}
-{% call m.page_head('New experiment', 'Pick what to run, then start it here or copy the command. Runs started here use transitive.py in-process; for verified measurements with a time limit use the benchmark.py command shown on the last step.', 'Run', 'play') %}{% endcall %}
+{% call m.page_head('New experiment', 'Pick what to run, then start it here or copy the command. The UI, transitive.py and benchmark.py all run a campaign the same way: one process per run, a time limit, and a check of every result. The results appear under Campaigns.', 'Run', 'play') %}{% endcall %}
 
 {% if experiment_running %}
 <div class="callout warn" style="margin-bottom:20px"><i data-lucide="activity"></i><div>An experiment is already running. You can plan the next one, but it can only start when the current one finishes. <a href="{{ url_for('experiment_live') }}">Open the live monitor</a></div></div>
@@ -86,9 +86,23 @@
 
     <!-- 3 · Settings -->
     <section class="wiz-panel" data-step="3" aria-labelledby="h-step3" hidden>
-      <div class="panel-head"><div><h2 id="h-step3">Settings</h2><p>Recursion modes, graph sizes and repetitions.</p></div></div>
+      <div class="panel-head"><div><h2 id="h-step3">Settings</h2><p>Where the results go, recursion modes, graph sizes, repetitions and the time limit.</p></div></div>
 
       <div class="card card-body">
+        <div class="grid grid-2" style="gap:20px;margin-bottom:20px">
+          <div class="field">
+            <label class="label" for="campaign-name">Campaign</label>
+            <div class="cluster" style="gap:0;flex-wrap:nowrap"><span class="input mono" style="width:auto;display:grid;place-items:center;border-right:0;border-radius:9px 0 0 9px;color:var(--ink-3);background:var(--sunken)">results/</span><input class="input mono" type="text" id="campaign-name" value="run-{{ today }}" pattern="[A-Za-z0-9][A-Za-z0-9_.\-]{0,63}" style="border-radius:0 9px 9px 0" aria-describedby="campaign-hint"></div>
+            <span class="hint" id="campaign-hint">An existing campaign is resumed: configurations it already has are not run again.</span>
+            <span class="hint err" id="campaign-err" hidden>Use letters, digits, dot, dash and underscore.</span>
+          </div>
+          <div class="field">
+            <label class="label" for="timeout">Time limit per run <span class="opt">seconds</span></label>
+            <input class="input mono" type="number" id="timeout" value="600" min="1" step="1" inputmode="numeric" style="max-width:160px">
+            <span class="hint">A run over the limit is killed; larger sizes of that configuration are skipped. The paper uses 600.</span>
+          </div>
+        </div>
+
         <div class="grid grid-2" style="gap:20px">
           <div class="field">
             <label class="label" for="domain">Domain</label>
@@ -140,7 +154,7 @@
 
     <!-- 4 · Review -->
     <section class="wiz-panel" data-step="4" aria-labelledby="h-step4" hidden>
-      <div class="panel-head"><div><h2 id="h-step4">Review and start</h2><p>Start it here and watch it live, or copy a command to run in a terminal.</p></div></div>
+      <div class="panel-head"><div><h2 id="h-step4">Review and start</h2><p>{% if read_only %}This public copy cannot run benchmarks: copy a command and run it on your machine.{% else %}Start it here and watch it live, or copy a command to run in a terminal.{% endif %}</p></div></div>
       <div class="stack">
         <div class="card card-body">
           <div class="cluster" style="justify-content:space-between;align-items:flex-end">
@@ -151,14 +165,11 @@
         <div class="card">
           <div class="card-head"><h3><i data-lucide="square-terminal"></i>Same run from the command line</h3></div>
           <div class="card-body stack">
-            <div class="small muted">In-process, as the Start button runs it:</div>
+            <div class="small muted">With the size range of this form:</div>
             <div class="cmd"><span class="prompt">$</span><code id="cmd-transitive"></code><button class="btn btn-ghost btn-sm btn-icon" type="button" data-copy="#cmd-transitive" aria-label="Copy command"><i data-lucide="copy"></i></button></div>
-            <div class="cluster small muted mt-2" style="justify-content:space-between">
-              <span>Verified (separate process per run, time limit, result check), one series per system:</span>
-              <label class="cluster" style="gap:6px">campaign <input class="input mono btn-sm" id="campaign-name" value="my_campaign" style="width:140px" aria-label="Campaign name"></label>
-            </div>
+            <div class="small muted mt-2">With the sizes listed one by one (this is how scripts/run_all.sh calls it):</div>
             <div class="cmd"><span class="prompt">$</span><code id="cmd-benchmark"></code><button class="btn btn-ghost btn-sm btn-icon" type="button" data-copy="#cmd-benchmark" aria-label="Copy command"><i data-lucide="copy"></i></button></div>
-            <p class="hint" id="bench-note">Results land in results/&lt;campaign&gt;/&lt;system&gt;/runs.jsonl and appear under Campaigns once analyzed.</p>
+            <p class="hint" id="bench-note">Both commands run the same engine as the Start button. Results land in results/&lt;campaign&gt;/&lt;system&gt;/runs.jsonl.</p>
           </div>
         </div>
       </div>
@@ -169,7 +180,8 @@
       <span class="spacer"></span>
       <span class="small muted hide-sm" id="step-hint"></span>
       <button class="btn btn-primary" type="button" id="next">Continue<i data-lucide="arrow-right"></i></button>
-      <button class="btn btn-primary" type="button" id="start" hidden {% if experiment_running %}disabled title="An experiment is already running"{% endif %}><i data-lucide="play"></i>Start experiment</button>
+      {% if read_only %}<span class="small muted" id="start" hidden>Copy a command above and run it on your machine.</span>{% else %}
+      <button class="btn btn-primary" type="button" id="start" hidden {% if experiment_running %}disabled title="An experiment is already running"{% endif %}><i data-lucide="play"></i>Start experiment</button>{% endif %}
     </div>
   </div>
 
@@ -181,6 +193,8 @@
       <div class="row"><span class="muted">Modes</span><span id="s-modes">—</span></div>
       <div class="row"><span class="muted">Sizes</span><span id="s-sizes">—</span></div>
       <div class="row"><span class="muted">Runs each</span><span id="s-runs">5</span></div>
+      <div class="row"><span class="muted">Time limit</span><span id="s-timeout">600 s</span></div>
+      <div class="row"><span class="muted">Campaign</span><span class="mono" id="s-campaign">—</span></div>
     </div>
     <div class="card-foot"><span class="muted small">Total runs</span><span class="spacer"></span><b class="tabular" id="s-total" style="font-size:var(--fs-lg)">0</b></div>
   </aside>
@@ -207,7 +221,10 @@
     domain: $('#domain').value, query_mode: $('input[name="query_mode"]:checked').value,
     sizes: sizes(), runs: Math.max(1, Math.min(50, parseInt($('#num-runs').value, 10) || 1)),
     souffle: $('#souffle-dir').value.trim(),
+    timeout: Math.max(1, parseInt($('#timeout').value, 10) || 600),
+    campaign: $('#campaign-name').value.trim(),
   });
+  const NAME_OK = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/;
 
   // ── modes follow the domain ─────────────────────────────────────
   function renderModes(modes) {
@@ -235,6 +252,10 @@
     $('#s-modes').textContent = s.modes.length ? s.modes.map((x) => x.replace('_recursion', '')).join(', ') : 'none';
     $('#s-sizes').textContent = s.sizes ? `${s.sizes.list.length} (${s.sizes.list[0]}…${s.sizes.list[s.sizes.list.length - 1]})` : 'invalid';
     $('#s-runs').textContent = s.runs;
+    $('#s-timeout').textContent = `${s.timeout} s`;
+    $('#s-campaign').textContent = s.campaign || '—';
+    $('#campaign-err').hidden = NAME_OK.test(s.campaign);
+    $('#campaign-name').setAttribute('aria-invalid', String(!NAME_OK.test(s.campaign)));
     const nSys = s.systems.length || ALL.sys.length; const nG = s.graphs.length || ALL.graph.length;
     const nSizes = s.sizes ? s.sizes.list.length : 0;
     const total = nSys * nG * s.modes.length * nSizes * s.runs;
@@ -253,28 +274,24 @@
     ['size-start', 'size-stop', 'size-step'].forEach((id) => $(`#${id}`).setAttribute('aria-invalid', String(!s.sizes)));
     $('#modes-err').hidden = s.modes.length > 0;
 
-    const parts = ['python transitive.py'];
-    if (s.domain !== 'transitive') parts.push(`--domain ${s.domain}`);
-    if (s.query_mode !== 'full_materialization') parts.push(`--query-mode ${s.query_mode}`);
-    if (s.systems.length) parts.push(`--systems ${s.systems.join(' ')}`);
-    if (s.graphs.length) parts.push(`--graphs ${s.graphs.join(' ')}`);
-    if (s.modes.length) parts.push(`--modes ${s.modes.join(' ')}`);
-    if (s.sizes) parts.push(`--sizes ${s.sizes.start} ${s.sizes.stop} ${s.sizes.step}`);
-    parts.push(`--num-runs ${s.runs}`);
-    if (s.souffle && (s.systems.length === 0 || s.systems.includes('souffle'))) parts.push(`--souffle-include-dir ${s.souffle}`);
-    $('#cmd-transitive').textContent = parts.join(' ');
-
-    const camp = ($('#campaign-name').value.trim() || 'my_campaign').replace(/[^\w.-]/g, '_');
-    const sysList = (s.systems.length ? s.systems : ALL.sys).join(' ');
-    const bench = [`for s in ${sysList}; do`, `  python benchmark.py --systems $s`];
-    if (s.graphs.length) bench.push(`--graphs ${s.graphs.join(' ')}`);
-    if (s.modes.length) bench.push(`--modes ${s.modes.join(' ')}`);
-    if (s.sizes) bench.push(`--sizes ${s.sizes.list.join(' ')}`);
-    bench.push(`--runs ${s.runs} --timeout 600 --out results/${camp}/$s --no-analysis; done && python analyze_verified.py results/${camp}`);
-    $('#cmd-benchmark').textContent = `${bench.slice(0, 2).join('\n')} ${bench.slice(2).join(' ')}`;
-    const transitiveOnly = s.domain === 'transitive' && s.query_mode === 'full_materialization';
-    $('#cmd-benchmark').closest('.cmd').style.opacity = transitiveOnly ? '' : '.45';
-    $('#bench-note').textContent = transitiveOnly ? 'Results land in results/<campaign>/<system>/runs.jsonl and appear under Campaigns once analyzed.' : 'benchmark.py measures the transitive closure with full materialization only.';
+    const where = `results/${s.campaign || 'my_campaign'}`;
+    const common = [];
+    if (s.graphs.length) common.push(`--graphs ${s.graphs.join(' ')}`);
+    if (s.modes.length) common.push(`--modes ${s.modes.join(' ')}`);
+    const tail = [];
+    if (s.domain !== 'transitive') tail.push(`--domain ${s.domain}`);
+    if (s.query_mode !== 'full_materialization') tail.push(`--query-mode ${s.query_mode}`);
+    if (s.souffle && (s.systems.length === 0 || s.systems.includes('souffle'))) tail.push(`--souffle-include-dir ${s.souffle}`);
+    const t = ['python transitive.py', ...(s.systems.length ? [`--systems ${s.systems.join(' ')}`] : []), ...common];
+    if (s.sizes) t.push(`--sizes ${s.sizes.start} ${s.sizes.stop} ${s.sizes.step}`);
+    t.push(`--num-runs ${s.runs} --timeout ${s.timeout} --campaign ${where}`, ...tail);
+    $('#cmd-transitive').textContent = t.join(' ');
+    const b = ['python benchmark.py', `--systems ${(s.systems.length ? s.systems : ALL.sys).join(' ')}`, ...common];
+    if (s.sizes) b.push(`--sizes ${s.sizes.list.join(' ')}`);
+    b.push(`--runs ${s.runs} --timeout ${s.timeout} --campaign ${where}`, ...tail);
+    $('#cmd-benchmark').textContent = b.join(' ');
+    const checked = s.domain === 'transitive' && s.query_mode === 'full_materialization';
+    $('#bench-note').textContent = `Both commands run the same engine as the Start button. Results land in ${where}/<system>/runs.jsonl${checked ? '; every result is checked against the transitive closure.' : '. Results are not checked in this domain or query mode.'}`;
     return s;
   }
   document.addEventListener('input', update);
@@ -288,7 +305,7 @@
   const hints = { 1: (s) => `${s.systems.length || 'All'} selected`, 2: (s) => `${s.graphs.length || 'All'} selected`, 3: () => '', 4: () => '' };
   function valid(n) {
     const s = state();
-    if (n >= 3 && (!s.modes.length || !s.sizes)) return 3;
+    if (n >= 3 && (!s.modes.length || !s.sizes || !NAME_OK.test(s.campaign))) return 3;
     return 0;
   }
   function go(n) {
@@ -327,6 +344,7 @@
 
   // ── start ────────────────────────────────────────────────────────
   $('#start').addEventListener('click', async () => {
+    if ($('#start').tagName !== 'BUTTON') return;  // the read-only copy shows a note instead
     const s = update();
     if (valid(4)) { go(3); return; }
     const btn = $('#start');
@@ -334,6 +352,7 @@
     const payload = {
       systems: s.systems, graphs: s.graphs, modes: s.modes, domain: s.domain, query_mode: s.query_mode,
       sizes: [s.sizes.start, s.sizes.stop, s.sizes.step], num_runs: s.runs, souffle_include_dir: s.souffle,
+      timeout: s.timeout, campaign: s.campaign,
     };
     try {
       const r = await fetch('/experiment/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });

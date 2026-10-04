@@ -155,7 +155,7 @@
       </div>
     </div>
     {% else %}
-      {{ m.empty('No campaign yet', 'Plan one in the wizard and copy the benchmark.py command.', url_for('experiment_new') ~ '#step-4', 'Plan a campaign', 'square-terminal') }}
+      {{ m.empty('No campaign yet', 'Plan one in the wizard, then start it there or copy the command.', url_for('experiment_new') ~ '#step-4', 'Plan a campaign', 'square-terminal') }}
     {% endif %}
   </section>
 </div>
@@ -192,9 +192,9 @@
   <section class="card" data-reveal style="--i:1">
     <div class="card-head"><h3><i data-lucide="square-terminal"></i>From the command line</h3><span class="small muted">{{ machine_info.os }} · {{ machine_info.cpu_count }} CPUs · Python {{ machine_info.python_version }}</span></div>
     <div class="card-body stack">
-      {{ m.cmd('./virtualenv/bin/python benchmark.py --systems postgres --runs 5 --timeout 600 --out results/my_campaign/postgres', 'cmd-campaign') }}
-      {{ m.cmd('./virtualenv/bin/python analyze_verified.py results/my_campaign', 'cmd-analyze') }}
-      <p class="small muted">A campaign directory holds one runs.jsonl per system (one --out each); analyze_verified.py writes the tables and figures shown under Campaigns.</p>
+      {{ m.cmd('./virtualenv/bin/python benchmark.py --systems duckdb postgres --sizes 100 200 300 --campaign results/my_campaign', 'cmd-campaign') }}
+      {{ m.cmd('./virtualenv/bin/python transitive.py --systems duckdb --sizes 100 301 100 --campaign results/my_campaign', 'cmd-transitive') }}
+      <p class="small muted">Both commands, and the Start button of the wizard, run the same engine. A campaign directory holds one runs.jsonl per system, and its tables and figures appear under Campaigns when the run ends.</p>
     </div>
   </section>
 </div>

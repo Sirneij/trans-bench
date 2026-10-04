@@ -1,18 +1,12 @@
-"""
-engine/connectors/mongodb_conn.py
-
-MongoDB connector — executes Python-based query modules via dynamic import.
-"""
+"""Run MongoDB trials: Python query modules (systems/mongodb/rules/*.py) loaded at run time."""
 
 from __future__ import annotations
 
-import importlib.util
 import logging
-import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from engine.connectors.base import BaseConnector
+from engine.connectors.base import BaseConnector, import_file
 
 if TYPE_CHECKING:
     from engine.loader import SystemDescriptor
@@ -21,13 +15,21 @@ log = logging.getLogger(__name__)
 
 
 class MongoDBConnector(BaseConnector):
-    """Runs transitive closure experiments on MongoDB via pymongo.
+    """
+    Runs transitive closure experiments on MongoDB via pymongo.
 
     No memory probe: MongoDB reports no per-query memory, and the resident memory of mongod is not
     usable (its allocator keeps and reuses memory across runs); see docs/VERIFICATION.md.
     """
 
+    def __init__(self):
+        """Start without a client; connect() opens it."""
+        super().__init__()
+        self._client: Any = None
+        self._db: Any = None
+
     def connect(self, credentials: dict[str, Any], descriptor: 'SystemDescriptor') -> None:
+        """Open a client to the server and select the benchmark database."""
         from pymongo import MongoClient
 
         uri = credentials.get('uri', 'mongodb://127.0.0.1:27017/')
@@ -45,6 +47,7 @@ class MongoDBConnector(BaseConnector):
         config: dict[str, Any],
         query_bindings: dict[str, Any] | None = None,
     ) -> dict[str, float]:
+        """Load the rule module of the mode and time its five operations, one per phase."""
         mode_word = rule_path.stem.split('_', 1)[1].split('_')[0].capitalize()
         class_name = f'MongoDB{mode_word}Recursion'
 
@@ -52,22 +55,15 @@ class MongoDBConnector(BaseConnector):
         init_path = descriptor.system_dir / '__init__.py'
         if not init_path.exists():
             init_path = Path('mongodb_rules') / '__init__.py'
-        spec = importlib.util.spec_from_file_location('mongodb_rules', init_path)
-        mod = importlib.util.module_from_spec(spec)
-        sys.modules['mongodb_rules'] = mod
-        spec.loader.exec_module(mod)
-
-        rule_spec = importlib.util.spec_from_file_location(rule_path.stem, rule_path)
-        rule_mod = importlib.util.module_from_spec(rule_spec)
-        rule_spec.loader.exec_module(rule_mod)
-        OpClass = getattr(rule_mod, class_name)
+        import_file('mongodb_rules', init_path)
+        operations_class = getattr(import_file(rule_path.stem, rule_path, register=False), class_name)
 
         # Pass query_bindings via config
         config_with_bindings = {}
         if query_bindings:
             config_with_bindings['query_bindings'] = query_bindings
 
-        ops = OpClass(config_with_bindings, self._db)
+        ops = operations_class(config_with_bindings, self._db)
         results_path = self.result_path(output_folder, descriptor, 'mongodb_results.csv')
         phases = descriptor.timing_phases
         measurements: list[tuple[float, float]] = [(0.0, 0.0)] * len(phases)
@@ -89,7 +85,7 @@ class MongoDBConnector(BaseConnector):
         from pymongo import MongoClient
 
         database = credentials.get('database', 'test')
-        client = MongoClient(credentials.get('uri', 'mongodb://127.0.0.1:27017/'))
+        client: Any = MongoClient(credentials.get('uri', 'mongodb://127.0.0.1:27017/'))
         try:
             for op in client.admin.aggregate([{'$currentOp': {}}]):
                 if op.get('ns', '').startswith(database + '.') and op.get('op') in ('command', 'getmore'):
@@ -98,6 +94,7 @@ class MongoDBConnector(BaseConnector):
             client.close()
 
     def close(self) -> None:
-        if hasattr(self, '_client') and self._client:
+        """Close the client."""
+        if self._client:
             self._client.close()
             self._client = None

@@ -1,7 +1,7 @@
 """
-engine/connectors/rdbms.py
+Run trials on the SQL databases that are reached over a network connection.
 
-Connectors for SQL relational databases:
+The connectors are:
   - PostgreSQLConnector  (protocol: psycopg2)
   - MariaDBConnector     (protocol: mysqlclient)
   - CockroachDBConnector (protocol: cockroachdb)
@@ -20,32 +20,20 @@ recorded in ``self.errors`` (see BaseConnector) and the remaining steps are skip
 
 from __future__ import annotations
 
-import importlib.util
 import logging
 import os
 import shutil
-import subprocess
-import sys
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from engine.connectors.base import BaseConnector
+from engine.connectors.base import BaseConnector, import_file
 from engine.memory import rss_of_pid, sampler_or_none
 
 if TYPE_CHECKING:
     from engine.loader import SystemDescriptor
 
 log = logging.getLogger(__name__)
-
-
-def _dynamic_import_class(module_path: Path, class_name: str) -> type:
-    """Import a class from an arbitrary file path at runtime."""
-    spec = importlib.util.spec_from_file_location(module_path.stem, module_path)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[module_path.stem] = module
-    spec.loader.exec_module(module)
-    return getattr(module, class_name)
 
 
 def _load_operations(
@@ -58,8 +46,10 @@ def _load_operations(
     connection: Any,
 ) -> Any:
     """
-    Import the system's shared operations module (systems/<name>/__init__.py) under the name the
-    rule files import it by, then instantiate the rule's operation class.
+    Import the rule's operations class and return an instance bound to `connection`.
+
+    The system's shared operations module (systems/<name>/__init__.py) is imported first, under the
+    name the rule files import it by.
     """
     class_prefix = descriptor.flags.get('class_prefix', default_class_prefix)
     module_prefix = descriptor.flags.get('module_prefix', default_module_prefix)
@@ -70,18 +60,14 @@ def _load_operations(
     init_path = descriptor.system_dir / '__init__.py'
     if not init_path.exists():
         init_path = Path(module_prefix) / '__init__.py'
-    spec = importlib.util.spec_from_file_location(module_prefix, init_path)
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[module_prefix] = mod
-    spec.loader.exec_module(mod)
-
-    OpClass = _dynamic_import_class(rule_path, class_name)
+    import_file(module_prefix, init_path)
+    operations_class = getattr(import_file(rule_path.stem, rule_path), class_name)
 
     # Pass query_bindings to the operations class via config
     config_with_bindings = {**config}
     if query_bindings:
         config_with_bindings['query_bindings'] = query_bindings
-    return OpClass(config_with_bindings, connection)
+    return operations_class(config_with_bindings, connection)
 
 
 def _mysql_kill_sessions(credentials: dict[str, Any], statement: str) -> None:
@@ -117,7 +103,13 @@ def _mysql_kill_sessions(credentials: dict[str, Any], statement: str) -> None:
 class PostgreSQLConnector(BaseConnector):
     """Runs transitive closure experiments on PostgreSQL via psycopg2."""
 
+    def __init__(self):
+        """Start without a connection; connect() opens it."""
+        super().__init__()
+        self._backend_pid: int | None = None
+
     def connect(self, credentials: dict[str, Any], descriptor: 'SystemDescriptor') -> None:
+        """Connect and note the PID of the backend process that serves this connection."""
         import psycopg2
 
         db_url = credentials.get('dbURL', '')
@@ -129,8 +121,12 @@ class PostgreSQLConnector(BaseConnector):
         log.info('PostgreSQL connected')
 
     def memory_sampler(self):
-        """RSS of the backend process that executes this connection's queries (one per connection,
-        hence per run). The recursive CTE is not parallelized, so it runs in this process."""
+        """
+        Sample the RSS of the backend process that executes this connection's queries.
+
+        PostgreSQL starts one backend per connection, hence per run, and the recursive CTE is not
+        parallelized, so the query runs in this process.
+        """
         return sampler_or_none(lambda: rss_of_pid(int(self._backend_pid)), 'postgres backend RSS')
 
     def run_experiment(
@@ -142,6 +138,7 @@ class PostgreSQLConnector(BaseConnector):
         config: dict[str, Any],
         query_bindings: dict[str, Any] | None = None,
     ) -> dict[str, float]:
+        """Time the six steps of a run: create, load, index, analyze, query, export."""
         ops = _load_operations(
             rule_path, descriptor, 'PostgreSQL', 'postgres_rules', config, query_bindings, self._connection
         )
@@ -180,6 +177,7 @@ class PostgreSQLConnector(BaseConnector):
             conn.close()
 
     def close(self) -> None:
+        """Close the connection."""
         if self._connection:
             self._connection.close()
             self._connection = None
@@ -199,9 +197,15 @@ class MariaDBConnector(BaseConnector):
     server runs on the same machine as the benchmark. The file is moved to the output folder.
     """
 
-    SERVER_OUTFILE = '/tmp/mariadb_results.csv'
+    SERVER_OUTFILE = '/tmp/mariadb_results.csv'  # nosec B108  # fixed by the rule files; the server writes it
+
+    def __init__(self):
+        """Start without a connection; connect() opens it."""
+        super().__init__()
+        self._credentials: dict[str, Any] = {}
 
     def connect(self, credentials: dict[str, Any], descriptor: 'SystemDescriptor') -> None:
+        """Connect with LOCAL INFILE enabled (the load step reads the input from the client side)."""
         import MySQLdb
 
         self._connection = MySQLdb.connect(
@@ -216,20 +220,29 @@ class MariaDBConnector(BaseConnector):
         log.info('MariaDB connected')
 
     def memory_sampler(self):
-        """MariaDB's own accounting of the memory allocated by this connection's thread
-        (information_schema.PROCESSLIST.MEMORY_USED), read through a second connection. The RSS of
-        the server process is not usable: the allocator keeps and reuses memory across runs."""
+        """
+        Sample MariaDB's own accounting of the memory allocated by this connection's thread.
+
+        The value is information_schema.PROCESSLIST.MEMORY_USED, read through a second connection.
+        The RSS of the server process is not usable: the allocator keeps and reuses memory across runs.
+        """
 
         def make_probe():
+            """Open the second connection and return the probe that queries it."""
             import MySQLdb
 
             c = self._credentials
             thread = self._connection.thread_id()
-            conn = MySQLdb.connect(host=c.get('host', 'localhost'), port=int(c.get('port', 3306)),
-                                   user=c.get('user', ''), passwd=c.get('password', ''))
+            conn = MySQLdb.connect(
+                host=c.get('host', 'localhost'),
+                port=int(c.get('port', 3306)),
+                user=c.get('user', ''),
+                passwd=c.get('password', ''),
+            )
             conn.autocommit(True)
 
             def probe():
+                """Return MEMORY_USED of the benchmark connection's thread, in bytes."""
                 cur = conn.cursor()
                 cur.execute('SELECT MEMORY_USED FROM information_schema.PROCESSLIST WHERE ID = %s', (thread,))
                 row = cur.fetchone()
@@ -248,6 +261,7 @@ class MariaDBConnector(BaseConnector):
         config: dict[str, Any],
         query_bindings: dict[str, Any] | None = None,
     ) -> dict[str, float]:
+        """Time the six steps of a run, then move the server-side result file to the output folder."""
         ops = _load_operations(
             rule_path, descriptor, 'MariaDB', 'mariadb_rules', config, query_bindings, self._connection
         )
@@ -284,9 +298,11 @@ class MariaDBConnector(BaseConnector):
 
     @classmethod
     def cancel_running(cls, credentials: dict[str, Any], descriptor: 'SystemDescriptor') -> None:
+        """Kill every other session on the benchmark database."""
         _mysql_kill_sessions(credentials, 'KILL')
 
     def close(self) -> None:
+        """Close the connection."""
         if self._connection:
             self._connection.close()
             self._connection = None
@@ -314,8 +330,8 @@ class SingleStoreConnector(MariaDBConnector):
     """
 
     def memory_sampler(self):
+        """Return None: SingleStore has no usable per-query memory figure (see the class docstring)."""
         return None
-
 
     def run_experiment(
         self,
@@ -326,6 +342,7 @@ class SingleStoreConnector(MariaDBConnector):
         config: dict[str, Any],
         query_bindings: dict[str, Any] | None = None,
     ) -> dict[str, float]:
+        """Time the six steps of a run; the result is fetched through the client and written locally."""
         ops = _load_operations(
             rule_path, descriptor, 'SingleStore', 'singlestore_rules', config, query_bindings, self._connection
         )
@@ -351,8 +368,7 @@ class SingleStoreConnector(MariaDBConnector):
 
     @classmethod
     def cancel_running(cls, credentials: dict[str, Any], descriptor: 'SystemDescriptor') -> None:
-        # SingleStore's KILL <id> closes the connection but may leave the query running; KILL QUERY
-        # stops the query itself.
+        """Stop the queries of every other session (KILL QUERY; a plain KILL may leave the query running)."""
         _mysql_kill_sessions(credentials, 'KILL QUERY')
 
 
@@ -372,7 +388,13 @@ class CockroachDBConnector(BaseConnector):
     output folder.
     """
 
+    def __init__(self):
+        """Start without a connection; connect() opens it."""
+        super().__init__()
+        self._http_url = 'http://localhost:8080'
+
     def connect(self, credentials: dict[str, Any], descriptor: 'SystemDescriptor') -> None:
+        """Connect over the PostgreSQL wire protocol and note the node's HTTP address (for the memory probe)."""
         import psycopg2
 
         db_url = credentials.get('dbURL', '')
@@ -381,18 +403,25 @@ class CockroachDBConnector(BaseConnector):
         log.info('CockroachDB connected')
 
     def memory_sampler(self):
-        """CockroachDB's own accounting of SQL memory (the root SQL memory monitor, which
-        --max-sql-memory limits), polled from the node's metrics endpoint (credentials: httpURL,
-        default http://localhost:8080). The RSS of the Go server process is not usable: the Go
-        runtime keeps freed heap across runs."""
+        """
+        Sample CockroachDB's own accounting of SQL memory, from the node's metrics endpoint.
+
+        The value is the root SQL memory monitor, which --max-sql-memory limits (credentials:
+        httpURL, default http://localhost:8080). The RSS of the Go server process is not usable:
+        the Go runtime keeps freed heap across runs.
+        """
 
         def make_probe():
+            """Return the probe, after one test read of the endpoint."""
             import urllib.request
 
             url = self._http_url.rstrip('/') + '/_status/vars'
+            if not url.startswith(('http://', 'https://')):
+                raise ValueError(f'httpURL must be an http(s) address, not {url!r}')
 
             def probe():
-                with urllib.request.urlopen(url, timeout=2) as resp:
+                """Return sql_mem_root_current from the metrics page, in bytes."""
+                with urllib.request.urlopen(url, timeout=2) as resp:  # nosec B310  # scheme checked above
                     for line in resp.read().decode().splitlines():
                         if line.startswith('sql_mem_root_current'):
                             return float(line.rsplit(' ', 1)[1])
@@ -412,6 +441,7 @@ class CockroachDBConnector(BaseConnector):
         config: dict[str, Any],
         query_bindings: dict[str, Any] | None = None,
     ) -> dict[str, float]:
+        """Time the six steps of a run; input and result pass through the external I/O directory."""
         ops = _load_operations(
             rule_path, descriptor, 'CockroachDB', 'cockroachdb_rules', config, query_bindings, self._connection
         )
@@ -420,7 +450,8 @@ class CockroachDBConnector(BaseConnector):
         external_dir = descriptor.credentials.get(
             'externalDirectory', config.get('cockroachdb', {}).get('externalDirectory', '')
         )
-        export_dir = Path(os.path.expanduser(external_dir)) / 'tmp'
+        external = Path(os.path.expanduser(external_dir))
+        export_dir = external / 'tmp'
         phases = descriptor.timing_phases
         measurements: list[tuple[float, float]] = [(0.0, 0.0)] * len(phases)
 
@@ -430,11 +461,12 @@ class CockroachDBConnector(BaseConnector):
             shutil.rmtree(export_dir, ignore_errors=True)
             measurements[0] = self.timed(ops.create_tc_path_table)[:2]
 
-            cmd = f'mkdir -p {external_dir} && cp {input_path} {external_dir}'
-            subprocess.run(cmd, shell=True, check=True, capture_output=True)
-            filename = f'{input_path.stem}{input_path.suffix}'
+            # IMPORT INTO reads only from the external I/O directory
+            external.mkdir(parents=True, exist_ok=True)
+            filename = input_path.name
+            shutil.copy(input_path, external / filename)
             measurements[1] = self.timed(ops.import_data_from_tsv, 'edge', filename)[:2]
-            subprocess.run(f'rm -r {external_dir}{filename}', shell=True, capture_output=True)
+            (external / filename).unlink(missing_ok=True)
 
             measurements[2] = self.timed(ops.create_tc_path_index)[:2]
             measurements[3] = self.timed(ops.analyze_tc_path_table)[:2]
@@ -494,6 +526,7 @@ class CockroachDBConnector(BaseConnector):
             conn.close()
 
     def close(self) -> None:
+        """Close the connection."""
         if self._connection:
             self._connection.close()
             self._connection = None
