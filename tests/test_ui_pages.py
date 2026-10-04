@@ -343,6 +343,17 @@ def test_read_only_pages_show_the_banner_and_no_credentials(public):
     assert public.post('/api/compare/trends', json={}).status_code == 400  # a POST that only reads is allowed
 
 
+def test_repository_links_point_to_the_branch(public):
+    """Every link to GitHub opens the branch the published campaigns come from."""
+    from ui.app import REPO_URL  # pylint: disable=import-outside-toplevel
+
+    for url in ('/', '/overview'):
+        html = public.get(url).get_data(as_text=True)
+        assert f'href="{REPO_URL}"' in html
+        assert 'href="https://github.com/Sirneij/trans-bench"' not in html
+    assert REPO_URL.endswith('/tree/verified-rerun-2026')
+
+
 def test_read_only_from_the_environment(monkeypatch):
     monkeypatch.setenv('RAILWAY_PROJECT_ID', 'a-project-id')
     assert create_app().config['READ_ONLY'] is True

@@ -64,7 +64,7 @@
     </nav>
 
     <div class="sidebar-foot">
-      <a class="nav-link" href="https://github.com/Sirneij/trans-bench" target="_blank" rel="noopener"><i data-lucide="github"></i><span>Source on GitHub</span><i data-lucide="arrow-up-right" style="width:14px;height:14px;margin-left:auto"></i></a>
+      <a class="nav-link" href="{{ repo_url }}" target="_blank" rel="noopener"><i data-lucide="github"></i><span>Source on GitHub</span><i data-lucide="arrow-up-right" style="width:14px;height:14px;margin-left:auto"></i></a>
       <div class="env-mini"><kbd>⌘</kbd><kbd>K</kbd> jump anywhere · <kbd>n</kbd> new run · <kbd>t</kbd> theme</div>
     </div>
   </aside>
@@ -87,7 +87,7 @@
 
     <main class="content" id="main" tabindex="-1">
       {% if read_only %}
-      <div class="callout ro-banner" role="note" style="margin-bottom:16px"><i data-lucide="eye"></i><div><b>Read-only copy.</b> {{ read_only_message }} <a href="https://github.com/Sirneij/trans-bench" rel="noopener">github.com/Sirneij/trans-bench</a></div></div>
+      <div class="callout ro-banner" role="note" style="margin-bottom:16px"><i data-lucide="eye"></i><div><b>Read-only copy.</b> {{ read_only_message }} <a href="{{ repo_url }}" rel="noopener">github.com/Sirneij/trans-bench, branch {{ repo_branch }}</a></div></div>
       {% endif %}
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% for cat, msg in messages %}

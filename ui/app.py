@@ -29,6 +29,9 @@ from ui.experiments import RUN
 from ui.site import BASE_DIR, EXTENSION_KEY, Site
 
 log = logging.getLogger(__name__)
+# the branch of the repository that this code and the published campaigns come from
+REPO_BRANCH = 'verified-rerun-2026'
+REPO_URL = f'https://github.com/Sirneij/trans-bench/tree/{REPO_BRANCH}'
 READ_ONLY_MESSAGE = (
     'This public copy of trans-bench is read-only: it shows the published campaigns. '
     'Clone the repository to run benchmarks or to edit systems.'
@@ -89,6 +92,8 @@ def create_app(read_only: Optional[bool] = None) -> Flask:
             'experiment_running': RUN.running(),
             'read_only': app.config['READ_ONLY'],
             'read_only_message': READ_ONLY_MESSAGE,
+            'repo_url': REPO_URL,
+            'repo_branch': REPO_BRANCH,
             # changes when a stylesheet or script changes, so browsers fetch the new one
             'asset_version': max((int(f.stat().st_mtime) for f in assets), default=0),
         }

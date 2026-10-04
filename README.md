@@ -54,7 +54,7 @@ records and the checks are described in [docs/VERIFICATION.md](docs/VERIFICATION
 Python 3.12 is used throughout; `requirements.txt` pins the versions of the published campaign.
 
 ```sh
-git clone https://github.com/Sirneij/trans-bench.git
+git clone --branch verified-rerun-2026 https://github.com/Sirneij/trans-bench.git
 cd trans-bench
 python3.12 -m venv virtualenv
 source virtualenv/bin/activate
