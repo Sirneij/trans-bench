@@ -485,6 +485,7 @@
     o: '<circle cx="8" cy="8" r="5.5"/>', P: '<path d="M6 2.5h4V6h3.5v4H10v3.5H6V10H2.5V6H6z"/>',
     '*': '<path d="M8 1.5l1.9 4.3 4.6.4-3.5 3 1.1 4.6L8 11.4 3.9 13.8 5 9.2l-3.5-3 4.6-.4z"/>',
     p: '<path d="M8 2l5.7 4.1-2.2 6.7h-7L2.3 6.1z"/>', h: '<path d="M8 1.8l5.4 3.1v6.2L8 14.2l-5.4-3.1V4.9z"/>',
+    d: '<path d="M8 1.8L11.7 8 8 14.2 4.3 8z"/>',
   };
   const marker = (style, cls = 'sys-mark') => `<span class="${cls}" ${style && style.color ? `style="--mark:${style.color}"` : ''} aria-hidden="true"><svg viewBox="0 0 16 16" fill="currentColor">${MARKERS[style ? style.marker : 'o'] || MARKERS.o}</svg></span>`;
 

@@ -52,34 +52,44 @@
 \pgfdeclareplotmark{mpl-p-open}{\mplpolygon{5}\pgfusepathqstroke}
 \pgfdeclareplotmark{mpl-h}{\mplpolygon{6}\pgfusepathqfillstroke}
 \pgfdeclareplotmark{mpl-h-open}{\mplpolygon{6}\pgfusepathqstroke}
+\def\mplthindiamond{\pgfpathmoveto{\pgfpoint{0pt}{1.41421\pgfplotmarksize}}\pgfpathlineto{\pgfpoint{-0.84853\pgfplotmarksize}{0pt}}\pgfpathlineto{\pgfpoint{0pt}{-1.41421\pgfplotmarksize}}\pgfpathlineto{\pgfpoint{0.84853\pgfplotmarksize}{0pt}}\pgfpathclose}
+\pgfdeclareplotmark{mpl-d}{\mplthindiamond\pgfusepathqfillstroke}
+\pgfdeclareplotmark{mpl-d-open}{\mplthindiamond\pgfusepathqstroke}
 \definecolor{mplc0}{HTML}{B0B0B0}
 \definecolor{mplc1}{HTML}{000000}
 \definecolor{mplc2}{HTML}{DAA520}
+\definecolor{mplc3}{HTML}{FF8C00}
 \begin{document}
 \begin{tikzpicture}
 \useasboundingbox (0in,0in) rectangle (7.2in,2.9in);
-\begin{axis}[at={(0.6495in,0.5111in)}, anchor=south west, scale only axis, width=2.4132in, height=2.0456in, xmin=55, xmax=1045, ymin=0.002973555619, ymax=5.949859729, enlargelimits=false, clip=true, axis on top=false, axis line style={line width=0.8bp, black}, tick align=outside, tick pos=left, major tick length=3.5bp, minor tick length=2bp, major tick style={line width=0.8bp, black}, minor tick style={line width=0.6bp, black}, xticklabels={}, yticklabels={}, scaled x ticks=false, scaled y ticks=false, xlabel={}, ylabel={}, title={}, xtick={200,400,600,800,1000}, minor xtick={}, ymode=log, log basis y=10, ytick={0.01,0.1,1}, minor ytick={0.003,0.004,0.005,0.006,0.007,0.008,0.009,0.02,0.03,0.04,0.05,0.06,0.07,0.08,0.09,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,2,3,4,5}, xmajorgrids, ymajorgrids, major grid style={line width=0.3bp, draw=mplc0}]
+\begin{axis}[at={(0.6495in,0.5111in)}, anchor=south west, scale only axis, width=1.8952in, height=2.0456in, xmin=55, xmax=1045, ymin=0.002973555619, ymax=5.949859729, enlargelimits=false, clip=true, axis on top=false, axis line style={line width=0.8bp, black}, tick align=outside, tick pos=left, major tick length=3.5bp, minor tick length=2bp, major tick style={line width=0.8bp, black}, minor tick style={line width=0.6bp, black}, xticklabels={}, yticklabels={}, scaled x ticks=false, scaled y ticks=false, xlabel={}, ylabel={}, title={}, xtick={200,400,600,800,1000}, minor xtick={}, ymode=log, log basis y=10, ytick={0.01,0.1,1}, minor ytick={0.003,0.004,0.005,0.006,0.007,0.008,0.009,0.02,0.03,0.04,0.05,0.06,0.07,0.08,0.09,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,2,3,4,5}, xmajorgrids, ymajorgrids, major grid style={line width=0.3bp, draw=mplc0}]
 \addplot[color=mplc1, line width=1.1bp, line join=round, solid, line cap=rect, mark=mpl-x, mark size=1.75bp, mark options={solid, line width=1bp, draw=mplc1}] coordinates {(100,0.0049076) (200,0.019776) (300,0.0445404) (400,0.0817886) (500,0.136358) (600,0.1993244) (700,0.2790882) (800,0.3731652) (900,0.4643582) (1000,0.5865074)};
 \addplot[color=mplc2, line width=1.1bp, line join=round, solid, line cap=rect, mark=mpl-^, mark size=1.75bp, mark options={solid, line width=1bp, draw=mplc2, fill=mplc2}] coordinates {(100,0.1420002) (200,0.0741176) (300,0.1244112) (400,0.4290162) (500,0.3036114) (600,0.7413664) (700,2.201911) (800,0.7226032) (900,1.754509) (1000,4.2116356)};
+\addplot[color=mplc3, line width=1.1bp, line join=round, dash pattern=on 1.1bp off 1.815bp, line cap=butt, mark=mpl-d, mark size=1.75bp, mark options={solid, line width=1bp, draw=mplc3, fill=mplc3}] coordinates {(100,0.0095046) (200,0.0291188) (300,0.0579072) (400,0.0999716) (500,0.1450196) (600,0.221567) (700,0.2872646) (800,0.417786) (900,0.4951344) (1000,0.5946368)};
 \end{axis}
-\begin{axis}[at={(3.9157in,0.5111in)}, anchor=south west, scale only axis, width=2.4132in, height=2.0456in, xmin=55, xmax=1045, ymin=0.002973555619, ymax=5.949859729, enlargelimits=false, clip=true, axis on top=false, axis line style={line width=0.8bp, black}, tick align=outside, tick pos=left, major tick length=3.5bp, minor tick length=2bp, major tick style={line width=0.8bp, black}, minor tick style={line width=0.6bp, black}, xticklabels={}, yticklabels={}, scaled x ticks=false, scaled y ticks=false, xlabel={}, ylabel={}, title={}, xtick={200,400,600,800,1000}, minor xtick={}, ymode=log, log basis y=10, ytick={0.01,0.1,1}, minor ytick={0.003,0.004,0.005,0.006,0.007,0.008,0.009,0.02,0.03,0.04,0.05,0.06,0.07,0.08,0.09,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,2,3,4,5}, xmajorgrids, ymajorgrids, major grid style={line width=0.3bp, draw=mplc0}]
+\begin{axis}[at={(3.9157in,0.5111in)}, anchor=south west, scale only axis, width=1.8952in, height=2.0456in, xmin=55, xmax=1045, ymin=0.002973555619, ymax=5.949859729, enlargelimits=false, clip=true, axis on top=false, axis line style={line width=0.8bp, black}, tick align=outside, tick pos=left, major tick length=3.5bp, minor tick length=2bp, major tick style={line width=0.8bp, black}, minor tick style={line width=0.6bp, black}, xticklabels={}, yticklabels={}, scaled x ticks=false, scaled y ticks=false, xlabel={}, ylabel={}, title={}, xtick={200,400,600,800,1000}, minor xtick={}, ymode=log, log basis y=10, ytick={0.01,0.1,1}, minor ytick={0.003,0.004,0.005,0.006,0.007,0.008,0.009,0.02,0.03,0.04,0.05,0.06,0.07,0.08,0.09,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,2,3,4,5}, xmajorgrids, ymajorgrids, major grid style={line width=0.3bp, draw=mplc0}]
 \addplot[color=mplc1, line width=1.1bp, line join=round, solid, line cap=rect, mark=mpl-x, mark size=1.75bp, mark options={solid, line width=1bp, draw=mplc1}] coordinates {(100,0.0042008) (200,0.016255) (300,0.0357242) (400,0.0636196) (500,0.0976516) (600,0.1399404) (700,0.1929022) (800,0.251124) (900,0.3132866) (1000,0.3859402)};
 \addplot[color=mplc2, line width=1.1bp, line join=round, solid, line cap=rect, mark=mpl-^, mark size=1.75bp, mark options={solid, line width=1bp, draw=mplc2, fill=mplc2}] coordinates {(100,0.0293608) (200,0.2543966) (300,0.3307558) (400,0.3513866) (500,1.1087526) (600,0.5117508) (700,0.4644656) (800,0.5429248) (900,1.0031388) (1000,3.0604078)};
+\addplot[color=mplc3, line width=1.1bp, line join=round, dash pattern=on 1.1bp off 1.815bp, line cap=butt, mark=mpl-d, mark size=1.75bp, mark options={solid, line width=1bp, draw=mplc3, fill=mplc3}] coordinates {(100,0.009515) (200,0.028298) (300,0.0547154) (400,0.0956122) (500,0.1362118) (600,0.2074438) (700,0.26743) (800,0.3948282) (900,0.4656084) (1000,0.5539068)};
 \end{axis}
-\draw[color=mplc2, line width=1.1bp, line join=round, solid, line cap=rect] (3.1349in,1.6097in) -- (3.3154in,1.6097in);
-\begin{scope}[solid, line width=1bp, draw=mplc2, fill=mplc2]\pgftransformshift{\pgfpoint{3.2252in}{1.6097in}}\pgfsetplotmarksize{1.75bp}\pgfuseplotmark{mpl-^}\end{scope}
-\draw[color=mplc1, line width=1.1bp, line join=round, solid, line cap=rect] (3.1349in,1.4743in) -- (3.3154in,1.4743in);
-\begin{scope}[solid, line width=1bp, draw=mplc1]\pgftransformshift{\pgfpoint{3.2252in}{1.4743in}}\pgfsetplotmarksize{1.75bp}\pgfuseplotmark{mpl-x}\end{scope}
-\draw[color=mplc2, line width=1.1bp, line join=round, solid, line cap=rect] (6.4011in,1.6097in) -- (6.5817in,1.6097in);
-\begin{scope}[solid, line width=1bp, draw=mplc2, fill=mplc2]\pgftransformshift{\pgfpoint{6.4914in}{1.6097in}}\pgfsetplotmarksize{1.75bp}\pgfuseplotmark{mpl-^}\end{scope}
-\draw[color=mplc1, line width=1.1bp, line join=round, solid, line cap=rect] (6.4011in,1.4743in) -- (6.5817in,1.4743in);
-\begin{scope}[solid, line width=1bp, draw=mplc1]\pgftransformshift{\pgfpoint{6.4914in}{1.4743in}}\pgfsetplotmarksize{1.75bp}\pgfuseplotmark{mpl-x}\end{scope}
-\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{7bp}{8.4bp}\selectfont] at (0.9101in,0.34in) {200};
-\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{7bp}{8.4bp}\selectfont] at (1.3977in,0.34in) {400};
-\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{7bp}{8.4bp}\selectfont] at (1.8852in,0.34in) {600};
-\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{7bp}{8.4bp}\selectfont] at (2.3727in,0.34in) {800};
-\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{7bp}{8.4bp}\selectfont] at (2.8293in,0.34in) {1000};
-\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{8bp}{9.6bp}\selectfont] at (1.8208in,0.1767in) {n};
+\draw[color=mplc2, line width=1.1bp, line join=round, solid, line cap=rect] (2.6169in,1.6775in) -- (2.7975in,1.6775in);
+\begin{scope}[solid, line width=1bp, draw=mplc2, fill=mplc2]\pgftransformshift{\pgfpoint{2.7072in}{1.6775in}}\pgfsetplotmarksize{1.75bp}\pgfuseplotmark{mpl-^}\end{scope}
+\draw[color=mplc3, line width=1.1bp, line join=round, dash pattern=on 1.1bp off 1.815bp, line cap=butt] (2.6169in,1.542in) -- (2.7975in,1.542in);
+\begin{scope}[solid, line width=1bp, draw=mplc3, fill=mplc3]\pgftransformshift{\pgfpoint{2.7072in}{1.542in}}\pgfsetplotmarksize{1.75bp}\pgfuseplotmark{mpl-d}\end{scope}
+\draw[color=mplc1, line width=1.1bp, line join=round, solid, line cap=rect] (2.6169in,1.4066in) -- (2.7975in,1.4066in);
+\begin{scope}[solid, line width=1bp, draw=mplc1]\pgftransformshift{\pgfpoint{2.7072in}{1.4066in}}\pgfsetplotmarksize{1.75bp}\pgfuseplotmark{mpl-x}\end{scope}
+\draw[color=mplc2, line width=1.1bp, line join=round, solid, line cap=rect] (5.8831in,1.6775in) -- (6.0637in,1.6775in);
+\begin{scope}[solid, line width=1bp, draw=mplc2, fill=mplc2]\pgftransformshift{\pgfpoint{5.9734in}{1.6775in}}\pgfsetplotmarksize{1.75bp}\pgfuseplotmark{mpl-^}\end{scope}
+\draw[color=mplc3, line width=1.1bp, line join=round, dash pattern=on 1.1bp off 1.815bp, line cap=butt] (5.8831in,1.542in) -- (6.0637in,1.542in);
+\begin{scope}[solid, line width=1bp, draw=mplc3, fill=mplc3]\pgftransformshift{\pgfpoint{5.9734in}{1.542in}}\pgfsetplotmarksize{1.75bp}\pgfuseplotmark{mpl-d}\end{scope}
+\draw[color=mplc1, line width=1.1bp, line join=round, solid, line cap=rect] (5.8831in,1.4066in) -- (6.0637in,1.4066in);
+\begin{scope}[solid, line width=1bp, draw=mplc1]\pgftransformshift{\pgfpoint{5.9734in}{1.4066in}}\pgfsetplotmarksize{1.75bp}\pgfuseplotmark{mpl-x}\end{scope}
+\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{7bp}{8.4bp}\selectfont] at (0.8343in,0.34in) {200};
+\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{7bp}{8.4bp}\selectfont] at (1.2171in,0.34in) {400};
+\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{7bp}{8.4bp}\selectfont] at (1.6in,0.34in) {600};
+\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{7bp}{8.4bp}\selectfont] at (1.9829in,0.34in) {800};
+\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{7bp}{8.4bp}\selectfont] at (2.3348in,0.34in) {1000};
+\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{8bp}{9.6bp}\selectfont] at (1.5618in,0.1767in) {n};
 \node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{7bp}{8.4bp}\selectfont] at (0.3161in,0.7954in) {\mplchar{31}};
 \node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{7bp}{8.4bp}\selectfont] at (0.378in,0.7954in) {\mplchar{30}};
 \node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{4.9bp}{5.88bp}\selectfont] at (0.4408in,0.8355in) {\mplchar{2212}};
@@ -92,17 +102,19 @@
 \node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{7bp}{8.4bp}\selectfont] at (0.4335in,2.0346in) {\mplchar{30}};
 \node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{4.9bp}{5.88bp}\selectfont] at (0.4963in,2.0748in) {\mplchar{30}};
 \node[anchor=base west, inner sep=0pt, rotate=90, text=mplc1, font=\fontsize{8bp}{9.6bp}\selectfont] at (0.2339in,0.9066in) {CPU time (s, log scale)};
-\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{9bp}{10.8bp}\selectfont] at (1.0442in,2.64in) {(a) PathDisj: left recursion};
-\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{6.5bp}{7.8bp}\selectfont] at (3.3877in,1.5781in) {DuckDB};
-\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{6.5bp}{7.8bp}\selectfont] at (3.3877in,1.4427in) {XSB};
-\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{7bp}{8.4bp}\selectfont] at (4.1764in,0.34in) {200};
-\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{7bp}{8.4bp}\selectfont] at (4.6639in,0.34in) {400};
-\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{7bp}{8.4bp}\selectfont] at (5.1514in,0.34in) {600};
-\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{7bp}{8.4bp}\selectfont] at (5.6389in,0.34in) {800};
-\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{7bp}{8.4bp}\selectfont] at (6.0955in,0.34in) {1000};
-\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{8bp}{9.6bp}\selectfont] at (5.087in,0.1767in) {n};
-\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{9bp}{10.8bp}\selectfont] at (4.2634in,2.64in) {(b) PathDisj: right recursion};
-\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{6.5bp}{7.8bp}\selectfont] at (6.6539in,1.5781in) {DuckDB};
-\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{6.5bp}{7.8bp}\selectfont] at (6.6539in,1.4427in) {XSB};
+\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{9bp}{10.8bp}\selectfont] at (0.7852in,2.64in) {(a) PathDisj: left recursion};
+\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{6.5bp}{7.8bp}\selectfont] at (2.8697in,1.6459in) {DuckDB};
+\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{6.5bp}{7.8bp}\selectfont] at (2.8697in,1.5104in) {DuckDB (1 thread)};
+\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{6.5bp}{7.8bp}\selectfont] at (2.8697in,1.375in) {XSB};
+\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{7bp}{8.4bp}\selectfont] at (4.1005in,0.34in) {200};
+\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{7bp}{8.4bp}\selectfont] at (4.4834in,0.34in) {400};
+\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{7bp}{8.4bp}\selectfont] at (4.8663in,0.34in) {600};
+\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{7bp}{8.4bp}\selectfont] at (5.2491in,0.34in) {800};
+\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{7bp}{8.4bp}\selectfont] at (5.6011in,0.34in) {1000};
+\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{8bp}{9.6bp}\selectfont] at (4.828in,0.1767in) {n};
+\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{9bp}{10.8bp}\selectfont] at (4.0044in,2.64in) {(b) PathDisj: right recursion};
+\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{6.5bp}{7.8bp}\selectfont] at (6.1359in,1.6459in) {DuckDB};
+\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{6.5bp}{7.8bp}\selectfont] at (6.1359in,1.5104in) {DuckDB (1 thread)};
+\node[anchor=base west, inner sep=0pt, text=mplc1, font=\fontsize{6.5bp}{7.8bp}\selectfont] at (6.1359in,1.375in) {XSB};
 \end{tikzpicture}
 \end{document}

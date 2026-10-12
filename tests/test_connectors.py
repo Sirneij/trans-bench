@@ -1679,3 +1679,18 @@ class TestSubprocessConnectorsAdvanced:
 
         assert "CompileRealTime" in results
         assert "SolveRealTime" in results
+
+
+def test_duckdb_settings_are_applied_and_checked():
+    """Settings from the configuration (e.g. threads: 1) are applied with SET; bad names are refused."""
+    import duckdb  # pylint: disable=import-outside-toplevel
+
+    conn = DuckDBConnector()
+    conn._credentials = {'settings': {'threads': 1}}  # pylint: disable=protected-access
+    db = duckdb.connect()
+    conn._apply_settings(db)  # pylint: disable=protected-access
+    assert db.execute("SELECT current_setting('threads')").fetchone() == (1,)
+    conn._credentials = {'settings': {'threads; DROP TABLE edge': 1}}  # pylint: disable=protected-access
+    with pytest.raises(ValueError):
+        conn._apply_settings(db)  # pylint: disable=protected-access
+    db.close()

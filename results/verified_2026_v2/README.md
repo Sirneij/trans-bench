@@ -34,7 +34,7 @@ Finally, every run stores its time limit in `timeout_s`.
 
 ## Correctness
 
-Of the 12,215 completed runs, 11,540 were compared with the closure computed in Python. The other
+Of the 12,215 completed runs of September, 11,540 were compared with the closure computed in Python. The other
 675 are the scale-free and Barabási-Albert graphs above 20,000 nodes, where that computation is too
 expensive; there, the systems were compared with one another. Two kinds of wrong result were found:
 
@@ -48,6 +48,30 @@ The second case is examined in `mariadb_investigation.jsonl`, written by
 `scripts/run_investigation.sh`. With 4 GB temporary tables (`mariadb_tuned`), the results were
 correct. [docs/VERIFICATION.md](../../docs/VERIFICATION.md) describes the record format and the
 checks, and [docs/SYSTEMS.md](../../docs/SYSTEMS.md) the MariaDB case.
+
+## DuckDB with one thread
+
+The mean times of DuckDB on the sparse graphs jump from one size to the next, because single runs
+take 10 to 50 times as long as the others. Garbage collection is disabled in every run, so it is not
+the cause. In trials, the slow runs disappeared when DuckDB was limited to one thread, and the
+series `duckdb_1thread` was added to the campaign for comparison. It was run on the same machine on
+10 and 11 October 2026 (23:43 to 01:34 UTC, 1.8 hours), with left and right recursion on all 14
+graph families, five runs per configuration, and `threads: 1` set through
+`duckdb_1thread/duckdb_settings.yaml`. The commands are in `duckdb_1thread/run.sh`, and the log of
+every run records the setting that DuckDB reported.
+
+Of its 1,382 runs, 1,380 completed with the correct closure, or on the large random graphs with the
+closure the other systems agreed on. The two failed runs ran out of memory on the scale-free graph of
+90,000 nodes, at the same size as with the default setting. On the 12 regular families, 70 of the 240
+configurations of the default series had a run more than three times as long as the median of its
+five runs; with one thread, none had. The median coefficient of variation fell from 0.061 to 0.022,
+and the medians were 11% lower on average (geometric mean). One thread was slower where parallel work
+pays: 11.2 s against 9.8 s on the complete graph of 1,000 nodes with left recursion, about 20% on
+the Barabási-Albert and scale-free graphs, and 259 s against 128 s on the scale-free graph of 80,000
+nodes with right recursion.
+
+The series appears in the figures as DuckDB (1 thread). In the tables of the paper, DuckDB
+stays in its default configuration, and the one-thread series is not shown there.
 
 ## Agreement with the first campaign
 
@@ -75,6 +99,7 @@ The layout is that of [verified_2026](../verified_2026/README.md), with these ad
 
 ```
 code.patch                   uncommitted changes of the harness at the time of the runs
+duckdb_1thread/              the series of DuckDB with one thread, with its settings and commands
 analysis/failures.csv        first failed n per series, graph and mode, with the kind and error
 analysis/table_memory_*.tex  memory used by the query (MB), in the layout of the time tables
 ```

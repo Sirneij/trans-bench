@@ -61,6 +61,16 @@ def test_transcription_contents():
     assert tex.count('\\definecolor') == 4  # grid grey, tab:blue, tab:cyan, black (text)
 
 
+def test_extra_marks_only_where_used():
+    """A mark added after the published figures (the thin diamond) enters only the figures that use it."""
+    fig = sample_figure()
+    assert 'mpl-d}' not in figure_to_tex(fig)  # the published figures stay byte for byte as they are
+    fig.axes[0].plot([100, 200], [0.01, 0.1], color='darkorange', marker='d', linestyle=':', label='DuckDB (1 thread)')
+    tex = figure_to_tex(fig)
+    plt.close(fig)
+    assert '\\pgfdeclareplotmark{mpl-d}' in tex and 'mark=mpl-d' in tex
+
+
 def test_unsupported_artists_are_refused():
     fig, ax = plt.subplots()
     ax.bar([1, 2], [3, 4])

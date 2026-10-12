@@ -418,8 +418,8 @@
         segment: { borderDash: (c) => (c.p1.raw && c.p1.raw.failure ? [2, 3] : undefined) },
       });
     });
-    // legend order = order of the last points, highest first (engine/plot_style.py legend_order)
-    sets.sort((a, b) => (last[b.key][1] - last[a.key][1]) || (last[b.key][0] - last[a.key][0]));
+    // legend order = order of the last points, highest first, then the smaller n (engine/plot_style.py legend_order)
+    sets.sort((a, b) => (last[b.key][1] - last[a.key][1]) || (last[a.key][0] - last[b.key][0]));
     const cfg = {
       type: 'line',
       data: { datasets: sets },

@@ -104,8 +104,9 @@ def _read_runs(directory: Path) -> dict:
 
 
 def campaign_info(directory: Path) -> dict:
-    """Headline facts of a campaign (cached by the modification time of its first runs.jsonl)."""
-    marker = next(iter(sorted(directory.glob('*/runs.jsonl'))), directory)
+    """Headline facts of a campaign (cached by the modification time of its newest runs.jsonl)."""
+    # the newest file changes when a run is added to any series, or when a new series is added
+    marker = max(directory.glob('*/runs.jsonl'), key=lambda f: f.stat().st_mtime, default=directory)
 
     def compute():
         runs = _read_runs(directory)
@@ -288,14 +289,21 @@ def series_points(rows: list[dict], graph: str, mode: str, metric: str) -> dict[
     return dict(sorted(out.items()))
 
 
+def is_variant(series: str) -> bool:
+    """Return whether a series is a system with another setting (mariadb_tuned, duckdb_1thread)."""
+    return '_' in series
+
+
 def leaderboard(rows: list[dict]) -> list[dict]:
     """
-    Who is fastest on the structured topologies at the largest n, per series.
+    Who is fastest on the structured topologies at the largest n, per system in its default setting.
 
     A contest is one (topology, left or right recursion) at the largest n measured for it; the fastest completed
     series wins it. `trend` is the geometric mean of the mean times over the topologies the series completed at
-    each n (left recursion), for a sparkline.
+    each n (left recursion), for a sparkline. Variant series compete with nobody, as in the tables of
+    the paper; the campaign pages show them.
     """
+    rows = [r for r in rows if not is_variant(r['series'])]
 
     def compute():
         single = {'neo4j', 'mongodb'}
@@ -668,7 +676,12 @@ def race(
     graphs: tuple[str, ...] = RACE_GRAPHS,
     mode: str = 'left_recursion',
 ) -> dict:
-    """Return, per graph, every series' mean time (or failure, and the n where it first failed) at its largest n."""
+    """
+    Return, per graph, every system's mean time (or failure, and the n where it first failed) at its largest n.
+
+    Only the systems in their default setting race; variant series (is_variant) are left out.
+    """
+    rows = [r for r in rows if not is_variant(r['series'])]
     first_failed = {(f['series'], f['graph'], f['mode']): int(f['first_failed_n']) for f in failures or []}
     out = {}
     for g in graphs:

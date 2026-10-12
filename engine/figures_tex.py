@@ -67,8 +67,22 @@ _DOCUMENT_HEAD = r"""\documentclass[border=0pt]{standalone}
 MARK_DEFINITIONS = (Path(__file__).parent / 'pgf_marks.tex').read_text(encoding='utf-8')
 PREAMBLE = _DOCUMENT_HEAD + MARK_DEFINITIONS
 
+# marks added after the published figures were made; a figure's preamble gets one only if the figure
+# uses it, so that the published figures stay byte for byte as they are
+EXTRA_MARKS = {
+    # matplotlib 'd' (thin diamond): the diamond of 'D' with its width scaled by 0.6
+    'mpl-d': (
+        '\\def\\mplthindiamond{\\pgfpathmoveto{\\pgfpoint{0pt}{1.41421\\pgfplotmarksize}}'
+        '\\pgfpathlineto{\\pgfpoint{-0.84853\\pgfplotmarksize}{0pt}}'
+        '\\pgfpathlineto{\\pgfpoint{0pt}{-1.41421\\pgfplotmarksize}}'
+        '\\pgfpathlineto{\\pgfpoint{0.84853\\pgfplotmarksize}{0pt}}\\pgfpathclose}\n'
+        '\\pgfdeclareplotmark{mpl-d}{\\mplthindiamond\\pgfusepathqfillstroke}\n'
+        '\\pgfdeclareplotmark{mpl-d-open}{\\mplthindiamond\\pgfusepathqstroke}\n'
+    ),
+}
 
-FILLED_MARKERS = {'o', 's', '^', 'v', '<', '>', 'D', 'P', '*', 'p', 'h'}
+
+FILLED_MARKERS = {'o', 's', '^', 'v', '<', '>', 'D', 'P', '*', 'p', 'h', 'd'}
 LINE_MARKERS = {'x', '+'}
 
 
@@ -378,11 +392,14 @@ def figure_to_tex(fig) -> str:
         body += _legend_handles_tex(leg, colors, text_pos)
     for t in texts:
         body += _text_tex(t, colors)
+    drawn = '\n'.join(body)
+    extra = ''.join(d for name, d in EXTRA_MARKS.items() if f'{{{name}}}' in drawn or f'={name}' in drawn)
     return (
         PREAMBLE
+        + extra
         + colors.definitions()
         + '\\begin{document}\n\\begin{tikzpicture}\n'
-        + '\n'.join(body)
+        + drawn
         + '\n\\end{tikzpicture}\n\\end{document}\n'
     )
 

@@ -230,7 +230,9 @@ def apply_agreement(rows):
     Check the large scale-free and Barabási-Albert results by agreement between systems.
 
     These instances have no Python ground truth; a result there counts as correct if it equals the
-    result on which all other systems (at least two) agree, and as incorrect otherwise.
+    result on which all other systems (at least two) agree, and as incorrect otherwise. A series of
+    the same system with another setting (duckdb_1thread for duckdb) is not another system, so it
+    neither confirms nor contradicts that system's result.
     """
     groups = defaultdict(dict)
     for k, r in rows.items():
@@ -238,8 +240,9 @@ def apply_agreement(rows):
             groups[(r['graph'], r['n'])][k] = (r['result']['count'], r['result']['hash'])
     for d in groups.values():
         for k, v in d.items():
-            others = {x for kk, x in d.items() if kk[0] != k[0]}
-            if len(others) == 1 and len({kk[0] for kk in d if kk[0] != k[0]}) >= 2:
+            own = base_system(k[0])
+            others = {x for kk, x in d.items() if base_system(kk[0]) != own}
+            if len(others) == 1 and len({base_system(kk[0]) for kk in d if base_system(kk[0]) != own}) >= 2:
                 rows[k]['all_correct'] = v in others
                 rows[k]['any_incorrect'] = v not in others
                 rows[k]['checked_by'] = 'agreement'
@@ -315,7 +318,12 @@ def verification(runs, rows, out: Path):
     consensus = {}
     by: dict[tuple, dict] = defaultdict(dict)
     for k, row in rows.items():
-        if row['graph'] in ('scale_free', 'barabasi_albert') and row['result'] and row['series'] != 'mariadb_tuned':
+        # a variant setting of a system (mariadb_tuned, duckdb_1thread) is not another system
+        if (
+            row['graph'] in ('scale_free', 'barabasi_albert')
+            and row['result']
+            and row['series'] == base_system(row['series'])
+        ):
             by[(row['graph'], row['n'])][f"{row['series']}/{row['mode']}"] = (
                 row['result']['count'],
                 row['result']['hash'],
@@ -367,6 +375,7 @@ def sizes_of(rows, g: str) -> list[int]:
 def _draw_panel(ax, rows, g, m, sizes, cpu) -> bool:
     """Draw every system's curve of one mode into `ax`, with its legend; return whether anything was drawn."""
     series = ['xsb', 'duckdb'] if cpu else ['xsb', 'postgres', 'mariadb', 'duckdb', 'cockroachdb', 'neo4j', 'mongodb']
+    series.append('duckdb_1thread')  # DuckDB with one thread, drawn where the campaign has it
     handles, last = {}, {}
     for s in series:
         mm = 'left_recursion' if s in ('neo4j', 'mongodb') else m

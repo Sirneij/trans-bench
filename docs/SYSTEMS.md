@@ -127,6 +127,13 @@ trial leaves them behind and the next `CREATE TABLE edge` would fail. For the sa
 trials must not run at the same time on one checkout; the test suite keeps its DuckDB tests on one
 worker.
 
+DuckDB runs with its defaults, which means one thread per core (11 on the machine of the campaigns).
+Other settings are given in the configuration of the system, under `settings`, either in
+`systems/duckdb/credentials.yaml` or in the `duckdb` section of the file passed with `--config-file`.
+The connector applies each one with `SET` before the first timed statement and writes the value that
+DuckDB reports to the log of the run. The series `duckdb_1thread` of `results/verified_2026_v2` was
+run in this way, with `threads: 1`; its settings file and its commands are kept in that directory.
+
 ### Behaviour
 
 DuckDB runs inside the measuring process, so the process CPU time covers all of its threads, and on

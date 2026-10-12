@@ -3,6 +3,17 @@ Run DuckDB trials: SQL scripts executed in-process through the DuckDB Python dri
 
 The SQL rule files use {data_file} and {output_file} placeholders; each statement of a script is
 one timing phase of the descriptor, in order.
+
+DuckDB settings can be given in the system's configuration, under `settings` in
+systems/duckdb/credentials.yaml or in the duckdb section of the file passed with --config-file:
+
+    duckdb:
+      settings:
+        threads: 1
+
+Each setting is applied with SET before the first statement, untimed, and the value DuckDB reports
+afterwards is written to the log of the run. Without settings, DuckDB runs with its defaults (one
+thread per core), as in the published campaigns.
 """
 
 from __future__ import annotations
@@ -54,6 +65,7 @@ class DuckDBConnector(BaseConnector):
             stale.unlink()
 
         conn = duckdb.connect(database=str(self._db_path))
+        self._apply_settings(conn)
         results_path = self.result_path(output_folder, descriptor, 'duckdb_results.csv')
 
         with open(rule_path, encoding='utf-8') as f:
@@ -87,6 +99,15 @@ class DuckDBConnector(BaseConnector):
             self._cleanup()
 
         return self.build_timing_row(phases, measurements)
+
+    def _apply_settings(self, conn) -> None:
+        """Apply the configured DuckDB settings (e.g. threads) and log the values DuckDB reports."""
+        for name, value in (self._credentials.get('settings') or {}).items():
+            if not str(name).replace('_', '').isalnum():
+                raise ValueError(f'invalid DuckDB setting name: {name!r}')
+            conn.execute(f'SET {name} = ?', [value])
+            (effective,) = conn.execute('SELECT current_setting(?)', [name]).fetchone()
+            log.info(f'DuckDB setting {name} = {effective}')
 
     def memory_sampler(self):
         """Sample the RSS of this process: DuckDB runs in-process (one process per run)."""

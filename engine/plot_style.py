@@ -10,8 +10,9 @@ Two rules, used by analyze_verified.py and the Web UI (and checked by the tests)
 2. Legend order = order of the last data points: a legend lists the systems top to bottom in the
    order in which their curves end (highest last point first), so that each label can be matched
    to the curve next to it. A curve that ends in a failure marker (placed at the time limit) ends
-   at the top; ties are broken by the x of the last point (further right first), then by the
-   fixed order of SYSTEM_STYLE.
+   at the top. Ties are broken by the x of the last point, smallest first: of two systems that
+   failed, the one that failed at the smaller n is the worse one and is listed above. The fixed
+   order of SYSTEM_STYLE breaks any remaining tie.
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ SYSTEM_STYLE: dict[str, tuple[str, str, str, str]] = {
     'neo4j': ('Neo4j', 'tab:cyan', 'P', '--'),
     'singlestore': ('SingleStore', 'tab:brown', '*', ':'),
     'mariadb_tuned': ('MariaDB (4 GB tmp)', 'salmon', 'p', ':'),
+    'duckdb_1thread': ('DuckDB (1 thread)', 'darkorange', 'd', ':'),
     'clingo': ('Clingo', 'tab:olive', '<', '-.'),
     'souffle': ('Soufflé', 'tab:pink', '>', '-.'),
     'alda': ('Alda', 'tab:gray', 'h', '-.'),
@@ -44,6 +46,6 @@ def style(series: str) -> tuple[str, str, str, str]:
 
 
 def legend_order(last_points: dict[str, tuple[float, float]]) -> list[str]:
-    """Series names ordered by their last data point (x, y): highest y first (see module docstring)."""
+    """Series names ordered by their last data point (x, y): highest y first, then smallest x (see module docstring)."""
     rank = {s: i for i, s in enumerate(SYSTEM_STYLE)}
-    return sorted(last_points, key=lambda s: (-last_points[s][1], -last_points[s][0], rank.get(s, len(rank)), s))
+    return sorted(last_points, key=lambda s: (-last_points[s][1], last_points[s][0], rank.get(s, len(rank)), s))

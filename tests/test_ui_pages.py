@@ -392,3 +392,15 @@ def test_landing_facts_follow_the_campaign():
         values = [e['value'] for e in race['entries'] if e['value'] is not None]
         assert values == sorted(values), graph  # fastest first, failures last
         assert all(e['failure'] for e in race['entries'] if e['value'] is None)
+
+
+def test_variant_series_do_not_race_or_win():
+    """duckdb_1thread and mariadb_tuned appear on the campaign pages, but the summaries compare systems."""
+    from ui import data as uidata  # pylint: disable=import-outside-toplevel
+
+    def row(series, mean):
+        return {'series': series, 'graph': 'path', 'mode': 'left_recursion', 'n': 1000, 'status': 'ok', 'mean': mean}
+
+    rows = [row('duckdb', 0.15), row('duckdb_1thread', 0.10), row('xsb', 0.05), row('mariadb_tuned', 0.57)]
+    assert [e['series'] for e in uidata.race(rows, graphs=('path',))['path']['entries']] == ['xsb', 'duckdb']
+    assert {x['series'] for x in uidata.leaderboard(rows)} == {'xsb', 'duckdb'}

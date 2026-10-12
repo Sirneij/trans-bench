@@ -33,6 +33,7 @@ _SHAPES = {
     '*': ('star', 0),
     'p': ('rectRounded', 0),
     'h': ('dash', 0),
+    'd': ('line', 90),  # Chart.js has no thin diamond: a vertical bar
 }
 # The colours of engine/plot_style.py as hex (matplotlib's values), so that the Web UI does not
 # need matplotlib. A colour that is missing here is converted by matplotlib, if it is installed.
@@ -50,6 +51,7 @@ _HEX = {
     'tab:cyan': '#17becf',
     'goldenrod': '#daa520',
     'salmon': '#fa8072',
+    'darkorange': '#ff8c00',
 }
 
 

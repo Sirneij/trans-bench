@@ -1,11 +1,11 @@
 {
  "counts": {
-  "status_ok": 12215,
-  "runs_ok_checked": 11540,
-  "status_error": 51,
+  "status_ok": 13595,
+  "runs_ok_checked": 12780,
+  "status_error": 53,
   "status_skipped": 528,
   "status_timeout": 23,
-  "runs_ok_unchecked": 675
+  "runs_ok_unchecked": 815
  },
  "incorrect_results": {
   "duckdb/double_recursion": [

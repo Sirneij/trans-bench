@@ -1,0 +1,4 @@
+# DuckDB with one thread: the settings of the series duckdb_1thread (engine/connectors/duckdb_conn.py)
+duckdb:
+  settings:
+    threads: 1

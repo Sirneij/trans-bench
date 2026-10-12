@@ -34,9 +34,10 @@ def test_legend_order_is_the_order_of_the_last_points():
         'duckdb': (1000, 2.4),
     }
     assert legend_order(last) == ['cockroachdb', 'postgres', 'neo4j', 'xsb', 'duckdb']
-    # failure markers (at the time limit) end at the top; the one further right first
-    last = {'mongodb': (200, 600), 'mariadb': (1000, 600), 'duckdb': (1000, 2)}
-    assert legend_order(last) == ['mariadb', 'mongodb', 'duckdb']
+    # failure markers (at the time limit) end at the top; the system that failed first is the worse
+    # one and comes first (the reviewer's example, Fig. 1: MongoDB fails at n=200, MariaDB at n=700)
+    last = {'mongodb': (200, 600), 'mariadb': (700, 600), 'duckdb': (1000, 2)}
+    assert legend_order(last) == ['mongodb', 'mariadb', 'duckdb']
 
 
 @pytest.fixture(scope='module')
