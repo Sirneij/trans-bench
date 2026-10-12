@@ -9,7 +9,7 @@ for all of them.
 
 ## Published results
 
-The measurements of *Database System Performance on Recursive Queries* are in
+The measurements of _Database System Performance on Recursive Queries_ are in
 [`results/verified_2026_v2/`](results/verified_2026_v2/README.md). The campaign covers PostgreSQL,
 MariaDB, DuckDB, CockroachDB, SingleStore, MongoDB, Neo4j and XSB, with 12,289 runs (five per
 configuration, a 600 s limit per run) and the memory used by each query. Completed runs were checked
@@ -74,16 +74,16 @@ python transitive.py --ui                 # http://127.0.0.1:5000
 python transitive.py --ui --ui-port 5055  # on macOS, AirPlay Receiver often holds port 5000
 ```
 
-| Page | Address | Contents |
-| --- | --- | --- |
-| Home | `/` | Animated introduction, driven by the newest campaign: a closure growing iteration by iteration, the topologies, the race at the largest size, and the verification counts |
-| Overview | `/overview` | Campaigns and their outcomes, the leaderboard, systems and topologies |
-| Campaigns | `/campaigns`, `/campaigns/<name>` | Outcomes per series, scaling and race charts, time and memory matrices, the paper's figures, failures, README and versions |
-| Results explorer | `/results` | The timing row of every run, by campaign, series, topology, mode and size; phase-by-phase comparison of systems |
-| Systems | `/systems`, `/systems/<name>` | Descriptor, timing phases, rule files and credentials of each system |
-| Topologies | `/graphs`, `/graphs/<name>` | Every graph family drawn from its own generator, with the pairs its closure adds |
-| New experiment | `/experiment/new` | Systems, topologies, settings (campaign name, sizes, runs, time limit), review; start the campaign or copy the command |
-| Live monitor | `/experiment/live` | Progress of the running campaign, every configuration as a tile, the output; Stop ends the run in progress |
+| Page             | Address                           | Contents                                                                                                                                                                  |
+| ---------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Home             | `/`                               | Animated introduction, driven by the newest campaign: a closure growing iteration by iteration, the topologies, the race at the largest size, and the verification counts |
+| Overview         | `/overview`                       | Campaigns and their outcomes, the leaderboard, systems and topologies                                                                                                     |
+| Campaigns        | `/campaigns`, `/campaigns/<name>` | Outcomes per series, scaling and race charts, time and memory matrices, the paper's figures, failures, README and versions                                                |
+| Results explorer | `/results`                        | The timing row of every run, by campaign, series, topology, mode and size; phase-by-phase comparison of systems                                                           |
+| Systems          | `/systems`, `/systems/<name>`     | Descriptor, timing phases, rule files and credentials of each system                                                                                                      |
+| Topologies       | `/graphs`, `/graphs/<name>`       | Every graph family drawn from its own generator, with the pairs its closure adds                                                                                          |
+| New experiment   | `/experiment/new`                 | Systems, topologies, settings (campaign name, sizes, runs, time limit), review; start the campaign or copy the command                                                    |
+| Live monitor     | `/experiment/live`                | Progress of the running campaign, every configuration as a tile, the output; Stop ends the run in progress                                                                |
 
 Press <kbd>⌘K</kbd> or <kbd>/</kbd> to jump to any page, system, topology or campaign, <kbd>n</kbd> for a
 new experiment and <kbd>t</kbd> to change the theme. `--ui-debug` turns on Flask's debugger and
@@ -167,39 +167,39 @@ The step-by-step guide is [docs/EXTENSION_GUIDE.md](docs/EXTENSION_GUIDE.md); ru
 ### Descriptor reference
 
 ```yaml
-name: postgres                  # the directory name
+name: postgres # the directory name
 display_name: PostgreSQL
-category: db                    # db | logic | hybrid
-protocol: psycopg2              # connector (engine/connectors/__init__.py)
-timing_phases:                  # the CSV columns, in the order the phases run
-  - { id: create_table, label: CreateTable }   # -> CreateTableRealTime, CreateTableCPUTime, CreateTableMaxRAM_MB
+category: db # db | logic | hybrid
+protocol: psycopg2 # connector (engine/connectors/__init__.py)
+timing_phases: # the CSV columns, in the order the phases run
+  - { id: create_table, label: CreateTable } # -> CreateTableRealTime, CreateTableCPUTime, CreateTableMaxRAM_MB
   - { id: execute_query, label: ExecuteQuery }
-query_phase: execute_query      # the phase that is the query itself (what the analysis reports)
-result_file: postgres_results.csv  # the result, checked after every run
-input_format: tsv               # tsv | lp | facts | pickle
+query_phase: execute_query # the phase that is the query itself (what the analysis reports)
+result_file: postgres_results.csv # the result, checked after every run
+input_format: tsv # tsv | lp | facts | pickle
 modes: [right_recursion, left_recursion, double_recursion]
 rule_extension: .py
 flags:
   requires_credentials: true
-  class_prefix: PostgreSQL      # class PostgreSQLLeftRecursion in rules/transitive_left_recursion.py
+  class_prefix: PostgreSQL # class PostgreSQLLeftRecursion in rules/transitive_left_recursion.py
   module_prefix: postgres_rules # the name the rule modules import the shared operations under
 ```
 
 ### Systems and topologies
 
-| System | Protocol | Modes |
-| --- | --- | --- |
-| PostgreSQL | psycopg2 | right, left; double recursion is rejected by the server |
-| MariaDB | mysqlclient | right, left, double |
-| DuckDB | duckdb | right, left, double (incomplete results), doublerecurring |
-| CockroachDB | cockroachdb | right, left; double recursion is rejected |
-| SingleStore | singlestore | right and left on acyclic graphs only; double recursion is rejected |
-| MongoDB | pymongo | one `$graphLookup` pipeline |
-| Neo4j | neo4j | one Cypher query |
-| XSB | subprocess | right, left, double |
-| Clingo | clingo_python | right, left, double |
-| Soufflé | souffle_subprocess | right, left, double |
-| ALDA | alda_subprocess | right, left, double |
+| System      | Protocol           | Modes                                                               |
+| ----------- | ------------------ | ------------------------------------------------------------------- |
+| PostgreSQL  | psycopg2           | right, left; double recursion is rejected by the server             |
+| MariaDB     | mysqlclient        | right, left, double                                                 |
+| DuckDB      | duckdb             | right, left, double (incomplete results), doublerecurring           |
+| CockroachDB | cockroachdb        | right, left; double recursion is rejected                           |
+| SingleStore | singlestore        | right and left on acyclic graphs only; double recursion is rejected |
+| MongoDB     | pymongo            | one `$graphLookup` pipeline                                         |
+| Neo4j       | neo4j              | one Cypher query                                                    |
+| XSB         | subprocess         | right, left, double                                                 |
+| Clingo      | clingo_python      | right, left, double                                                 |
+| Soufflé     | souffle_subprocess | right, left, double                                                 |
+| ALDA        | alda_subprocess    | right, left, double                                                 |
 
 The first eight were measured in the published campaigns; [docs/SYSTEMS.md](docs/SYSTEMS.md)
 explains why some modes are rejected or incomplete. The graph families are `complete`,
@@ -237,14 +237,14 @@ docker run --rm -p 10000:10000 trans-bench-ui
 
 ## Further documentation
 
-| Document | Contents |
-| --- | --- |
-| [REPRODUCING.md](docs/REPRODUCING.md) | Checking the published data, and repeating the campaign |
-| [VERIFICATION.md](docs/VERIFICATION.md) | The correctness check, the run protocol and the record format |
-| [SYSTEMS.md](docs/SYSTEMS.md) | Installation, configuration and pitfalls of every measured system |
-| [EXTENSION_GUIDE.md](docs/EXTENSION_GUIDE.md) | Adding systems, protocols, graph types and domains |
-| [RULES.md](docs/RULES.md) | Rule files for each language |
-| [COOKBOOK.md](docs/COOKBOOK.md) | Worked recipes |
-| [ui_features.md](docs/ui_features.md) | The web interface in detail |
-| [scale_free_findings.md](docs/scale_free_findings.md) | Notes on the scale-free and Barabási-Albert graphs |
-| [templates/README.md](templates/README.md) | The templates for new systems, rules and domains |
+| Document                                              | Contents                                                          |
+| ----------------------------------------------------- | ----------------------------------------------------------------- |
+| [REPRODUCING.md](docs/REPRODUCING.md)                 | Checking the published data, and repeating the campaign           |
+| [VERIFICATION.md](docs/VERIFICATION.md)               | The correctness check, the run protocol and the record format     |
+| [SYSTEMS.md](docs/SYSTEMS.md)                         | Installation, configuration and pitfalls of every measured system |
+| [EXTENSION_GUIDE.md](docs/EXTENSION_GUIDE.md)         | Adding systems, protocols, graph types and domains                |
+| [RULES.md](docs/RULES.md)                             | Rule files for each language                                      |
+| [COOKBOOK.md](docs/COOKBOOK.md)                       | Worked recipes                                                    |
+| [ui_features.md](docs/ui_features.md)                 | The web interface in detail                                       |
+| [scale_free_findings.md](docs/scale_free_findings.md) | Notes on the scale-free and Barabási-Albert graphs                |
+| [templates/README.md](templates/README.md)            | The templates for new systems, rules and domains                  |
