@@ -8,7 +8,7 @@ import time
 
 import pytest
 
-from engine.failures import classify_failure
+from engine.failures import classify_failure, redact_paths
 from engine.memory import MemorySampler, find_server_pid, rss_of_self
 
 
@@ -119,3 +119,16 @@ def test_skipped_cells_show_the_cause():
     assert [av.cell(rows, 'neo4j', 'g', 'm', n) for n in (1, 2, 3)] == ['1.000', 'OOM', 'OOM$^{s}$']
     assert [av.cell(rows, 'xsb', 'g', 'm', n) for n in (2, 3)] == ['TO', 'TO$^{s}$']
     assert av.mem_cell(rows, 'neo4j', 'g', 'm', 1) == '12.0'
+
+
+def test_redact_paths_hides_the_user_name():
+    """Error text published in analysis/ keeps its paths but not the user name of the machine."""
+    text = (
+        "saved to: /private/tmp/claude-501/-Users-jane-Downloads-proj/x/timing.csv; "
+        "config '/home/jane/trans-bench/config.yaml', see /Users/jane.doe/log and -Users-ja"
+    )
+    out = redact_paths(text)
+    assert 'jane' not in out and '-ja' not in out.split('and ')[-1]
+    assert '/private/tmp/claude-501/-Users-<user>-Downloads-proj/x/timing.csv' in out
+    assert "'/home/<user>/trans-bench/config.yaml'" in out and '/Users/<user>/log' in out
+    assert redact_paths('results/home/data and /usr/lib') == 'results/home/data and /usr/lib'

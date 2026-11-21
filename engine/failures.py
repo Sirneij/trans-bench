@@ -1,11 +1,20 @@
 """
-Classify why a benchmark run failed.
+Classify why a benchmark run failed, and clean its error text for publication.
 
 The campaign engine (engine/campaign.py) records the kind of every failed run in runs.jsonl
 (`failure`), and analyze_verified.py uses the same rules for records written before that field existed.
+analyze_verified.py also passes every error message through redact_paths() before writing it to the
+published analysis, so that the user name of the machine that ran the benchmark does not appear.
 """
 
 from __future__ import annotations
+
+import re
+
+# a home directory (/Users/<name>, /home/<name>), and the same path flattened into a directory name
+# (-Users-<name>-...), as some tools name their temporary directories
+_HOME = re.compile(r'(?<![\w.-])/(Users|home)/[^/\s\'"]+')
+_FLAT_HOME = re.compile(r'-(Users|home)-[^-/\s\'"]+')
 
 # Why a run failed, from its error messages (searched case-insensitively, first match wins).
 FAILURE_PATTERNS = (
@@ -27,6 +36,11 @@ FAILURE_PATTERNS = (
     ('unsupported', ('must not appear more than once', 'restrictions imposed', 'not supported')),
     ('iteration_limit', ('max number of iterations', 'max_recursive_iterations', 'max_recursive_cte_iterations')),
 )
+
+
+def redact_paths(text: str) -> str:
+    """Replace the user name in home-directory paths of `text` with <user>."""
+    return _FLAT_HOME.sub(r'-\1-<user>', _HOME.sub(r'/\1/<user>', text))
 
 
 def classify_failure(status: str, exit_code, errors: list[str]) -> str | None:

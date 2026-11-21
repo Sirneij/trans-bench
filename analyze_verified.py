@@ -41,7 +41,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt  # noqa: E402
 import matplotlib.ticker  # noqa: E402
 
-from engine.failures import classify_failure  # noqa: E402
+from engine.failures import classify_failure, redact_paths  # noqa: E402
 from engine.figures_tex import compile_tex, figure_to_tex, find_engine  # noqa: E402
 from engine.plot_style import legend_order, style  # noqa: E402
 
@@ -220,7 +220,7 @@ def summarize(runs):
             'any_incorrect': any(x is False for x in correct),
             'unverified': sum(1 for x in correct if x is None),
             'result': (ok[0].get('result') if ok else None),
-            'error': err[:600],
+            'error': redact_paths(err)[:600],  # without the user name of the machine
         }
     return rows
 
