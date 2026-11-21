@@ -118,6 +118,10 @@ that is, on Railway. In this mode:
 - a banner on every page says that the copy only shows the published campaigns, and that
   benchmarks are run from a clone of the repository.
 
+The repository that the banner and the source links name comes from `TRANS_BENCH_REPO_URL` and
+`TRANS_BENCH_REPO_BRANCH` (see the README, "Public deployment"); an empty branch links to the
+repository itself.
+
 The one POST that stays open is `/api/compare/trends`, which only reads; its body carries the
 selection. Every response carries the headers `X-Content-Type-Options`, `X-Frame-Options` and
 `Referrer-Policy`, and `/healthz` answers the health check of the platform. The deployment itself is

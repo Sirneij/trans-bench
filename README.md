@@ -230,6 +230,17 @@ as the rule checks that contact a server. Credentials are hidden, and a banner s
 on when `TRANS_BENCH_READ_ONLY=1` (set in the Dockerfile) or when the app runs on Railway. On Railway, the build and start commands come from
 the Dockerfile, so neither needs to be set; only a `SECRET_KEY` variable has to be added.
 
+The repository that the site links to ("Source on GitHub", "Clone the repository" and the read-only
+banner) is set by two optional variables, so a fork or an anonymised mirror can be shown without the
+developer's name:
+
+| Variable                  | Default                                 | Effect                                                         |
+| ------------------------- | --------------------------------------- | -------------------------------------------------------------- |
+| `TRANS_BENCH_REPO_URL`    | `https://github.com/Sirneij/trans-bench` | The repository the links open and the banner names             |
+| `TRANS_BENCH_REPO_BRANCH` | `verified-rerun-2026`                   | The branch the links open (`<url>/tree/<branch>`); empty for none |
+
+A URL outside github.com is labelled "Source code" instead of "Source on GitHub".
+
 ```sh
 docker build -t trans-bench-ui .
 docker run --rm -p 10000:10000 trans-bench-ui

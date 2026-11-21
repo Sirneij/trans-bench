@@ -345,13 +345,32 @@ def test_read_only_pages_show_the_banner_and_no_credentials(public):
 
 def test_repository_links_point_to_the_branch(public):
     """Every link to GitHub opens the branch the published campaigns come from."""
-    from ui.app import REPO_URL  # pylint: disable=import-outside-toplevel
-
-    for url in ('/', '/overview'):
-        html = public.get(url).get_data(as_text=True)
-        assert f'href="{REPO_URL}"' in html
+    url = public.application.config['REPO'].url
+    assert url.endswith('/tree/verified-rerun-2026')
+    for page in ('/', '/overview'):
+        html = public.get(page).get_data(as_text=True)
+        assert f'href="{url}"' in html
         assert 'href="https://github.com/Sirneij/trans-bench"' not in html
-    assert REPO_URL.endswith('/tree/verified-rerun-2026')
+
+
+def test_repository_from_the_environment(monkeypatch):
+    """TRANS_BENCH_REPO_URL and TRANS_BENCH_REPO_BRANCH replace every link and mention of the repository."""
+    monkeypatch.setenv('TRANS_BENCH_REPO_URL', 'https://github.com/someone/fork.git')
+    monkeypatch.setenv('TRANS_BENCH_REPO_BRANCH', 'main')
+    client = create_app(read_only=True).test_client()
+    for page in ('/', '/overview'):
+        html = client.get(page).get_data(as_text=True)
+        assert 'href="https://github.com/someone/fork/tree/main"' in html
+        assert 'Sirneij' not in html
+    assert 'github.com/someone/fork, branch main' in client.get('/overview').get_data(as_text=True)
+
+    # an anonymised mirror elsewhere, linked without a branch
+    monkeypatch.setenv('TRANS_BENCH_REPO_URL', 'https://anonymous.4open.science/r/trans-bench/')
+    monkeypatch.setenv('TRANS_BENCH_REPO_BRANCH', '')
+    html = create_app(read_only=True).test_client().get('/overview').get_data(as_text=True)
+    assert 'href="https://anonymous.4open.science/r/trans-bench"' in html
+    assert 'Source code' in html and 'Source on GitHub' not in html and ', branch' not in html
+    assert 'Sirneij' not in html
 
 
 def test_read_only_from_the_environment(monkeypatch):

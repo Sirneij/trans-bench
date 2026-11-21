@@ -12,6 +12,13 @@ view's own name (so templates call url_for('dashboard') and so on):
 Read-only mode is for the public deployment (Dockerfile, railway.json). It refuses every view that
 changes files, starts a campaign or contacts a database, hides credentials, and shows a banner. It
 is on when TRANS_BENCH_READ_ONLY is 1/true, or when the app runs on Railway (RAILWAY_PROJECT_ID is set).
+
+The repository that the pages link to comes from the environment as well, so that a copy can point to
+a fork or to an anonymised mirror without naming the developer:
+
+    TRANS_BENCH_REPO_URL     the repository (default DEFAULT_REPO_URL)
+    TRANS_BENCH_REPO_BRANCH  the branch the links open (default DEFAULT_REPO_BRANCH); set it to an
+                             empty value to link to the repository itself
 """
 
 from __future__ import annotations
@@ -20,7 +27,8 @@ import logging
 import os
 import secrets
 from pathlib import Path
-from typing import Optional
+from typing import NamedTuple, Optional
+from urllib.parse import urlsplit
 
 from flask import Flask, jsonify, request
 
@@ -29,9 +37,10 @@ from ui.experiments import RUN
 from ui.site import BASE_DIR, EXTENSION_KEY, Site
 
 log = logging.getLogger(__name__)
-# the branch of the repository that this code and the published campaigns come from
-REPO_BRANCH = 'verified-rerun-2026'
-REPO_URL = f'https://github.com/Sirneij/trans-bench/tree/{REPO_BRANCH}'
+# the repository and branch that this code and the published campaigns come from, unless the
+# environment names others (see the module docstring)
+DEFAULT_REPO_URL = 'https://github.com/Sirneij/trans-bench'
+DEFAULT_REPO_BRANCH = 'verified-rerun-2026'
 READ_ONLY_MESSAGE = (
     'This public copy of trans-bench is read-only: it shows the published campaigns. '
     'Clone the repository to run benchmarks or to edit systems.'
@@ -41,6 +50,30 @@ READ_ONLY_MESSAGE = (
 def _env_flag(name: str) -> bool:
     """Return whether an environment variable is set to a true value (1, true, yes, on)."""
     return os.environ.get(name, '').strip().lower() in ('1', 'true', 'yes', 'on')
+
+
+class RepoLink(NamedTuple):
+    """Where the pages link to for the source: the URL, the text shown for it and its branch."""
+
+    url: str
+    label: str
+    branch: str
+    on_github: bool
+
+
+def repo_link() -> RepoLink:
+    """Read the repository and branch from the environment, falling back to the defaults."""
+    base = (os.environ.get('TRANS_BENCH_REPO_URL') or '').strip() or DEFAULT_REPO_URL
+    base = base.rstrip('/').removesuffix('.git')
+    branch = os.environ.get('TRANS_BENCH_REPO_BRANCH', DEFAULT_REPO_BRANCH).strip()
+    parts = urlsplit(base)
+    host = parts.netloc.lower().removeprefix('www.')
+    return RepoLink(
+        url=f'{base}/tree/{branch}' if branch else base,
+        label=(host + parts.path) if host else base,
+        branch=branch,
+        on_github=host == 'github.com',
+    )
 
 
 def _refused(endpoint: Optional[str], method: str) -> bool:
@@ -57,6 +90,7 @@ def create_app(read_only: Optional[bool] = None) -> Flask:
     if read_only is None:
         read_only = _env_flag('TRANS_BENCH_READ_ONLY') or bool(os.environ.get('RAILWAY_PROJECT_ID'))
     app.config['READ_ONLY'] = read_only
+    app.config['REPO'] = repo_link()
     app.extensions[EXTENSION_KEY] = Site(BASE_DIR)
 
     for module in (pages, results, experiments, editing):
@@ -85,15 +119,14 @@ def create_app(read_only: Optional[bool] = None) -> Flask:
 
     @app.context_processor
     def inject_globals():
-        """Give every template the run state, the read-only flag and the asset version."""
+        """Give every template the run state, the read-only flag, the repository link and the asset version."""
         static = Path(app.static_folder or '')
         assets = [*static.glob('css/*.css'), *static.glob('js/*.js')]
         return {
             'experiment_running': RUN.running(),
             'read_only': app.config['READ_ONLY'],
             'read_only_message': READ_ONLY_MESSAGE,
-            'repo_url': REPO_URL,
-            'repo_branch': REPO_BRANCH,
+            'repo': app.config['REPO'],
             # changes when a stylesheet or script changes, so browsers fetch the new one
             'asset_version': max((int(f.stat().st_mtime) for f in assets), default=0),
         }
